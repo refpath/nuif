@@ -57,6 +57,14 @@ jobs:
         run: cargo run --locked -p nuif-cli -- trial 24301 100
       - name: Gate B high-volume replay and codec trial
         run: cargo run --locked -p nuif-cli -- trial 24301 10000 100
+      - name: Hostile-input resource trial
+        run: cargo xtask hostile-inputs
+      - name: Upload hostile-input measurements
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: hostile-input-report
+          path: target/hostile-input-report.json
       - name: Headless editor trial
         run: |
           cargo run --locked -p nuif-cli -- fixture v0-responsive-card "$RUNNER_TEMP/v0.nuif"
