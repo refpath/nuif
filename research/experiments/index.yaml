@@ -53,8 +53,23 @@ experiments:
       - compare pinned HarfRust shaped runs with HarfBuzz 14.4.0 golden strings in both directions
       - reject missing context fonts malformed hashes and excessive shaping runs
       - compare unhinted signed-26.6 Skrifa outlines with normalized HarfBuzz hb-vector goldens
-      - repeat pinned Zeno grayscale outline rasterization at three contexts while classifying missing line breaking as approximated
+      - verify CR LF CRLF NEL LS and PS hard lines no automatic soft wrapping and inline-start placement
+      - repeat pinned Zeno grayscale outline rasterization at three contexts with lossless profile-0 text fidelity
       - measure cross-platform shaped-run and normative raster divergence on the CI matrix
+  - id: nuif:experiment:render-profile-zero
+    status: automated
+    evidence: [nuif:research:vello-testing-and-cpu-reference, nuif:research:gpu-rendering-nondeterminism, nuif:research:text-rendering-reproducibility]
+    implementation: [crates/nuif-core/src/lib.rs, crates/nuif-render/src/lib.rs, crates/nuif-testing/src/bin/render-profile.rs, conformance/render/profile-zero-v1.json, xtask/src/main.rs]
+    oracle: committed-cross-platform-golden
+    acceptance:
+      - every supported paint operation and composition step is fixed by value
+      - unsupported or extension-defined visuals retain entity and property attribution
+    tests:
+      - repeat fractional rectangle and grayscale ellipse scene and PNG hashes
+      - reject out-of-range encoded-sRGB channels in model validation and raster lowering
+      - require unsupported fidelity for paths images and instances
+      - require preserved-unrenderable fidelity for document and entity extensions
+      - reproduce every hash on macOS aarch64 Linux aarch64 and Linux x86_64
   - id: nuif:experiment:codec-benchmark
     status: planned
     oracle: measured-benchmark

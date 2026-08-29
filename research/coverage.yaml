@@ -31,7 +31,7 @@ areas:
   geometry_paint_text_renderer:
     status: experiment-required
     evidence: [nuif:research:svg, nuif:research:renderers, nuif:research:vello, nuif:research:harfbuzz-unicode, nuif:research:webgpu-security, nuif:research:hydra-render-delegate, nuif:research:vello-testing-and-cpu-reference, nuif:research:gpu-rendering-nondeterminism, nuif:research:text-rendering-reproducibility, nuif:research:resvg-test-suite]
-    artifacts: [spec/05-geometry-paint-text.md, adrs/0003-reference-renderer.md, crates/nuif-text, crates/nuif-render, conformance/text/harfbuzz-14.4.0-ahem.json]
+    artifacts: [spec/05-geometry-paint-text.md, adrs/0003-reference-renderer.md, crates/nuif-text, crates/nuif-render, conformance/text/harfbuzz-14.4.0-ahem.json, conformance/render/profile-zero-v1.json]
   protocol_operations_identity:
     status: experiment-required
     evidence: [nuif:research:crdt-tree-move-operation, nuif:research:json-patch-rfc6902-and-merge-patch, nuif:research:command-pattern-undo-and-event-sourcing, nuif:research:figma-multiplayer-and-rendering-engineering, nuif:research:godot-tscn-scene-format]

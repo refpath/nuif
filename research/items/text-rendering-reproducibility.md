@@ -89,7 +89,9 @@ The profile-0 shaping layer pins the 22,572-byte Ahem 1.50 font at SHA-256 `f0a9
 
 `cargo xtask gate-d-text` repeats each shaping and outline call, rejects missing context fonts and malformed font hashes, and repeats scene/PNG generation at 360×640, 768×768 and 1440×900. It matches five independently captured `hb-vector` paths after a declared normalization that removes the redundant explicit line-to-start before contour close. The render candidate uses unhinted Skrifa 0.46.2 outlines quantized to signed 26.6 font units, Zeno 0.3.3 8-bit grayscale nonzero coverage, a fixed Ahem baseline and encoded-sRGB alpha composition.
 
-The machine report separately classifies exact shaping, exact normalized outlines, raster equality on its recorded platform matrix and missing line-breaking semantics. The three committed scene and PNG hashes reproduce on macOS/aarch64, Linux/aarch64 and Linux/x86_64, so `cross_platform_raster_verified` is true for that matrix. This is not a claim about untested systems. The text entity remains `approximated` for absent wrapping rather than being promoted by raster equality alone.
+The machine report separately classifies exact shaping, exact normalized outlines, bounded hard-line semantics and raster equality on its recorded platform matrix. Profile 0 treats CRLF as one hard break and CR, LF, NEL, LINE SEPARATOR and PARAGRAPH SEPARATOR as individual hard breaks; it shapes each line independently, uses shaped advances for intrinsic width, positions by `line_height`, aligns to the context's inline-start edge and clips without automatic soft wrapping. UAX #14 revision 55 for Unicode 17.0.0 defines break opportunities but permits disclosed tailoring (https://www.unicode.org/reports/tr14/tr14-55.html, retrieved 2026-08-29); ICU4X 2.2.0's general line segmenter still documents UAX #14 version 15.1 compatibility (https://docs.rs/icu_segmenter/2.2.0/icu_segmenter/struct.LineSegmenter.html, retrieved 2026-08-29), so importing it would conflict with the pinned Unicode 17 shaping claim. The narrower no-soft-wrap contract avoids that version mismatch and does not invent an unauthored wrapping property.
+
+The three committed text scene and PNG hashes reproduce on macOS/aarch64, Linux/aarch64 and Linux/x86_64, so `cross_platform_raster_verified` is true for that matrix. This is not a claim about untested systems. A separate render-profile report fixes encoded-sRGB rectangle/ellipse coverage and integer composition, and requires property-attributed fidelity for unsupported and extension-defined visuals.
 
 ## NUIF relevance
 
@@ -108,5 +110,5 @@ The machine report separately classifies exact shaping, exact normalized outline
 ## Open questions
 
 - Whether a future profile should keep HarfRust 0.13.3 as its normative shaper or treat it only as a reference implementation once an independent implementation reproduces the declared glyph fixtures.
-- Whether NUIF should require bidi and line-breaking algorithm versions (UAX #9, UAX #14) alongside the Unicode data version, since line-break differences are a distinct portability category in the whitepaper.
+- Which future profile should introduce automatic soft wrapping, and whether it should pin full UAX #9/#14 implementations or a narrower disclosed tailoring. Profile 0 intentionally avoids this unresolved dependency.
 - What subpixel quantum and blend space the CPU reference path should fix; the surveyed sources document the variance but do not prescribe a value.

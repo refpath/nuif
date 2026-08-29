@@ -17,6 +17,7 @@ questions:
     topic: text
     question: Which Unicode, shaping, font fallback and line breaking inputs must be pinned for normative text-layout fixtures?
     status: experiment-required
+    note: Profile 0 pins one font/shaper/Unicode/raster stack and supports mandatory hard lines with no soft wrapping; future profiles still require a UAX 9/14 and fallback decision.
   - id: nuif:question:canonical-text
     topic: serialization
     question: What canonical text syntax best balances human review, deterministic hashing, unknown extension preservation and streaming?
@@ -43,6 +44,7 @@ questions:
     topic: renderer
     question: Which visual properties require exact reference rasterization versus declared perceptual tolerances?
     status: experiment-required
+    note: Profile-0 rectangle ellipse and text operations are exact CPU tier-1 fixtures; perceptual thresholds for expanded or interactive backends remain experiment-required.
   - id: nuif:question:extension-governance
     topic: extensions
     question: What evidence and independent implementation count is required to promote EXT namespaces into NUIF standard extensions?

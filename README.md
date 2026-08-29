@@ -112,7 +112,7 @@ Testing is designed for automated trial loops: generate or load a document, appl
 
 ## Status
 
-Gates B and C are complete under the quantified criteria in `research/AUDIT.md`. The workspace executes structural validation, anchored atomic operations, replay/inversion, canonical text and deterministic CBOR, measured hostile-input limits, responsive profile-0 layout, solid-color CPU rasterization, pinned three-way NUIF/Taffy/Chrome layout trials, seeded reports and a headless editor driver. Gate C explicitly reports the still-missing Grid track/placement schema; it does not claim Grid conformance. Gate D now matches eight independent HarfBuzz shaping goldens and five normalized `hb-vector` outline goldens, then reproduces pinned unhinted Skrifa/Zeno grayscale raster hashes on macOS/aarch64, Linux/aarch64 and Linux/x86_64. Gate D remains open for line breaking/wrapping and broader paints. HTML/CSS synchronization, the Masonry GUI shell, collaboration profiles and an independent implementation also remain incomplete. Specifications are drafts; no conformance profile is published.
+Gates B, C and the deliberately bounded CPU/text Gate D are complete under the quantified criteria in `research/AUDIT.md`. The workspace executes structural validation, anchored atomic operations, replay/inversion, canonical text and deterministic CBOR, measured hostile-input limits, responsive profile-0 layout, exact solid rectangle/ellipse CPU rasterization, pinned NUIF/Taffy/Chrome layout trials, seeded reports and a headless editor driver. Gate C explicitly reports the still-missing Grid track/placement schema. Gate D pins shaping, outlines, hard-line layout, encoded-sRGB paint and integer composition; scene/PNG hashes reproduce on macOS/aarch64, Linux/aarch64 and Linux/x86_64, while paths, images, instances and extension paint remain property-attributed fidelity records. HTML/CSS synchronization, complete editor authoring, the Masonry GUI shell, collaboration profiles and an independent implementation remain incomplete. Specifications are drafts; no conformance profile is published.
 
 Run the automated baseline:
 
@@ -130,7 +130,7 @@ cargo run --locked -p nuif-editor -- --headless \
   --document /tmp/v0.nuif --output /tmp/edited.nuif
 ```
 
-`cargo xtask all` bootstraps the pinned Python research-validator environment under ignored `target/`, then runs research validation, Rust verification, the short full-raster trial, the 10,000-patch Gate B trial, the release-mode hostile-input allocation/time trial, the Gate C differential layout trial, the Gate D text-pinning trial and the headless editor replay. Install the locked browser first. The measured runs write `target/hostile-input-report.json`, `target/layout-differential-report.json` and `target/text-pinning-report.json`; CI archives all three.
+`cargo xtask all` bootstraps the pinned Python research-validator environment under ignored `target/`, then runs research validation, Rust verification, the short full-raster trial, the 10,000-patch Gate B trial, the release-mode hostile-input allocation/time trial, the Gate C differential layout trial, both Gate D text/render trials and the headless editor replay. Install the locked browser first. The measured runs write `target/hostile-input-report.json`, `target/layout-differential-report.json`, `target/text-pinning-report.json` and `target/render-profile-report.json`; CI archives all four.
 
 ## Contributing
 

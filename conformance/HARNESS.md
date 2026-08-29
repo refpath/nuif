@@ -1,6 +1,6 @@
 # Test-harness architecture
 
-Status: profile-0 baseline and Gate C browser/Taffy differential generation are implemented; fuzz packages, shaped text, perceptual comparison and adapter trials remain planned. This document specifies how round-trip trials run unattended, fail reproducibly, minimize themselves and report in machine-readable form. Evidence is cited by research record identifier.
+Status: profile-0 baseline plus Gate C browser/Taffy and Gate D text/render generation are implemented; fuzz packages, perceptual comparison and adapter trials remain planned. This document specifies how round-trip trials run unattended, fail reproducibly, minimize themselves and report in machine-readable form. Evidence is cited by research record identifier.
 
 ## Goals
 
@@ -65,7 +65,7 @@ Persisted expectation regeneration remains a planned extension and will use one 
 - Seed: every implemented generator draws from one xorshift PRNG seeded per trial; `nuif trial <seed> <iterations> [snapshot-interval]` records the seed and failing iteration (`deterministic-simulation-testing`).
 - Time and randomness: profile 0 has no time-dependent engine semantics; the editor uses monotonically assigned transaction identifiers, and generated values come only from the trial PRNG. Virtual time is required before behavior/animation work begins (`masonry-xilem-and-linebender-test-harness`).
 - Floating point: canonical text follows RFC 0005's stated shortest-digit layout and canonical CBOR follows RFCs 0005/0008. Gate C records each fixture's observed Taffy/browser maximum and rounds it upward to 0.01 px, capped by the 0.1 px foreign-engine safety bound. Exact agreement retains zero tolerance; no aggregate bound silently replaces the fixture values.
-- Fonts: the fixture uses the content-addressed Ahem 1.50 bytes (`f0a92c…550dc`), HarfRust 0.13.3, Unicode 17.0.0 and Unicode-scalar cluster indices. Eight LTR/RTL goldens were independently captured with HarfBuzz 14.4.0. Five unhinted Skrifa 0.46.2 outlines match normalized `hb-vector` paths in signed 26.6 font units. Pinned Zeno 0.3.3 8-bit grayscale nonzero-fill coverage produces the same three scene and PNG hashes on macOS/aarch64, Linux/aarch64 and Linux/x86_64; line breaking remains separate Gate D work (`text-rendering-reproducibility`).
+- Fonts: the fixture uses the content-addressed Ahem 1.50 bytes (`f0a92c…550dc`), HarfRust 0.13.3, Unicode 17.0.0 and Unicode-scalar cluster indices. Eight LTR/RTL goldens were independently captured with HarfBuzz 14.4.0. Five unhinted Skrifa 0.46.2 outlines match normalized `hb-vector` paths in signed 26.6 font units. Pinned Zeno 0.3.3 8-bit grayscale nonzero-fill coverage produces the same three scene and PNG hashes on macOS/aarch64, Linux/aarch64 and Linux/x86_64. CR/LF/CRLF/NEL/LS/PS hard-line layout is exact; profile 0 does not request automatic soft wrapping (`text-rendering-reproducibility`).
 - Threads: the current suites have no shared mutable global state and pass under libtest's normal parallel execution.
 - Environment: CI uses `--locked` and pinned Rust 1.98.0; the separate MSRV job checks 1.96.0.
 
@@ -78,7 +78,7 @@ Persisted expectation regeneration remains a planned extension and will use one 
 | extensions | self-consistency through an ignorant implementation | byte identity of unknown payloads after decode, edit, encode (`opentimelineio`, `godot-tscn-scene-format`) |
 | layout | implemented metamorphic relations plus pinned Taffy 0.14.0 and Chrome for Testing 152.0.7977.64 | responsive v0 at 360/768/1440 px and 12 seeded stack/flex/grid cases; raw three-engine boxes, measured fixture bounds and typed divergences (`differential-testing`, `css-flexbox-grid-algorithm-specs`) |
 | text shaping/outlines | pinned HarfRust/Skrifa plus independently captured HarfBuzz 14.4.0 goldens | exact glyph IDs, Unicode-scalar clusters, font-unit advances and direction over eight Ahem cases; five normalized `hb-vector` outline paths; repeated scene runs and typed missing-font failures (`text-rendering-reproducibility`) |
-| render | reference rasterization | profile-0 exact for the implemented integer-composited solid-color CPU path; proposed tier 2 bounded and tier 3 perceptual thresholds remain non-normative until the render-tolerance experiment measures NUIF fixtures (`vello-testing-and-cpu-reference`, `flip-perceptual-difference-metric`, `webrender-reftests`) |
+| render | reference rasterization | profile-0 exact for scaled rectangle inclusion, Zeno ellipse coverage, pinned text masks and integer-composited encoded-sRGB solid color; unsupported path/image/instance/extension semantics remain property-attributed; proposed tier 2 bounded and tier 3 perceptual thresholds remain non-normative (`vello-testing-and-cpu-reference`, `flip-perceptual-difference-metric`, `webrender-reftests`) |
 | operations | self-consistency and reference model | replay to identical hash; `apply(t⁻¹, apply(t, d)) ≡ d`; commutation of independent operations; undo-copy-redo invariance (`command-pattern-undo-and-event-sourcing`) |
 | merge | assertions | three-way merges produce typed conflicts, never arbitrary winners; move and order cases from `crdt-tree-move-operation` |
 | provenance | assertions | correspondence records survive representable round trips; minimal-patch locality measured as changed source spans |
@@ -131,7 +131,9 @@ The hostile-input experiment writes a separate `target/hostile-input-report.json
 
 The layout-differential experiment writes `target/layout-differential-report.json`. It records the source revision, dirty state, toolchain, exact Taffy and browser pins, launch flags, seed, case source, viewport, raw box maps, observed foreign delta, fixture-local assertion value and every typed divergence. Missing browsers, version drift, evaluator defects, Taffy/browser differences beyond the measured bound and unclassified differences fail `cargo xtask gate-c`; declared schema-loss records remain visible and non-blocking.
 
-The text-pinning experiment writes `target/text-pinning-report.json`. It records the exact font, shaper, Unicode, outline extractor, rasterizer and independent HarfBuzz oracle pins; expected and observed glyph/outline strings; source/toolchain/platform identity; repeatability and committed scene/PNG baselines at three evaluation contexts; and negative missing/malformed-font cases. Shaping, outlines, raster and incomplete text semantics are separate classifications. `cargo xtask gate-d-text` fails on any pin, golden, baseline, repeatability or negative-case mismatch. The report records exact raster agreement on macOS/aarch64, Linux/aarch64 and Linux/x86_64 while keeping missing line breaking visible as `approximated` fidelity.
+The text-pinning experiment writes `target/text-pinning-report.json`. It records the exact font, shaper, Unicode, outline extractor, rasterizer and independent HarfBuzz oracle pins; expected and observed glyph/outline strings; source/toolchain/platform identity; hard-break/no-soft-wrap semantic trials; repeatability and committed scene/PNG baselines at three evaluation contexts; and negative missing/malformed-font cases. `cargo xtask gate-d-text` fails on any pin, golden, semantic, baseline, repeatability or negative-case mismatch. The bounded text profile is lossless and its hashes agree on macOS/aarch64, Linux/aarch64 and Linux/x86_64.
+
+The render-profile experiment writes `target/render-profile-report.json`. It fixes every supported paint input by value, repeats rectangle and ellipse scenes/PNGs, rejects out-of-range sRGB channels, and requires entity/property pointers for unsupported path, image and instance kinds plus preserved document/entity extensions. `cargo xtask gate-d-render` fails on any baseline, repeatability, validation or fidelity-attribution mismatch; `cargo xtask gate-d` runs both Gate D reports.
 
 ## Editor participation
 
@@ -143,7 +145,7 @@ The editor exposes an in-process session driver (`nuif-api`) that the harness ca
 |---|---|
 | commit-lint | subject rules |
 | research | record validation |
-| rust | fmt, check, clippy pedantic, `cargo test --workspace --locked`, 10,000-patch Gate B trial, hostile-input release measurement, pinned Gate C three-way layout trial, Gate D text-pinning trial and all report uploads (all render suites CPU only) |
+| rust | fmt, check, clippy pedantic, `cargo test --workspace --locked`, 10,000-patch Gate B trial, hostile-input release measurement, pinned Gate C three-way layout trial, both Gate D text/render trials and all report uploads (all render suites CPU only) |
 | fuzz-smoke (planned) | future fuzz targets with committed seed corpora |
 | layout-differential | `cargo xtask browser-install` plus `cargo xtask gate-c`; seed-derived cases run in headless Chrome and fail on pin drift or blocking/unclassified divergence |
 | editor-headless | editor session scripts through `nuif-api`; accessibility-tree assertions; CPU snapshots |
