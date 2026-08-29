@@ -1,0 +1,31 @@
+{
+  "schema_version": 1,
+  "rasterizer": "NUIF CPU reference with Zeno 0.3.3 ellipse masks",
+  "coverage": "rectangles cover floor(start)..ceil(end); ellipses use Zeno 8-bit grayscale nonzero masks",
+  "compositing": "source-over on encoded sRGB u8 channels with round-to-nearest integer division",
+  "verified_platforms": [
+    {"os": "macos", "architecture": "aarch64"},
+    {"os": "linux", "architecture": "aarch64"},
+    {"os": "linux", "architecture": "x86_64"}
+  ],
+  "cases": [
+    {
+      "name": "fractional-alpha-rectangle",
+      "kind": "rectangle",
+      "rect": {"x": 1.25, "y": 1.25, "width": 3.5, "height": 2.5},
+      "fill": {"space": "srgb", "red": 0.5, "green": 0.25, "blue": 1.0, "alpha": 0.5},
+      "target": {"width": 8, "height": 8, "scale_factor": 1.0},
+      "scene_sha256": "91ccd790934f89dae8e0c2f1241731545db0c59d2a19b46f067c399ce2720d2c",
+      "png_sha256": "c42bf836c31a21c8e8326e8bd870f59cda768b252649ba2f724b466044f93da2"
+    },
+    {
+      "name": "grayscale-mask-ellipse",
+      "kind": "ellipse",
+      "rect": {"x": 1.0, "y": 2.0, "width": 6.0, "height": 4.0},
+      "fill": {"space": "srgb", "red": 0.2, "green": 0.4, "blue": 0.8, "alpha": 0.75},
+      "target": {"width": 8, "height": 8, "scale_factor": 1.0},
+      "scene_sha256": "b8f6d357d74c0df4c69028e7ea574ea61ef091454d8cf227f29fb9764dd2f5fa",
+      "png_sha256": "c886d0d381fce68b48809750fd127c8fcedcd73c1e51405202223f3598926b10"
+    }
+  ]
+}
