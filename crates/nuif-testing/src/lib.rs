@@ -7,10 +7,10 @@ use nuif_codec::{
     CanonicalText, Canonicalizer, Decoder, DeterministicCbor, Encoder, canonical_hash,
 };
 use nuif_core::{
-    Align, Color, ContextPredicate, Diagnostic, Document, Edges, Entity, EntityId, EntityKind,
-    ExtensionDeclarations, Fidelity, FlowDirection, LayoutFamily, LayoutStyle, OpaqueEncoding,
-    OpaquePayload, PropertyValue, ResponsiveOverride, Severity, ShapeKind, SizeIntent, TextContent,
-    Token, UnknownKind, validate,
+    Align, Color, ColorSpace, ContextPredicate, Diagnostic, Document, Edges, Entity, EntityId,
+    EntityKind, ExtensionDeclarations, Fidelity, FlowDirection, LayoutFamily, LayoutStyle,
+    OpaqueEncoding, OpaquePayload, PropertyValue, ResponsiveOverride, Severity, ShapeKind,
+    SizeIntent, TextContent, Token, UnknownKind, validate,
 };
 use nuif_layout::EvaluationContext;
 use nuif_protocol::{Axis, Operation, Patch, Transaction, apply_patch, apply_patch_with_inverse};
@@ -217,6 +217,7 @@ pub fn responsive_card_fixture() -> Document {
         align: Align::Stretch,
     };
     card.authored.fill = Some(Color {
+        space: ColorSpace::Srgb,
         red: 0.95,
         green: 0.96,
         blue: 0.98,
@@ -254,6 +255,7 @@ pub fn responsive_card_fixture() -> Document {
     media.authored.width = SizeIntent::Fill;
     media.authored.height = SizeIntent::Fill;
     media.authored.fill = Some(Color {
+        space: ColorSpace::Srgb,
         red: 0.2,
         green: 0.35,
         blue: 0.8,
@@ -295,6 +297,7 @@ pub fn responsive_card_fixture() -> Document {
     icon.authored.width = SizeIntent::Fixed(16.0);
     icon.authored.height = SizeIntent::Fixed(16.0);
     icon.authored.fill = Some(Color {
+        space: ColorSpace::Srgb,
         red: 0.1,
         green: 0.1,
         blue: 0.1,

@@ -1,6 +1,8 @@
 #![doc = "Renderer-independent scene lowering and deterministic CPU rasterization."]
 
-use nuif_core::{Color as ModelColor, Document, EntityId, EntityKind, Fidelity, ShapeKind};
+use nuif_core::{
+    Color as ModelColor, ColorSpace, Document, EntityId, EntityKind, Fidelity, ShapeKind,
+};
 use nuif_layout::{EvaluationContext, LayoutSnapshot, Rect, WritingDirection};
 use nuif_text::{
     CLUSTER_UNIT, GlyphOutline, MAX_SHAPING_CODEPOINTS, OUTLINE_COORDINATE_DENOMINATOR,
@@ -12,11 +14,12 @@ use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 use std::io::Cursor;
 use thiserror::Error;
-use zeno::{Command as ZenoCommand, Fill, Format, Mask, Point as ZenoPoint};
+use zeno::{Command as ZenoCommand, Fill, Format, Mask, PathBuilder, Point as ZenoPoint};
 
 #[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Color {
+    pub space: ColorSpace,
     pub red: f32,
     pub green: f32,
     pub blue: f32,
@@ -26,6 +29,7 @@ pub struct Color {
 impl From<ModelColor> for Color {
     fn from(value: ModelColor) -> Self {
         Self {
+            space: value.space,
             red: value.red,
             green: value.green,
             blue: value.blue,
@@ -38,6 +42,11 @@ impl From<ModelColor> for Color {
 #[serde(rename_all = "snake_case", tag = "command")]
 pub enum DrawCommand {
     Rect {
+        entity: EntityId,
+        rect: Rect,
+        fill: Color,
+    },
+    Ellipse {
         entity: EntityId,
         rect: Rect,
         fill: Color,
@@ -169,98 +178,134 @@ pub fn build_scene(
         let Some(rect) = layout.boxes.get(id).copied() else {
             continue;
         };
-        if let EntityKind::Unknown(unknown) = &entity.kind {
-            scene.fidelity.push(RenderFidelity {
-                entity: *id,
-                status: Fidelity::PreservedUnrenderable {
-                    namespace: unknown.namespace.clone(),
-                },
-            });
-        } else if let Some(fill) = entity.authored.fill {
-            if matches!(
-                entity.kind,
-                EntityKind::Shape(ShapeKind::Ellipse | ShapeKind::Path)
-            ) {
-                scene.fidelity.push(RenderFidelity {
-                    entity: *id,
-                    status: Fidelity::Approximated {
-                        reason: "profile 0 rasterizes ellipse and path bounds as rectangles"
-                            .to_owned(),
-                    },
-                });
-            }
-            scene.commands.push(DrawCommand::Rect {
-                entity: *id,
-                rect,
-                fill: fill.into(),
-            });
-        }
+        lower_entity_visual(&mut scene, *id, &entity.kind, rect, entity.authored.fill);
         if let Some(text) = &entity.authored.text {
-            if !context.font_hashes.contains(&text.font_sha256) {
-                return Err(RenderError::Text {
-                    entity: *id,
-                    source: TextError::FontAbsentFromContext {
-                        hash: text.font_sha256.clone(),
-                    },
-                });
-            }
-            let runs = shape_hard_lines(&ShapeRequest {
-                text: &text.content,
-                font_sha256: &text.font_sha256,
-                font_size: text.size,
-                direction: match context.writing_direction {
-                    WritingDirection::LeftToRight => TextDirection::LeftToRight,
-                    WritingDirection::RightToLeft => TextDirection::RightToLeft,
-                },
-                language: &context.locale,
-            })
-            .map_err(|source| RenderError::Text {
-                entity: *id,
-                source,
-            })?;
-            scene.fidelity.push(RenderFidelity {
-                entity: *id,
-                status: Fidelity::Lossless,
-            });
-            for (line_index, run) in runs.into_iter().enumerate() {
-                let mut outlines = BTreeMap::new();
-                for glyph in &run.glyphs {
-                    if let std::collections::btree_map::Entry::Vacant(entry) =
-                        outlines.entry(glyph.glyph_id)
-                    {
-                        entry.insert(outline_glyph(glyph.glyph_id).map_err(|source| {
-                            RenderError::Text {
-                                entity: *id,
-                                source,
-                            }
-                        })?);
-                    }
-                }
-                let line_offset =
-                    u32::try_from(line_index).map_or(f64::MAX, f64::from) * text.line_height;
-                let line_y = rect.y + line_offset;
-                let remaining_height = (rect.y + rect.height - line_y).max(0.0);
-                scene.commands.push(DrawCommand::Text {
-                    entity: *id,
-                    rect: Rect {
-                        x: rect.x,
-                        y: line_y,
-                        width: rect.width,
-                        height: remaining_height.min(text.line_height),
-                    },
-                    run: Box::new(run),
-                    outlines: Box::new(outlines),
-                    color: Color {
-                        red: 0.0,
-                        green: 0.0,
-                        blue: 0.0,
-                        alpha: 1.0,
-                    },
-                });
-            }
+            lower_text(&mut scene, *id, rect, text, context)?;
         }
     }
     Ok(scene)
+}
+
+fn lower_entity_visual(
+    scene: &mut RenderScene,
+    id: EntityId,
+    kind: &EntityKind,
+    rect: Rect,
+    fill: Option<ModelColor>,
+) {
+    match kind {
+        EntityKind::Unknown(unknown) => scene.fidelity.push(RenderFidelity {
+            entity: id,
+            status: Fidelity::PreservedUnrenderable {
+                namespace: unknown.namespace.clone(),
+            },
+        }),
+        EntityKind::Shape(ShapeKind::Path) => {
+            scene.fidelity.push(RenderFidelity {
+                entity: id,
+                status: Fidelity::Unsupported {
+                    reason: "profile 0 has no authored path-geometry field".to_owned(),
+                },
+            });
+        }
+        EntityKind::Image => scene.fidelity.push(RenderFidelity {
+            entity: id,
+            status: Fidelity::Unsupported {
+                reason: "profile 0 has no authored image-asset field".to_owned(),
+            },
+        }),
+        EntityKind::Instance { .. } => scene.fidelity.push(RenderFidelity {
+            entity: id,
+            status: Fidelity::Unsupported {
+                reason: "profile 0 does not materialize component instances".to_owned(),
+            },
+        }),
+        _ => {
+            if let Some(fill) = fill {
+                let command = if matches!(kind, EntityKind::Shape(ShapeKind::Ellipse)) {
+                    DrawCommand::Ellipse {
+                        entity: id,
+                        rect,
+                        fill: fill.into(),
+                    }
+                } else {
+                    DrawCommand::Rect {
+                        entity: id,
+                        rect,
+                        fill: fill.into(),
+                    }
+                };
+                scene.commands.push(command);
+            }
+        }
+    }
+}
+
+fn lower_text(
+    scene: &mut RenderScene,
+    id: EntityId,
+    rect: Rect,
+    text: &nuif_core::TextContent,
+    context: &EvaluationContext,
+) -> Result<(), RenderError> {
+    if !context.font_hashes.contains(&text.font_sha256) {
+        return Err(RenderError::Text {
+            entity: id,
+            source: TextError::FontAbsentFromContext {
+                hash: text.font_sha256.clone(),
+            },
+        });
+    }
+    let runs = shape_hard_lines(&ShapeRequest {
+        text: &text.content,
+        font_sha256: &text.font_sha256,
+        font_size: text.size,
+        direction: match context.writing_direction {
+            WritingDirection::LeftToRight => TextDirection::LeftToRight,
+            WritingDirection::RightToLeft => TextDirection::RightToLeft,
+        },
+        language: &context.locale,
+    })
+    .map_err(|source| RenderError::Text { entity: id, source })?;
+    scene.fidelity.push(RenderFidelity {
+        entity: id,
+        status: Fidelity::Lossless,
+    });
+    for (line_index, run) in runs.into_iter().enumerate() {
+        let mut outlines = BTreeMap::new();
+        for glyph in &run.glyphs {
+            if let std::collections::btree_map::Entry::Vacant(entry) =
+                outlines.entry(glyph.glyph_id)
+            {
+                entry.insert(
+                    outline_glyph(glyph.glyph_id)
+                        .map_err(|source| RenderError::Text { entity: id, source })?,
+                );
+            }
+        }
+        let line_offset = u32::try_from(line_index).map_or(f64::MAX, f64::from) * text.line_height;
+        let line_y = rect.y + line_offset;
+        let remaining_height = (rect.y + rect.height - line_y).max(0.0);
+        scene.commands.push(DrawCommand::Text {
+            entity: id,
+            rect: Rect {
+                x: rect.x,
+                y: line_y,
+                width: rect.width,
+                height: remaining_height.min(text.line_height),
+            },
+            run: Box::new(run),
+            outlines: Box::new(outlines),
+            color: Color {
+                space: ColorSpace::Srgb,
+                red: 0.0,
+                green: 0.0,
+                blue: 0.0,
+                alpha: 1.0,
+            },
+        });
+    }
+    Ok(())
 }
 
 /// Deterministic profile-0 rasterizer. It intentionally supports only solid
@@ -284,7 +329,8 @@ pub fn render_cpu(scene: &RenderScene, target: RenderTarget) -> Result<RasterIma
     }
     for command in &scene.commands {
         let (entity, rect, color, valid_text_run) = match command {
-            DrawCommand::Rect { entity, rect, fill } => (*entity, *rect, *fill, true),
+            DrawCommand::Rect { entity, rect, fill }
+            | DrawCommand::Ellipse { entity, rect, fill } => (*entity, *rect, *fill, true),
             DrawCommand::Text {
                 entity,
                 rect,
@@ -314,6 +360,11 @@ pub fn render_cpu(scene: &RenderScene, target: RenderTarget) -> Result<RasterIma
     for command in &scene.commands {
         match command {
             DrawCommand::Rect { rect, fill, .. } => fill_rect(
+                &mut image,
+                scale_rect(*rect, f64::from(target.scale_factor)),
+                *fill,
+            ),
+            DrawCommand::Ellipse { rect, fill, .. } => fill_ellipse(
                 &mut image,
                 scale_rect(*rect, f64::from(target.scale_factor)),
                 *fill,
@@ -357,7 +408,7 @@ fn rect_is_valid(rect: Rect) -> bool {
 fn color_is_finite(color: Color) -> bool {
     [color.red, color.green, color.blue, color.alpha]
         .into_iter()
-        .all(f32::is_finite)
+        .all(|channel| channel.is_finite() && (0.0..=1.0).contains(&channel))
 }
 
 fn shaped_run_is_valid(
@@ -407,6 +458,52 @@ fn fill_rect(image: &mut RasterImage, rect: Rect, color: Color) {
     }
 }
 
+fn fill_ellipse(image: &mut RasterImage, rect: Rect, color: Color) {
+    let base_x = floor_coordinate(rect.x, image.width);
+    let base_y = floor_coordinate(rect.y, image.height);
+    let x1 = ceil_coordinate(rect.x + rect.width, image.width);
+    let y1 = ceil_coordinate(rect.y + rect.height, image.height);
+    let mask_width = x1.saturating_sub(base_x);
+    let mask_height = y1.saturating_sub(base_y);
+    if mask_width == 0 || mask_height == 0 {
+        return;
+    }
+    let mut commands = Vec::new();
+    commands.add_ellipse(
+        ZenoPoint::new(
+            ellipse_coordinate(rect.x + rect.width * 0.5 - f64::from(base_x)),
+            ellipse_coordinate(rect.y + rect.height * 0.5 - f64::from(base_y)),
+        ),
+        ellipse_coordinate(rect.width * 0.5),
+        ellipse_coordinate(rect.height * 0.5),
+    );
+    let mask_len = usize::try_from(u64::from(mask_width) * u64::from(mask_height))
+        .expect("the validated raster target fits usize");
+    let mut coverage = vec![0_u8; mask_len];
+    Mask::new(&commands)
+        .style(Fill::NonZero)
+        .format(Format::Alpha)
+        .size(mask_width, mask_height)
+        .render_into(&mut coverage, None);
+    blend_mask(
+        image,
+        base_x,
+        base_y,
+        mask_width,
+        mask_height,
+        &coverage,
+        color,
+    );
+}
+
+#[expect(
+    clippy::cast_possible_truncation,
+    reason = "validated ellipse geometry is finite and bounded by the f32 raster target"
+)]
+fn ellipse_coordinate(value: f64) -> f32 {
+    value as f32
+}
+
 fn draw_shaped_text_outlines(
     image: &mut RasterImage,
     rect: Rect,
@@ -415,12 +512,6 @@ fn draw_shaped_text_outlines(
     target_scale: f64,
     color: Color,
 ) {
-    let source = [
-        channel(color.red),
-        channel(color.green),
-        channel(color.blue),
-        channel(color.alpha),
-    ];
     let base_x = floor_coordinate(rect.x, image.width);
     let base_y = floor_coordinate(rect.y, image.height);
     let x1 = ceil_coordinate(rect.x + rect.width, image.width);
@@ -470,6 +561,32 @@ fn draw_shaped_text_outlines(
         .format(Format::Alpha)
         .size(mask_width, mask_height)
         .render_into(&mut coverage, None);
+    blend_mask(
+        image,
+        base_x,
+        base_y,
+        mask_width,
+        mask_height,
+        &coverage,
+        color,
+    );
+}
+
+fn blend_mask(
+    image: &mut RasterImage,
+    base_x: u32,
+    base_y: u32,
+    mask_width: u32,
+    mask_height: u32,
+    coverage: &[u8],
+    color: Color,
+) {
+    let source = [
+        channel(color.red),
+        channel(color.green),
+        channel(color.blue),
+        channel(color.alpha),
+    ];
     for y in 0..mask_height {
         for x in 0..mask_width {
             let mask_index = y as usize * mask_width as usize + x as usize;
@@ -655,7 +772,7 @@ mod tests {
             .iter()
             .filter_map(|command| match command {
                 DrawCommand::Text { rect, run, .. } => Some((*rect, run.text.as_str())),
-                DrawCommand::Rect { .. } => None,
+                DrawCommand::Rect { .. } | DrawCommand::Ellipse { .. } => None,
             })
             .collect::<Vec<_>>();
         assert_eq!(text_commands.len(), 2);
@@ -698,6 +815,7 @@ mod tests {
                     height: 2.0,
                 },
                 fill: Color {
+                    space: ColorSpace::Srgb,
                     red: 1.0,
                     green: 0.0,
                     blue: 0.0,
@@ -716,6 +834,83 @@ mod tests {
         assert_eq!(first, second);
         assert_eq!(&first.rgba[20..24], &[255, 0, 0, 255]);
         assert_eq!(first.to_png().unwrap(), second.to_png().unwrap());
+    }
+
+    #[test]
+    fn ellipse_masks_and_unsupported_kinds_are_explicit() {
+        let ellipse = RenderScene {
+            commands: vec![DrawCommand::Ellipse {
+                entity: EntityId::new(1),
+                rect: Rect {
+                    x: 1.0,
+                    y: 1.0,
+                    width: 4.0,
+                    height: 4.0,
+                },
+                fill: Color {
+                    space: ColorSpace::Srgb,
+                    red: 0.0,
+                    green: 0.0,
+                    blue: 0.0,
+                    alpha: 1.0,
+                },
+            }],
+            fidelity: Vec::new(),
+        };
+        let image = render_cpu(
+            &ellipse,
+            RenderTarget {
+                width: 6,
+                height: 6,
+                scale_factor: 1.0,
+            },
+        )
+        .unwrap();
+        let pixel = |x: usize, y: usize| &image.rgba[(y * 6 + x) * 4..][..4];
+        assert_eq!(pixel(3, 3), [0, 0, 0, 255]);
+        assert_eq!(pixel(0, 0), [255, 255, 255, 255]);
+
+        let mut document = Document::empty(EntityId::new(10));
+        for entity in [
+            Entity::new(EntityId::new(2), EntityKind::Shape(ShapeKind::Path)),
+            Entity::new(EntityId::new(3), EntityKind::Image),
+            Entity::new(
+                EntityId::new(4),
+                EntityKind::Instance {
+                    component: EntityId::new(9),
+                },
+            ),
+        ] {
+            document.entities.insert(entity.id, entity);
+        }
+        let layout = LayoutSnapshot {
+            context_fingerprint: "test".to_owned(),
+            boxes: [EntityId::new(2), EntityId::new(3), EntityId::new(4)]
+                .into_iter()
+                .map(|entity| {
+                    (
+                        entity,
+                        Rect {
+                            x: 0.0,
+                            y: 0.0,
+                            width: 1.0,
+                            height: 1.0,
+                        },
+                    )
+                })
+                .collect(),
+            diagnostics: Vec::new(),
+        };
+        let scene =
+            build_scene(&document, &layout, &EvaluationContext::viewport(1.0, 1.0)).unwrap();
+        assert!(scene.commands.is_empty());
+        assert_eq!(scene.fidelity.len(), 3);
+        assert!(
+            scene
+                .fidelity
+                .iter()
+                .all(|entry| matches!(entry.status, Fidelity::Unsupported { .. }))
+        );
     }
 
     #[test]
@@ -740,6 +935,7 @@ mod tests {
                     height: 1.0,
                 },
                 fill: Color {
+                    space: ColorSpace::Srgb,
                     red: 0.0,
                     green: 0.0,
                     blue: 0.0,
@@ -775,6 +971,7 @@ mod tests {
                     height: 1.0,
                 },
                 fill: Color {
+                    space: ColorSpace::Srgb,
                     red: 1.0,
                     green: 0.0,
                     blue: 0.0,

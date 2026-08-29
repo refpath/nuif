@@ -391,10 +391,19 @@ pub struct ContextPredicate {
 #[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Color {
+    #[serde(default)]
+    pub space: ColorSpace,
     pub red: f32,
     pub green: f32,
     pub blue: f32,
     pub alpha: f32,
+}
+
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ColorSpace {
+    #[default]
+    Srgb,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -1039,6 +1048,20 @@ fn validate_entity(document: &Document, entity: &Entity, diagnostics: &mut Vec<D
             ));
         }
     }
+    if let Some(fill) = entity.authored.fill {
+        let channels = [fill.red, fill.green, fill.blue, fill.alpha];
+        if channels.iter().all(|channel| channel.is_finite())
+            && channels
+                .iter()
+                .any(|channel| !(0.0..=1.0).contains(channel))
+        {
+            diagnostics.push_capped(Diagnostic::error(
+                "COLOR_CHANNEL_OUT_OF_RANGE",
+                "sRGB fill channels must be between 0 and 1 inclusive",
+                Some(entity.id),
+            ));
+        }
+    }
     if let EntityKind::Instance { component } = entity.kind
         && !matches!(
             document.entities.get(&component).map(|item| &item.kind),
@@ -1384,6 +1407,26 @@ mod tests {
             .collect::<BTreeSet<_>>();
         assert!(codes.contains("TEXT_FONT_HASH_INVALID"));
         assert!(codes.contains("TEXT_METRICS_INVALID"));
+    }
+
+    #[test]
+    fn validation_rejects_out_of_range_srgb_channels() {
+        let mut document = Document::empty(EntityId::new(1));
+        let mut shape = Entity::new(EntityId::new(2), EntityKind::Shape(ShapeKind::Rectangle));
+        shape.authored.fill = Some(Color {
+            space: ColorSpace::Srgb,
+            red: 1.01,
+            green: 0.0,
+            blue: 0.0,
+            alpha: 1.0,
+        });
+        document.roots.push(shape.id);
+        document.entities.insert(shape.id, shape);
+        let codes = validate(&document)
+            .into_iter()
+            .map(|diagnostic| diagnostic.code)
+            .collect::<BTreeSet<_>>();
+        assert!(codes.contains("COLOR_CHANNEL_OUT_OF_RANGE"));
     }
 
     #[test]

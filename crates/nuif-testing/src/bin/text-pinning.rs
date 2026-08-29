@@ -298,7 +298,7 @@ fn raster_trials(cases: &[RasterCase]) -> Result<(Vec<Value>, bool), String> {
             .iter()
             .filter_map(|command| match command {
                 DrawCommand::Text { run, .. } => Some(run.serialized_glyphs.clone()),
-                DrawCommand::Rect { .. } => None,
+                DrawCommand::Rect { .. } | DrawCommand::Ellipse { .. } => None,
             })
             .collect::<Vec<_>>();
         let lossless_text = first.scene.fidelity.iter().any(|item| {
@@ -406,7 +406,9 @@ fn text_commands(scene: &nuif_render::RenderScene, entity: EntityId) -> Vec<(Str
                 run,
                 ..
             } if *id == entity => Some((run.text.clone(), rect.y, rect.width)),
-            DrawCommand::Rect { .. } | DrawCommand::Text { .. } => None,
+            DrawCommand::Rect { .. } | DrawCommand::Ellipse { .. } | DrawCommand::Text { .. } => {
+                None
+            }
         })
         .collect()
 }
