@@ -165,14 +165,15 @@ experiments:
       - render through the Vello backend and measure FLIP mean and per-channel deltas against the CPU reference
       - assign each visual property to a tier from the measured distributions
   - id: nuif:experiment:editor-harness-parity
-    status: active
+    status: completed
     evidence: [nuif:research:masonry-xilem-and-linebender-test-harness, nuif:research:accesskit-semantic-ui-testing, nuif:research:egui-and-egui-kittest]
-    implementation: [apps/editor/src/lib.rs, apps/editor/src/main.rs]
+    implementation: [apps/editor/src/lib.rs, apps/editor/src/main.rs, conformance/fixtures/v0-responsive-card/editor-authoring.jsonl, xtask/src/main.rs]
     oracle: metamorphic
     acceptance:
       - every bound widget exposes entity identity role and label
       - complete v0 authoring through semantic actions and CLI replay reach the same hash
     tests:
       - author the v0 fixture through the editor session driver using accessibility actions only
-      - assert the emitted operation log replays to the same canonical hash as the CLI-authored fixture
+      - assert direct generation editor authoring and operation replay are byte-identical and share one canonical hash
       - assert the accessibility tree exposes entity identifiers for every bound widget
+      - archive canonical document context layout scene CPU raster fidelity and machine report in CI

@@ -20,8 +20,8 @@ Pinned Ahem/HarfRust shaping matches HarfBuzz glyph goldens; unhinted Skrifa 0.4
 ## Phase 4 — serialization/protocol (complete for profile 0)
 Canonical text + deterministic CBOR; package/assets; patch/diff/query CLI. Exit: byte-stable cycles and hostile-input limits.
 
-## Phase 5 — editor
-Headless `EditorDriver` and accessibility action contract first; Rust-native Masonry shell from ADR 0006 second; Svelte/WASM remains a later browser demonstration. Exit: the entire fixture can be authored through semantic UI actions while operation replay produces the same document.
+## Phase 5 — editor (complete for the headless profile-0 instrument)
+The entire v0 fixture is authored from an empty document through identity-addressed semantic actions. Direct generation, editor output and operation replay are byte-identical, and the editor writes canonical document, context, layout, scene, CPU raster and fidelity report artifacts. The Rust-native Masonry shell from ADR 0006 and the later Svelte/WASM demonstration are non-normative interface work and cannot redefine this headless result.
 
 ## Phase 6 — adapters/sync
 SVG first, HTML/CSS second, Penpot/Figma research adapters after the canonical model is stable. Exit: minimal source patch and explicit fidelity accounting.

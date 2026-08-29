@@ -119,7 +119,7 @@ Bindings reproduce the documented product bindings where verified; entries marke
 
 ## Automation surface
 
-The editor binary accepts `--headless --script <file>` and runs a session script against the same `nuif-api` engine without creating a window (`nuif:research:blender-dna-rna-and-headless`, `nuif:research:unreal-asset-versioning-and-automation`). The script language is the CLI command set; a script is a sequence of CLI invocations sharing one session. The GUI process also exposes the driver on a local socket for interactive inspection during a test run.
+The editor binary accepts `--headless --script <file>` and either `--document <file>` or `--new-document <id>`, then runs a session script against the same `nuif-api` engine without creating a window (`nuif:research:blender-dna-rna-and-headless`, `nuif:research:unreal-asset-versioning-and-automation`). `--expect-document` makes byte-exact parity blocking; `--report` and `--snapshot-dir` write the operation log and canonical/context/layout/scene/CPU-raster artifacts. The JSONL script language contains editor commands and semantic accessibility actions sharing one session. A future GUI process may expose the same driver for interactive inspection; no socket transport is implemented yet.
 
 Widget identity: every widget bound to a document entity exposes the entity identifier in its accessibility node (`author_id`), and every control exposes a role and label, so a harness locates "the width control of entity X" by query and sets it through an accessibility `SetValue` action (`nuif:research:accesskit-semantic-ui-testing`). No test depends on pixel coordinates of widgets.
 

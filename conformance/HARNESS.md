@@ -1,6 +1,6 @@
 # Test-harness architecture
 
-Status: profile-0 baseline plus Gate C browser/Taffy and Gate D text/render generation are implemented; fuzz packages, perceptual comparison and adapter trials remain planned. This document specifies how round-trip trials run unattended, fail reproducibly, minimize themselves and report in machine-readable form. Evidence is cited by research record identifier.
+Status: profile-0 baseline, Gate C browser/Taffy, Gate D text/render and Gate E complete editor authoring are implemented; fuzz packages, perceptual comparison and adapter trials remain planned. This document specifies how round-trip trials run unattended, fail reproducibly, minimize themselves and report in machine-readable form. Evidence is cited by research record identifier.
 
 ## Goals
 
@@ -137,7 +137,7 @@ The render-profile experiment writes `target/render-profile-report.json`. It fix
 
 ## Editor participation
 
-The editor exposes an in-process session driver (`nuif-api`) that the harness calls without a window: open, apply operation, query accessibility tree, dispatch accessibility action, redraw to a CPU frame, snapshot. The accessibility tree carries entity identifiers (`accesskit-semantic-ui-testing`), so a test asserts "the selected entity is X" by role and identifier rather than by pixel position. GUI screenshot comparison is limited to shell wiring and uses the same tiers as the render suite with per-OS baselines avoided by CPU rasterization. Gesture tests assert the emitted protocol operations, not canvas pixels.
+The editor exposes an in-process session driver (`nuif-api`) that the harness calls without a window: create/open, apply operation, query accessibility tree, dispatch accessibility action, redraw to a CPU frame and snapshot. The accessibility tree carries entity identifiers (`accesskit-semantic-ui-testing`), so a test asserts "the selected entity is X" by role and identifier rather than by pixel position. `cargo xtask editor-trial` authors the complete v0 fixture from an empty document, demands byte identity with the direct generator and replay, and emits `target/editor-authoring-report.json` plus canonical document/context/layout/scene/CPU-PNG/fidelity artifacts under `target/editor-authoring-snapshot`. GUI screenshot comparison is limited to shell wiring and uses the same tiers as the render suite with per-OS baselines avoided by CPU rasterization. Gesture tests assert the emitted protocol operations, not canvas pixels.
 
 ## CI matrix
 
