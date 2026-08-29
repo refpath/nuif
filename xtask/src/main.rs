@@ -15,6 +15,7 @@ const ALL_STEPS: &[Step] = &[
     ("gate-d", gate_d),
     ("editor-trial", editor_trial),
     ("gate-f", gate_f),
+    ("gate-f-v0", gate_f_v0),
     ("gate-g", gate_g),
 ];
 
@@ -28,6 +29,10 @@ const VERIFICATION_ARTIFACTS: &[&str] = &[
     "target/editor-authoring-snapshot",
     "target/html-sync-report.json",
     "target/html-sync-output.html",
+    "target/html-sync-v0-report.json",
+    "target/html-sync-v0-output.html",
+    "target/html-sync-v0-editor-report.json",
+    "target/html-sync-v0-editor-output.html",
     "target/gate-g-report.json",
     "target/gate-g-independent",
 ];
@@ -70,6 +75,7 @@ fn run() -> Result<(), String> {
         Some("gate-d-text") => gate_d_text(),
         Some("gate-d-render") => gate_d_render(),
         Some("gate-f") => gate_f(),
+        Some("gate-f-v0") => gate_f_v0(),
         Some("gate-g") => gate_g(),
         Some("browser-install") => browser_install(),
         Some("hostile-inputs") => hostile_inputs(),
@@ -78,7 +84,7 @@ fn run() -> Result<(), String> {
         Some("manifest") => standalone_manifest(),
         Some("all") => all(),
         _ => Err(
-            "usage: cargo xtask <research|verify|trial [seed iterations snapshot-interval report-path]|gate-b|gate-c|gate-d|gate-d-text|gate-d-render|gate-f|gate-g|browser-install|hostile-inputs|editor-trial|manifest|all>"
+            "usage: cargo xtask <research|verify|trial [seed iterations snapshot-interval report-path]|gate-b|gate-c|gate-d|gate-d-text|gate-d-render|gate-f|gate-f-v0|gate-g|browser-install|hostile-inputs|editor-trial|manifest|all>"
                 .to_owned(),
         ),
     }
@@ -219,6 +225,130 @@ fn gate_f() -> Result<(), String> {
         "--source-output",
         "target/html-sync-output.html",
     ])
+}
+
+fn gate_f_v0() -> Result<(), String> {
+    cargo(&[
+        "run",
+        "--locked",
+        "-p",
+        "nuif-testing",
+        "--bin",
+        "html-sync-v0",
+        "--",
+        "--output",
+        "target/html-sync-v0-report.json",
+        "--source-output",
+        "target/html-sync-v0-output.html",
+    ])?;
+    gate_f_v0_editor_bridge()
+}
+
+fn gate_f_v0_editor_bridge() -> Result<(), String> {
+    let directory = env::temp_dir().join(format!("nuif-html-v0-trial-{}", std::process::id()));
+    if directory.exists() {
+        return Err(format!(
+            "temporary path already exists: {}",
+            directory.display()
+        ));
+    }
+    fs::create_dir(&directory).map_err(|error| error.to_string())?;
+    let input = directory.join("input.nuif");
+    let exported = directory.join("exported.html");
+    let export_report = directory.join("export-report.json");
+    let edited = directory.join("editor-output.nuif");
+    let reimported = directory.join("reimported.nuif");
+    let import_report = directory.join("import-report.json");
+    let synchronized = Path::new("target/html-sync-v0-editor-output.html");
+    let sync_report = Path::new("target/html-sync-v0-editor-report.json");
+    cargo(&[
+        "run",
+        "--quiet",
+        "--locked",
+        "-p",
+        "nuif-cli",
+        "--",
+        "fixture",
+        "v0-responsive-card",
+        path(&input)?,
+    ])?;
+    cargo(&[
+        "run",
+        "--quiet",
+        "--locked",
+        "-p",
+        "nuif-cli",
+        "--",
+        "export",
+        path(&input)?,
+        "html-css-v0",
+        path(&exported)?,
+        path(&export_report)?,
+    ])?;
+    cargo(&[
+        "run",
+        "--quiet",
+        "--locked",
+        "-p",
+        "nuif-editor",
+        "--",
+        "--headless",
+        "--script",
+        "conformance/fixtures/v0-responsive-card/editor-trial.jsonl",
+        "--document",
+        path(&input)?,
+        "--output",
+        path(&edited)?,
+    ])?;
+    cargo(&[
+        "run",
+        "--quiet",
+        "--locked",
+        "-p",
+        "nuif-cli",
+        "--",
+        "sync",
+        "html-css-v0",
+        path(&exported)?,
+        path(&edited)?,
+        path(synchronized)?,
+        path(sync_report)?,
+    ])?;
+    cargo(&[
+        "run",
+        "--quiet",
+        "--locked",
+        "-p",
+        "nuif-cli",
+        "--",
+        "import",
+        "html-css-v0",
+        path(synchronized)?,
+        path(&reimported)?,
+        path(&import_report)?,
+    ])?;
+    if fs::read(&edited).map_err(|error| error.to_string())?
+        != fs::read(&reimported).map_err(|error| error.to_string())?
+    {
+        return Err(
+            "editor-authored NUIF changed during full-v0 source synchronization".to_owned(),
+        );
+    }
+    let report = read_json(sync_report)?;
+    if report["status"] != "passed" || report["edits"].as_array().map(Vec::len) != Some(2) {
+        return Err("editor bridge did not produce the expected name and width edits".to_owned());
+    }
+    fs::remove_dir_all(&directory).map_err(|error| {
+        format!(
+            "trial passed but temporary directory {} could not be removed: {error}",
+            directory.display()
+        )
+    })
+}
+
+fn read_json(path: &Path) -> Result<serde_json::Value, String> {
+    serde_json::from_slice(&fs::read(path).map_err(|error| error.to_string())?)
+        .map_err(|error| error.to_string())
 }
 
 fn gate_g() -> Result<(), String> {
