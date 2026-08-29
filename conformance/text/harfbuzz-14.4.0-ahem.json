@@ -1,0 +1,73 @@
+{
+  "schema_version": 1,
+  "oracle": {
+    "implementation": "HarfBuzz",
+    "version": "14.4.0",
+    "serialization": "hb-shape --no-glyph-names",
+    "capture_command": "hb-shape ahem.ttf TEXT --direction=DIRECTION --language=en --no-glyph-names"
+  },
+  "font": {
+    "family": "Ahem",
+    "version": "1.50",
+    "sha256": "f0a92cd0cc45735591c9b5b1fa8aecd5194e8dc518895ca22af94a46c23550dc",
+    "byte_length": 22572
+  },
+  "cases": [
+    {
+      "name": "ascii-ltr",
+      "text": "A B",
+      "direction": "left_to_right",
+      "language": "en",
+      "expected": "[35=0+1000|3=1+1000|36=2+1000]"
+    },
+    {
+      "name": "ascii-rtl",
+      "text": "A B",
+      "direction": "right_to_left",
+      "language": "en",
+      "expected": "[36=2+1000|3=1+1000|35=0+1000]"
+    },
+    {
+      "name": "fixture-copy-ltr",
+      "text": "Portable authored intent",
+      "direction": "left_to_right",
+      "language": "en",
+      "expected": "[50=0+1000|81=1+1000|84=2+1000|86=3+1000|67=4+1000|68=5+1000|78=6+1000|71=7+1000|3=8+1000|67=9+1000|87=10+1000|86=11+1000|74=12+1000|81=13+1000|84=14+1000|71=15+1000|70=16+1000|3=17+1000|75=18+1000|80=19+1000|86=20+1000|71=21+1000|80=22+1000|86=23+1000]"
+    },
+    {
+      "name": "fixture-copy-rtl",
+      "text": "Portable authored intent",
+      "direction": "right_to_left",
+      "language": "en",
+      "expected": "[86=23+1000|80=22+1000|71=21+1000|86=20+1000|80=19+1000|75=18+1000|3=17+1000|70=16+1000|71=15+1000|84=14+1000|81=13+1000|74=12+1000|86=11+1000|87=10+1000|67=9+1000|3=8+1000|71=7+1000|78=6+1000|68=5+1000|67=4+1000|86=3+1000|84=2+1000|81=1+1000|50=0+1000]"
+    },
+    {
+      "name": "latin-pair-ltr",
+      "text": "AV fi",
+      "direction": "left_to_right",
+      "language": "en",
+      "expected": "[35=0+1000|56=1+1000|3=2+1000|72=3+1000|75=4+1000]"
+    },
+    {
+      "name": "latin-pair-rtl",
+      "text": "AV fi",
+      "direction": "right_to_left",
+      "language": "en",
+      "expected": "[75=4+1000|72=3+1000|3=2+1000|56=1+1000|35=0+1000]"
+    },
+    {
+      "name": "unicode-ltr",
+      "text": "pÉ 横",
+      "direction": "left_to_right",
+      "language": "en",
+      "expected": "[82=0+1000|100=1+1000|3=2+1000|275=3+1000]"
+    },
+    {
+      "name": "unicode-rtl",
+      "text": "pÉ 横",
+      "direction": "right_to_left",
+      "language": "en",
+      "expected": "[275=3+1000|3=2+1000|100=1+1000|82=0+1000]"
+    }
+  ]
+}
