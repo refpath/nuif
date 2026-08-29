@@ -2,8 +2,9 @@
 
 use nuif_codec::canonical_hash;
 use nuif_core::{
-    Document, Entity, EntityId, ExtensionDeclarations, Extensions, LayoutStyle, OpaquePayload,
-    PropertyValue, Relation, Severity, SizeIntent, Token, validate,
+    Color, Document, Entity, EntityId, ExtensionDeclarations, Extensions, LayoutStyle,
+    OpaquePayload, Point, PropertyValue, Relation, Severity, SizeIntent, TextContent, Token,
+    validate,
 };
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet};
@@ -52,6 +53,18 @@ pub enum Operation {
     SetLayout {
         entity: EntityId,
         value: LayoutStyle,
+    },
+    SetPosition {
+        entity: EntityId,
+        value: Point,
+    },
+    SetFill {
+        entity: EntityId,
+        value: Option<Color>,
+    },
+    SetText {
+        entity: EntityId,
+        value: Option<TextContent>,
     },
     SetToken {
         token: Token,
@@ -363,6 +376,39 @@ fn apply_operation(
                 .ok_or(ApplyError::EntityMissing { entity: *entity })?;
             let previous = std::mem::replace(&mut item.authored.layout, value.clone());
             Ok(Operation::SetLayout {
+                entity: *entity,
+                value: previous,
+            })
+        }
+        Operation::SetPosition { entity, value } => {
+            let item = document
+                .entities
+                .get_mut(entity)
+                .ok_or(ApplyError::EntityMissing { entity: *entity })?;
+            let previous = std::mem::replace(&mut item.authored.position, *value);
+            Ok(Operation::SetPosition {
+                entity: *entity,
+                value: previous,
+            })
+        }
+        Operation::SetFill { entity, value } => {
+            let item = document
+                .entities
+                .get_mut(entity)
+                .ok_or(ApplyError::EntityMissing { entity: *entity })?;
+            let previous = std::mem::replace(&mut item.authored.fill, *value);
+            Ok(Operation::SetFill {
+                entity: *entity,
+                value: previous,
+            })
+        }
+        Operation::SetText { entity, value } => {
+            let item = document
+                .entities
+                .get_mut(entity)
+                .ok_or(ApplyError::EntityMissing { entity: *entity })?;
+            let previous = std::mem::replace(&mut item.authored.text, value.clone());
+            Ok(Operation::SetText {
                 entity: *entity,
                 value: previous,
             })
@@ -801,6 +847,59 @@ mod tests {
             apply_patch(&mut document, &patch),
             Err(ApplyError::BaseRevisionMismatch { .. })
         ));
+        assert_eq!(document, original);
+    }
+
+    #[test]
+    fn visual_editor_properties_are_atomic_and_invertible() {
+        let mut document = base();
+        document.entities.get_mut(&EntityId::new(2)).unwrap().kind = EntityKind::Text;
+        let original = document.clone();
+        let entity = EntityId::new(2);
+        let patch = Patch {
+            base_revision: None,
+            transactions: vec![Transaction {
+                id: 9,
+                operations: vec![
+                    Operation::SetPosition {
+                        entity,
+                        value: Point { x: 12.0, y: 24.0 },
+                    },
+                    Operation::SetFill {
+                        entity,
+                        value: Some(Color {
+                            space: nuif_core::ColorSpace::Srgb,
+                            red: 0.2,
+                            green: 0.4,
+                            blue: 0.6,
+                            alpha: 0.8,
+                        }),
+                    },
+                    Operation::SetText {
+                        entity,
+                        value: Some(TextContent {
+                            content: "Editable".to_owned(),
+                            font: "Ahem".to_owned(),
+                            font_sha256: "0".repeat(64),
+                            size: 16.0,
+                            line_height: 20.0,
+                        }),
+                    },
+                ],
+            }],
+        };
+        let inverse = apply_patch_with_inverse(&mut document, &patch).unwrap();
+        assert!((document.entities[&entity].authored.position.x - 12.0).abs() < f64::EPSILON);
+        assert_eq!(
+            document.entities[&entity]
+                .authored
+                .text
+                .as_ref()
+                .unwrap()
+                .content,
+            "Editable"
+        );
+        apply_patch(&mut document, &inverse).unwrap();
         assert_eq!(document, original);
     }
 }

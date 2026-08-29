@@ -2,7 +2,7 @@
 
 Status: draft.
 
-Operations are stable, serializable semantic mutations. Core operations: create entity, delete entity, move entity, set/unset property, add/remove relation, set/remove extension, bind/unbind token, apply instance override and transaction.
+Operations are stable, serializable semantic mutations. Core operations include entity insertion/removal/move/rename; typed size, position, layout, fill and text edits; generic authored-value edits; token and extension edits; and transaction grouping. `SetPosition`, `SetFill` and `SetText` replace their complete typed property and therefore have exact inverse operations. An editor that applies several related controls together MUST place them in one transaction so validation and undo remain atomic.
 
 ## Position (RFC 0006)
 

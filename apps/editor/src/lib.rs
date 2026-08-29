@@ -4,7 +4,10 @@ pub mod gui;
 
 use nuif_api::{EngineError, Session, profile_zero_context};
 use nuif_codec::{CanonicalText, Encoder, canonical_hash};
-use nuif_core::{Document, Entity, EntityId, EntityKind, ExtensionDeclarations, SizeIntent, Token};
+use nuif_core::{
+    Color, Document, Entity, EntityId, EntityKind, ExtensionDeclarations, LayoutStyle, Point,
+    SizeIntent, TextContent, Token,
+};
 use nuif_layout::{EvaluationContext, LayoutSnapshot};
 use nuif_protocol::{Anchor, Axis, Operation, Patch, Transaction};
 use nuif_render::RenderScene;
@@ -34,14 +37,55 @@ pub struct AccessibilityNode {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case", tag = "command")]
 pub enum EditorCommand {
-    Select { entity: EntityId },
+    Select {
+        entity: EntityId,
+    },
     ClearSelection,
-    Rename { entity: EntityId, name: String },
-    SetWidth { entity: EntityId, value: f64 },
-    SetHeight { entity: EntityId, value: f64 },
+    Rename {
+        entity: EntityId,
+        name: String,
+    },
+    SetWidth {
+        entity: EntityId,
+        value: f64,
+    },
+    SetHeight {
+        entity: EntityId,
+        value: f64,
+    },
+    SetSize {
+        entity: EntityId,
+        axis: Axis,
+        value: SizeIntent,
+    },
+    SetPosition {
+        entity: EntityId,
+        value: Point,
+    },
+    SetLayout {
+        entity: EntityId,
+        value: LayoutStyle,
+    },
+    SetFill {
+        entity: EntityId,
+        value: Option<Color>,
+    },
+    SetText {
+        entity: EntityId,
+        value: Option<TextContent>,
+    },
+    Remove {
+        entity: EntityId,
+    },
+    Apply {
+        operations: Vec<Operation>,
+    },
     Undo,
     Redo,
-    Snapshot { width: u32, height: u32 },
+    Snapshot {
+        width: u32,
+        height: u32,
+    },
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -200,6 +244,62 @@ impl EditorDriver {
                 author_id: Some(entity.id),
                 value: Some(size_label(&entity.authored.height)),
             });
+            for (label, value) in [
+                ("x", entity.authored.position.x.to_string()),
+                ("y", entity.authored.position.y.to_string()),
+                ("gap", entity.authored.layout.gap.to_string()),
+                (
+                    "padding_top",
+                    entity.authored.layout.padding.top.to_string(),
+                ),
+                (
+                    "padding_right",
+                    entity.authored.layout.padding.right.to_string(),
+                ),
+                (
+                    "padding_bottom",
+                    entity.authored.layout.padding.bottom.to_string(),
+                ),
+                (
+                    "padding_left",
+                    entity.authored.layout.padding.left.to_string(),
+                ),
+            ] {
+                nodes.push(AccessibilityNode {
+                    role: AccessibilityRole::SpinButton,
+                    label: label.to_owned(),
+                    author_id: Some(entity.id),
+                    value: Some(value),
+                });
+            }
+            nodes.push(AccessibilityNode {
+                role: AccessibilityRole::TextField,
+                label: "fill".to_owned(),
+                author_id: Some(entity.id),
+                value: Some(fill_label(entity.authored.fill)),
+            });
+            if let Some(text) = &entity.authored.text {
+                for (role, label, value) in [
+                    (AccessibilityRole::TextField, "text", text.content.clone()),
+                    (
+                        AccessibilityRole::SpinButton,
+                        "font_size",
+                        text.size.to_string(),
+                    ),
+                    (
+                        AccessibilityRole::SpinButton,
+                        "line_height",
+                        text.line_height.to_string(),
+                    ),
+                ] {
+                    nodes.push(AccessibilityNode {
+                        role,
+                        label: label.to_owned(),
+                        author_id: Some(entity.id),
+                        value: Some(value),
+                    });
+                }
+            }
         }
         nodes.push(AccessibilityNode {
             role: AccessibilityRole::Canvas,
@@ -247,6 +347,33 @@ impl EditorDriver {
                 axis: Axis::Vertical,
                 value: SizeIntent::Fixed(value),
             }),
+            EditorCommand::SetSize {
+                entity,
+                axis,
+                value,
+            } => self.apply(Operation::SetSize {
+                entity,
+                axis,
+                value,
+            }),
+            EditorCommand::SetPosition { entity, value } => {
+                self.apply(Operation::SetPosition { entity, value })
+            }
+            EditorCommand::SetLayout { entity, value } => {
+                self.apply(Operation::SetLayout { entity, value })
+            }
+            EditorCommand::SetFill { entity, value } => {
+                self.apply(Operation::SetFill { entity, value })
+            }
+            EditorCommand::SetText { entity, value } => {
+                self.apply(Operation::SetText { entity, value })
+            }
+            EditorCommand::Remove { entity } => {
+                let event = self.apply(Operation::Remove { entity })?;
+                self.session.select(Vec::new());
+                Ok(event)
+            }
+            EditorCommand::Apply { operations } => self.apply_operations(operations),
             EditorCommand::Undo => {
                 let patch = self.session.undo()?;
                 self.operation_log.push(patch);
@@ -297,6 +424,10 @@ impl EditorDriver {
     ///
     /// Returns a typed error when the semantic node is missing, its action is
     /// unsupported, or the supplied value cannot be parsed.
+    #[expect(
+        clippy::too_many_lines,
+        reason = "semantic accessibility routing stays exhaustive and centralized"
+    )]
     pub fn dispatch_accessibility_action(
         &mut self,
         action: AccessibilityAction,
@@ -330,23 +461,105 @@ impl EditorDriver {
                         name: value,
                     }),
                     "width" | "height" => {
+                        let intent = parse_size_intent(&value).ok_or_else(|| {
+                            EditorError::AccessibilityValueInvalid {
+                                label: label.clone(),
+                                value: value.clone(),
+                            }
+                        })?;
+                        self.execute(EditorCommand::SetSize {
+                            entity: author_id,
+                            axis: if label == "width" {
+                                Axis::Horizontal
+                            } else {
+                                Axis::Vertical
+                            },
+                            value: intent,
+                        })
+                    }
+                    "x" | "y" => {
                         let number = value.parse::<f64>().map_err(|_| {
                             EditorError::AccessibilityValueInvalid {
                                 label: label.clone(),
                                 value: value.clone(),
                             }
                         })?;
-                        if label == "width" {
-                            self.execute(EditorCommand::SetWidth {
-                                entity: author_id,
-                                value: number,
-                            })
+                        let mut position = self
+                            .session
+                            .document()
+                            .entities
+                            .get(&author_id)
+                            .ok_or(EditorError::EntityMissing(author_id))?
+                            .authored
+                            .position;
+                        if label == "x" {
+                            position.x = number;
                         } else {
-                            self.execute(EditorCommand::SetHeight {
-                                entity: author_id,
-                                value: number,
-                            })
+                            position.y = number;
                         }
+                        self.execute(EditorCommand::SetPosition {
+                            entity: author_id,
+                            value: position,
+                        })
+                    }
+                    "gap" | "padding_top" | "padding_right" | "padding_bottom" | "padding_left" => {
+                        let number = parse_finite_number(&label, &value)?;
+                        let mut layout = self
+                            .session
+                            .document()
+                            .entities
+                            .get(&author_id)
+                            .ok_or(EditorError::EntityMissing(author_id))?
+                            .authored
+                            .layout
+                            .clone();
+                        match label.as_str() {
+                            "gap" => layout.gap = number,
+                            "padding_top" => layout.padding.top = number,
+                            "padding_right" => layout.padding.right = number,
+                            "padding_bottom" => layout.padding.bottom = number,
+                            "padding_left" => layout.padding.left = number,
+                            _ => unreachable!(),
+                        }
+                        self.execute(EditorCommand::SetLayout {
+                            entity: author_id,
+                            value: layout,
+                        })
+                    }
+                    "fill" => self.execute(EditorCommand::SetFill {
+                        entity: author_id,
+                        value: parse_fill(&value).map_err(|()| {
+                            EditorError::AccessibilityValueInvalid {
+                                label: label.clone(),
+                                value: value.clone(),
+                            }
+                        })?,
+                    }),
+                    "text" | "font_size" | "line_height" => {
+                        let mut text = self
+                            .session
+                            .document()
+                            .entities
+                            .get(&author_id)
+                            .ok_or(EditorError::EntityMissing(author_id))?
+                            .authored
+                            .text
+                            .clone()
+                            .ok_or_else(|| EditorError::AccessibilityActionUnsupported {
+                                label: label.clone(),
+                            })?;
+                        match label.as_str() {
+                            "text" => text.content = value,
+                            "font_size" => text.size = parse_finite_number(&label, &value)?,
+                            "line_height" => {
+                                text.line_height = parse_finite_number(&label, &value)?;
+                            }
+                            _ => unreachable!(),
+                        }
+                        self.execute(EditorCommand::SetText {
+                            entity: author_id,
+                            value: Some(text),
+                        })
                     }
                     _ => Err(EditorError::AccessibilityActionUnsupported { label }),
                 }
@@ -380,13 +593,17 @@ impl EditorDriver {
     }
 
     fn apply(&mut self, operation: Operation) -> Result<EditorEvent, EditorError> {
+        self.apply_operations(vec![operation])
+    }
+
+    fn apply_operations(&mut self, operations: Vec<Operation>) -> Result<EditorEvent, EditorError> {
         let transaction = self.next_transaction;
         let base_revision = canonical_hash(self.session.document()).map_err(EngineError::from)?;
         let patch = Patch {
             base_revision: Some(base_revision),
             transactions: vec![Transaction {
                 id: transaction,
-                operations: vec![operation],
+                operations,
             }],
         };
         self.session.apply(&patch)?;
@@ -394,6 +611,88 @@ impl EditorDriver {
         self.operation_log.push(patch);
         Ok(EditorEvent::PatchApplied { transaction })
     }
+}
+
+fn parse_size_intent(value: &str) -> Option<SizeIntent> {
+    let value = value.trim();
+    match value {
+        "auto" => Some(SizeIntent::Auto),
+        "fill" => Some(SizeIntent::Fill),
+        "intrinsic" => Some(SizeIntent::Intrinsic),
+        "min-content" => Some(SizeIntent::MinContent),
+        "max-content" => Some(SizeIntent::MaxContent),
+        _ if value.ends_with('%') => value
+            .strip_suffix('%')?
+            .parse::<f64>()
+            .ok()
+            .map(SizeIntent::Percentage),
+        _ if value.starts_with("fit-content(") && value.ends_with(')') => value
+            .strip_prefix("fit-content(")?
+            .strip_suffix(')')?
+            .parse::<f64>()
+            .ok()
+            .map(SizeIntent::FitContent),
+        _ => value.parse::<f64>().ok().map(SizeIntent::Fixed),
+    }
+}
+
+fn parse_finite_number(label: &str, value: &str) -> Result<f64, EditorError> {
+    value
+        .parse::<f64>()
+        .ok()
+        .filter(|number| number.is_finite())
+        .ok_or_else(|| EditorError::AccessibilityValueInvalid {
+            label: label.to_owned(),
+            value: value.to_owned(),
+        })
+}
+
+#[expect(
+    clippy::cast_possible_truncation,
+    clippy::cast_sign_loss,
+    reason = "channels are clamped to the exact u8 range before conversion"
+)]
+fn fill_label(fill: Option<Color>) -> String {
+    fill.map_or_else(
+        || "none".to_owned(),
+        |fill| {
+            format!(
+                "#{:02X}{:02X}{:02X}{:02X}",
+                (fill.red.clamp(0.0, 1.0) * 255.0).round() as u8,
+                (fill.green.clamp(0.0, 1.0) * 255.0).round() as u8,
+                (fill.blue.clamp(0.0, 1.0) * 255.0).round() as u8,
+                (fill.alpha.clamp(0.0, 1.0) * 255.0).round() as u8,
+            )
+        },
+    )
+}
+
+fn parse_fill(value: &str) -> Result<Option<Color>, ()> {
+    let value = value.trim();
+    if value.eq_ignore_ascii_case("none") {
+        return Ok(None);
+    }
+    let hex = value.strip_prefix('#').unwrap_or(value);
+    if !matches!(hex.len(), 6 | 8) || !hex.bytes().all(|byte| byte.is_ascii_hexdigit()) {
+        return Err(());
+    }
+    let channel = |start| {
+        u8::from_str_radix(&hex[start..start + 2], 16)
+            .ok()
+            .map(f32::from)
+            .map(|value| value / 255.0)
+    };
+    Ok(Some(Color {
+        space: nuif_core::ColorSpace::Srgb,
+        red: channel(0).ok_or(())?,
+        green: channel(2).ok_or(())?,
+        blue: channel(4).ok_or(())?,
+        alpha: if hex.len() == 8 {
+            channel(6).ok_or(())?
+        } else {
+            1.0
+        },
+    }))
 }
 
 fn kind_label(kind: &EntityKind) -> &'static str {
