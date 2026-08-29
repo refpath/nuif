@@ -14,9 +14,9 @@ A `.nuif` package is a container with a manifest, document records, optional res
 ## Numeric and string rules (RFC 0005)
 
 - Numeric kinds are `integer` (signed 64-bit) and `real` (binary64). Authored reals MUST be finite. Negative zero is not distinct from zero.
-- In `nuif-cbor-0`, integral reals within the signed 64-bit range and both zeros MUST be encoded as integers; non-integral reals MUST use the shortest IEEE 754 width that round-trips; integer heads MUST be shortest; lengths MUST be definite; map keys MUST be strictly increasing in bytewise order of their encoding; no tags and no simple values other than `false`, `true` and `null` appear; extension and unknown-kind payloads are byte strings hashed verbatim.
+- In `nuif-cbor-0`, integers use major type 0 or 1 and reals use the shortest IEEE 754 floating-point width that round-trips, including integral reals. Integer and real are distinct logical values. Both real zeros use positive floating-point zero; integer zero remains distinct. Integer heads MUST be shortest; lengths MUST be definite; map keys MUST be strictly increasing in bytewise order of their complete deterministic encoding; no tags and no simple values other than `false`, `true` and `null` appear; extension and unknown-kind payloads are byte strings hashed verbatim (RFC 0008).
 - Decoders used for hashing and conformance MUST reject non-canonical input rather than re-canonicalize it.
-- In `nuif-text-0`, reals print as the shortest round-trip decimal in the fixed layout of RFC 0005 rule 15; `NaN` and infinities are parse errors; keys are in UTF-8 byte order; layout is not significant.
+- In `nuif-text-0`, reals print as the shortest round-trip decimal in the fixed layout of RFC 0005 rule 15; `NaN` and infinities are parse errors; keys are in UTF-8 byte order; layout is not significant. Text key order is intentionally independent from CBOR encoded-key order (RFC 0008).
 - Identifiers (namespaces, keys, kind names, extension names) match `[a-z0-9][a-z0-9_.:-]*`. String values are stored verbatim as valid UTF-8 and are never normalized by canonicalization.
 
 ## Hash

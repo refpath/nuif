@@ -113,7 +113,7 @@ Cost model: local operations are `O(d)` for the ancestor check; remote operation
 - Causal stability as the criterion for truncating profile-level logs and discarding tombstoned subtrees.
 
 **Adapt**
-- NUIF's `Operation::Move { entity, new_parent, new_index }` (crates/nuif-protocol/src/lib.rs) uses an integer index, which is not commutative under concurrent sibling edits; the metadata field should carry a stable order key (list-CRDT ID or fractional index) so that reordering becomes a move with unchanged parent.
+- At retrieval, NUIF's `Operation::Move { entity, new_parent, new_index }` used a non-commutative integer index. RFC 0006 subsequently replaced it with `Anchor::Start` / `Anchor::After(id)`; collaboration-specific list identifiers remain outside canonical documents.
 - Silent ignoring of cycle-inducing moves is correct for convergence but must be surfaced as a typed conflict object in the collaboration profile (spec/10) rather than lost, because NUIF requires semantic conflicts to remain explicit.
 - The timestamp total order belongs to the collaboration profile; canonical NUIF documents must not carry Lamport timestamps or trash subtrees, so checkpoint materialisation must strip them (spec/10 "materialize a canonical NUIF snapshot without collaboration metadata").
 

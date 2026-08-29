@@ -22,6 +22,7 @@ SCHEMA = ROOT / "research" / "schema" / "research-item.schema.json"
 INDEX = ROOT / "research" / "index.yaml"
 COVERAGE = ROOT / "research" / "coverage.yaml"
 EXPERIMENTS = ROOT / "research" / "experiments" / "index.yaml"
+QUESTIONS = ROOT / "research" / "questions.yaml"
 FRONT = re.compile(r"\A---\n(.*?)\n---\n", re.S)
 BODY_SECTIONS = ["# Summary", "## Evidence", "## Mechanism", "## NUIF relevance", "## Open questions"]
 
@@ -99,6 +100,72 @@ def main() -> int:
                         errors.append(f"{name}: links.experiments entry {rel_path} is neither a registered experiment id nor a path")
                 elif not (ROOT / rel_path).exists():
                     errors.append(f"{name}: links.{group} path {rel_path} does not exist")
+
+    if INDEX.exists():
+        for topic, entries in (index.get("topics") or {}).items():
+            for entry in entries or []:
+                target = f"nuif:research:{entry}"
+                if target not in ids:
+                    errors.append(f"index.yaml: topic {topic}: record {target} does not exist")
+
+        supported_claims = {
+            claim
+            for data in records.values()
+            for claim in (data.get("claims") or [])
+        }
+        for claim in sorted(claims - supported_claims):
+            errors.append(f"index.yaml: claim {claim} has no linked research record")
+
+    if QUESTIONS.exists():
+        question_registry = yaml.safe_load(QUESTIONS.read_text(encoding="utf-8")) or {}
+        question_ids: set[str] = set()
+        valid_question_status = {
+            "open", "experiment-required", "benchmark-required", "governance",
+            "research", "deferred", "decided",
+        }
+        for question in question_registry.get("questions", []) or []:
+            question_id = question.get("id", "")
+            if question_id in question_ids:
+                errors.append(f"questions.yaml: duplicate id {question_id}")
+            question_ids.add(question_id)
+            if not question_id.startswith("nuif:question:"):
+                errors.append(f"questions.yaml: invalid id {question_id}")
+            if question.get("status") not in valid_question_status:
+                errors.append(f"questions.yaml: {question_id}: invalid status {question.get('status')}")
+            if question.get("status") == "decided":
+                decision = question.get("decided_by")
+                if not decision or not (ROOT / decision).exists():
+                    errors.append(f"questions.yaml: {question_id}: decided question lacks an existing decided_by artifact")
+            for evidence in question.get("evidence", []) or []:
+                if evidence not in ids:
+                    errors.append(f"questions.yaml: {question_id}: evidence {evidence} does not exist")
+
+    if EXPERIMENTS.exists():
+        experiment_registry = yaml.safe_load(EXPERIMENTS.read_text(encoding="utf-8")) or {}
+        valid_experiment_status = {"planned", "active", "automated", "blocked", "completed"}
+        seen_experiments: set[str] = set()
+        for experiment in experiment_registry.get("experiments", []) or []:
+            experiment_id = experiment.get("id", "")
+            if experiment_id in seen_experiments:
+                errors.append(f"experiments/index.yaml: duplicate id {experiment_id}")
+            seen_experiments.add(experiment_id)
+            status = experiment.get("status")
+            if status not in valid_experiment_status:
+                errors.append(f"experiments/index.yaml: {experiment_id}: invalid status {status}")
+            if not experiment.get("tests"):
+                errors.append(f"experiments/index.yaml: {experiment_id}: tests must not be empty")
+            if not experiment.get("oracle"):
+                errors.append(f"experiments/index.yaml: {experiment_id}: oracle class is required")
+            if not experiment.get("acceptance"):
+                errors.append(f"experiments/index.yaml: {experiment_id}: acceptance criteria are required")
+            if status in {"active", "automated", "completed"} and not experiment.get("implementation"):
+                errors.append(f"experiments/index.yaml: {experiment_id}: {status} experiment requires implementation paths")
+            for evidence in experiment.get("evidence", []) or []:
+                if evidence not in ids:
+                    errors.append(f"experiments/index.yaml: {experiment_id}: evidence {evidence} does not exist")
+            for artifact in ([experiment.get("fixture")] if experiment.get("fixture") else []) + (experiment.get("implementation") or []):
+                if not (ROOT / artifact).exists():
+                    errors.append(f"experiments/index.yaml: {experiment_id}: artifact {artifact} does not exist")
 
     if COVERAGE.exists():
         coverage = yaml.safe_load(COVERAGE.read_text(encoding="utf-8")) or {}

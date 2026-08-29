@@ -1,25 +1,26 @@
 # Continuous research roadmap
 
-Research is maintained as a graph, not a bibliography. Each source record must support or challenge explicit NUIF claims and link to experiments, RFCs, ADRs, spec sections and code.
+The operational plan and audit findings are in `AUDIT.md`. Work advances by evidence gates, not by document volume or implementation phase names.
 
-## Active research fronts
+## Current gate
 
-1. **Canonical model** — test tree+graph hybrid, stable identity, composition and provenance against real design-system fixtures.
-2. **Layout** — compare CSS-compatible algorithms, proposal/response layouts, linear constraints and freeform design constraints; measure lowering loss.
-3. **Rendering** — define normative visual semantics while keeping renderer implementation replaceable; build deterministic CPU reference paths for conformance where GPU variance is unacceptable.
-4. **Text** — pin Unicode data, shaping inputs and font assets for reproducible tests; explicitly separate semantic text from shaped glyph caches.
-5. **Synchronization** — prototype retentive correspondence maps and semantic source patches for HTML/Svelte.
-6. **Extensions** — test opaque-preservation through implementations that cannot interpret a dialect.
-7. **Collaboration** — compare operation log + CRDT profiles without polluting the canonical saved document.
-8. **Serialization** — benchmark canonical text, deterministic CBOR and schema-based binary encodings on partial loading, unknown data and Git workflows.
-9. **Governance** — track W3C/Khronos-style extension/IP processes and define a neutral migration path.
-10. **Testing methodology** — seed-driven trial loops, metamorphic relations, reduction and report schema; evidence in `docs/whitepaper/11-cross-industry-patterns.md` and `conformance/HARNESS.md`.
-11. **Reference editor** — headless-testable shell whose accessibility tree carries entity identity; ADR 0006 and `apps/editor/UI-SPEC.md`.
+Gate B: canonical model, operations and encodings. The executable baseline covers structural validation, anchored atomic operations, stale-base rejection, replay/inversion, text/CBOR fixpoints, negative numeric/canonical cases, opaque-byte cycles and a passing 10,000-patch seeded trial. The remaining Gate B work is measured hostile-input depth, node, allocation and time budgets.
+
+## Queue
+
+1. Keep Gate B green with `cargo xtask gate-b` (10,000 deterministic generated patches, with expensive raster checks sampled every 100 patches) and commit any minimized failures as fixtures; add measured hostile-input limits before closing the gate.
+2. Run Gate C layout differential generation against pinned Taffy and browser versions; derive tolerance distributions from results.
+3. Pin font assets and shaping inputs before claiming Gate D text or cross-platform raster exactness.
+4. Finish Gate E by authoring the entire v0 fixture through editor accessibility actions and then attach the Masonry shell to the already-tested driver boundary.
+5. Build one HTML/CSS retentive adapter for Gate F before expanding to design-tool or native-framework adapters.
+6. Defer collaboration profiles until canonical operations, ordering and source correspondence have passed their gates.
+7. Publish the profile for independent Gate G reproduction only after the v0 round trip and its fidelity report are complete.
 
 ## Update policy
 
-- Add new evidence as a new research item or source revision; do not silently rewrite history.
-- Mark superseded records and link `supersedes` / `contradicts` relations.
-- Record source commit/tag/version where available.
-- Automated synthesis must record the generated-at date and source IDs used.
-- Claims become specification requirements only through RFC/ADR/spec review.
+- Add evidence as a new record or source revision; use `supersedes` and `contradicts` rather than silently rewriting history.
+- Record source commit, tag or specification revision where available.
+- Promote `reviewed` to `verified` only after locator-level checks and executable evidence for implementation claims.
+- Every experiment declares seed/input, oracle class, acceptance criteria, artifacts and implementation path before it can become `active`.
+- Every completed experiment stores a machine report and the exact engine/toolchain/profile identity.
+- Claims become specification requirements only through RFC review and executable conformance fixtures.

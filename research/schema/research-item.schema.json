@@ -3,7 +3,7 @@
   "$id": "https://nuif.dev/schema/research-item.schema.json",
   "title": "NUIF Research Item",
   "type": "object",
-  "required": ["id", "kind", "title", "status", "retrieved_at", "tags", "relations"],
+  "required": ["id", "kind", "title", "status", "source", "retrieved_at", "tags", "confidence", "claims", "relations", "links"],
   "properties": {
     "id": {"type": "string", "pattern": "^nuif:research:[a-z0-9][a-z0-9._:-]*$"},
     "kind": {"enum": ["paper", "standard", "repository", "implementation", "article", "dataset", "synthesis"]},
@@ -11,6 +11,11 @@
     "status": {"enum": ["seed", "reviewed", "verified", "superseded", "rejected"]},
     "source": {
       "type": "object",
+      "anyOf": [
+        {"required": ["url"]},
+        {"required": ["doi"]},
+        {"required": ["repository"]}
+      ],
       "properties": {
         "url": {"type": "string", "format": "uri"},
         "doi": {"type": "string"},
@@ -22,7 +27,7 @@
       "additionalProperties": false
     },
     "retrieved_at": {"type": "string", "format": "date"},
-    "tags": {"type": "array", "items": {"type": "string"}, "uniqueItems": true},
+    "tags": {"type": "array", "items": {"type": "string"}, "minItems": 1, "uniqueItems": true},
     "summary": {"type": "string"},
     "confidence": {"type": "number", "minimum": 0, "maximum": 1},
     "claims": {"type": "array", "items": {"type": "string"}},

@@ -82,7 +82,7 @@ Prefix registration is deliberately lightweight: a GitHub issue reserves a names
 - Treat "unknown but declared extension" as Information and "undeclared extension object" as Error, which is the executable form of NUIF's used/required rule.
 - Build the conformance fixture corpus with per-asset `metadata.json` (SPDX license, tags, summary, variants) and a generated index; tag fixtures `core`, `extension`, `testing`, `issues`.
 - Store golden validation reports alongside fixtures so validator regressions surface as diffs.
-- Adopt the prefix registry model (`NUIF_`, `EXT_`, vendor prefixes by issue) and the status ladder that requires validator and reference-viewer support before ratification.
+- Adapt the prefix registry model to NUIF's lowercase identifier grammar (`nuif.*`, `ext.*`, collision-resistant vendor namespaces) and adopt the status ladder that requires validator and reference-viewer support before ratification.
 
 **Adapt**
 - glTF's locator is a JSON pointer, which is path-based; NUIF locators must use stable semantic IDs with an optional path hint since NUIF identity is path-independent.

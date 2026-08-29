@@ -1,8 +1,14 @@
 version: 1
 experiments:
   - id: nuif:experiment:v0-responsive-card
-    status: planned
+    status: active
     fixture: conformance/fixtures/v0-responsive-card
+    implementation: [crates/nuif-testing/src/lib.rs, conformance/src/lib.rs]
+    oracle: mixed
+    acceptance:
+      - structural and codec checks pass for the in-memory fixture
+      - layout relations pass at 360 768 and 1440 pixels
+      - HTML/CSS minimal-source-patch path passes before completion
     tests:
       - semantic identity retention
       - token binding retention
@@ -13,11 +19,19 @@ experiments:
       - minimal source patch after design edit
   - id: nuif:experiment:layout-differential
     status: planned
+    oracle: foreign-reference
+    acceptance:
+      - pinned Taffy browser and generator versions recorded in the report
+      - every divergence classified; no unexplained global tolerance
     tests:
       - compare matching NUIF flex/grid fixtures with Taffy and browser output
       - classify all divergences as schema loss evaluator bug or target semantic difference
   - id: nuif:experiment:layout-inference
     status: planned
+    oracle: held-out-observations
+    acceptance:
+      - candidate ranking predicts held-out viewports better than a freeform baseline
+      - inferred values always retain evidence confidence and alternatives
     tests:
       - capture the same foreign UI at multiple viewport widths
       - infer candidate stack flex grid constraint and freeform representations
@@ -26,57 +40,98 @@ experiments:
       - verify inferred intent is never reported as lossless without source evidence
   - id: nuif:experiment:text-pinning
     status: planned
+    oracle: cross-implementation
+    acceptance:
+      - font bytes Unicode data shaper options and raster parameters are content-addressed
+      - layout and raster divergence are reported separately
     tests:
       - pin font hashes Unicode data shaping configuration locale and width
       - measure cross-platform shaped-run and raster divergence
   - id: nuif:experiment:codec-benchmark
     status: planned
+    oracle: measured-benchmark
+    acceptance:
+      - corpus seed hardware toolchain and warmup protocol are recorded
+      - every candidate passes unknown-data and canonical fixpoint checks before timing
     tests:
       - canonical text vs deterministic CBOR vs schema-based candidates
       - size encode decode partial-load canonicalize and unknown-data preservation
   - id: nuif:experiment:crdt-checkpoint
     status: planned
+    oracle: differential
+    acceptance:
+      - two independent collaboration engines materialize the same canonical checkpoint
+      - semantic conflicts remain explicit after structural convergence
     tests:
       - concurrent semantic edits through two collaboration engines
       - canonical checkpoint equality and explicit semantic conflicts
   - id: nuif:experiment:accessibility-mapping
     status: planned
+    oracle: foreign-reference
+    acceptance:
+      - browser and platform versions are pinned
+      - host differences are classified separately from NUIF semantic loss
     tests:
       - map portable role name state and relationship fixtures to web ARIA
       - compare exposed browser accessibility trees across engines
       - classify platform differences separately from NUIF semantic loss
   - id: nuif:experiment:behavior-portability
     status: planned
+    oracle: differential
+    acceptance:
+      - reference and foreign target traces agree for the required capability subset
+      - missing required capabilities prevent behavioral-conformance claims
     tests:
       - author bounded state and interaction graphs once
       - execute through reference engine and at least one foreign target adapter
       - verify required optional capability negotiation and deterministic replay
   - id: nuif:experiment:unknown-extension-roundtrip
-    status: planned
+    status: automated
     evidence: [nuif:research:opentimelineio, nuif:research:godot-tscn-scene-format, nuif:research:gltf-validator-and-sample-assets]
+    implementation: [conformance/src/lib.rs, crates/nuif-codec/src/lib.rs, crates/nuif-protocol/src/lib.rs]
+    oracle: metamorphic
+    acceptance:
+      - unknown kind identity version and payload bytes survive an ignorant edit cycle
+      - neighbouring edit is retained and canonical CBOR reaches a fixpoint
     tests:
       - decode a document containing an unknown entity kind and an unknown extension namespace with an implementation that registers neither
       - apply rename move and property operations to neighbouring entities
       - encode and assert byte identity of the unknown payloads and restoration of the original kind
   - id: nuif:experiment:roundtrip-trial-loop
-    status: planned
+    status: automated
     evidence: [nuif:research:deterministic-simulation-testing, nuif:research:metamorphic-testing-graphics, nuif:research:delta-debugging-and-test-case-reduction, nuif:research:property-based-testing-state-machines]
+    implementation: [crates/nuif-testing/src/lib.rs, crates/nuif-cli/src/main.rs]
+    oracle: metamorphic
+    acceptance:
+      - 10000-patch Gate B replay inverse and text/CBOR fixpoint relations pass for the recorded seed
+      - sampled layout and CPU rerender relations pass at the declared snapshot interval
+      - a failure report carries source revision seed iteration and ddmin-reduced operations
     tests:
-      - seeded generation of documents and operation logs against an ordered-forest reference model
-      - replay inversion commutation and encode fixpoint relations on every trial
-      - adapter round trips with fidelity reports on the representable subset
-      - three-level reduction of failures into fixture directories
-      - one report per run following conformance/HARNESS.md
+      - seeded generation of valid semantic edit logs over the v0 fixture
+      - replay inversion and encode fixpoint relations on every patch
+      - sampled responsive layout and CPU rerender equality
+      - operation-sequence ddmin when a relation fails
+      - one JSON report per run following conformance/HARNESS.md
   - id: nuif:experiment:render-tolerance-tiers
-    status: planned
+    status: active
     evidence: [nuif:research:vello-testing-and-cpu-reference, nuif:research:flip-perceptual-difference-metric, nuif:research:resvg-test-suite, nuif:research:gpu-rendering-nondeterminism]
+    implementation: [crates/nuif-render/src/lib.rs]
+    oracle: reference-and-measurement
+    acceptance:
+      - profile-0 integer-composited CPU fixtures are byte-repeatable in the CI matrix
+      - shaped text and interactive backend thresholds are derived from measured distributions
     tests:
       - render the v0 fixture through the CPU reference path and assert pixel identity across operating systems
       - render through the Vello backend and measure FLIP mean and per-channel deltas against the CPU reference
       - assign each visual property to a tier from the measured distributions
   - id: nuif:experiment:editor-harness-parity
-    status: planned
+    status: active
     evidence: [nuif:research:masonry-xilem-and-linebender-test-harness, nuif:research:accesskit-semantic-ui-testing, nuif:research:egui-and-egui-kittest]
+    implementation: [apps/editor/src/lib.rs, apps/editor/src/main.rs]
+    oracle: metamorphic
+    acceptance:
+      - every bound widget exposes entity identity role and label
+      - complete v0 authoring through semantic actions and CLI replay reach the same hash
     tests:
       - author the v0 fixture through the editor session driver using accessibility actions only
       - assert the emitted operation log replays to the same canonical hash as the CLI-authored fixture

@@ -1,5 +1,7 @@
 # RFC 0005 — Deterministic numeric and string canonicalization
 
+Correction: RFC 0008 supersedes rules 6 and 8 and the key-order coincidence claim in rule 17. Integer and real values remain distinct in `nuif-cbor-0`; readers must apply RFC 0008 when implementing this RFC.
+
 Status: accepted (decision delegated to research on 2026-08-29; evidence in `nuif:research:deterministic-cbor-profiles-and-numeric-canonicalization`, `nuif:research:ipld-dag-cbor-strictness`, `nuif:research:canonicalization-rfc8785-and-cbor-deterministic`)
 
 ## Motivation
@@ -22,9 +24,9 @@ RFC 8949 §4.2 (core deterministic encoding requirements and the list of decisio
 
 4. The base profile is draft-ietf-cbor-serialization §4.1 (preferred serialization: shortest integer heads, definite lengths only, shortest float width that preserves the value including subnormals, the single NaN encoding `0xf97e00`, no bignum tags for values within the 64-bit range) and §5.1 (map keys sorted by bytewise lexicographic order of their encoded form). NUIF cites these sections by name and restates every rule it depends on below so that a change in the draft does not change NUIF.
 5. Integers encode as major type 0 or 1 with the shortest argument. Values outside `[-2^63, 2^63-1]` are invalid for `integer` properties; the wire range beyond that is never produced.
-6. A `real` whose value is integral and within `[-2^63, 2^63-1]` MUST be encoded as an integer (major type 0 or 1). A decoder that knows the property type restores the real. This is a wire-level narrowing, not a semantic change, because property types are declared by the schema.
+6. Superseded by RFC 0008: a `real` remains a floating-point data item even when integral. Decoding never depends on an external property schema to restore numeric kind.
 7. A `real` that is not integral MUST be encoded as the shortest of half, single or double precision that round-trips the value exactly. Subnormals are preserved.
-8. Both zeros MUST encode as `0x00` (integer zero).
+8. Superseded by RFC 0008: both real zeros encode as positive half-precision floating zero; integer zero remains `0x00`.
 9. NaN and infinities never occur in canonical documents (rule 2). If a future property type admits them, the encoding is `0xf97e00` for NaN and the shortest-width infinity.
 10. Simple values other than `false`, `true` and `null` are not used. No tags appear in the canonical body.
 11. Map keys MUST be in strictly increasing bytewise lexicographic order of their encoded form; a duplicate key is invalid.
@@ -36,7 +38,7 @@ RFC 8949 §4.2 (core deterministic encoding requirements and the list of decisio
 14. The text profile is a lossless surface syntax over the same value set. Its canonical hash is defined as the hash of the `nuif-cbor-0` encoding of the parsed document: `hash(text) = hash(cbor(parse(text)))`. No separate text hash exists.
 15. Reals print as the shortest decimal digit string that round-trips to the same binary64 value (Rust `core::num::flt2dec` shortest mode is a conforming implementation), laid out as plain decimal when `10^-6 <= |v| < 10^21` and otherwise as `d.ddde±x`. Integral reals print without a fraction. `-0` is never printed. `NaN`, `inf` and `-inf` are parse errors.
 16. Integers print in decimal without leading zeros or a plus sign.
-17. Map keys are written in UTF-8 byte order, which coincides with rule 11 for the identifier repertoire in rule 19.
+17. Map keys in `nuif-text-0` are written in UTF-8 byte order. RFC 0008 corrects the earlier claim of coincidence: CBOR encoded-key order differs when key lengths differ.
 18. Whitespace, comments and key quoting styles are not significant and are not preserved; the text encoder emits one fixed layout.
 
 ### Strings and identifiers
@@ -52,28 +54,28 @@ RFC 8949 §4.2 (core deterministic encoding requirements and the list of decisio
 
 ## Compatibility
 
-No documents exist yet. Decoders implementing only RFC 8949 §4.2 accept `nuif-cbor-0` output. dCBOR decoders accept it except where NUIF omits NFC normalization (rule 20); dCBOR's NFC rule applies to its own profile, not to NUIF.
+No documents exist yet. Decoders implementing RFC 8949 §4.2 accept the structural subset of `nuif-cbor-0` output. dCBOR is not wire-compatible with RFC 0008 integral real values or with NUIF's verbatim-string rule and is not a NUIF decoder.
 
 ## Security
 
-Strict decoding removes canonicalization ambiguity as an attack surface (two byte sequences for one value). Extension payloads are opaque bytes with a declared size limit enforced by the parser (`spec/11-security.md`). Numeric narrowing never changes a value; a decoder that does not know a property's type treats an integer-encoded real as an integer, which is why typed decoding is required for hash-equivalence claims.
+Strict decoding removes canonicalization ambiguity as an attack surface (two byte sequences for one value). Extension payloads are opaque bytes with a declared size limit enforced by the parser (`spec/11-security.md`). RFC 0008 keeps numeric kind self-describing, so generic decoding does not depend on a property schema.
 
 ## Conformance tests
 
 - canonicalization suite: encode, decode, encode fixpoint; hash stability across platforms; every rule 4–13 has a positive and a negative fixture (non-canonical inputs rejected by the strict decoder).
-- numeric fixtures: subnormals, `2^53 ± 1`, integral reals at the `2^63` boundary, `-0.0` input canonicalizing to `0x00`, shortest-width selection for half and single precision.
+- numeric fixtures: subnormals, `2^53 ± 1`, integral reals remaining floats at the `2^63` boundary, both real zeros canonicalizing to positive floating zero, and shortest-width selection for half and single precision (RFC 0008).
 - text fixtures: layout switch at `10^-6` and `10^21`; `5e-324` prints as `5e-324`; parse rejection of `NaN` and `inf`.
 - dCBOR §7 test vectors for the rules NUIF shares, with the divergent cases (NFC) marked as intentionally not shared.
 
 ## Implementation
 
-`nuif-codec` uses the `dcbor` crate (0.25.2, BSD-2-Clause-Patent, `no_std`, edition 2024) behind the `Encoder`, `Decoder` and `Canonicalizer` traits for `nuif-cbor-0`; it is the only crate at Rust 1.85 that both produces and verifies a full deterministic profile. `ciborium` narrows numbers but does not order or check keys; `minicbor` and `cbor4ii` write fixed-width floats; `serde_cbor` is unmaintained (RUSTSEC-2021-0127). The dependency is isolated behind the codec traits with an escape hatch to a small in-house encoder over `ciborium-ll` if `dcbor` diverges from these rules. Text number formatting uses the standard library's shortest-digit mode with the layout in rule 15, not `Display` (which prints `-0` and never uses exponents).
+`nuif-codec` converts Serde values to `ciborium::Value`, recursively rejects forbidden values, sorts map entries by encoded key bytes and uses Ciborium's shortest-width writer. Strict decoding retains the value tree, re-encodes it and compares the original bytes before deserializing the document. This supplies the ordering/checking layer Ciborium intentionally omits while preserving numeric kind under RFC 0008.
 
 ## Rejected alternatives
 
 - Adopt dCBOR by reference: an individual draft with strict-reject semantics on NFC that would rewrite user text and can change under NUIF.
 - Adopt draft-ietf-cbor-serialization by reference alone: silent on negative zero and duplicate keys; NUIF must state both.
-- Preserve `-0.0` and the float/integer distinction on the wire (data-model-preserving profile): produces two encodings for values the logical model treats as equal and makes text and binary hashes diverge.
+- Preserve negative zero as distinct: rejected because the logical model equates the two real zeros. Preserve float/integer distinction: accepted by RFC 0008 because the logical model distinguishes those kinds.
 - Separate text hash: two hashes for one document invite inconsistency; the text profile is a view.
 - NFC-normalize string values: violates verbatim preservation required by RFC 0003 and the minimal-patch requirement.
 - Use JSON with RFC 8785 as the binary profile: no byte strings, no integer/real distinction, larger payloads.
@@ -81,4 +83,4 @@ Strict decoding removes canonicalization ambiguity as an attack surface (two byt
 ## Unresolved
 
 - Whether Rust's shortest-digit algorithm and ECMAScript `Number::toString` ever differ in tie-breaking (no counterexample found; irrelevant to NUIF hashes because the text profile hashes through CBOR).
-- `dcbor` crate MSRV is not declared; verified to build on 1.85 in the research record only by manifest inspection, to be confirmed in CI.
+- Whether the text surface remains canonical JSON or adopts a purpose-built syntax after reviewability trials; hashes are unaffected because text hashes through CBOR.

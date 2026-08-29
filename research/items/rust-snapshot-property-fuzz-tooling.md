@@ -100,7 +100,7 @@ impl ReferenceStateMachine for RefMachine {
         let ids = s.parent.keys().copied().collect::<Vec<_>>();
         prop_oneof![
             (any::<Entity>(), sample(ids.clone()), 0usize..8).prop_map(|(e, p, i)| Operation::Insert { parent: Some(p), index: i, entity: e }),
-            (sample(ids.clone()), sample(ids.clone()), 0usize..8).prop_map(|(e, p, i)| Operation::Move { entity: e, new_parent: Some(p), new_index: i }),
+            (sample(ids.clone()), sample(ids.clone()), sample(ids.clone())).prop_map(|(e, p, after)| Operation::Move { entity: e, new_parent: Some(p), anchor: Anchor::After(after) }),
             sample(ids.clone()).prop_map(|e| Operation::Remove { entity: e }),
         ].boxed()
     }

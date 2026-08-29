@@ -50,8 +50,8 @@ areas:
     artifacts: [spec/03-components-and-composition.md]
   serialization_file_format:
     status: experiment-required
-    evidence: [nuif:research:encoding, nuif:research:content-addressed-versioning, nuif:research:canonicalization-rfc8785-and-cbor-deterministic, nuif:research:deterministic-cbor-profiles-and-numeric-canonicalization, nuif:research:ipld-dag-cbor-strictness, nuif:research:opentimelineio, nuif:research:unreal-asset-versioning-and-automation, nuif:research:alembic]
-    artifacts: [spec/08-serialization.md, adrs/0004-serialization.md, rfcs/0005-deterministic-numeric-and-string-canonicalization.md]
+    evidence: [nuif:research:encoding, nuif:research:content-addressed-versioning, nuif:research:canonicalization-rfc8785-and-cbor-deterministic, nuif:research:deterministic-cbor-profiles-and-numeric-canonicalization, nuif:research:cbor-data-model-and-key-order-correction, nuif:research:ipld-dag-cbor-strictness, nuif:research:opentimelineio, nuif:research:unreal-asset-versioning-and-automation, nuif:research:alembic]
+    artifacts: [spec/08-serialization.md, adrs/0004-serialization.md, rfcs/0005-deterministic-numeric-and-string-canonicalization.md, rfcs/0008-cbor-data-model-preservation.md, crates/nuif-codec]
   collaboration_version_control:
     status: experiment-required
     evidence: [nuif:research:automerge-yjs, nuif:research:structured-merge, nuif:research:crdt-tree-move-operation, nuif:research:operational-transformation-vs-crdt, nuif:research:patch-theory-darcs-pijul, nuif:research:unity-prefabs-and-yaml-merge]

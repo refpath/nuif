@@ -6,11 +6,11 @@ NUIF uses a small core and namespaced extensions.
 
 Documents declare `extensions_used` and `extensions_required`, and MAY declare a `fallback_kind` per namespace. A required extension means correct interpretation/rendering cannot be guaranteed without it.
 
-Extension lifecycle namespaces:
+Extension lifecycle namespaces use the lowercase identifier grammar from RFC 0005:
 
-- `NUIF_*` — ratified standard extension;
-- `EXT_*` — multi-implementation experimental extension;
-- vendor/project namespace — owner-specific extension.
+- `nuif.*` — ratified NUIF extension;
+- `ext.*` — multi-implementation experimental extension;
+- a collision-resistant vendor/project namespace such as a reversed DNS name — owner-specific extension.
 
 ## Preservation (RFC 0002, RFC 0007)
 
@@ -24,6 +24,6 @@ An entity of unknown kind, or of a known kind with a newer schema version than s
 - namespace in `extensions_used` and unsupported: information;
 - namespace in `extensions_required` and unsupported: blocks faithful-rendering claims, never structural editing.
 
-Promotion of an `EXT_*` namespace to `NUIF_*` requires a conformance fixture and a validator rule (pattern: glTF extension status ladder).
+Promotion of an `ext.*` namespace to `nuif.*` requires a conformance fixture and a validator rule (adapted from the glTF extension status ladder).
 
 Dialects may define higher-level authored constructs and lowering rules. A dialect cannot redefine core semantics.

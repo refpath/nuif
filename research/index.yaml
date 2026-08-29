@@ -14,14 +14,16 @@ principles:
     statement: Collaboration state should be layered above the canonical document rather than defining the canonical document.
   - id: nuif:claim:semantic-automation
     statement: CLI and API semantics are normative test surfaces; GUI automation is supplementary.
+  - id: nuif:claim:canonical-type-preservation
+    statement: Canonical encodings must preserve logical value kinds without relying on an unavailable external schema.
 topics:
   ir: [mlir, openusd, gltf]
   design_models: [penpot, openpencil, figma]
   layout: [taffy, yoga, swiftui-layout, cassowary]
-  rendering: [vello, wgpu, harfbuzz, unicode-text]
-  synchronization: [lenses, symmetric-lenses, retentive-lenses, structured-merge]
-  collaboration: [automerge, yjs]
-  encoding: [cbor, protobuf, kiwi, deterministic-cbor-profiles-and-numeric-canonicalization, ipld-dag-cbor-strictness]
+  rendering: [vello, renderers, harfbuzz-unicode, gpu-rendering-nondeterminism]
+  synchronization: [lenses-foster-boomerang, symmetric-lenses, retentive-lenses, structured-merge]
+  collaboration: [automerge-yjs, operational-transformation-vs-crdt]
+  encoding: [encoding, openfig-fig-kiwi, deterministic-cbor-profiles-and-numeric-canonicalization, ipld-dag-cbor-strictness, cbor-data-model-and-key-order-correction]
   ecosystem: [dtcg, wasm-component-model, step]
   cgi_interchange: [openusd-composition-and-crate, unknown-schema-preservation-strategies, hydra-render-delegate, opentimelineio, alembic, gltf-validator-and-sample-assets, materialx-and-shader-graph-tests]
   game_engines: [unity-prefabs-and-yaml-merge, unreal-asset-versioning-and-automation, godot-tscn-scene-format, blender-dna-rna-and-headless, houdini-pdg-and-hda, figma-multiplayer-and-rendering-engineering]

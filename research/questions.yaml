@@ -59,8 +59,9 @@ questions:
     topic: serialization
     question: Which float policy does nuif-cbor-0 adopt, given that CDE keeps -0.0 and float 1.0 while dCBOR reduces integral floats to integers and all zeros to 0x00?
     status: decided
-    decided_by: rfcs/0005-deterministic-numeric-and-string-canonicalization.md
-    evidence: [nuif:research:canonicalization-rfc8785-and-cbor-deterministic, nuif:research:deterministic-cbor-profiles-and-numeric-canonicalization, nuif:research:ipld-dag-cbor-strictness]
+    decided_by: rfcs/0008-cbor-data-model-preservation.md
+    note: RFC 0008 corrects RFC 0005 by preserving integer/real identity; integer zero is 0x00 and both real zeros are positive half-precision floating zero.
+    evidence: [nuif:research:canonicalization-rfc8785-and-cbor-deterministic, nuif:research:deterministic-cbor-profiles-and-numeric-canonicalization, nuif:research:ipld-dag-cbor-strictness, nuif:research:cbor-data-model-and-key-order-correction]
   - id: nuif:question:sibling-order-identifier
     topic: protocol
     question: Which list identifier (fractional index or list-CRDT position) replaces integer indices in Insert and Move so that independent operations commute?

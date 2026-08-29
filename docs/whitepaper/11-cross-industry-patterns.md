@@ -12,7 +12,7 @@ This document synthesizes 52 research records added on 2026-08-29 from visual-ef
 
 ## Method
 
-Every record was written from primary sources (specifications, source code at a named commit, papers with DOI) and states what was verified and what remains unverified. Claims in this document that rest on a single record inherit that record's confidence. Where two sources conflict, both are recorded and the conflict is listed as an open question rather than resolved by preference.
+The 52 records synthesized here were reviewed from primary sources (specifications, source code at a named commit and papers with DOI). `reviewed` does not mean every material claim has completed locator-level verification; `research/AUDIT.md` defines the stricter `verified` state. Claims resting on one record inherit its evidence status as well as its confidence. Source conflicts remain explicit until an RFC or experiment resolves them.
 
 ## Patterns
 
@@ -32,7 +32,7 @@ Every record was written from primary sources (specifications, source code at a 
 |---|---|---|---|
 | File-local numeric identity with global identity through a second key | `unity-prefabs-and-yaml-merge`, `godot-tscn-scene-format` | Reject: file-local identities orphan cross-file references on replacement; NUIF identities are global from creation | `spec/02-identity-and-properties.md` |
 | Path-based addressing in patches | `json-patch-rfc6902-and-merge-patch` | Reject for entities; retain for property paths inside an identity-addressed operation | `spec/06-operations-and-patches.md` |
-| Parent link and fractional position as one atomic property | `figma-multiplayer-and-rendering-engineering` | Adapt: parent and order identifier move together; ordering uses a list identifier, not an integer index | `crates/nuif-protocol` (`Move { new_index }` is non-commutative) |
+| Parent link and fractional position as one atomic property | `figma-multiplayer-and-rendering-engineering` | Adapt: parent and anchor move together; collaboration profiles may use list identifiers internally, while canonical operations use `Start`/`After(id)` anchors | RFC 0006, `crates/nuif-protocol` |
 | Tree move with undo/redo of concurrent operations and cycle rejection, mechanized proof | `crdt-tree-move-operation` | Adapt for the collaboration profile; the canonical document keeps a totally ordered log and needs no replica metadata | `spec/10-collaboration-profile.md` |
 | Random resource identifiers with path fallback and warnings | `godot-tscn-scene-format` | Borrow the fallback discipline for asset references; a resolved-by-path reference must be diagnosed | `spec/09-provenance-and-fidelity.md` |
 
@@ -64,7 +64,7 @@ Every record was written from primary sources (specifications, source code at a 
 | Pattern | Source | Decision | NUIF artifact |
 |---|---|---|---|
 | RFC 8949 §4.2 core deterministic encoding rules | `canonicalization-rfc8785-and-cbor-deterministic` | Borrow | `nuif-cbor-0` |
-| Float handling: CDE keeps `-0.0` and float `1.0`; dCBOR reduces integral floats to integers and all zeros to `0x00` | same | Decide explicitly: NUIF must pick one; the records show the drafts conflict | question `cbor-float-zero` |
+| Float handling: CDE keeps numeric kinds while dCBOR reduces integral floats and zero | same, `cbor-data-model-and-key-order-correction` | Preserve NUIF's declared integer/real kinds; canonicalize both real zeros to positive floating zero | RFC 0008 |
 | RFC 8785 number serialization via shortest round-trip and `-0` to `0` | same | Adapt for `nuif-text-0` | `spec/08-serialization.md` |
 | Content-addressed deduplication of array values | `openusd-composition-and-crate`, `alembic` | Borrow for the package asset store; reject for editable entities | ADR 0004 |
 
@@ -83,7 +83,7 @@ Every record was written from primary sources (specifications, source code at a 
 |---|---|---|---|
 | Renderer as a pluggable backend behind a stable scene abstraction | `hydra-render-delegate` | Borrow (already ADR 0003) | `crates/nuif-render` |
 | GPU shaders as ground truth compared by a perceptual mean | `vello-testing-and-cpu-reference` | Reject as the conformance oracle; borrow the threshold values for the interactive backend | `conformance/HARNESS.md` |
-| CPU `f32` pipeline with tolerance 0 as the reference | `vello-testing-and-cpu-reference`, `resvg-test-suite` | Borrow: the reference rasterization is CPU, pixel-exact, pinned fonts | ADR 0003 |
+| CPU `f32` pipeline with tolerance 0 inside Vello's own harness | `vello-testing-and-cpu-reference`, `resvg-test-suite` | Treat as candidate evidence, not proof of cross-platform identity; calibrate NUIF's path with pinned assets and a CI matrix | render-tolerance experiment, ADR 0003 |
 | Per-test numeric and perceptual thresholds (`idiff`, `oiiotool`, WPT `fuzzy`, WebRender `fuzzy(max,count)`) | `hydra-render-delegate`, `blender-dna-rna-and-headless`, `skia-gold-and-gm-tests`, `webrender-reftests` | Adapt into three declared tiers: exact, bounded per-channel delta with pixel count, perceptual (ꟻLIP mean) | `conformance/HARNESS.md` |
 | Reftests (two documents that must render identically) over pixel baselines | `skia-gold-and-gm-tests` | Borrow for equivalence-preserving rewrites | metamorphic relation class 1 |
 | Scene capture to a text serialization for deterministic replay | `webrender-reftests` | Borrow: render scenes are serializable fixtures | `crates/nuif-render` |
@@ -137,7 +137,7 @@ The following were examined and excluded from the architecture; the reason is re
 The records imply the following changes. Items 1–3 were decided by follow-up research on 2026-08-29 and are recorded as accepted RFCs; items 4–6 remain proposals.
 
 1. Sibling order is a canonical array without keys; `Insert` and `Move` use anchors (`Start`, `After(id)`); the collaboration profile maps anchors onto a Fugue-family list CRDT (RFC 0006).
-2. `nuif-cbor-0` follows draft-ietf-cbor-serialization preferred serialization with narrowing rules stated by value (integral reals and both zeros as integers, finite reals only, strict decoders); `nuif-text-0` hashes through CBOR; string values are verbatim (RFC 0005).
+2. `nuif-cbor-0` follows deterministic preferred serialization while preserving integer/real data-model identity; real zero is positive floating zero, text and CBOR key orders are distinct, strict decoders reject non-canonical input, text hashes through CBOR and strings remain verbatim (RFCs 0005 and 0008).
 3. Entities of unknown kind load as `Unknown` with typed core fields and an opaque payload; ignorant implementations preserve bytes, knowing ones may re-encode; validation severities follow the glTF pattern (RFC 0007).
 4. Every serialized record kind carries a schema version; migrations are registered pure functions; newer-than-known versions load as `Unknown` for entities (RFC 0007) and are diagnosed for other records.
 5. Validation, import and export reports follow one schema with stable codes, severities and pointers.

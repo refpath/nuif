@@ -10,9 +10,9 @@ Sibling order in the canonical document is an ordered array of entity identifier
 
 ## Patches
 
-A patch declares a base snapshot/content identity and ordered operations. Preconditions MAY guard expected prior values, including `ParentIs` and `Follows`.
+A patch's optional `base_revision`, when present, is the profile-qualified canonical content hash of the document to which it applies. An implementation MUST reject a mismatch before applying any transaction. Transactions and operations are ordered. Preconditions MAY guard expected prior values, including `ParentIs` and `Follows`.
 
-Undo is represented as inverse semantic operations or transaction history; it is not part of canonical document state. The invariant "undo, copy, redo leaves the document unchanged" is a conformance relation.
+Undo is represented as inverse semantic operations or transaction history; it is not part of canonical document state. A generated inverse patch declares the hash of the post-apply document as its `base_revision`. The invariant "undo, copy, redo leaves the document unchanged" is a conformance relation.
 
 ## Merge
 
