@@ -11,6 +11,7 @@ members = [
   "crates/nuif-query",
   "crates/nuif-api",
   "crates/nuif-testing",
+  "crates/nuif-adapter",
   "crates/nuif-html",
   "crates/nuif-collab",
   "apps/editor",

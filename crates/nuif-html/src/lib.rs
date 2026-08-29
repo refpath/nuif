@@ -7,105 +7,20 @@ mod sync;
 mod syntax;
 mod v0;
 
-use nuif_core::{Document, EntityId, Fidelity};
-use serde::{Deserialize, Serialize};
+use nuif_core::EntityId;
 use thiserror::Error;
 
 pub use export::export_document;
+pub use nuif_adapter::{
+    AdapterReport, CorrespondenceRecord, CorrespondenceTarget, ExportedSource, FidelityEntry,
+    ImportedSource, RetentiveSource, SourceEdit, SourceSpan, SynchronizedSource,
+};
 pub use parse::import_source;
 pub use profile::{PROFILE_NAME, profile_fixture};
 pub use sync::synchronize;
 pub use v0::{V0_PROFILE_NAME, export_v0_document, import_v0_source, synchronize_v0};
 
 pub const MAX_SOURCE_BYTES: usize = 1024 * 1024;
-
-#[derive(Clone, Debug, Eq, Ord, PartialEq, PartialOrd, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case", tag = "kind")]
-pub enum CorrespondenceTarget {
-    Document { id: EntityId },
-    Entity { id: EntityId },
-    Token { id: EntityId },
-}
-
-#[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct SourceSpan {
-    pub start: usize,
-    pub end: usize,
-}
-
-#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct CorrespondenceRecord {
-    pub target: CorrespondenceTarget,
-    pub pointer: String,
-    pub span: SourceSpan,
-}
-
-#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct FidelityEntry {
-    pub target: CorrespondenceTarget,
-    pub pointer: String,
-    pub status: Fidelity,
-}
-
-#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct AdapterReport {
-    pub schema_version: u32,
-    pub source_format: String,
-    pub canonical_hash: Option<String>,
-    pub fidelity: Vec<FidelityEntry>,
-    pub correspondences: Vec<CorrespondenceRecord>,
-    pub unmapped_source_preserved: bool,
-}
-
-impl AdapterReport {
-    #[must_use]
-    pub fn is_lossless(&self) -> bool {
-        self.fidelity
-            .iter()
-            .all(|entry| entry.status == Fidelity::Lossless)
-    }
-}
-
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct ExportedSource {
-    pub source: String,
-    pub report: AdapterReport,
-}
-
-#[derive(Clone, Debug, PartialEq)]
-pub struct RetentiveSource {
-    pub source: String,
-    pub document: Document,
-    pub report: AdapterReport,
-}
-
-#[derive(Clone, Debug, PartialEq)]
-pub struct ImportedSource {
-    pub document: Document,
-    pub retentive: RetentiveSource,
-}
-
-#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct SourceEdit {
-    pub target: CorrespondenceTarget,
-    pub pointer: String,
-    pub span: SourceSpan,
-    pub replacement: String,
-}
-
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct SynchronizedSource {
-    pub source: String,
-    pub edits: Vec<SourceEdit>,
-    pub report: AdapterReport,
-}
 
 #[derive(Clone, Debug, Error)]
 pub enum AdapterError {
@@ -148,7 +63,7 @@ pub(crate) fn token_pointer(id: EntityId, suffix: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use nuif_core::{Color, ColorSpace, PropertyValue};
+    use nuif_core::{Color, ColorSpace, Fidelity, PropertyValue};
     use std::collections::BTreeSet;
 
     #[test]

@@ -2245,6 +2245,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "nuif-adapter"
+version = "0.0.1"
+dependencies = [
+ "nuif-core",
+ "serde",
+]
+
+[[package]]
 name = "nuif-api"
 version = "0.0.0"
 dependencies = [
@@ -2352,6 +2360,7 @@ dependencies = [
 name = "nuif-html"
 version = "0.0.1"
 dependencies = [
+ "nuif-adapter",
  "nuif-codec",
  "nuif-core",
  "serde",
