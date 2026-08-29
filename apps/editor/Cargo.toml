@@ -9,12 +9,22 @@ repository.workspace = true
 name = "nuif_editor"
 path = "src/lib.rs"
 
+[features]
+default = []
+editor-automation = ["dep:masonry_testing"]
+
 [[bin]]
 name = "nuif-editor"
 path = "src/main.rs"
 
+[[bin]]
+name = "nuif-editor-automation"
+path = "src/bin/editor-automation.rs"
+required-features = ["editor-automation"]
+
 [dependencies]
 masonry = { git = "https://github.com/linebender/xilem.git", rev = "b81d8d7a631849def6eeab282561439b963862e5" }
+masonry_testing = { git = "https://github.com/linebender/xilem.git", rev = "b81d8d7a631849def6eeab282561439b963862e5", optional = true }
 masonry_winit = { git = "https://github.com/linebender/xilem.git", rev = "b81d8d7a631849def6eeab282561439b963862e5" }
 nuif-api = { path = "../../crates/nuif-api" }
 nuif-codec = { path = "../../crates/nuif-codec" }

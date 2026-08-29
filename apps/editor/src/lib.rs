@@ -1,5 +1,7 @@
 #![doc = "Headless-testable reference-editor session and accessibility action surface."]
 
+pub mod gui;
+
 use nuif_api::{EngineError, Session, profile_zero_context};
 use nuif_codec::{CanonicalText, Encoder, canonical_hash};
 use nuif_core::{Document, Entity, EntityId, EntityKind, ExtensionDeclarations, SizeIntent, Token};

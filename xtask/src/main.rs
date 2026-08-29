@@ -14,6 +14,7 @@ const ALL_STEPS: &[Step] = &[
     ("gate-c", gate_c),
     ("gate-d", gate_d),
     ("editor-trial", editor_trial),
+    ("editor-gui-trial", editor_gui_trial),
     ("gate-f", gate_f),
     ("gate-f-v0", gate_f_v0),
     ("gate-g", gate_g),
@@ -28,6 +29,7 @@ const VERIFICATION_ARTIFACTS: &[&str] = &[
     "target/render-profile-report.json",
     "target/editor-authoring-report.json",
     "target/editor-authoring-snapshot",
+    "target/editor-gui-trial",
     "target/html-sync-report.json",
     "target/html-sync-output.html",
     "target/html-sync-v0-report.json",
@@ -84,10 +86,11 @@ fn run() -> Result<(), String> {
         Some("hostile-inputs") => hostile_inputs(),
         Some("research") => research(),
         Some("editor-trial") => editor_trial(),
+        Some("editor-gui-trial") => editor_gui_trial(),
         Some("manifest") => standalone_manifest(),
         Some("all") => all(),
         _ => Err(
-            "usage: cargo xtask <research|verify|trial [seed iterations snapshot-interval report-path]|gate-b|gate-c|gate-d|gate-d-text|gate-d-render|gate-f|gate-f-v0|gate-g|gate-h|browser-install|hostile-inputs|editor-trial|manifest|all>"
+            "usage: cargo xtask <research|verify|trial [seed iterations snapshot-interval report-path]|gate-b|gate-c|gate-d|gate-d-text|gate-d-render|gate-f|gate-f-v0|gate-g|gate-h|browser-install|hostile-inputs|editor-trial|editor-gui-trial|manifest|all>"
                 .to_owned(),
         ),
     }
@@ -575,6 +578,98 @@ fn editor_trial() -> Result<(), String> {
             directory.display()
         )
     })
+}
+
+fn editor_gui_trial() -> Result<(), String> {
+    let artifacts = Path::new("target/editor-gui-trial");
+    if artifacts.exists() {
+        fs::remove_dir_all(artifacts).map_err(|error| error.to_string())?;
+    }
+    fs::create_dir_all(artifacts).map_err(|error| error.to_string())?;
+    let input = artifacts.join("input.nuif");
+    cargo(&[
+        "run",
+        "--quiet",
+        "--locked",
+        "-p",
+        "nuif-cli",
+        "--",
+        "fixture",
+        "v0-responsive-card",
+        path(&input)?,
+    ])?;
+    run_editor_gui_automation(&input, artifacts)?;
+    cargo(&[
+        "run",
+        "--quiet",
+        "--locked",
+        "-p",
+        "nuif-cli",
+        "--",
+        "validate",
+        "target/editor-gui-trial/output.nuif",
+    ])?;
+
+    let reproduction = env::temp_dir().join(format!(
+        "nuif-editor-gui-reproduction-{}",
+        std::process::id()
+    ));
+    if reproduction.exists() {
+        return Err(format!(
+            "temporary path already exists: {}",
+            reproduction.display()
+        ));
+    }
+    run_editor_gui_automation(&input, &reproduction)?;
+    let first = read_json(&artifacts.join("report.json"))?;
+    let second = read_json(&reproduction.join("report.json"))?;
+    for field in [
+        "canonical_hash",
+        "replay_hash",
+        "shell_rgba_sha256",
+        "document_rgba_sha256",
+    ] {
+        if first[field] != second[field] {
+            return Err(format!(
+                "native editor trial is not reproducible for {field}: first={}, second={}",
+                first[field], second[field]
+            ));
+        }
+    }
+    if first["status"] != "passed"
+        || first["window"] != serde_json::json!([1280, 800])
+        || first["semantic_nodes"] != 11
+        || first["operations"] != 4
+    {
+        return Err("native editor trial report failed its evidence assertions".to_owned());
+    }
+    fs::remove_dir_all(&reproduction).map_err(|error| {
+        format!(
+            "trial passed but temporary directory {} could not be removed: {error}",
+            reproduction.display()
+        )
+    })
+}
+
+fn run_editor_gui_automation(input: &Path, artifacts: &Path) -> Result<(), String> {
+    cargo(&[
+        "run",
+        "--quiet",
+        "--locked",
+        "-p",
+        "nuif-editor",
+        "--bin",
+        "nuif-editor-automation",
+        "--features",
+        "editor-automation",
+        "--",
+        "--document",
+        path(input)?,
+        "--scenario",
+        "conformance/fixtures/editor-native-trial.json",
+        "--artifact-dir",
+        path(artifacts)?,
+    ])
 }
 
 fn verification_manifest(

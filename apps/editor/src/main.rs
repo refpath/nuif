@@ -12,8 +12,6 @@ use std::fs;
 use std::io::{self, Read};
 use std::path::{Path, PathBuf};
 
-mod gui;
-
 const MAX_SCRIPT_BYTES: usize = 8 * 1024 * 1024;
 const MAX_SCRIPT_LINE_BYTES: usize = 64 * 1024;
 const MAX_SCRIPT_COMMANDS: usize = 100_000;
@@ -21,7 +19,11 @@ const USAGE: &str = "usage: nuif-editor --headless --script <jsonl> [--document 
 
 fn main() {
     let headless = env::args().nth(1).as_deref() == Some("--headless");
-    let result = if headless { run() } else { gui::run() };
+    let result = if headless {
+        run()
+    } else {
+        nuif_editor::gui::run()
+    };
     if let Err(error) = result {
         eprintln!("{{\"error\":{}}}", serde_json::to_string(&error).unwrap());
         std::process::exit(1);

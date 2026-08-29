@@ -2,7 +2,11 @@
 
 mod widgets;
 
-use self::widgets::{AuthorContainer, CanvasAction, DocumentCanvas};
+#[cfg(feature = "editor-automation")]
+pub mod automation;
+
+use self::widgets::{AuthorAction, AuthorContainer, CanvasAction, DocumentCanvas};
+use crate::{AccessibilityAction, EditorCommand, EditorDriver, EditorEvent};
 use masonry::core::{ErasedAction, NewWidget, StyleProperty, Widget, WidgetId};
 use masonry::dpi::LogicalSize;
 use masonry::layout::{AsUnit, Length, UnitPoint};
@@ -23,7 +27,6 @@ use nuif_codec::{
 use nuif_core::{
     Color, Document, Entity, EntityId, EntityKind, Point, ShapeKind, SizeIntent, TextContent,
 };
-use nuif_editor::{AccessibilityAction, EditorCommand, EditorDriver, EditorEvent};
 use nuif_protocol::Anchor;
 use std::collections::HashMap;
 use std::env;
@@ -66,7 +69,7 @@ impl Tool {
     ];
 }
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 enum UiAction {
     New,
     Open,
@@ -97,6 +100,7 @@ struct Driver {
     tool: Tool,
     actions: HashMap<WidgetId, UiAction>,
     entity_widgets: HashMap<EntityId, WidgetId>,
+    control_widgets: HashMap<(EntityId, &'static str), WidgetId>,
     text_fields: HashMap<WidgetId, InspectorField>,
     drafts: HashMap<InspectorField, String>,
 }
@@ -113,6 +117,7 @@ impl Driver {
             tool: Tool::Move,
             actions: HashMap::new(),
             entity_widgets: HashMap::new(),
+            control_widgets: HashMap::new(),
             text_fields: HashMap::new(),
             drafts: HashMap::new(),
         }
@@ -121,6 +126,7 @@ impl Driver {
     fn build_view(&mut self) -> NewWidget<dyn Widget> {
         self.actions.clear();
         self.entity_widgets.clear();
+        self.control_widgets.clear();
         self.text_fields.clear();
 
         let snapshot = match self.editor.execute(EditorCommand::Snapshot {
@@ -182,13 +188,13 @@ impl Driver {
         let mark = label("N", 18.0, TEXT, true);
         let mut column = Flex::column().with_fixed(mark);
         for (caption, action) in [
-            ("≡", UiAction::Open),
-            ("+", UiAction::New),
-            ("S", UiAction::Save),
-            ("⇧S", UiAction::SaveAs),
-            ("↶", UiAction::Undo),
-            ("↷", UiAction::Redo),
-            ("↥", UiAction::ExportSnapshot),
+            ("OP", UiAction::Open),
+            ("NW", UiAction::New),
+            ("SV", UiAction::Save),
+            ("AS", UiAction::SaveAs),
+            ("UN", UiAction::Undo),
+            ("RE", UiAction::Redo),
+            ("EX", UiAction::ExportSnapshot),
         ] {
             column = column
                 .with_fixed_spacer(8.px())
@@ -217,7 +223,7 @@ impl Driver {
             .with_fixed_spacer(18.px())
             .with_fixed(label("PAGES", 10.0, MUTED, true))
             .with_fixed_spacer(7.px())
-            .with_fixed(label("▣  Page 1", 12.0, TEXT, false))
+            .with_fixed(label("Page 1", 12.0, TEXT, false))
             .with_fixed_spacer(18.px())
             .with_fixed(label("LAYERS", 10.0, MUTED, true));
 
@@ -234,7 +240,8 @@ impl Driver {
                 let selected = selection == Some(entity);
                 let caption = format!("{}{}", "  ".repeat(depth), name);
                 let button = self.button(&caption, UiAction::Select(entity), selected);
-                let row = AuthorContainer::new(button, entity, format!("Layer {name}")).prepare();
+                let row =
+                    AuthorContainer::tree_item(button, entity, format!("Layer {name}")).prepare();
                 self.entity_widgets.insert(entity, row.id());
                 content = content.with_fixed_spacer(4.px()).with_fixed(row);
             }
@@ -253,7 +260,7 @@ impl Driver {
 
     fn build_right_panel(&mut self, selection: Option<EntityId>) -> NewWidget<dyn Widget> {
         let mut content = Flex::column()
-            .with_fixed(label("Design    Prototype", 12.0, TEXT, true))
+            .with_fixed(label("Design", 12.0, TEXT, true))
             .with_fixed_spacer(14.px());
         if let Some(entity_id) = selection {
             let entity = self.editor.document().entities[&entity_id].clone();
@@ -402,12 +409,33 @@ impl Driver {
             | InspectorField::Width(entity)
             | InspectorField::Height(entity) => entity,
         };
-        let label = match field {
-            InspectorField::Name(_) => "Name control",
-            InspectorField::Width(_) => "Width control",
-            InspectorField::Height(_) => "Height control",
+        let (label, semantic_label, role) = match field {
+            InspectorField::Name(_) => {
+                ("Name control", "name", masonry::accesskit::Role::TextInput)
+            }
+            InspectorField::Width(_) => (
+                "Width control",
+                "width",
+                masonry::accesskit::Role::SpinButton,
+            ),
+            InspectorField::Height(_) => (
+                "Height control",
+                "height",
+                masonry::accesskit::Role::SpinButton,
+            ),
         };
-        AuthorContainer::new(input.prepare(), entity, label).prepare()
+        let control = AuthorContainer::value_control(
+            input.prepare(),
+            entity,
+            label,
+            semantic_label,
+            role,
+            value,
+        )
+        .prepare();
+        self.control_widgets
+            .insert((entity, semantic_label), control.id());
+        control
     }
 
     fn refresh(&mut self, ctx: &mut DriverCtx<'_>) {
@@ -532,6 +560,42 @@ impl Driver {
                 };
                 if let Err(error) = self.insert_entity(tool, entity, x, y) {
                     self.status = format!("Insert failed: {error}");
+                }
+            }
+        }
+    }
+
+    fn handle_author_action(&mut self, action: AuthorAction) {
+        match action {
+            AuthorAction::Select { author_id } => {
+                if let Err(error) = self
+                    .editor
+                    .dispatch_accessibility_action(AccessibilityAction::Select { author_id })
+                {
+                    self.status = error.to_string();
+                } else {
+                    self.drafts.clear();
+                    self.status = format!("Selected {author_id} through accessibility");
+                }
+            }
+            AuthorAction::SetValue {
+                author_id,
+                label,
+                value,
+            } => {
+                if let Err(error) =
+                    self.editor
+                        .dispatch_accessibility_action(AccessibilityAction::SetValue {
+                            author_id,
+                            label: label.clone(),
+                            value,
+                        })
+                {
+                    self.status = format!("Accessibility edit failed: {error}");
+                } else {
+                    self.dirty = true;
+                    self.drafts.clear();
+                    self.status = format!("Updated {label} through accessibility");
                 }
             }
         }
@@ -761,6 +825,9 @@ impl AppDriver for Driver {
         } else if action.is::<CanvasAction>() {
             self.handle_canvas_action(*action.downcast::<CanvasAction>().unwrap());
             true
+        } else if action.is::<AuthorAction>() {
+            self.handle_author_action(*action.downcast::<AuthorAction>().unwrap());
+            true
         } else if action.is::<TextAction>() {
             self.handle_text_action(widget_id, *action.downcast::<TextAction>().unwrap())
         } else {
@@ -984,18 +1051,21 @@ fn insertion_parent(document: &Document, hit: Option<EntityId>) -> Option<Entity
 #[cfg(test)]
 mod tests {
     use super::*;
+    use masonry::accesskit::{Action, ActionData, ActionRequest, TreeId};
     use masonry_testing::{TestHarness, TestHarnessParams};
+
+    fn harness_from_driver(driver: &mut Driver) -> TestHarness<SizedBox> {
+        let root = SizedBox::new(driver.build_view()).prepare();
+        driver.root_widget_id = Some(root.id());
+        let params = TestHarnessParams::default().with_size((1280, 800));
+        TestHarness::create_with(default_property_set(), root, params)
+    }
 
     fn harness() -> (TestHarness<SizedBox>, Driver) {
         let window_id = WindowId::next();
         let mut driver = Driver::new(window_id, new_native_document(EntityId::new(1)), None);
-        let root = SizedBox::new(driver.build_view()).prepare();
-        driver.root_widget_id = Some(root.id());
-        let params = TestHarnessParams::default().with_size((1280, 800));
-        (
-            TestHarness::create_with(default_property_set(), root, params),
-            driver,
-        )
+        let harness = harness_from_driver(&mut driver);
+        (harness, driver)
     }
 
     #[test]
@@ -1029,5 +1099,40 @@ mod tests {
             SizeIntent::Fixed(240.0)
         );
         assert_eq!(driver.editor.operation_log().len(), 2);
+    }
+
+    #[test]
+    fn accesskit_nodes_drive_selection_and_inspector_edits() {
+        let (mut harness, mut driver) = harness();
+        let surface = driver.editor.document().roots[0];
+        let surface_widget = driver.entity_widgets[&surface];
+        let _ = harness.redraw();
+        harness.process_access_event(ActionRequest {
+            action: Action::Click,
+            target_tree: TreeId::ROOT,
+            target_node: surface_widget.to_raw().into(),
+            data: None,
+        });
+        let (action, source) = harness.pop_action::<AuthorAction>().unwrap();
+        assert_eq!(source, surface_widget);
+        driver.handle_author_action(action);
+        assert_eq!(driver.editor.selection(), &[surface]);
+
+        let mut harness = harness_from_driver(&mut driver);
+        let width_widget = driver.control_widgets[&(surface, "width")];
+        let _ = harness.redraw();
+        harness.process_access_event(ActionRequest {
+            action: Action::SetValue,
+            target_tree: TreeId::ROOT,
+            target_node: width_widget.to_raw().into(),
+            data: Some(ActionData::Value("320".into())),
+        });
+        let (action, source) = harness.pop_action::<AuthorAction>().unwrap();
+        assert_eq!(source, width_widget);
+        driver.handle_author_action(action);
+        assert_eq!(
+            driver.editor.document().entities[&surface].authored.width,
+            SizeIntent::Fixed(320.0)
+        );
     }
 }

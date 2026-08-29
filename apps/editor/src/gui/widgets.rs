@@ -1,4 +1,4 @@
-use masonry::accesskit::{Node, Role};
+use masonry::accesskit::{Action, ActionData, Node, Role};
 use masonry::core::{
     AccessCtx, AccessEvent, ChildrenIds, EventCtx, LayoutCtx, MeasureCtx, NewWidget, PaintCtx,
     PointerButton, PointerEvent, PropertiesMut, PropertiesRef, RegisterCtx, TextEvent, Widget,
@@ -247,26 +247,97 @@ impl Widget for DocumentCanvas {
 
 pub struct AuthorContainer {
     child: WidgetPod<dyn Widget>,
-    author_id: String,
+    author_id: EntityId,
     label: String,
+    role: Role,
+    value: Option<String>,
+    behavior: AuthorBehavior,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub enum AuthorAction {
+    Select {
+        author_id: EntityId,
+    },
+    SetValue {
+        author_id: EntityId,
+        label: String,
+        value: String,
+    },
+}
+
+enum AuthorBehavior {
+    Select,
+    SetValue { label: String },
 }
 
 impl AuthorContainer {
-    pub fn new(
+    pub fn tree_item(
         child: NewWidget<impl Widget + ?Sized>,
         entity: EntityId,
         label: impl Into<String>,
     ) -> Self {
         Self {
             child: child.erased().to_pod(),
-            author_id: entity.to_string(),
+            author_id: entity,
             label: label.into(),
+            role: Role::TreeItem,
+            value: None,
+            behavior: AuthorBehavior::Select,
+        }
+    }
+
+    pub fn value_control(
+        child: NewWidget<impl Widget + ?Sized>,
+        entity: EntityId,
+        label: impl Into<String>,
+        semantic_label: impl Into<String>,
+        role: Role,
+        value: impl Into<String>,
+    ) -> Self {
+        Self {
+            child: child.erased().to_pod(),
+            author_id: entity,
+            label: label.into(),
+            role,
+            value: Some(value.into()),
+            behavior: AuthorBehavior::SetValue {
+                label: semantic_label.into(),
+            },
         }
     }
 }
 
 impl Widget for AuthorContainer {
-    type Action = masonry::core::NoAction;
+    type Action = AuthorAction;
+
+    fn on_access_event(
+        &mut self,
+        ctx: &mut EventCtx<'_>,
+        _props: &mut PropertiesMut<'_>,
+        event: &AccessEvent,
+    ) {
+        match (&self.behavior, event.action, &event.data) {
+            (AuthorBehavior::Select, Action::Click, _) => {
+                ctx.submit_action::<Self::Action>(AuthorAction::Select {
+                    author_id: self.author_id,
+                });
+            }
+            (AuthorBehavior::SetValue { label }, Action::SetValue, Some(data)) => {
+                let value = match data {
+                    ActionData::Value(value) => value.to_string(),
+                    ActionData::NumericValue(value) => value.to_string(),
+                    _ => return,
+                };
+                ctx.submit_action::<Self::Action>(AuthorAction::SetValue {
+                    author_id: self.author_id,
+                    label: label.clone(),
+                    value,
+                });
+            }
+            _ => {}
+        }
+    }
 
     fn register_children(&mut self, ctx: &mut RegisterCtx<'_>) {
         ctx.register_child(&mut self.child);
@@ -305,7 +376,7 @@ impl Widget for AuthorContainer {
     }
 
     fn accessibility_role(&self) -> Role {
-        Role::GenericContainer
+        self.role
     }
 
     fn accessibility(
@@ -314,8 +385,15 @@ impl Widget for AuthorContainer {
         _props: &PropertiesRef<'_>,
         node: &mut Node,
     ) {
-        node.set_author_id(self.author_id.as_str());
+        node.set_author_id(self.author_id.to_string());
         node.set_label(self.label.as_str());
+        if let Some(value) = &self.value {
+            node.set_value(value.as_str());
+        }
+        match self.behavior {
+            AuthorBehavior::Select => node.add_action(Action::Click),
+            AuthorBehavior::SetValue { .. } => node.add_action(Action::SetValue),
+        }
     }
 
     fn children_ids(&self) -> ChildrenIds {

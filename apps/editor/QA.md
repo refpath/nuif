@@ -1,6 +1,6 @@
 # AI/headless QA contract
 
-Status: items 1–8 and 10 have a profile-0 implementation through `nuif-api`, `nuif-testing`, `nuif` and `nuif-editor`; automatic minimized failure-fixture writing remains partial.
+Status: items 1–8 and 10 have a profile-0 implementation through `nuif-api`, `nuif-testing`, `nuif` and `nuif-editor`; automatic minimized failure-fixture writing remains partial. The native-shell wiring has a deterministic AccessKit and CPU-render trial.
 
 An automated QA client must be able to perform the following without synthetic mouse input:
 
@@ -20,3 +20,5 @@ GUI automation is reserved for testing shell wiring, focus, pointer/keyboard int
 The headless client MUST apply the same bounded document reader as the CLI and MUST bound script bytes, line bytes and command count before retaining an operation log. `cargo xtask hostile-inputs` verifies document-ingestion boundaries; editor unit tests verify the limit-plus-one reader.
 
 `cargo xtask editor-trial` is the required complete-authoring trial. It starts from an explicit empty document identifier, dispatches only semantic/identity actions, compares canonical output bytes with the direct fixture generator, independently replays the logged patches, validates the result, and archives the full snapshot evidence used by automated and AI-driven iteration.
+
+`cargo xtask editor-gui-trial` is the supplementary shell trial. It selects an entity and edits its controls through AccessKit `Click` and `SetValue` requests, invokes undo and redo through accessible buttons, independently replays every resulting patch, validates the output document, records the semantic tree and full-shell PNG, and repeats the run to require identical canonical and pixel hashes. It does not depend on widget coordinates.

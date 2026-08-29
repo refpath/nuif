@@ -1,0 +1,50 @@
+{
+  "schema_version": 1,
+  "window": {
+    "width": 1280,
+    "height": 800
+  },
+  "actions": [
+    {
+      "action": "select",
+      "author_id": "00000000000000000000000000000020"
+    },
+    {
+      "action": "set_value",
+      "author_id": "00000000000000000000000000000020",
+      "label": "width",
+      "value": "640"
+    },
+    {
+      "action": "set_value",
+      "author_id": "00000000000000000000000000000020",
+      "label": "name",
+      "value": "Card GUI trial"
+    },
+    {
+      "action": "undo"
+    },
+    {
+      "action": "redo"
+    }
+  ],
+  "assertions": {
+    "selection": [
+      "00000000000000000000000000000020"
+    ],
+    "entity_count": 8,
+    "operation_count": 4,
+    "values": [
+      {
+        "author_id": "00000000000000000000000000000020",
+        "label": "width",
+        "value": "640"
+      },
+      {
+        "author_id": "00000000000000000000000000000020",
+        "label": "name",
+        "value": "Card GUI trial"
+      }
+    ]
+  }
+}
