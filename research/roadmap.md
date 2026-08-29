@@ -10,13 +10,13 @@ Gate C: responsive layout falsifier. `cargo xtask gate-c` compares the v0 viewpo
 
 ## Current gate
 
-Gate D: visual and text profile. The first text subgate is automated: Ahem 1.50 is pinned by SHA-256, HarfRust 0.13.3 and Unicode 17.0.0 produce resolved runs with Unicode-scalar clusters, and eight LTR/RTL cases match independently captured HarfBuzz 14.4.0 glyph strings. `cargo xtask gate-d-text` separately records exact shaping and repeatable-but-approximated raster evidence. Gate D remains open because glyph outlines, grayscale coverage, blend space, broader paints/effects and cross-platform normative raster measurements are not defined.
+Gate D: visual and text profile. The text-pinning experiment is automated: Ahem 1.50 plus HarfRust 0.13.3/Unicode 17.0.0 matches eight HarfBuzz 14.4.0 shaping strings, unhinted Skrifa 0.46.2 signed-26.6 outlines match five normalized `hb-vector` goldens, and pinned Zeno 0.3.3 8-bit grayscale hashes agree on macOS/aarch64, Linux/aarch64 and Linux/x86_64. `cargo xtask gate-d-text` records each stage separately. Gate D remains open because line breaking/wrapping is absent and broader paints/effects are incomplete.
 
 ## Queue
 
 1. Keep Gates B and C plus the Gate D text subgate green with `cargo xtask gate-b`, `cargo xtask hostile-inputs`, `cargo xtask gate-c` and `cargo xtask gate-d-text`; commit minimized failures as fixtures and retain all machine reports as CI artifacts.
 2. Design explicit Grid track and placement fields before replacing the classified profile-0 stack fallback; do not infer Grid support from the Gate C pass.
-3. Add a pinned outline extractor and unhinted grayscale CPU raster stage; calibrate it across the CI matrix before claiming Gate D raster exactness.
+3. Add bounded line breaking/wrapping and the remaining paint operations without regressing the cross-platform outline/grayscale hashes.
 4. Finish Gate E by authoring the entire v0 fixture through editor accessibility actions and then attach the Masonry shell to the already-tested driver boundary.
 5. Build one HTML/CSS retentive adapter for Gate F before expanding to design-tool or native-framework adapters.
 6. Defer collaboration profiles until canonical operations, ordering and source correspondence have passed their gates.
