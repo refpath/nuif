@@ -49,9 +49,12 @@ and raster oracles, bounded hostile inputs and a semantically queryable native
 editor—make several generally faster or broader libraries worse fits at the
 actual boundary. Four version lines warranted immediate compatibility trials:
 `json5` 0.4 to 1.3, `sha2` 0.10 to 0.11, `font-test-data` 0.7 to 0.9 and
-Tree-sitter 0.26.10 to 0.26.13. The trial must preserve canonical fixtures,
-hostile-input classification, pinned font hashes and adapter source spans before
-the manifest changes are accepted.
+Tree-sitter 0.26.10 to 0.26.13. The complete tests accepted the JSON5, font-data
+and Tree-sitter updates without changing canonical fixtures, hostile-input
+classification, pinned font hashes or adapter source spans. SHA-2 0.11 removed
+the digest output's hexadecimal formatting implementation; NUIF retains 0.10
+because 0.11 provides no required fix or measured benefit that justifies
+duplicating a hex adapter across the report-producing crates.
 
 ## Evidence
 
@@ -71,6 +74,11 @@ the manifest changes are accepted.
   `rustybuzz`, `ttf-parser`, metal-rs and rust-block are absent from the active
   editor graph. The complete check is a CI and release gate rather than a
   documented exception.
+- The version trial ran all workspace unit and documentation tests, the release
+  hostile-input allocation profile, text and render goldens, all four executable
+  adapter profiles, and workspace Clippy with warnings denied on rustc 1.98.0.
+  The three accepted updates passed; SHA-2 0.11 failed at compile time before
+  runtime evidence and was reverted (2026-08-30).
 
 ## Mechanism
 
@@ -186,9 +194,9 @@ it advertises more format coverage.
 
 ## Open questions
 
-- Whether the JSON5 1.3 parser accepts any source that profile zero should reject;
-  the major-version trial includes boundary, malformed, non-finite and depth
-  cases before adoption.
+- Whether future JSON5 grammar expansion needs an explicit accepted-source
+  corpus in addition to the existing canonical, malformed, non-finite, byte and
+  depth cases.
 - Whether adapter import/export/synchronization and collaboration convergence
   should gain portable allocation ceilings after Criterion establishes their
   representative stable workloads.
