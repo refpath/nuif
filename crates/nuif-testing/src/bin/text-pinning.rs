@@ -25,6 +25,7 @@ struct GoldenFile {
     oracle: Oracle,
     font: GoldenFont,
     outlines: Vec<GoldenOutline>,
+    raster_baseline: RasterBaseline,
     cases: Vec<GoldenCase>,
 }
 
@@ -65,6 +66,33 @@ struct GoldenOutline {
     expected: String,
 }
 
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct RasterBaseline {
+    os: String,
+    architecture: String,
+    pipeline: String,
+    verified_platforms: Vec<PlatformIdentity>,
+    cases: Vec<RasterCase>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct PlatformIdentity {
+    os: String,
+    architecture: String,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct RasterCase {
+    width: u32,
+    height: u32,
+    direction: WritingDirection,
+    scene_sha256: String,
+    png_sha256: String,
+}
+
 fn main() {
     if let Err(error) = run() {
         eprintln!("text-pinning: {error}");
@@ -89,9 +117,18 @@ fn run() -> Result<(), String> {
     let (case_reports, shaping_passed) = shaping_trials(&golden.cases, pin_consistent)?;
     let (outline_reports, outlines_passed) = outline_trials(&golden.outlines, pin_consistent)?;
 
-    let (raster_reports, raster_passed) = raster_trials()?;
+    let (raster_reports, raster_passed) = raster_trials(&golden.raster_baseline.cases)?;
     let (negative_reports, negative_passed) = negative_trials();
     let passed = shaping_passed && outlines_passed && raster_passed && negative_passed;
+    let cross_platform_raster_verified = raster_passed
+        && golden
+            .raster_baseline
+            .verified_platforms
+            .iter()
+            .any(|platform| {
+                platform.os != golden.raster_baseline.os
+                    || platform.architecture != golden.raster_baseline.architecture
+            });
     let report = json!({
         "schema_version": 1,
         "experiment": "nuif:experiment:text-pinning",
@@ -119,15 +156,16 @@ fn run() -> Result<(), String> {
             "fill_rule": "nonzero",
             "blend_space": "encoded_srgb_channels",
             "baseline_font_units": PINNED_FONT_ASCENDER,
+            "raster_baseline": golden.raster_baseline,
             "independent_oracle": golden.oracle,
             "pin_consistent": pin_consistent
         },
         "classification": {
             "shaping": "exact_cross_implementation_golden",
             "outlines": "exact_cross_implementation_normalized_golden",
-            "raster": "pinned_unhinted_outline_grayscale_candidate",
+            "raster": "exact_on_recorded_platform_matrix",
             "text_semantics": "approximated_missing_line_breaking",
-            "cross_platform_raster_verified": false
+            "cross_platform_raster_verified": cross_platform_raster_verified
         },
         "summary": {
             "golden_cases": case_reports.len(),
@@ -227,18 +265,13 @@ fn outline_trials(
     Ok((reports, all_passed))
 }
 
-fn raster_trials() -> Result<(Vec<Value>, bool), String> {
+fn raster_trials(cases: &[RasterCase]) -> Result<(Vec<Value>, bool), String> {
     let document = nuif_testing::responsive_card_fixture();
-    let configurations = [
-        (360_u32, 640_u32, WritingDirection::LeftToRight),
-        (768, 768, WritingDirection::LeftToRight),
-        (1440, 900, WritingDirection::RightToLeft),
-    ];
     let mut reports = Vec::new();
     let mut all_passed = true;
-    for (width, height, direction) in configurations {
-        let mut context = profile_zero_context(f64::from(width), f64::from(height));
-        context.writing_direction = direction;
+    for case in cases {
+        let mut context = profile_zero_context(f64::from(case.width), f64::from(case.height));
+        context.writing_direction = case.direction;
         let session = Session::new(document.clone());
         let first = session
             .snapshot(&context)
@@ -261,18 +294,25 @@ fn raster_trials() -> Result<(Vec<Value>, bool), String> {
             item.entity == EntityId::new(0x22)
                 && matches!(item.status, Fidelity::Approximated { .. })
         });
+        let scene_sha256 =
+            sha256_hex(&serde_json::to_vec(&first.scene).map_err(|error| error.to_string())?);
+        let png_sha256 = sha256_hex(&first_png);
         let repeatable = first.scene == second.scene && first_png == second_png;
-        let passed = repeatable && !glyph_runs.is_empty() && approximated_text;
+        let baseline_match = scene_sha256 == case.scene_sha256 && png_sha256 == case.png_sha256;
+        let passed = repeatable && baseline_match && !glyph_runs.is_empty() && approximated_text;
         all_passed &= passed;
         reports.push(json!({
             "context_fingerprint": context.fingerprint(),
-            "viewport": [width, height],
-            "writing_direction": direction,
-            "scene_sha256": sha256_hex(&serde_json::to_vec(&first.scene).map_err(|error| error.to_string())?),
-            "png_sha256": sha256_hex(&first_png),
+            "viewport": [case.width, case.height],
+            "writing_direction": case.direction,
+            "scene_sha256": scene_sha256,
+            "expected_scene_sha256": case.scene_sha256,
+            "png_sha256": png_sha256,
+            "expected_png_sha256": case.png_sha256,
             "png_bytes": first_png.len(),
             "glyph_runs": glyph_runs,
             "repeatable": repeatable,
+            "baseline_match": baseline_match,
             "raster_pipeline": "pinned_unhinted_outline_grayscale",
             "text_semantic_fidelity": "approximated_missing_line_breaking",
             "passed": passed
