@@ -7,7 +7,10 @@ pub fn entity(document: &Document, id: EntityId) -> Option<&Entity> {
 }
 
 pub fn roots(document: &Document) -> impl Iterator<Item = &Entity> {
-    document.roots.iter().filter_map(|id| document.entities.get(id))
+    document
+        .roots
+        .iter()
+        .filter_map(|id| document.entities.get(id))
 }
 
 pub fn by_kind(document: &Document, predicate: fn(&EntityKind) -> bool) -> Vec<&Entity> {
