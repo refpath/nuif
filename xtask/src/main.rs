@@ -32,7 +32,9 @@ fn run() -> Result<(), String> {
         }
         Some("gate-b") => gate_b(),
         Some("gate-c") => gate_c(),
+        Some("gate-d") => gate_d(),
         Some("gate-d-text") => gate_d_text(),
+        Some("gate-d-render") => gate_d_render(),
         Some("browser-install") => browser_install(),
         Some("hostile-inputs") => hostile_inputs(),
         Some("research") => research(),
@@ -43,11 +45,11 @@ fn run() -> Result<(), String> {
             gate_b()?;
             hostile_inputs()?;
             gate_c()?;
-            gate_d_text()?;
+            gate_d()?;
             editor_trial()
         }
         _ => Err(
-            "usage: cargo xtask <research|verify|trial [seed iterations snapshot-interval]|gate-b|gate-c|gate-d-text|browser-install|hostile-inputs|editor-trial|all>"
+            "usage: cargo xtask <research|verify|trial [seed iterations snapshot-interval]|gate-b|gate-c|gate-d|gate-d-text|gate-d-render|browser-install|hostile-inputs|editor-trial|all>"
                 .to_owned(),
         ),
     }
@@ -104,6 +106,25 @@ fn gate_d_text() -> Result<(), String> {
         "--output",
         "target/text-pinning-report.json",
     ])
+}
+
+fn gate_d_render() -> Result<(), String> {
+    cargo(&[
+        "run",
+        "--locked",
+        "-p",
+        "nuif-testing",
+        "--bin",
+        "render-profile",
+        "--",
+        "--output",
+        "target/render-profile-report.json",
+    ])
+}
+
+fn gate_d() -> Result<(), String> {
+    gate_d_text()?;
+    gate_d_render()
 }
 
 fn research() -> Result<(), String> {
