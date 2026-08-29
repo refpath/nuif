@@ -1,0 +1,19 @@
+[package]
+name = "nuif-collab"
+version = "0.0.1"
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+nuif-codec = { path = "../nuif-codec" }
+nuif-core = { path = "../nuif-core" }
+nuif-protocol = { path = "../nuif-protocol" }
+serde.workspace = true
+thiserror.workspace = true
+
+[dev-dependencies]
+nuif-testing = { path = "../nuif-testing" }
+
+[lints]
+workspace = true

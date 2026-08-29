@@ -12,6 +12,7 @@ members = [
   "crates/nuif-api",
   "crates/nuif-testing",
   "crates/nuif-html",
+  "crates/nuif-collab",
   "apps/editor",
   "conformance",
   "xtask",

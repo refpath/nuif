@@ -339,11 +339,24 @@ dependencies = [
 ]
 
 [[package]]
+name = "nuif-collab"
+version = "0.0.1"
+dependencies = [
+ "nuif-codec",
+ "nuif-core",
+ "nuif-protocol",
+ "nuif-testing",
+ "serde",
+ "thiserror",
+]
+
+[[package]]
 name = "nuif-conformance"
 version = "0.0.1"
 dependencies = [
  "nuif-api",
  "nuif-codec",
+ "nuif-collab",
  "nuif-core",
  "nuif-html",
  "nuif-layout",

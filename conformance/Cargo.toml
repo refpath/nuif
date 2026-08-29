@@ -8,6 +8,7 @@ repository.workspace = true
 [dependencies]
 nuif-api = { path = "../crates/nuif-api" }
 nuif-codec = { path = "../crates/nuif-codec" }
+nuif-collab = { path = "../crates/nuif-collab" }
 nuif-core = { path = "../crates/nuif-core" }
 nuif-html = { path = "../crates/nuif-html" }
 nuif-layout = { path = "../crates/nuif-layout" }
