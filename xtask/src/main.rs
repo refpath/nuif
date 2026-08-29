@@ -3,6 +3,32 @@ use std::fs;
 use std::path::Path;
 use std::process::{Command, ExitStatus};
 
+type Step = (&'static str, fn() -> Result<(), String>);
+
+const ALL_STEPS: &[Step] = &[
+    ("research", research),
+    ("verify", verify),
+    ("gate-b", gate_b),
+    ("hostile-inputs", hostile_inputs),
+    ("browser-install", browser_install),
+    ("gate-c", gate_c),
+    ("gate-d", gate_d),
+    ("editor-trial", editor_trial),
+    ("gate-f", gate_f),
+];
+
+const VERIFICATION_ARTIFACTS: &[&str] = &[
+    "target/gate-b-report.json",
+    "target/hostile-input-report.json",
+    "target/layout-differential-report.json",
+    "target/text-pinning-report.json",
+    "target/render-profile-report.json",
+    "target/editor-authoring-report.json",
+    "target/editor-authoring-snapshot",
+    "target/html-sync-report.json",
+    "target/html-sync-output.html",
+];
+
 fn main() {
     if let Err(error) = run() {
         eprintln!("xtask: {error}");
@@ -18,7 +44,8 @@ fn run() -> Result<(), String> {
             let seed = args.next().unwrap_or_else(|| "24301".to_owned());
             let iterations = args.next().unwrap_or_else(|| "100".to_owned());
             let snapshot_interval = args.next().unwrap_or_else(|| "1".to_owned());
-            cargo(&[
+            let report = args.next();
+            let mut command = vec![
                 "run",
                 "--locked",
                 "-p",
@@ -28,7 +55,11 @@ fn run() -> Result<(), String> {
                 &seed,
                 &iterations,
                 &snapshot_interval,
-            ])
+            ];
+            if let Some(report) = report.as_deref() {
+                command.push(report);
+            }
+            cargo(&command)
         }
         Some("gate-b") => gate_b(),
         Some("gate-c") => gate_c(),
@@ -40,26 +71,67 @@ fn run() -> Result<(), String> {
         Some("hostile-inputs") => hostile_inputs(),
         Some("research") => research(),
         Some("editor-trial") => editor_trial(),
-        Some("all") => {
-            research()?;
-            verify()?;
-            gate_b()?;
-            hostile_inputs()?;
-            gate_c()?;
-            gate_d()?;
-            editor_trial()?;
-            gate_f()
-        }
+        Some("manifest") => standalone_manifest(),
+        Some("all") => all(),
         _ => Err(
-            "usage: cargo xtask <research|verify|trial [seed iterations snapshot-interval]|gate-b|gate-c|gate-d|gate-d-text|gate-d-render|gate-f|browser-install|hostile-inputs|editor-trial|all>"
+            "usage: cargo xtask <research|verify|trial [seed iterations snapshot-interval report-path]|gate-b|gate-c|gate-d|gate-d-text|gate-d-render|gate-f|browser-install|hostile-inputs|editor-trial|manifest|all>"
                 .to_owned(),
         ),
     }
 }
 
+fn all() -> Result<(), String> {
+    let mut completed = Vec::new();
+    for (name, step) in ALL_STEPS {
+        if let Err(error) = step() {
+            let manifest_error = verification_manifest(
+                "complete-run",
+                "cargo xtask all",
+                &completed,
+                Some((name, &error)),
+            )
+            .err()
+            .map(|failure| format!("; manifest error: {failure}"))
+            .unwrap_or_default();
+            return Err(format!("{name}: {error}{manifest_error}"));
+        }
+        completed.push(*name);
+    }
+    verification_manifest("complete-run", "cargo xtask all", &completed, None)
+}
+
+fn standalone_manifest() -> Result<(), String> {
+    let missing = VERIFICATION_ARTIFACTS
+        .iter()
+        .filter(|path| !Path::new(path).exists())
+        .copied()
+        .collect::<Vec<_>>();
+    if missing.is_empty() {
+        return verification_manifest("artifact-index", "cargo xtask manifest", &[], None);
+    }
+
+    let message = format!("missing expected artifacts: {}", missing.join(", "));
+    verification_manifest(
+        "artifact-index",
+        "cargo xtask manifest",
+        &[],
+        Some(("artifact-index", &message)),
+    )?;
+    Err(message)
+}
+
 fn gate_b() -> Result<(), String> {
     cargo(&[
-        "run", "--locked", "-p", "nuif-cli", "--", "trial", "24301", "10000", "100",
+        "run",
+        "--locked",
+        "-p",
+        "nuif-cli",
+        "--",
+        "trial",
+        "24301",
+        "10000",
+        "100",
+        "target/gate-b-report.json",
     ])
 }
 
@@ -279,6 +351,58 @@ fn editor_trial() -> Result<(), String> {
     })
 }
 
+fn verification_manifest(
+    mode: &str,
+    entrypoint: &str,
+    completed: &[&str],
+    failure: Option<(&str, &str)>,
+) -> Result<(), String> {
+    let status = if failure.is_none() {
+        "passed"
+    } else {
+        "failed"
+    };
+    let failed_step = failure.as_ref().map(|(step, _)| *step);
+    let failure_message = failure.as_ref().map(|(_, message)| message);
+    let artifacts = VERIFICATION_ARTIFACTS
+        .iter()
+        .map(|path| {
+            let path = Path::new(path);
+            serde_json::json!({
+                "path": path,
+                "present": path.exists(),
+                "kind": if path.is_dir() { "directory" } else { "file" }
+            })
+        })
+        .collect::<Vec<_>>();
+    let report = serde_json::json!({
+        "schema_version": 1,
+        "mode": mode,
+        "status": status,
+        "source": {
+            "revision": command_text("git", &["rev-parse", "HEAD"]),
+            "dirty": command_text("git", &["status", "--porcelain"]).map(|value| !value.is_empty()),
+            "toolchain": command_text("rustc", &["--version"]),
+            "os": env::consts::OS,
+            "architecture": env::consts::ARCH,
+        },
+        "entrypoint": entrypoint,
+        "completed_steps": completed,
+        "failed_step": failed_step,
+        "failure": failure_message,
+        "artifacts": artifacts
+    });
+    let path = Path::new("target/verification-manifest.json");
+    if let Some(parent) = path.parent() {
+        fs::create_dir_all(parent).map_err(|error| error.to_string())?;
+    }
+    fs::write(
+        path,
+        serde_json::to_vec_pretty(&report).map_err(|error| error.to_string())?,
+    )
+    .map_err(|error| error.to_string())
+}
+
 fn cargo(arguments: &[&str]) -> Result<(), String> {
     command("cargo", arguments)
 }
@@ -289,6 +413,14 @@ fn command(program: &str, arguments: &[&str]) -> Result<(), String> {
         .status()
         .map_err(|error| error.to_string())?;
     check_status(status, program, arguments)
+}
+
+fn command_text(program: &str, arguments: &[&str]) -> Option<String> {
+    let output = Command::new(program).args(arguments).output().ok()?;
+    output
+        .status
+        .success()
+        .then(|| String::from_utf8_lossy(&output.stdout).trim().to_owned())
 }
 
 fn check_status(status: ExitStatus, program: &str, arguments: &[&str]) -> Result<(), String> {

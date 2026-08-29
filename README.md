@@ -112,25 +112,27 @@ Testing is designed for automated trial loops: generate or load a document, appl
 
 ## Status
 
-Gates B, C and the deliberately bounded CPU/text Gate D are complete under the quantified criteria in `research/AUDIT.md`. The workspace executes structural validation, anchored atomic operations, replay/inversion, canonical text and deterministic CBOR, measured hostile-input limits, responsive profile-0 layout, exact solid rectangle/ellipse CPU rasterization, pinned NUIF/Taffy/Chrome layout trials, seeded reports and a headless editor driver. Gate C explicitly reports the still-missing Grid track/placement schema. Gate D pins shaping, outlines, hard-line layout, encoded-sRGB paint and integer composition; scene/PNG hashes reproduce on macOS/aarch64, Linux/aarch64 and Linux/x86_64, while paths, images, instances and extension paint remain property-attributed fidelity records. HTML/CSS synchronization, complete editor authoring, the Masonry GUI shell, collaboration profiles and an independent implementation remain incomplete. Specifications are drafts; no conformance profile is published.
+Gates B, C and the deliberately bounded CPU/text Gate D are complete under the quantified criteria in `research/AUDIT.md`. The workspace executes structural validation, anchored atomic operations, replay/inversion, canonical text and deterministic CBOR, measured hostile-input limits, responsive profile-0 layout, exact solid rectangle/ellipse CPU rasterization, pinned NUIF/Taffy/Chrome layout trials, seeded reports and a headless editor driver. Gate C explicitly reports the still-missing Grid track/placement schema. Gate D pins shaping, outlines, hard-line layout, encoded-sRGB paint and integer composition; scene/PNG hashes reproduce on macOS/aarch64, Linux/aarch64 and Linux/x86_64, while paths, images, instances and extension paint remain property-attributed fidelity records. The bounded HTML/CSS synchronization profile and complete fixture authoring through semantic editor actions are implemented. Broader HTML/CSS coverage, the Masonry GUI shell, collaboration profiles and an independent implementation remain incomplete. Specifications are drafts; no conformance profile is published.
 
 Run the automated baseline:
 
 ```sh
-cargo xtask browser-install # one-time pinned Chrome for Testing download
-cargo xtask all
+cargo xtask all # installs/reuses the pinned browser and runs every gate
+cargo xtask browser-install # optional browser prefetch
 cargo xtask trial 24301 100
 cargo xtask gate-b # 10,000 patches; raster sample every 100 patches
 cargo xtask hostile-inputs # boundary/one-over time and allocator report
 cargo xtask gate-c # NUIF/Taffy/pinned-Chrome layout report
 cargo xtask gate-d-text # HarfBuzz golden shaping + separate raster report
+cargo xtask editor-trial # author the v0 fixture and emit editor evidence
+cargo xtask gate-f # retentive HTML/CSS subset synchronization
 cargo run --locked -p nuif-cli -- fixture v0-responsive-card /tmp/v0.nuif
 cargo run --locked -p nuif-editor -- --headless \
   --script conformance/fixtures/v0-responsive-card/editor-trial.jsonl \
   --document /tmp/v0.nuif --output /tmp/edited.nuif
 ```
 
-`cargo xtask all` bootstraps the pinned Python research-validator environment under ignored `target/`, then runs research validation, Rust verification, the short full-raster trial, the 10,000-patch Gate B trial, the release-mode hostile-input allocation/time trial, the Gate C differential layout trial, both Gate D text/render trials and the headless editor replay. Install the locked browser first. The measured runs write `target/hostile-input-report.json`, `target/layout-differential-report.json`, `target/text-pinning-report.json` and `target/render-profile-report.json`; CI archives all four.
+`cargo xtask all` bootstraps the pinned Python research-validator environment and Chrome for Testing under ignored `target/`, then runs research validation, Rust verification, the short full-raster trial, the 10,000-patch Gate B trial, the release-mode hostile-input allocation/time trial, the Gate C differential layout trial, both Gate D text/render trials, complete headless editor authoring and bounded retentive HTML/CSS synchronization. Each measured run leaves a JSON report or snapshot under `target/`; `target/verification-manifest.json` indexes the complete evidence set and records success or the first failed step. CI archives both the individual evidence and this manifest.
 
 ## Contributing
 

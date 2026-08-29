@@ -504,6 +504,13 @@ fn trial(args: &[String]) -> Result<(), CliError> {
         snapshot_interval: snapshot_interval.max(1),
         ..TrialConfig::default()
     });
+    if let Some(output) = args.get(3) {
+        write_output(
+            output,
+            &serde_json::to_vec_pretty(&report)
+                .map_err(|error| CliError::new(1, "JSON_FAILED", error.to_string()))?,
+        )?;
+    }
     print_json(&report)?;
     if report.passed() {
         Ok(())
