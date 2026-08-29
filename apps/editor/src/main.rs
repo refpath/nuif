@@ -1,10 +1,17 @@
-use nuif_codec::{CanonicalText, Decoder, Encoder, canonical_hash};
+use nuif_codec::{
+    CanonicalText, Decoder, Encoder, MAX_INPUT_BYTES, canonical_hash,
+    read_bounded as read_bounded_stream,
+};
 use nuif_editor::{EditorDriver, EditorEvent, EditorInput};
 use nuif_protocol::apply_patch;
 use std::env;
 use std::fs;
 use std::io::{self, Read};
 use std::path::PathBuf;
+
+const MAX_SCRIPT_BYTES: usize = 8 * 1024 * 1024;
+const MAX_SCRIPT_LINE_BYTES: usize = 64 * 1024;
+const MAX_SCRIPT_COMMANDS: usize = 100_000;
 
 fn main() {
     if let Err(error) = run() {
@@ -34,29 +41,24 @@ fn run() -> Result<(), String> {
     }
     let script = script.ok_or_else(|| "--script is required".to_owned())?;
     let input = if let Some(path) = document_path {
-        fs::read(path).map_err(|error| error.to_string())?
+        let mut file = fs::File::open(path).map_err(|error| error.to_string())?;
+        read_bounded(&mut file, MAX_INPUT_BYTES, "document")?
     } else {
-        let mut bytes = Vec::new();
-        io::stdin()
-            .read_to_end(&mut bytes)
-            .map_err(|error| error.to_string())?;
-        bytes
+        read_bounded(&mut io::stdin(), MAX_INPUT_BYTES, "document")?
     };
     let document = CanonicalText
         .decode(&input)
         .map_err(|error| error.to_string())?;
     let replay_base = document.clone();
-    let commands = fs::read_to_string(script).map_err(|error| error.to_string())?;
+    let mut script_file = fs::File::open(script).map_err(|error| error.to_string())?;
+    let commands = String::from_utf8(read_bounded(
+        &mut script_file,
+        MAX_SCRIPT_BYTES,
+        "editor script",
+    )?)
+    .map_err(|error| format!("editor script is not UTF-8: {error}"))?;
     let mut driver = EditorDriver::new(document);
-    let mut events = Vec::new();
-    for (index, line) in commands.lines().enumerate() {
-        if line.trim().is_empty() || line.trim_start().starts_with('#') {
-            continue;
-        }
-        let input: EditorInput = serde_json::from_str(line)
-            .map_err(|error| format!("script line {}: {error}", index + 1))?;
-        events.push(driver.dispatch(input).map_err(|error| error.to_string())?);
-    }
+    let events = execute_script(&mut driver, &commands)?;
     let mut replayed = replay_base;
     for patch in driver.operation_log() {
         apply_patch(&mut replayed, patch).map_err(|error| error.to_string())?;
@@ -107,4 +109,55 @@ fn run() -> Result<(), String> {
         .unwrap()
     );
     Ok(())
+}
+
+fn execute_script(driver: &mut EditorDriver, commands: &str) -> Result<Vec<EditorEvent>, String> {
+    let mut events = Vec::new();
+    for (index, line) in commands.lines().enumerate() {
+        if line.trim().is_empty() || line.trim_start().starts_with('#') {
+            continue;
+        }
+        if line.len() > MAX_SCRIPT_LINE_BYTES {
+            return Err(format!(
+                "script line {} exceeds the {MAX_SCRIPT_LINE_BYTES}-byte limit",
+                index + 1
+            ));
+        }
+        if events.len() >= MAX_SCRIPT_COMMANDS {
+            return Err(format!(
+                "editor script exceeds the {MAX_SCRIPT_COMMANDS}-command limit"
+            ));
+        }
+        let input: EditorInput = serde_json::from_str(line)
+            .map_err(|error| format!("script line {}: {error}", index + 1))?;
+        events.push(driver.dispatch(input).map_err(|error| error.to_string())?);
+    }
+    Ok(events)
+}
+
+fn read_bounded(reader: &mut impl Read, limit: usize, label: &str) -> Result<Vec<u8>, String> {
+    read_bounded_stream(reader, limit).map_err(|error| match error {
+        nuif_codec::BoundedReadError::ResourceLimit { .. } => {
+            format!("{label} exceeds the {limit}-byte limit")
+        }
+        error => error.to_string(),
+    })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::io::Cursor;
+
+    #[test]
+    fn bounded_reader_rejects_the_first_excess_byte() {
+        assert_eq!(
+            read_bounded(&mut Cursor::new([0_u8; 3]), 2, "probe").unwrap_err(),
+            "probe exceeds the 2-byte limit"
+        );
+        assert_eq!(
+            read_bounded(&mut Cursor::new([0_u8; 2]), 2, "probe").unwrap(),
+            [0_u8; 2]
+        );
+    }
 }

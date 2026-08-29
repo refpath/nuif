@@ -6,6 +6,7 @@ license.workspace = true
 repository.workspace = true
 
 [dependencies]
+ciborium.workspace = true
 nuif-api = { path = "../nuif-api" }
 nuif-codec = { path = "../nuif-codec" }
 nuif-core = { path = "../nuif-core" }
@@ -14,6 +15,7 @@ nuif-protocol = { path = "../nuif-protocol" }
 nuif-render = { path = "../nuif-render" }
 serde.workspace = true
 serde_json.workspace = true
+stats_alloc.workspace = true
 
 [lints]
 workspace = true

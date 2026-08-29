@@ -31,16 +31,18 @@ fn run() -> Result<(), String> {
             ])
         }
         Some("gate-b") => gate_b(),
+        Some("hostile-inputs") => hostile_inputs(),
         Some("research") => research(),
         Some("editor-trial") => editor_trial(),
         Some("all") => {
             research()?;
             verify()?;
             gate_b()?;
+            hostile_inputs()?;
             editor_trial()
         }
         _ => Err(
-            "usage: cargo xtask <research|verify|trial [seed iterations snapshot-interval]|gate-b|editor-trial|all>"
+            "usage: cargo xtask <research|verify|trial [seed iterations snapshot-interval]|gate-b|hostile-inputs|editor-trial|all>"
                 .to_owned(),
         ),
     }
@@ -49,6 +51,21 @@ fn run() -> Result<(), String> {
 fn gate_b() -> Result<(), String> {
     cargo(&[
         "run", "--locked", "-p", "nuif-cli", "--", "trial", "24301", "10000", "100",
+    ])
+}
+
+fn hostile_inputs() -> Result<(), String> {
+    cargo(&[
+        "run",
+        "--release",
+        "--locked",
+        "-p",
+        "nuif-testing",
+        "--bin",
+        "hostile-inputs",
+        "--",
+        "--output",
+        "target/hostile-input-report.json",
     ])
 }
 

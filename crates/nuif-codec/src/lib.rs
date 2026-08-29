@@ -1,12 +1,66 @@
 #![doc = "Canonical text, deterministic CBOR and content hashes for NUIF."]
 
 use ciborium::Value;
-use nuif_core::{Document, Severity, validate};
+use nuif_core::{Document, ResourceLimitExceeded, Severity, resource_usage, validate};
 use sha2::{Digest, Sha256};
-use std::cmp::Ordering;
 use std::fmt::Write as _;
-use std::io::Cursor;
+use std::io::{self, Cursor, Read as _};
 use thiserror::Error;
+
+/// Maximum encoded size accepted by the profile-0 decoders.
+pub const MAX_INPUT_BYTES: usize = 16 * 1024 * 1024;
+/// Maximum JSON/JSON5 or CBOR container nesting accepted before decoding.
+pub const MAX_SYNTAX_DEPTH: usize = 64;
+/// Maximum retained binary payload representable by canonical profile-0 text.
+/// JSON byte arrays expand substantially in the canonical pretty form; CBOR
+/// retains the larger semantic-model binary budget.
+pub const MAX_TEXT_BINARY_BYTES: usize = 512 * 1024;
+
+/// Error returned while ingesting a bounded byte stream.
+#[derive(Debug, Error)]
+pub enum BoundedReadError {
+    #[error("input read failed: {0}")]
+    Io(#[from] io::Error),
+    #[error("input allocation failed: {0}")]
+    Allocation(String),
+    #[error("input exceeds the {limit}-byte limit")]
+    ResourceLimit { limit: usize },
+}
+
+/// Reads at most `limit` bytes plus one decision byte from a stream.
+///
+/// The returned vector never contains the excess byte and no remaining input
+/// is consumed after the decision. Reads are chunked so a hostile stream cannot
+/// request an unbounded `read_to_end` allocation before the codec sees it.
+///
+/// # Errors
+///
+/// Returns an I/O/allocation error or [`BoundedReadError::ResourceLimit`] when
+/// the stream contains a first byte beyond `limit`.
+pub fn read_bounded(reader: &mut impl io::Read, limit: usize) -> Result<Vec<u8>, BoundedReadError> {
+    let read_limit = u64::try_from(limit).unwrap_or(u64::MAX).saturating_add(1);
+    let mut limited = reader.take(read_limit);
+    let mut bytes = Vec::with_capacity(limit.min(64 * 1024));
+    let mut chunk = [0_u8; 8 * 1024];
+    while bytes.len() < limit {
+        let remaining = limit - bytes.len();
+        let chunk_len = remaining.min(chunk.len());
+        let read = limited.read(&mut chunk[..chunk_len])?;
+        if read == 0 {
+            return Ok(bytes);
+        }
+        bytes
+            .try_reserve(read)
+            .map_err(|error| BoundedReadError::Allocation(error.to_string()))?;
+        bytes.extend_from_slice(&chunk[..read]);
+    }
+    let mut excess = [0_u8; 1];
+    if limited.read(&mut excess)? == 0 {
+        Ok(bytes)
+    } else {
+        Err(BoundedReadError::ResourceLimit { limit })
+    }
+}
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum EncodingProfile {
@@ -64,8 +118,12 @@ pub enum CodecError {
     NonCanonical,
     #[error("numeric values must be finite")]
     NonFinite,
-    #[error("document exceeds the profile input budget")]
-    ResourceLimit,
+    #[error("resource limit exceeded for {resource}: limit {limit}, observed {observed}")]
+    ResourceLimit {
+        resource: &'static str,
+        limit: usize,
+        observed: usize,
+    },
 }
 
 #[derive(Clone, Copy, Debug, Default)]
@@ -80,11 +138,12 @@ impl Encoder for CanonicalText {
 
     fn encode(&self, document: &Document) -> Result<Vec<u8>, Self::Error> {
         validate_for_encoding(document)?;
+        check_text_model_budget(document)?;
         let value = serde_json::to_value(document)
             .map_err(|error| CodecError::Malformed(error.to_string()))?;
-        let mut output = String::new();
+        let mut output = TextOutput::default();
         write_text_value(&value, 0, &mut output)?;
-        output.push('\n');
+        output.push('\n')?;
         Ok(output.into_bytes())
     }
 }
@@ -145,6 +204,7 @@ fn decode_text(bytes: &[u8], strict: bool) -> Result<Document, CodecError> {
 
 fn decode_text_document(bytes: &[u8]) -> Result<Document, CodecError> {
     check_input_budget(bytes)?;
+    check_text_depth(bytes)?;
     let document: Document = match serde_json::from_slice(bytes) {
         Ok(document) => document,
         Err(json_error) => {
@@ -155,6 +215,8 @@ fn decode_text_document(bytes: &[u8]) -> Result<Document, CodecError> {
             })?
         }
     };
+    resource_usage(&document).map_err(resource_limit)?;
+    check_text_model_budget(&document)?;
     Ok(document)
 }
 
@@ -173,7 +235,9 @@ impl Encoder for DeterministicCbor {
         let value = Value::serialized(document)
             .map_err(|error| CodecError::Malformed(error.to_string()))?;
         let value = canonical_value(value)?;
-        encode_cbor_value(&value)
+        let output = encode_cbor_value(&value)?;
+        check_input_budget(&output)?;
+        Ok(output)
     }
 }
 
@@ -186,9 +250,8 @@ impl Decoder for DeterministicCbor {
 
     fn decode(&self, bytes: &[u8]) -> Result<Document, Self::Error> {
         check_input_budget(bytes)?;
-        let value = decode_cbor_value(bytes)?;
-        let canonical = canonical_value(value.clone())?;
-        if encode_cbor_value(&canonical)? != bytes {
+        let value = canonical_value(decode_cbor_value(bytes)?)?;
+        if encode_cbor_value(&value)? != bytes {
             return Err(CodecError::NonCanonical);
         }
         let document = value
@@ -222,21 +285,29 @@ impl DeterministicCbor {
     /// CBOR and for data that cannot be deserialized as a NUIF document.
     pub fn decode_for_validation(self, bytes: &[u8]) -> Result<Document, CodecError> {
         check_input_budget(bytes)?;
-        let value = decode_cbor_value(bytes)?;
-        let canonical = canonical_value(value.clone())?;
-        if encode_cbor_value(&canonical)? != bytes {
+        let value = canonical_value(decode_cbor_value(bytes)?)?;
+        if encode_cbor_value(&value)? != bytes {
             return Err(CodecError::NonCanonical);
         }
-        value
+        let document = value
             .deserialized()
-            .map_err(|error| CodecError::Malformed(error.to_string()))
+            .map_err(|error| CodecError::Malformed(error.to_string()))?;
+        resource_usage(&document).map_err(resource_limit)?;
+        Ok(document)
     }
 }
 
 fn decode_cbor_value(bytes: &[u8]) -> Result<Value, CodecError> {
     let mut cursor = Cursor::new(bytes);
-    let value = ciborium::from_reader(&mut cursor)
-        .map_err(|error| CodecError::Malformed(error.to_string()))?;
+    let value = ciborium::de::from_reader_with_recursion_limit(&mut cursor, MAX_SYNTAX_DEPTH)
+        .map_err(|error| match error {
+            ciborium::de::Error::RecursionLimitExceeded => CodecError::ResourceLimit {
+                resource: "syntax depth",
+                limit: MAX_SYNTAX_DEPTH,
+                observed: MAX_SYNTAX_DEPTH.saturating_add(1),
+            },
+            error => CodecError::Malformed(error.to_string()),
+        })?;
     if cursor.position() != u64::try_from(bytes.len()).unwrap_or(u64::MAX) {
         return Err(CodecError::Malformed(
             "trailing bytes after the CBOR document".to_owned(),
@@ -255,17 +326,33 @@ fn canonical_value(value: Value) -> Result<Value, CodecError> {
             .collect::<Result<Vec<_>, _>>()
             .map(Value::Array),
         Value::Map(entries) => {
+            if entries.len() <= 1 {
+                return entries
+                    .into_iter()
+                    .map(|(key, value)| Ok((canonical_value(key)?, canonical_value(value)?)))
+                    .collect::<Result<Vec<_>, CodecError>>()
+                    .map(Value::Map);
+            }
             let mut entries = entries
                 .into_iter()
-                .map(|(key, value)| Ok((canonical_value(key)?, canonical_value(value)?)))
+                .map(|(key, value)| {
+                    let key = canonical_value(key)?;
+                    let value = canonical_value(value)?;
+                    Ok((encode_cbor_value(&key)?, key, value))
+                })
                 .collect::<Result<Vec<_>, CodecError>>()?;
-            entries.sort_by(|(left, _), (right, _)| compare_encoded(left, right));
+            entries.sort_by(|(left, _, _), (right, _, _)| left.cmp(right));
             for pair in entries.windows(2) {
-                if compare_encoded(&pair[0].0, &pair[1].0) == Ordering::Equal {
+                if pair[0].0 == pair[1].0 {
                     return Err(CodecError::Malformed("duplicate CBOR map key".to_owned()));
                 }
             }
-            Ok(Value::Map(entries))
+            Ok(Value::Map(
+                entries
+                    .into_iter()
+                    .map(|(_, key, value)| (key, value))
+                    .collect(),
+            ))
         }
         Value::Tag(_, _) => Err(CodecError::Malformed(
             "tags are not permitted in nuif-cbor-0".to_owned(),
@@ -274,88 +361,151 @@ fn canonical_value(value: Value) -> Result<Value, CodecError> {
     }
 }
 
-fn compare_encoded(left: &Value, right: &Value) -> Ordering {
-    let left = encode_cbor_value(left).expect("in-memory CBOR key encoding cannot fail");
-    let right = encode_cbor_value(right).expect("in-memory CBOR key encoding cannot fail");
-    left.cmp(&right)
+fn encode_cbor_value(value: &Value) -> Result<Vec<u8>, CodecError> {
+    let mut output = BoundedBytes::default();
+    if let Err(error) = ciborium::into_writer(value, &mut output) {
+        return if let Some(observed) = output.exceeded {
+            Err(CodecError::ResourceLimit {
+                resource: "input bytes",
+                limit: MAX_INPUT_BYTES,
+                observed,
+            })
+        } else {
+            Err(CodecError::Malformed(error.to_string()))
+        };
+    }
+    Ok(output.bytes)
 }
 
-fn encode_cbor_value(value: &Value) -> Result<Vec<u8>, CodecError> {
-    let mut bytes = Vec::new();
-    ciborium::into_writer(value, &mut bytes)
-        .map_err(|error| CodecError::Malformed(error.to_string()))?;
-    Ok(bytes)
+#[derive(Default)]
+struct BoundedBytes {
+    bytes: Vec<u8>,
+    exceeded: Option<usize>,
+}
+
+impl io::Write for BoundedBytes {
+    fn write(&mut self, bytes: &[u8]) -> io::Result<usize> {
+        let observed = self.bytes.len().saturating_add(bytes.len());
+        if observed > MAX_INPUT_BYTES {
+            self.exceeded = Some(observed);
+            return Err(io::Error::other("profile output byte limit exceeded"));
+        }
+        self.bytes.extend_from_slice(bytes);
+        Ok(bytes.len())
+    }
+
+    fn flush(&mut self) -> io::Result<()> {
+        Ok(())
+    }
+}
+
+#[derive(Default)]
+struct TextOutput(String);
+
+impl TextOutput {
+    fn push_str(&mut self, value: &str) -> Result<(), CodecError> {
+        let observed = self.0.len().saturating_add(value.len());
+        if observed > MAX_INPUT_BYTES {
+            return Err(CodecError::ResourceLimit {
+                resource: "input bytes",
+                limit: MAX_INPUT_BYTES,
+                observed,
+            });
+        }
+        self.0.push_str(value);
+        Ok(())
+    }
+
+    fn push(&mut self, value: char) -> Result<(), CodecError> {
+        let observed = self.0.len().saturating_add(value.len_utf8());
+        if observed > MAX_INPUT_BYTES {
+            return Err(CodecError::ResourceLimit {
+                resource: "input bytes",
+                limit: MAX_INPUT_BYTES,
+                observed,
+            });
+        }
+        self.0.push(value);
+        Ok(())
+    }
+
+    fn into_bytes(self) -> Vec<u8> {
+        self.0.into_bytes()
+    }
 }
 
 fn write_text_value(
     value: &serde_json::Value,
     depth: usize,
-    output: &mut String,
+    output: &mut TextOutput,
 ) -> Result<(), CodecError> {
     match value {
-        serde_json::Value::Null => output.push_str("null"),
+        serde_json::Value::Null => output.push_str("null")?,
         serde_json::Value::Bool(boolean) => {
-            output.push_str(if *boolean { "true" } else { "false" });
+            output.push_str(if *boolean { "true" } else { "false" })?;
         }
         serde_json::Value::Number(number) if number.is_f64() => {
             output.push_str(&format_text_real(
                 number.as_f64().ok_or(CodecError::NonFinite)?,
-            )?);
+            )?)?;
         }
-        serde_json::Value::Number(number) => output.push_str(&number.to_string()),
-        serde_json::Value::String(string) => output.push_str(
-            &serde_json::to_string(string)
-                .map_err(|error| CodecError::Malformed(error.to_string()))?,
-        ),
+        serde_json::Value::Number(number) => output.push_str(&number.to_string())?,
+        serde_json::Value::String(string) => {
+            output.push_str(
+                &serde_json::to_string(string)
+                    .map_err(|error| CodecError::Malformed(error.to_string()))?,
+            )?;
+        }
         serde_json::Value::Array(values) => {
             if values.is_empty() {
-                output.push_str("[]");
+                output.push_str("[]")?;
             } else {
-                output.push_str("[\n");
+                output.push_str("[\n")?;
                 for (index, value) in values.iter().enumerate() {
-                    write_indent(depth + 1, output);
+                    write_indent(depth + 1, output)?;
                     write_text_value(value, depth + 1, output)?;
                     if index + 1 != values.len() {
-                        output.push(',');
+                        output.push(',')?;
                     }
-                    output.push('\n');
+                    output.push('\n')?;
                 }
-                write_indent(depth, output);
-                output.push(']');
+                write_indent(depth, output)?;
+                output.push(']')?;
             }
         }
         serde_json::Value::Object(values) => {
             if values.is_empty() {
-                output.push_str("{}");
+                output.push_str("{}")?;
             } else {
-                output.push_str("{\n");
+                output.push_str("{\n")?;
                 let mut entries = values.iter().collect::<Vec<_>>();
                 entries.sort_by(|(left, _), (right, _)| left.as_bytes().cmp(right.as_bytes()));
                 for (index, (key, value)) in entries.iter().enumerate() {
-                    write_indent(depth + 1, output);
+                    write_indent(depth + 1, output)?;
                     output.push_str(
                         &serde_json::to_string(key)
                             .map_err(|error| CodecError::Malformed(error.to_string()))?,
-                    );
-                    output.push_str(": ");
+                    )?;
+                    output.push_str(": ")?;
                     write_text_value(value, depth + 1, output)?;
                     if index + 1 != entries.len() {
-                        output.push(',');
+                        output.push(',')?;
                     }
-                    output.push('\n');
+                    output.push('\n')?;
                 }
-                write_indent(depth, output);
-                output.push('}');
+                write_indent(depth, output)?;
+                output.push('}')?;
             }
         }
     }
     Ok(())
 }
 
-fn write_indent(depth: usize, output: &mut String) {
+fn write_indent(depth: usize, output: &mut TextOutput) -> Result<(), CodecError> {
     for _ in 0..depth {
-        output.push_str("  ");
+        output.push_str("  ")?;
     }
+    Ok(())
 }
 
 fn format_text_real(value: f64) -> Result<String, CodecError> {
@@ -380,6 +530,7 @@ fn format_text_real(value: f64) -> Result<String, CodecError> {
 }
 
 fn validate_for_encoding(document: &Document) -> Result<(), CodecError> {
+    resource_usage(document).map_err(resource_limit)?;
     let codes = validate(document)
         .into_iter()
         .filter(|diagnostic| diagnostic.severity == Severity::Error)
@@ -393,11 +544,113 @@ fn validate_for_encoding(document: &Document) -> Result<(), CodecError> {
 }
 
 fn check_input_budget(bytes: &[u8]) -> Result<(), CodecError> {
-    if bytes.len() > 64 * 1024 * 1024 {
-        Err(CodecError::ResourceLimit)
+    if bytes.len() > MAX_INPUT_BYTES {
+        Err(CodecError::ResourceLimit {
+            resource: "input bytes",
+            limit: MAX_INPUT_BYTES,
+            observed: bytes.len(),
+        })
     } else {
         Ok(())
     }
+}
+
+fn resource_limit(error: ResourceLimitExceeded) -> CodecError {
+    CodecError::ResourceLimit {
+        resource: error.resource,
+        limit: error.limit,
+        observed: error.observed,
+    }
+}
+
+fn check_text_model_budget(document: &Document) -> Result<(), CodecError> {
+    let usage = resource_usage(document).map_err(resource_limit)?;
+    if usage.binary_bytes > MAX_TEXT_BINARY_BYTES {
+        Err(CodecError::ResourceLimit {
+            resource: "text binary bytes",
+            limit: MAX_TEXT_BINARY_BYTES,
+            observed: usage.binary_bytes,
+        })
+    } else {
+        Ok(())
+    }
+}
+
+#[derive(Clone, Copy)]
+enum TextScanState {
+    Normal,
+    String { quote: u8, escaped: bool },
+    LineComment,
+    BlockComment { star: bool },
+}
+
+fn check_text_depth(bytes: &[u8]) -> Result<(), CodecError> {
+    let mut depth = 0_usize;
+    let mut state = TextScanState::Normal;
+    let mut index = 0_usize;
+    while index < bytes.len() {
+        let byte = bytes[index];
+        state = match state {
+            TextScanState::Normal => match byte {
+                b'"' | b'\'' => TextScanState::String {
+                    quote: byte,
+                    escaped: false,
+                },
+                b'/' if bytes.get(index + 1) == Some(&b'/') => {
+                    index = index.saturating_add(1);
+                    TextScanState::LineComment
+                }
+                b'/' if bytes.get(index + 1) == Some(&b'*') => {
+                    index = index.saturating_add(1);
+                    TextScanState::BlockComment { star: false }
+                }
+                b'{' | b'[' => {
+                    depth = depth.saturating_add(1);
+                    if depth > MAX_SYNTAX_DEPTH {
+                        return Err(CodecError::ResourceLimit {
+                            resource: "syntax depth",
+                            limit: MAX_SYNTAX_DEPTH,
+                            observed: depth,
+                        });
+                    }
+                    TextScanState::Normal
+                }
+                b'}' | b']' => {
+                    depth = depth.saturating_sub(1);
+                    TextScanState::Normal
+                }
+                _ => TextScanState::Normal,
+            },
+            TextScanState::String { quote, escaped } => {
+                if escaped {
+                    TextScanState::String {
+                        quote,
+                        escaped: false,
+                    }
+                } else if byte == b'\\' {
+                    TextScanState::String {
+                        quote,
+                        escaped: true,
+                    }
+                } else if byte == quote {
+                    TextScanState::Normal
+                } else {
+                    TextScanState::String {
+                        quote,
+                        escaped: false,
+                    }
+                }
+            }
+            TextScanState::LineComment if matches!(byte, b'\n' | b'\r') => TextScanState::Normal,
+            TextScanState::LineComment => TextScanState::LineComment,
+            TextScanState::BlockComment { star: true } if byte == b'/' => TextScanState::Normal,
+            TextScanState::BlockComment { .. } => {
+                TextScanState::BlockComment { star: byte == b'*' }
+            }
+        };
+        index = index.saturating_add(1);
+    }
+    Ok(())
 }
 
 /// Computes the profile-qualified canonical document hash.
@@ -418,7 +671,7 @@ pub fn canonical_hash(document: &Document) -> Result<String, CodecError> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use nuif_core::{Entity, EntityId, EntityKind, PropertyValue};
+    use nuif_core::{Entity, EntityId, EntityKind, PROFILE0_RESOURCE_LIMITS, PropertyValue};
 
     fn document() -> Document {
         let mut document = Document::empty(EntityId::new(1));
@@ -617,5 +870,111 @@ mod tests {
             CanonicalText.decode(&bytes),
             Err(CodecError::InvalidDocument(_))
         ));
+    }
+
+    #[test]
+    fn decoders_reject_byte_and_syntax_depth_budgets() {
+        let oversized = vec![b' '; MAX_INPUT_BYTES + 1];
+        assert!(matches!(
+            CanonicalText.decode(&oversized),
+            Err(CodecError::ResourceLimit {
+                resource: "input bytes",
+                ..
+            })
+        ));
+
+        let deep_text = format!(
+            "{}null{}",
+            "[".repeat(MAX_SYNTAX_DEPTH + 1),
+            "]".repeat(MAX_SYNTAX_DEPTH + 1)
+        );
+        assert!(matches!(
+            CanonicalText.decode(deep_text.as_bytes()),
+            Err(CodecError::ResourceLimit {
+                resource: "syntax depth",
+                ..
+            })
+        ));
+
+        let mut deep_cbor = vec![0x81; MAX_SYNTAX_DEPTH + 1];
+        deep_cbor.push(0xf6);
+        assert!(matches!(
+            DeterministicCbor.decode(&deep_cbor),
+            Err(CodecError::ResourceLimit {
+                resource: "syntax depth",
+                ..
+            })
+        ));
+    }
+
+    #[test]
+    fn text_depth_scan_ignores_strings_and_json5_comments() {
+        let brackets = "[".repeat(MAX_SYNTAX_DEPTH + 1);
+        let input = format!("{{value: '{brackets}', /* {brackets} */}}");
+        assert!(!matches!(
+            CanonicalText.decode(input.as_bytes()),
+            Err(CodecError::ResourceLimit {
+                resource: "syntax depth",
+                ..
+            })
+        ));
+    }
+
+    #[test]
+    fn encoders_enforce_semantic_limits_and_roundtrip_the_boundary() {
+        let mut oversized = document();
+        oversized.entities.get_mut(&EntityId::new(2)).unwrap().name =
+            Some("x".repeat(PROFILE0_RESOURCE_LIMITS.single_string_bytes + 1));
+        assert!(matches!(
+            CanonicalText.encode(&oversized),
+            Err(CodecError::ResourceLimit {
+                resource: "single string bytes",
+                ..
+            })
+        ));
+
+        let mut text_binary = document();
+        text_binary
+            .entities
+            .get_mut(&EntityId::new(2))
+            .unwrap()
+            .authored
+            .values
+            .insert(
+                "bytes".to_owned(),
+                PropertyValue::Bytes(vec![0; MAX_TEXT_BINARY_BYTES + 1]),
+            );
+        assert!(matches!(
+            CanonicalText.encode(&text_binary),
+            Err(CodecError::ResourceLimit {
+                resource: "text binary bytes",
+                ..
+            })
+        ));
+        assert!(DeterministicCbor.encode(&text_binary).is_ok());
+        assert!(matches!(
+            CanonicalText.decode(&serde_json::to_vec(&text_binary).unwrap()),
+            Err(CodecError::ResourceLimit {
+                resource: "text binary bytes",
+                ..
+            })
+        ));
+
+        let mut boundary = document();
+        let mut nested = PropertyValue::Null;
+        for _ in 1..PROFILE0_RESOURCE_LIMITS.property_depth {
+            nested = PropertyValue::Array(vec![nested]);
+        }
+        boundary
+            .entities
+            .get_mut(&EntityId::new(2))
+            .unwrap()
+            .authored
+            .values
+            .insert("nested".to_owned(), nested);
+        let text = CanonicalText.encode(&boundary).unwrap();
+        assert_eq!(CanonicalText.decode_strict(&text).unwrap(), boundary);
+        let cbor = DeterministicCbor.encode(&boundary).unwrap();
+        assert_eq!(DeterministicCbor.decode(&cbor).unwrap(), boundary);
     }
 }

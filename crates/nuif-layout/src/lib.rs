@@ -2,7 +2,7 @@
 
 use nuif_core::{
     Align, Diagnostic, Document, Entity, EntityId, EntityKind, Fidelity, FlowDirection,
-    LayoutFamily, Severity, SizeIntent,
+    LayoutFamily, Severity, SizeIntent, validate,
 };
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet};
@@ -122,6 +122,14 @@ pub fn evaluate(document: &Document, context: &EvaluationContext) -> LayoutSnaps
         boxes: BTreeMap::new(),
         diagnostics: Vec::new(),
     };
+    let validation = validate(document);
+    if validation
+        .iter()
+        .any(|diagnostic| diagnostic.severity == Severity::Error)
+    {
+        snapshot.diagnostics = validation;
+        return snapshot;
+    }
     let root_bounds = Rect {
         x: 0.0,
         y: 0.0,
@@ -618,6 +626,10 @@ mod tests {
             .extension_declarations
             .fallback_kind
             .insert("vendor.probe".to_owned(), "container".to_owned());
+        document
+            .extension_declarations
+            .used
+            .insert("vendor.probe".to_owned());
 
         let snapshot = evaluate(&document, &EvaluationContext::viewport(100.0, 100.0));
         let codes = snapshot

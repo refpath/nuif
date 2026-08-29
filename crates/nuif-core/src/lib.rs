@@ -7,6 +7,78 @@ use std::str::FromStr;
 
 pub const CURRENT_SCHEMA_VERSION: u32 = 1;
 
+/// Resource limits for the executable profile-0 model.
+///
+/// These limits bound work after syntax parsing. Encoded byte and syntax-depth
+/// limits live in `nuif-codec`, where they can be enforced before allocation.
+pub const PROFILE0_RESOURCE_LIMITS: ResourceLimits = ResourceLimits {
+    entities: 8_192,
+    roots: 4_096,
+    tokens: 8_192,
+    relations: 32_768,
+    child_references: 8_191,
+    responsive_overrides: 16_384,
+    property_values: 65_536,
+    property_depth: 24,
+    containment_depth: 128,
+    binary_bytes: 8 * 1024 * 1024,
+    string_bytes: 8 * 1024 * 1024,
+    single_string_bytes: 1024 * 1024,
+};
+
+/// Cardinality and retained-data bounds for one decoded profile-0 document.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct ResourceLimits {
+    pub entities: usize,
+    pub roots: usize,
+    pub tokens: usize,
+    pub relations: usize,
+    pub child_references: usize,
+    pub responsive_overrides: usize,
+    pub property_values: usize,
+    pub property_depth: usize,
+    pub containment_depth: usize,
+    pub binary_bytes: usize,
+    pub string_bytes: usize,
+    pub single_string_bytes: usize,
+}
+
+/// Measured semantic size of a decoded document.
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq, Serialize)]
+pub struct ResourceUsage {
+    pub entities: usize,
+    pub roots: usize,
+    pub tokens: usize,
+    pub relations: usize,
+    pub child_references: usize,
+    pub responsive_overrides: usize,
+    pub property_values: usize,
+    pub property_depth: usize,
+    pub containment_depth: usize,
+    pub binary_bytes: usize,
+    pub string_bytes: usize,
+}
+
+/// A semantic-model resource bound exceeded by an untrusted document.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct ResourceLimitExceeded {
+    pub resource: &'static str,
+    pub limit: usize,
+    pub observed: usize,
+}
+
+impl fmt::Display for ResourceLimitExceeded {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            formatter,
+            "{} limit {} exceeded by observed value {}",
+            self.resource, self.limit, self.observed
+        )
+    }
+}
+
+impl std::error::Error for ResourceLimitExceeded {}
+
 #[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd, Serialize, Deserialize)]
 #[serde(transparent)]
 pub struct EntityId(#[serde(with = "entity_id_serde")] pub u128);
@@ -444,6 +516,258 @@ impl Diagnostic {
     }
 }
 
+const MAX_VALIDATION_DIAGNOSTICS: usize = 1024;
+
+trait DiagnosticSink {
+    fn push_capped(&mut self, diagnostic: Diagnostic);
+}
+
+impl DiagnosticSink for Vec<Diagnostic> {
+    fn push_capped(&mut self, diagnostic: Diagnostic) {
+        if self.len() < MAX_VALIDATION_DIAGNOSTICS {
+            self.push(diagnostic);
+        } else if self.len() == MAX_VALIDATION_DIAGNOSTICS {
+            self.push(Diagnostic::error(
+                "VALIDATION_DIAGNOSTICS_TRUNCATED",
+                format!(
+                    "validation stopped retaining issues after {MAX_VALIDATION_DIAGNOSTICS} diagnostics"
+                ),
+                None,
+            ));
+        }
+    }
+}
+
+/// Measures and enforces the executable profile-0 semantic resource limits.
+///
+/// The walk is iterative for recursively nestable property values. Containment
+/// depth is derived from the first observed parent of each entity; documents
+/// with multiple parents are rejected by structural validation before layout.
+///
+/// # Errors
+///
+/// Returns the first exceeded bound together with its limit and observed size.
+pub fn resource_usage(document: &Document) -> Result<ResourceUsage, ResourceLimitExceeded> {
+    let limits = PROFILE0_RESOURCE_LIMITS;
+    let mut usage = ResourceUsage {
+        entities: document.entities.len(),
+        roots: document.roots.len(),
+        tokens: document.tokens.len(),
+        relations: document.relations.len(),
+        ..ResourceUsage::default()
+    };
+    check_limit("entities", usage.entities, limits.entities)?;
+    check_limit("roots", usage.roots, limits.roots)?;
+    check_limit("tokens", usage.tokens, limits.tokens)?;
+    check_limit("relations", usage.relations, limits.relations)?;
+
+    let mut parents = BTreeMap::new();
+    for entity in document.entities.values() {
+        add_optional_string(&mut usage, entity.name.as_deref(), limits)?;
+        add_count(
+            &mut usage.child_references,
+            entity.children.len(),
+            "child references",
+            limits.child_references,
+        )?;
+        for child in &entity.children {
+            parents.entry(*child).or_insert(entity.id);
+        }
+        add_count(
+            &mut usage.responsive_overrides,
+            entity.authored.responsive.len(),
+            "responsive overrides",
+            limits.responsive_overrides,
+        )?;
+        if let Some(text) = &entity.authored.text {
+            add_string(&mut usage, &text.content, limits)?;
+            add_string(&mut usage, &text.font, limits)?;
+            add_string(&mut usage, &text.font_sha256, limits)?;
+        }
+        for override_value in &entity.authored.responsive {
+            add_optional_string(&mut usage, override_value.when.theme.as_deref(), limits)?;
+        }
+        for (key, value) in &entity.authored.values {
+            add_string(&mut usage, key, limits)?;
+            inspect_property_value(&mut usage, value, limits)?;
+        }
+        add_optional_string(&mut usage, entity.semantics.role.as_deref(), limits)?;
+        add_optional_string(
+            &mut usage,
+            entity.semantics.accessible_name.as_deref(),
+            limits,
+        )?;
+        for key in entity.semantics.states.keys() {
+            add_string(&mut usage, key, limits)?;
+        }
+        if let EntityKind::Unknown(unknown) = &entity.kind {
+            add_string(&mut usage, &unknown.namespace, limits)?;
+            add_string(&mut usage, &unknown.kind, limits)?;
+            add_binary(&mut usage, unknown.payload.bytes.len(), limits)?;
+        }
+        inspect_extensions(&mut usage, &entity.extensions, limits)?;
+    }
+
+    for token in document.tokens.values() {
+        add_string(&mut usage, &token.name, limits)?;
+        inspect_property_value(&mut usage, &token.value, limits)?;
+    }
+    for relation in &document.relations {
+        add_string(&mut usage, &relation.kind, limits)?;
+    }
+    for namespace in document
+        .extension_declarations
+        .used
+        .iter()
+        .chain(document.extension_declarations.required.iter())
+    {
+        add_string(&mut usage, namespace, limits)?;
+    }
+    for (namespace, fallback) in &document.extension_declarations.fallback_kind {
+        add_string(&mut usage, namespace, limits)?;
+        add_string(&mut usage, fallback, limits)?;
+    }
+    inspect_extensions(&mut usage, &document.extensions, limits)?;
+
+    for id in document.entities.keys() {
+        let mut current = Some(*id);
+        let mut path = BTreeSet::new();
+        let mut depth = 0_usize;
+        while let Some(item) = current {
+            if !path.insert(item) {
+                break;
+            }
+            depth = depth.saturating_add(1);
+            usage.containment_depth = usage.containment_depth.max(depth);
+            check_limit(
+                "containment depth",
+                usage.containment_depth,
+                limits.containment_depth,
+            )?;
+            current = parents.get(&item).copied();
+        }
+    }
+    Ok(usage)
+}
+
+fn inspect_property_value(
+    usage: &mut ResourceUsage,
+    root: &PropertyValue,
+    limits: ResourceLimits,
+) -> Result<(), ResourceLimitExceeded> {
+    let mut pending = vec![(root, 1_usize)];
+    while let Some((value, depth)) = pending.pop() {
+        usage.property_values = usage.property_values.saturating_add(1);
+        check_limit(
+            "property values",
+            usage.property_values,
+            limits.property_values,
+        )?;
+        usage.property_depth = usage.property_depth.max(depth);
+        check_limit(
+            "property depth",
+            usage.property_depth,
+            limits.property_depth,
+        )?;
+        match value {
+            PropertyValue::String(value) => add_string(usage, value, limits)?,
+            PropertyValue::Bytes(value) => add_binary(usage, value.len(), limits)?,
+            PropertyValue::Array(values) => {
+                pending.extend(values.iter().map(|value| (value, depth.saturating_add(1))));
+            }
+            PropertyValue::Object(values) => {
+                for (key, value) in values {
+                    add_string(usage, key, limits)?;
+                    pending.push((value, depth.saturating_add(1)));
+                }
+            }
+            PropertyValue::Null
+            | PropertyValue::Boolean(_)
+            | PropertyValue::Integer(_)
+            | PropertyValue::Real(_)
+            | PropertyValue::Token(_) => {}
+        }
+    }
+    Ok(())
+}
+
+fn inspect_extensions(
+    usage: &mut ResourceUsage,
+    extensions: &Extensions,
+    limits: ResourceLimits,
+) -> Result<(), ResourceLimitExceeded> {
+    for (namespace, payload) in &extensions.0 {
+        add_string(usage, namespace, limits)?;
+        add_binary(usage, payload.bytes.len(), limits)?;
+    }
+    Ok(())
+}
+
+fn add_optional_string(
+    usage: &mut ResourceUsage,
+    value: Option<&str>,
+    limits: ResourceLimits,
+) -> Result<(), ResourceLimitExceeded> {
+    value.map_or(Ok(()), |value| add_string(usage, value, limits))
+}
+
+fn add_string(
+    usage: &mut ResourceUsage,
+    value: &str,
+    limits: ResourceLimits,
+) -> Result<(), ResourceLimitExceeded> {
+    check_limit(
+        "single string bytes",
+        value.len(),
+        limits.single_string_bytes,
+    )?;
+    add_count(
+        &mut usage.string_bytes,
+        value.len(),
+        "string bytes",
+        limits.string_bytes,
+    )
+}
+
+fn add_binary(
+    usage: &mut ResourceUsage,
+    bytes: usize,
+    limits: ResourceLimits,
+) -> Result<(), ResourceLimitExceeded> {
+    add_count(
+        &mut usage.binary_bytes,
+        bytes,
+        "binary bytes",
+        limits.binary_bytes,
+    )
+}
+
+fn add_count(
+    value: &mut usize,
+    increment: usize,
+    resource: &'static str,
+    limit: usize,
+) -> Result<(), ResourceLimitExceeded> {
+    *value = value.saturating_add(increment);
+    check_limit(resource, *value, limit)
+}
+
+fn check_limit(
+    resource: &'static str,
+    observed: usize,
+    limit: usize,
+) -> Result<(), ResourceLimitExceeded> {
+    if observed > limit {
+        Err(ResourceLimitExceeded {
+            resource,
+            limit,
+            observed,
+        })
+    } else {
+        Ok(())
+    }
+}
+
 #[must_use]
 #[expect(
     clippy::too_many_lines,
@@ -451,29 +775,38 @@ impl Diagnostic {
 )]
 pub fn validate(document: &Document) -> Vec<Diagnostic> {
     let mut diagnostics = Vec::new();
-    if document.schema_version > CURRENT_SCHEMA_VERSION {
-        diagnostics.push(Diagnostic::error(
-            "MODEL_DOCUMENT_VERSION_UNSUPPORTED",
-            format!(
-                "document schema version {} is newer than supported version {CURRENT_SCHEMA_VERSION}",
-                document.schema_version
-            ),
+    if let Err(error) = resource_usage(document) {
+        diagnostics.push_capped(Diagnostic::error(
+            "MODEL_RESOURCE_LIMIT_EXCEEDED",
+            error.to_string(),
             None,
         ));
+        return diagnostics;
+    }
+    if document.schema_version > CURRENT_SCHEMA_VERSION {
+        diagnostics.push_capped(Diagnostic::error(
+                "MODEL_DOCUMENT_VERSION_UNSUPPORTED",
+                format!(
+                    "document schema version {} is newer than supported version {CURRENT_SCHEMA_VERSION}",
+                    document.schema_version
+                ),
+                None,
+            ),
+        );
     }
 
     let mut parents = BTreeMap::new();
     let mut root_set = BTreeSet::new();
     for root in &document.roots {
         if !root_set.insert(*root) {
-            diagnostics.push(Diagnostic::error(
+            diagnostics.push_capped(Diagnostic::error(
                 "MODEL_DUPLICATE_ROOT",
                 format!("root {root} appears more than once"),
                 Some(*root),
             ));
         }
         if !document.entities.contains_key(root) {
-            diagnostics.push(Diagnostic::error(
+            diagnostics.push_capped(Diagnostic::error(
                 "MODEL_ROOT_MISSING",
                 format!("root {root} does not exist"),
                 Some(*root),
@@ -483,7 +816,7 @@ pub fn validate(document: &Document) -> Vec<Diagnostic> {
 
     for (key, entity) in &document.entities {
         if *key != entity.id {
-            diagnostics.push(Diagnostic::error(
+            diagnostics.push_capped(Diagnostic::error(
                 "MODEL_ENTITY_KEY_MISMATCH",
                 format!(
                     "entity map key {key} differs from embedded id {}",
@@ -495,7 +828,7 @@ pub fn validate(document: &Document) -> Vec<Diagnostic> {
         if entity.schema_version > CURRENT_SCHEMA_VERSION
             && !matches!(entity.kind, EntityKind::Unknown(_))
         {
-            diagnostics.push(Diagnostic::error(
+            diagnostics.push_capped(Diagnostic::error(
                 "MODEL_ENTITY_VERSION_NOT_OPAQUE",
                 "a newer entity schema version must be represented as unknown",
                 Some(entity.id),
@@ -504,21 +837,21 @@ pub fn validate(document: &Document) -> Vec<Diagnostic> {
         let mut local = BTreeSet::new();
         for child in &entity.children {
             if !local.insert(*child) {
-                diagnostics.push(Diagnostic::error(
+                diagnostics.push_capped(Diagnostic::error(
                     "MODEL_DUPLICATE_CHILD",
                     format!("child {child} appears more than once"),
                     Some(entity.id),
                 ));
             }
             if !document.entities.contains_key(child) {
-                diagnostics.push(Diagnostic::error(
+                diagnostics.push_capped(Diagnostic::error(
                     "MODEL_CHILD_MISSING",
                     format!("child {child} does not exist"),
                     Some(entity.id),
                 ));
             }
             if let Some(previous) = parents.insert(*child, entity.id) {
-                diagnostics.push(Diagnostic::error(
+                diagnostics.push_capped(Diagnostic::error(
                     "MODEL_MULTIPLE_PARENTS",
                     format!("child {child} belongs to both {previous} and {}", entity.id),
                     Some(*child),
@@ -530,7 +863,7 @@ pub fn validate(document: &Document) -> Vec<Diagnostic> {
 
     for root in &document.roots {
         if parents.contains_key(root) {
-            diagnostics.push(Diagnostic::error(
+            diagnostics.push_capped(Diagnostic::error(
                 "MODEL_ROOT_HAS_PARENT",
                 format!("root {root} also has a parent"),
                 Some(*root),
@@ -551,7 +884,7 @@ pub fn validate(document: &Document) -> Vec<Diagnostic> {
     }
     for id in document.entities.keys() {
         if !reached.contains(id) {
-            diagnostics.push(Diagnostic::error(
+            diagnostics.push_capped(Diagnostic::error(
                 "MODEL_ENTITY_UNREACHABLE",
                 format!("entity {id} is not reachable from a root"),
                 Some(*id),
@@ -575,7 +908,7 @@ pub fn validate(document: &Document) -> Vec<Diagnostic> {
 
     for relation in &document.relations {
         if !is_identifier(&relation.kind) {
-            diagnostics.push(Diagnostic::error(
+            diagnostics.push_capped(Diagnostic::error(
                 "MODEL_IDENTIFIER_INVALID",
                 format!(
                     "relation kind {:?} is not a lowercase NUIF identifier",
@@ -587,7 +920,7 @@ pub fn validate(document: &Document) -> Vec<Diagnostic> {
         if !document.entities.contains_key(&relation.source)
             || !document.entities.contains_key(&relation.target)
         {
-            diagnostics.push(Diagnostic::error(
+            diagnostics.push_capped(Diagnostic::error(
                 "MODEL_RELATION_TARGET_MISSING",
                 format!("relation {} has a missing endpoint", relation.kind),
                 Some(relation.source),
@@ -597,7 +930,7 @@ pub fn validate(document: &Document) -> Vec<Diagnostic> {
 
     for (key, token) in &document.tokens {
         if *key != token.id {
-            diagnostics.push(Diagnostic::error(
+            diagnostics.push_capped(Diagnostic::error(
                 "MODEL_TOKEN_KEY_MISMATCH",
                 format!("token map key {key} differs from embedded id {}", token.id),
                 None,
@@ -608,7 +941,7 @@ pub fn validate(document: &Document) -> Vec<Diagnostic> {
 
     for namespace in &document.extension_declarations.required {
         if !document.extension_declarations.used.contains(namespace) {
-            diagnostics.push(Diagnostic::error(
+            diagnostics.push_capped(Diagnostic::error(
                 "EXTENSION_REQUIRED_NOT_USED",
                 format!("required namespace {namespace} is absent from extensions_used"),
                 None,
@@ -623,7 +956,7 @@ pub fn validate(document: &Document) -> Vec<Diagnostic> {
         .chain(document.extension_declarations.fallback_kind.keys())
     {
         if !is_identifier(namespace) {
-            diagnostics.push(Diagnostic::error(
+            diagnostics.push_capped(Diagnostic::error(
                 "EXTENSION_NAMESPACE_INVALID",
                 format!("extension namespace {namespace:?} is not a lowercase NUIF identifier"),
                 None,
@@ -631,7 +964,7 @@ pub fn validate(document: &Document) -> Vec<Diagnostic> {
         }
     }
     for namespace in &document.extension_declarations.used {
-        diagnostics.push(Diagnostic {
+        diagnostics.push_capped(Diagnostic {
             code: "EXTENSION_UNSUPPORTED".to_owned(),
             severity: Severity::Information,
             message: format!(
@@ -645,29 +978,30 @@ pub fn validate(document: &Document) -> Vec<Diagnostic> {
         });
     }
     for namespace in &document.extension_declarations.required {
-        diagnostics.push(Diagnostic {
-            code: "EXTENSION_REQUIRED_UNSUPPORTED".to_owned(),
-            severity: Severity::Warning,
-            message: format!(
-                "required namespace {namespace} is not interpreted; structural editing remains available"
-            ),
-            entity: None,
-            pointer: Some("/extension_declarations/required".to_owned()),
-            fidelity: Some(Fidelity::PreservedUnrenderable {
-                namespace: namespace.clone(),
-            }),
-        });
+        diagnostics.push_capped(Diagnostic {
+                code: "EXTENSION_REQUIRED_UNSUPPORTED".to_owned(),
+                severity: Severity::Warning,
+                message: format!(
+                    "required namespace {namespace} is not interpreted; structural editing remains available"
+                ),
+                entity: None,
+                pointer: Some("/extension_declarations/required".to_owned()),
+                fidelity: Some(Fidelity::PreservedUnrenderable {
+                    namespace: namespace.clone(),
+                }),
+            },
+        );
     }
     for (namespace, fallback_kind) in &document.extension_declarations.fallback_kind {
         if !document.extension_declarations.used.contains(namespace) {
-            diagnostics.push(Diagnostic::error(
+            diagnostics.push_capped(Diagnostic::error(
                 "EXTENSION_FALLBACK_NOT_USED",
                 format!("fallback namespace {namespace} is absent from extensions_used"),
                 None,
             ));
         }
         if !is_identifier(fallback_kind) {
-            diagnostics.push(Diagnostic::error(
+            diagnostics.push_capped(Diagnostic::error(
                 "MODEL_IDENTIFIER_INVALID",
                 format!("fallback kind {fallback_kind:?} is not a lowercase NUIF identifier"),
                 None,
@@ -692,7 +1026,7 @@ fn validate_entity(document: &Document, entity: &Entity, diagnostics: &mut Vec<D
             Some(EntityKind::Component)
         )
     {
-        diagnostics.push(Diagnostic::error(
+        diagnostics.push_capped(Diagnostic::error(
             "MODEL_COMPONENT_MISSING",
             format!("instance references missing or non-component entity {component}"),
             Some(entity.id),
@@ -740,7 +1074,7 @@ fn validate_authored_numbers(entity: &Entity, diagnostics: &mut Vec<Diagnostic>)
             (responsive.when.min_width, responsive.when.max_width)
             && minimum > maximum
         {
-            diagnostics.push(Diagnostic::error(
+            diagnostics.push_capped(Diagnostic::error(
                 "MODEL_RESPONSIVE_RANGE_INVALID",
                 "responsive min_width must not exceed max_width",
                 Some(entity.id),
@@ -749,7 +1083,7 @@ fn validate_authored_numbers(entity: &Entity, diagnostics: &mut Vec<Diagnostic>)
     }
     for value in authored_numbers {
         if !value.is_finite() {
-            diagnostics.push(Diagnostic::error(
+            diagnostics.push_capped(Diagnostic::error(
                 "MODEL_NON_FINITE_NUMBER",
                 "authored numeric values must be finite",
                 Some(entity.id),
@@ -765,7 +1099,7 @@ fn validate_entity_identifiers(
 ) {
     if let EntityKind::Unknown(unknown) = &entity.kind {
         if !is_identifier(&unknown.namespace) {
-            diagnostics.push(Diagnostic::error(
+            diagnostics.push_capped(Diagnostic::error(
                 "UNKNOWN_NAMESPACE_INVALID",
                 format!(
                     "unknown-kind namespace {:?} is not a lowercase NUIF identifier",
@@ -779,7 +1113,7 @@ fn validate_entity_identifiers(
             .used
             .contains(&unknown.namespace)
         {
-            diagnostics.push(Diagnostic::error(
+            diagnostics.push_capped(Diagnostic::error(
                 "UNKNOWN_NAMESPACE_UNDECLARED",
                 format!(
                     "unknown-kind namespace {} is absent from extensions_used",
@@ -789,7 +1123,7 @@ fn validate_entity_identifiers(
             ));
         }
         if !is_identifier(&unknown.kind) {
-            diagnostics.push(Diagnostic::error(
+            diagnostics.push_capped(Diagnostic::error(
                 "MODEL_IDENTIFIER_INVALID",
                 format!(
                     "unknown kind {:?} is not a lowercase NUIF identifier",
@@ -806,7 +1140,7 @@ fn validate_entity_identifiers(
         .chain(entity.semantics.states.keys())
     {
         if !is_identifier(key) {
-            diagnostics.push(Diagnostic::error(
+            diagnostics.push_capped(Diagnostic::error(
                 "MODEL_IDENTIFIER_INVALID",
                 format!("property key {key:?} is not a lowercase NUIF identifier"),
                 Some(entity.id),
@@ -816,7 +1150,7 @@ fn validate_entity_identifiers(
     if let Some(role) = &entity.semantics.role
         && !is_identifier(role)
     {
-        diagnostics.push(Diagnostic::error(
+        diagnostics.push_capped(Diagnostic::error(
             "MODEL_IDENTIFIER_INVALID",
             format!("semantic role {role:?} is not a lowercase NUIF identifier"),
             Some(entity.id),
@@ -854,13 +1188,15 @@ fn validate_property_value(
     diagnostics: &mut Vec<Diagnostic>,
 ) {
     match value {
-        PropertyValue::Real(real) if !real.is_finite() => diagnostics.push(Diagnostic::error(
-            "MODEL_NON_FINITE_NUMBER",
-            "real property values must be finite",
-            entity,
-        )),
+        PropertyValue::Real(real) if !real.is_finite() => {
+            diagnostics.push_capped(Diagnostic::error(
+                "MODEL_NON_FINITE_NUMBER",
+                "real property values must be finite",
+                entity,
+            ));
+        }
         PropertyValue::Token(id) if !document.tokens.contains_key(id) => {
-            diagnostics.push(Diagnostic::error(
+            diagnostics.push_capped(Diagnostic::error(
                 "MODEL_TOKEN_MISSING",
                 format!("token reference {id} does not exist"),
                 entity,
@@ -874,7 +1210,7 @@ fn validate_property_value(
         PropertyValue::Object(values) => {
             for (key, value) in values {
                 if !is_identifier(key) {
-                    diagnostics.push(Diagnostic::error(
+                    diagnostics.push_capped(Diagnostic::error(
                         "MODEL_IDENTIFIER_INVALID",
                         format!("property key {key:?} is not a lowercase NUIF identifier"),
                         entity,
@@ -895,14 +1231,14 @@ fn validate_extensions(
 ) {
     for namespace in extensions.0.keys() {
         if !is_identifier(namespace) {
-            diagnostics.push(Diagnostic::error(
+            diagnostics.push_capped(Diagnostic::error(
                 "EXTENSION_NAMESPACE_INVALID",
                 format!("extension namespace {namespace:?} is not a lowercase NUIF identifier"),
                 entity,
             ));
         }
         if !used.contains(namespace) {
-            diagnostics.push(Diagnostic::error(
+            diagnostics.push_capped(Diagnostic::error(
                 "EXTENSION_UNDECLARED",
                 format!("extension namespace {namespace} is absent from extensions_used"),
                 entity,
@@ -918,22 +1254,37 @@ fn visit(
     visiting: &mut BTreeSet<EntityId>,
     diagnostics: &mut Vec<Diagnostic>,
 ) {
-    if !visiting.insert(id) {
-        diagnostics.push(Diagnostic::error(
-            "MODEL_CONTAINMENT_CYCLE",
-            format!("containment cycle includes {id}"),
-            Some(id),
-        ));
-        return;
+    enum Frame {
+        Enter(EntityId),
+        Exit(EntityId),
     }
-    if reached.insert(id)
-        && let Some(entity) = document.entities.get(&id)
-    {
-        for child in &entity.children {
-            visit(document, *child, reached, visiting, diagnostics);
+
+    let mut stack = vec![Frame::Enter(id)];
+    while let Some(frame) = stack.pop() {
+        match frame {
+            Frame::Enter(current) => {
+                if visiting.contains(&current) {
+                    diagnostics.push_capped(Diagnostic::error(
+                        "MODEL_CONTAINMENT_CYCLE",
+                        format!("containment cycle includes {current}"),
+                        Some(current),
+                    ));
+                    continue;
+                }
+                if !reached.insert(current) {
+                    continue;
+                }
+                visiting.insert(current);
+                stack.push(Frame::Exit(current));
+                if let Some(entity) = document.entities.get(&current) {
+                    stack.extend(entity.children.iter().rev().copied().map(Frame::Enter));
+                }
+            }
+            Frame::Exit(current) => {
+                visiting.remove(&current);
+            }
         }
     }
-    visiting.remove(&id);
 }
 
 #[must_use]
@@ -1050,6 +1401,182 @@ mod tests {
                 .filter(|code| *code == "MODEL_IDENTIFIER_INVALID")
                 .count()
                 >= 2
+        );
+    }
+
+    #[test]
+    fn resource_usage_rejects_recursive_property_and_containment_depth() {
+        let mut nested = PropertyValue::Null;
+        for _ in 0..PROFILE0_RESOURCE_LIMITS.property_depth {
+            nested = PropertyValue::Array(vec![nested]);
+        }
+        let mut property_document = Document::empty(EntityId::new(1));
+        let mut property_root = Entity::new(EntityId::new(2), EntityKind::Container);
+        property_root
+            .authored
+            .values
+            .insert("nested".to_owned(), nested);
+        property_document.roots.push(property_root.id);
+        property_document
+            .entities
+            .insert(property_root.id, property_root);
+        assert_eq!(
+            resource_usage(&property_document).unwrap_err().resource,
+            "property depth"
+        );
+
+        let mut tree_document = Document::empty(EntityId::new(1));
+        for index in 0..=PROFILE0_RESOURCE_LIMITS.containment_depth {
+            let id = EntityId::new(u128::try_from(index + 2).unwrap());
+            let mut entity = Entity::new(id, EntityKind::Container);
+            if index < PROFILE0_RESOURCE_LIMITS.containment_depth {
+                entity
+                    .children
+                    .push(EntityId::new(u128::try_from(index + 3).unwrap()));
+            }
+            if index == 0 {
+                tree_document.roots.push(id);
+            }
+            tree_document.entities.insert(id, entity);
+        }
+        assert_eq!(
+            resource_usage(&tree_document).unwrap_err().resource,
+            "containment depth"
+        );
+    }
+
+    #[test]
+    fn validation_caps_retained_diagnostics() {
+        let mut document = Document::empty(EntityId::new(1));
+        document.roots = vec![EntityId::new(2); MAX_VALIDATION_DIAGNOSTICS * 2];
+        let diagnostics = validate(&document);
+        assert_eq!(diagnostics.len(), MAX_VALIDATION_DIAGNOSTICS + 1);
+        assert_eq!(
+            diagnostics.last().map(|item| item.code.as_str()),
+            Some("VALIDATION_DIAGNOSTICS_TRUNCATED")
+        );
+    }
+
+    #[test]
+    #[expect(
+        clippy::too_many_lines,
+        reason = "one regression enumerates every public profile resource field"
+    )]
+    fn resource_usage_enforces_every_cardinality_and_retained_data_limit() {
+        let mut document = Document::empty(EntityId::new(1));
+        for index in 0..=PROFILE0_RESOURCE_LIMITS.entities {
+            let id = EntityId::new(u128::try_from(index + 2).unwrap());
+            document
+                .entities
+                .insert(id, Entity::new(id, EntityKind::Container));
+        }
+        assert_eq!(resource_usage(&document).unwrap_err().resource, "entities");
+
+        let mut document = Document::empty(EntityId::new(1));
+        document.roots = vec![EntityId::new(2); PROFILE0_RESOURCE_LIMITS.roots + 1];
+        assert_eq!(resource_usage(&document).unwrap_err().resource, "roots");
+
+        let mut document = Document::empty(EntityId::new(1));
+        for index in 0..=PROFILE0_RESOURCE_LIMITS.tokens {
+            let id = EntityId::new(u128::try_from(index + 2).unwrap());
+            document.tokens.insert(
+                id,
+                Token {
+                    id,
+                    name: String::new(),
+                    value: PropertyValue::Null,
+                },
+            );
+        }
+        assert_eq!(resource_usage(&document).unwrap_err().resource, "tokens");
+
+        let mut document = Document::empty(EntityId::new(1));
+        document.relations = vec![
+            Relation {
+                kind: "probe".to_owned(),
+                source: EntityId::new(2),
+                target: EntityId::new(2),
+            };
+            PROFILE0_RESOURCE_LIMITS.relations + 1
+        ];
+        assert_eq!(resource_usage(&document).unwrap_err().resource, "relations");
+
+        let mut document = Document::empty(EntityId::new(1));
+        let mut root = Entity::new(EntityId::new(2), EntityKind::Container);
+        root.children = vec![EntityId::new(3); PROFILE0_RESOURCE_LIMITS.child_references + 1];
+        document.entities.insert(root.id, root);
+        assert_eq!(
+            resource_usage(&document).unwrap_err().resource,
+            "child references"
+        );
+
+        let mut document = Document::empty(EntityId::new(1));
+        let mut root = Entity::new(EntityId::new(2), EntityKind::Container);
+        root.authored.responsive = vec![
+            ResponsiveOverride {
+                when: ContextPredicate {
+                    min_width: None,
+                    max_width: None,
+                    theme: None,
+                },
+                direction: None,
+                gap: None,
+                width: None,
+                height: None,
+            };
+            PROFILE0_RESOURCE_LIMITS.responsive_overrides + 1
+        ];
+        document.entities.insert(root.id, root);
+        assert_eq!(
+            resource_usage(&document).unwrap_err().resource,
+            "responsive overrides"
+        );
+
+        let mut document = Document::empty(EntityId::new(1));
+        let mut root = Entity::new(EntityId::new(2), EntityKind::Container);
+        root.authored.values.insert(
+            "values".to_owned(),
+            PropertyValue::Array(vec![
+                PropertyValue::Null;
+                PROFILE0_RESOURCE_LIMITS.property_values
+            ]),
+        );
+        document.entities.insert(root.id, root);
+        assert_eq!(
+            resource_usage(&document).unwrap_err().resource,
+            "property values"
+        );
+
+        let mut document = Document::empty(EntityId::new(1));
+        let token_count = PROFILE0_RESOURCE_LIMITS.string_bytes
+            / PROFILE0_RESOURCE_LIMITS.single_string_bytes
+            + 1;
+        for index in 0..token_count {
+            let id = EntityId::new(u128::try_from(index + 2).unwrap());
+            document.tokens.insert(
+                id,
+                Token {
+                    id,
+                    name: "x".repeat(PROFILE0_RESOURCE_LIMITS.single_string_bytes),
+                    value: PropertyValue::Null,
+                },
+            );
+        }
+        assert_eq!(
+            resource_usage(&document).unwrap_err().resource,
+            "string bytes"
+        );
+
+        let mut document = Document::empty(EntityId::new(1));
+        let mut root = Entity::new(EntityId::new(2), EntityKind::Container);
+        root.authored.values.insert(
+            "bytes".to_owned(),
+            PropertyValue::Bytes(vec![0; PROFILE0_RESOURCE_LIMITS.binary_bytes + 1]),
+        );
+        document.entities.insert(root.id, root);
+        assert_eq!(
+            resource_usage(&document).unwrap_err().resource,
+            "binary bytes"
         );
     }
 }

@@ -1,8 +1,10 @@
 use nuif_api::{Engine, ReferenceEngine, Session};
 use nuif_codec::{
-    CanonicalText, Canonicalizer, Decoder, DeterministicCbor, Encoder, canonical_hash,
+    BoundedReadError, CanonicalText, Canonicalizer, Decoder, DeterministicCbor, Encoder,
+    MAX_INPUT_BYTES, MAX_SYNTAX_DEPTH, MAX_TEXT_BINARY_BYTES, canonical_hash,
+    read_bounded as read_bounded_stream,
 };
-use nuif_core::{Document, EntityId, EntityKind, Severity, validate};
+use nuif_core::{Document, EntityId, EntityKind, PROFILE0_RESOURCE_LIMITS, Severity, validate};
 use nuif_layout::EvaluationContext;
 use nuif_protocol::{Patch, apply_patch};
 use nuif_testing::{TrialConfig, run_trials};
@@ -440,7 +442,24 @@ fn print_capabilities() -> Result<(), CliError> {
         "protocol": "0.0.1",
         "status": "executable",
         "commands": COMMANDS,
-        "engine": engine.capabilities()
+        "engine": engine.capabilities(),
+        "resource_limits": {
+            "input_bytes": MAX_INPUT_BYTES,
+            "syntax_depth": MAX_SYNTAX_DEPTH,
+            "text_binary_bytes": MAX_TEXT_BINARY_BYTES,
+            "entities": PROFILE0_RESOURCE_LIMITS.entities,
+            "roots": PROFILE0_RESOURCE_LIMITS.roots,
+            "tokens": PROFILE0_RESOURCE_LIMITS.tokens,
+            "relations": PROFILE0_RESOURCE_LIMITS.relations,
+            "child_references": PROFILE0_RESOURCE_LIMITS.child_references,
+            "responsive_overrides": PROFILE0_RESOURCE_LIMITS.responsive_overrides,
+            "property_values": PROFILE0_RESOURCE_LIMITS.property_values,
+            "property_depth": PROFILE0_RESOURCE_LIMITS.property_depth,
+            "containment_depth": PROFILE0_RESOURCE_LIMITS.containment_depth,
+            "binary_bytes": PROFILE0_RESOURCE_LIMITS.binary_bytes,
+            "string_bytes": PROFILE0_RESOURCE_LIMITS.string_bytes,
+            "single_string_bytes": PROFILE0_RESOURCE_LIMITS.single_string_bytes
+        }
     }))
 }
 
@@ -458,13 +477,44 @@ fn load_document(path: &str) -> Result<Document, CliError> {
 
 fn read_input(path: &str) -> Result<Vec<u8>, CliError> {
     if path == "-" {
-        let mut bytes = Vec::new();
-        io::stdin()
-            .read_to_end(&mut bytes)
-            .map_err(|error| CliError::new(1, "READ_FAILED", error.to_string()))?;
-        Ok(bytes)
+        read_bounded(&mut io::stdin())
     } else {
-        fs::read(path).map_err(|error| CliError::new(1, "READ_FAILED", error.to_string()))
+        let mut input = fs::File::open(path)
+            .map_err(|error| CliError::new(1, "READ_FAILED", error.to_string()))?;
+        read_bounded(&mut input)
+    }
+}
+
+fn read_bounded(reader: &mut impl Read) -> Result<Vec<u8>, CliError> {
+    read_bounded_with_limit(reader, MAX_INPUT_BYTES)
+}
+
+fn read_bounded_with_limit(reader: &mut impl Read, limit: usize) -> Result<Vec<u8>, CliError> {
+    read_bounded_stream(reader, limit).map_err(|error| match error {
+        BoundedReadError::ResourceLimit { .. } => CliError::new(
+            1,
+            "INPUT_RESOURCE_LIMIT",
+            format!("input exceeds the {limit}-byte profile limit"),
+        ),
+        error => CliError::new(1, "READ_FAILED", error.to_string()),
+    })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::io::Cursor;
+
+    #[test]
+    fn bounded_reader_stops_before_unbounded_allocation() {
+        let mut oversized = Cursor::new([0_u8; 10]);
+        let error = read_bounded_with_limit(&mut oversized, 3).unwrap_err();
+        assert_eq!(error.code, "INPUT_RESOURCE_LIMIT");
+        assert_eq!(oversized.position(), 4);
+        assert_eq!(
+            read_bounded_with_limit(&mut Cursor::new([0_u8; 3]), 3).unwrap(),
+            [0_u8; 3]
+        );
     }
 }
 
@@ -516,6 +566,7 @@ fn usage() -> CliError {
     CliError::new(2, "USAGE", format!("usage: nuif <{}>", COMMANDS.join("|")))
 }
 
+#[derive(Debug)]
 struct CliError {
     exit_status: i32,
     code: String,
