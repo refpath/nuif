@@ -75,6 +75,14 @@ jobs:
         with:
           name: layout-differential-report
           path: target/layout-differential-report.json
+      - name: Gate D pinned text-shaping trial
+        run: cargo xtask gate-d-text
+      - name: Upload text pinning report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: text-pinning-report
+          path: target/text-pinning-report.json
       - name: Headless editor trial
         run: |
           cargo run --locked -p nuif-cli -- fixture v0-responsive-card "$RUNNER_TEMP/v0.nuif"
