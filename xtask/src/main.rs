@@ -17,6 +17,7 @@ const ALL_STEPS: &[Step] = &[
     ("gate-f", gate_f),
     ("gate-f-v0", gate_f_v0),
     ("gate-g", gate_g),
+    ("gate-h", gate_h),
 ];
 
 const VERIFICATION_ARTIFACTS: &[&str] = &[
@@ -35,6 +36,7 @@ const VERIFICATION_ARTIFACTS: &[&str] = &[
     "target/html-sync-v0-editor-output.html",
     "target/gate-g-report.json",
     "target/gate-g-independent",
+    "target/collaboration-report.json",
 ];
 
 fn main() {
@@ -77,6 +79,7 @@ fn run() -> Result<(), String> {
         Some("gate-f") => gate_f(),
         Some("gate-f-v0") => gate_f_v0(),
         Some("gate-g") => gate_g(),
+        Some("gate-h") => gate_h(),
         Some("browser-install") => browser_install(),
         Some("hostile-inputs") => hostile_inputs(),
         Some("research") => research(),
@@ -84,7 +87,7 @@ fn run() -> Result<(), String> {
         Some("manifest") => standalone_manifest(),
         Some("all") => all(),
         _ => Err(
-            "usage: cargo xtask <research|verify|trial [seed iterations snapshot-interval report-path]|gate-b|gate-c|gate-d|gate-d-text|gate-d-render|gate-f|gate-f-v0|gate-g|browser-install|hostile-inputs|editor-trial|manifest|all>"
+            "usage: cargo xtask <research|verify|trial [seed iterations snapshot-interval report-path]|gate-b|gate-c|gate-d|gate-d-text|gate-d-render|gate-f|gate-f-v0|gate-g|gate-h|browser-install|hostile-inputs|editor-trial|manifest|all>"
                 .to_owned(),
         ),
     }
@@ -423,6 +426,21 @@ fn gate_g() -> Result<(), String> {
             path(independent)?,
         ],
     )
+}
+
+fn gate_h() -> Result<(), String> {
+    cargo(&[
+        "run",
+        "--release",
+        "--locked",
+        "-p",
+        "nuif-conformance",
+        "--bin",
+        "collaboration-registers",
+        "--",
+        "--output",
+        "target/collaboration-report.json",
+    ])
 }
 
 fn research() -> Result<(), String> {

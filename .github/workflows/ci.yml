@@ -105,6 +105,12 @@ jobs:
           path: |
             target/gate-g-report.json
             target/gate-g-independent
+      - name: Upload collaboration convergence evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: collaboration-register-profile
+          path: target/collaboration-report.json
       - name: Upload verification artifact index
         if: always()
         uses: actions/upload-artifact@v4
