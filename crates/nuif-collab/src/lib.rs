@@ -176,13 +176,23 @@ impl OperationSetEngine {
         let frontiers = grouped
             .into_iter()
             .map(|(key, changes)| {
+                let mut observed_context = BTreeMap::<&str, u64>::new();
+                for change in &changes {
+                    for (replica, counter) in &change.context {
+                        observed_context
+                            .entry(replica)
+                            .and_modify(|observed| *observed = (*observed).max(*counter))
+                            .or_insert(*counter);
+                    }
+                }
                 let maximal = changes
-                    .iter()
-                    .copied()
+                    .into_iter()
                     .filter(|candidate| {
-                        !changes.iter().copied().any(|other| {
-                            candidate.id != other.id && happens_before(candidate, other)
-                        })
+                        observed_context
+                            .get(candidate.id.replica.as_str())
+                            .copied()
+                            .unwrap_or(0)
+                            < candidate.id.counter
                     })
                     .cloned()
                     .collect::<Vec<_>>();

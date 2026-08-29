@@ -58,6 +58,26 @@ Criterion accepts a filter after `--`, such as `-- codec --noplot`. Use
 an external profiler. Keep the same power mode, foreground load, toolchain and
 build inputs for both sides of a comparison.
 
+## Local calibration
+
+The first `system_surfaces` calibration ran on macOS/aarch64, Apple M5 Pro,
+rustc 1.98.0, with 20 Criterion samples, one second of warm-up and two seconds
+of measurement per case on 2026-08-30. These values establish workload
+plausibility and one optimization comparison; they are not portable release
+budgets.
+
+- Stable-ID lookup at 8,192 entities measured 18.5–19.2 ns; a complete kind
+  scan measured 19.2–19.5 µs.
+- HTML/CSS, SVG and DTCG synchronization measured 226.7–228.0 µs,
+  189.7–190.5 µs and 55.5–55.8 µs respectively for their declared fixtures.
+- The 1,024-writer operation-set checkpoint measured 4.08–4.15 ms before
+  replacing an all-pairs causal-maximality search with per-replica maximum
+  observed vector contexts. The algorithmically independent replica-log
+  frontier remained separate. A same-process saved-baseline comparison measured
+  2.51–2.81 ms afterward and Criterion classified the change as a 36.1–40.3%
+  reduction in time (`p < 0.05`). Exact checkpoint equality, 5,040 delivery
+  permutations and both materializers remain Gate H postconditions.
+
 ## Interpretation
 
 - Treat the portable budgets as availability limits, not optimization targets.
