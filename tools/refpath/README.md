@@ -1,7 +1,17 @@
-# Refpath integration
+# Refpath research ingestion contract
 
-This directory will contain deterministic extraction/index tooling for feeding NUIF research and project metadata into Refpath/refpath-cloud.
+This directory will contain tooling that projects repository research/spec/code metadata into Refpath's research graph.
 
-The intended graph contains nodes for research sources, atomic claims, experiments, specifications, RFCs, ADRs, code symbols/modules, fixtures, conformance assertions, and releases. Typed edges include `supports`, `contradicts`, `extends`, `implements`, `inspired_by`, `compares_to`, `supersedes`, `depends_on`, `validated_by`, and `implemented_by`.
+## Node classes
 
-Stable IDs in front matter and schemas are authoritative graph identities. Indexing must not depend on embeddings or natural-language inference for relationships that the repository can state explicitly.
+`source`, `paper`, `standard`, `repository`, `claim`, `question`, `experiment`, `rfc`, `adr`, `spec_section`, `fixture`, `crate`, `adapter`, `commit`.
+
+## Edge classes
+
+`supports`, `contradicts`, `extends`, `implements`, `inspired_by`, `compares_to`, `supersedes`, `depends_on`, `tests`, `specified_by`, `decided_by`, `evidenced_by`.
+
+## Determinism
+
+Stable IDs are supplied by front matter/spec identifiers rather than generated from prose. Importers should hash normalized source records to detect changes and maintain `supersedes` history instead of destructive replacement.
+
+Code indexing is separate from research ingestion but joins through explicit `links.code` references and repository commit identity.

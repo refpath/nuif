@@ -4,6 +4,10 @@ members = [
   "crates/nuif-core",
   "crates/nuif-protocol",
   "crates/nuif-cli",
+  "crates/nuif-layout",
+  "crates/nuif-render",
+  "crates/nuif-codec",
+  "crates/nuif-query",
 ]
 
 [workspace.package]
