@@ -23,3 +23,9 @@ byte-local edits, root and token extension preservation, duplicate/depth/count
 and source limits, and a public-CLI bridge. Reports and retained sources are
 written under `target/dtcg-sync-*`; groups, aliases and composite types remain
 outside the declared profile.
+
+Run `cargo xtask adapter-audit` to validate the complete advertised adapter
+inventory independently of executable profile tests. It requires research and
+explicit boundaries for ten targets, checks crate/profile/gate references for
+the four integrated profiles and prevents researched or externally blocked
+targets from claiming executable directions.

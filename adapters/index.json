@@ -1,0 +1,132 @@
+{
+  "schema_version": 1,
+  "targets": [
+    {
+      "id": "html-css",
+      "surface": "DOM and CSS source",
+      "status": "integrated",
+      "research": "tree-sitter",
+      "directions": ["import", "export", "synchronize"],
+      "profiles": [
+        {
+          "name": "nuif-html-css-0",
+          "crate": "crates/nuif-html",
+          "profile": "adapters/html-css/PROFILE.md",
+          "gate": "gate-f"
+        },
+        {
+          "name": "nuif-html-css-v0",
+          "crate": "crates/nuif-html",
+          "profile": "adapters/html-css/V0-PROFILE.md",
+          "gate": "gate-f-v0"
+        }
+      ],
+      "next_profile": "separately tested CSS and layout features",
+      "boundary": "Arbitrary cascade, scripts and unmarked DOM are not imported."
+    },
+    {
+      "id": "svg",
+      "surface": "SVG 2 XML",
+      "status": "integrated",
+      "research": "svg",
+      "directions": ["import", "export", "synchronize"],
+      "profiles": [
+        {
+          "name": "nuif-svg-0",
+          "crate": "crates/nuif-svg",
+          "profile": "adapters/svg/PROFILE.md",
+          "gate": "gate-svg"
+        }
+      ],
+      "next_profile": "paths or transforms under separately declared geometry laws",
+      "boundary": "Paths, transforms, CSS cascade, paint servers, effects, animation, scripts and external resources are excluded."
+    },
+    {
+      "id": "dtcg",
+      "surface": "Design Tokens Format Module 2025.10 JSON",
+      "status": "integrated",
+      "research": "dtcg",
+      "directions": ["import", "export", "synchronize"],
+      "profiles": [
+        {
+          "name": "nuif-dtcg-scalar-0",
+          "crate": "crates/nuif-dtcg",
+          "profile": "adapters/dtcg/PROFILE.md",
+          "gate": "gate-dtcg"
+        }
+      ],
+      "next_profile": "token-model RFC before groups, aliases or composite types",
+      "boundary": "Core tokens lack declared type, groups, aliases, descriptions, deprecation and token-local extensions."
+    },
+    {
+      "id": "react",
+      "surface": "JSX source and React DOM properties",
+      "status": "researched",
+      "research": "react-jsx-adapter-surface",
+      "directions": [],
+      "profiles": [],
+      "next_profile": "static intrinsic JSX with literal attributes, text and profile-owned style objects",
+      "boundary": "Components, hooks, spreads, control flow and runtime expressions require JavaScript execution."
+    },
+    {
+      "id": "svelte",
+      "surface": ".svelte source and compiler AST",
+      "status": "researched",
+      "research": "svelte-source-adapter-surface",
+      "directions": [],
+      "profiles": [],
+      "next_profile": "static regular elements, literal text and attributes, and profile-owned CSS spans",
+      "boundary": "Runes, scripts, blocks, directives, preprocessors and dynamic components require execution."
+    },
+    {
+      "id": "penpot",
+      "surface": ".penpot v3 ZIP and JSON package",
+      "status": "researched",
+      "research": "penpot",
+      "directions": [],
+      "profiles": [],
+      "next_profile": "one page with frame, rectangle, ellipse and text shapes after a package-retention contract",
+      "boundary": "ZIP limits, default semantics and unknown-member retention precede components, libraries and interactions."
+    },
+    {
+      "id": "figma",
+      "surface": "REST document JSON and writable plugin API",
+      "status": "external_blocked",
+      "research": "figma",
+      "directions": [],
+      "profiles": [],
+      "next_profile": "checked-in one-page REST fixtures and a separately tested plugin bridge",
+      "boundary": "The public REST surface is authenticated and read-oriented; writes require plugin execution, credentials, scopes, plan access and rate limits."
+    },
+    {
+      "id": "swiftui",
+      "surface": "Swift source and proposal-response layout runtime",
+      "status": "external_runtime",
+      "research": "swiftui-layout",
+      "directions": [],
+      "profiles": [],
+      "next_profile": "generated stack, text and shape subset with a pinned Apple toolchain",
+      "boundary": "Arbitrary Swift, result builders, state, environment values and custom layouts are executable programs."
+    },
+    {
+      "id": "jetpack-compose",
+      "surface": "Kotlin source and constraint layout runtime",
+      "status": "external_runtime",
+      "research": "jetpack-compose-layout",
+      "directions": [],
+      "profiles": [],
+      "next_profile": "generated row, column, text and shape subset with a pinned Android toolchain",
+      "boundary": "Arbitrary Kotlin, state, modifier chains and subcomposition are executable programs."
+    },
+    {
+      "id": "flutter",
+      "surface": "Dart source and box-constraint runtime",
+      "status": "external_runtime",
+      "research": "flutter-layout",
+      "directions": [],
+      "profiles": [],
+      "next_profile": "generated row, column, text and shape subset with a pinned Flutter toolchain",
+      "boundary": "Arbitrary Dart, state, inherited widgets and custom render objects are executable programs."
+    }
+  ]
+}

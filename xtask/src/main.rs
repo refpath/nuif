@@ -1,3 +1,4 @@
+use std::collections::BTreeSet;
 use std::env;
 use std::fs;
 use std::path::Path;
@@ -9,6 +10,7 @@ type Step = (&'static str, fn() -> Result<(), String>);
 
 const ALL_STEPS: &[Step] = &[
     ("research", research),
+    ("adapter-audit", adapter_audit),
     ("verify", verify),
     ("gate-b", gate_b),
     ("hostile-inputs", hostile_inputs),
@@ -27,6 +29,7 @@ const ALL_STEPS: &[Step] = &[
 ];
 
 const VERIFICATION_ARTIFACTS: &[&str] = &[
+    "target/adapter-coverage-report.json",
     "target/gate-b-report.json",
     "target/hostile-input-report.json",
     "target/performance-profile-report.json",
@@ -104,6 +107,7 @@ fn run() -> Result<(), String> {
         Some("hostile-inputs") => hostile_inputs(),
         Some("performance") => performance(),
         Some("research") => research(),
+        Some("adapter-audit") => adapter_audit(),
         Some("editor-trial") => editor_trial(),
         Some("editor-gui-trial") => editor_gui_trial(),
         Some("editor-package") => editor_package(),
@@ -111,7 +115,7 @@ fn run() -> Result<(), String> {
         Some("manifest") => standalone_manifest(),
         Some("all") => all(),
         _ => Err(
-            "usage: cargo xtask <research|verify|trial [seed iterations snapshot-interval report-path]|gate-b|gate-c|gate-d|gate-d-text|gate-d-render|gate-f|gate-f-v0|gate-svg|gate-dtcg|gate-g|gate-h|browser-install|hostile-inputs|performance|editor-trial|editor-gui-trial|editor-package|editor-launch|manifest|all>"
+            "usage: cargo xtask <research|adapter-audit|verify|trial [seed iterations snapshot-interval report-path]|gate-b|gate-c|gate-d|gate-d-text|gate-d-render|gate-f|gate-f-v0|gate-svg|gate-dtcg|gate-g|gate-h|browser-install|hostile-inputs|performance|editor-trial|editor-gui-trial|editor-package|editor-launch|manifest|all>"
                 .to_owned(),
         ),
     }
@@ -700,6 +704,147 @@ fn research() -> Result<(), String> {
         ],
     )?;
     command(path(&python)?, &["tools/research/validate.py"])
+}
+
+fn adapter_audit() -> Result<(), String> {
+    let index = read_json(Path::new("adapters/index.json"))?;
+    let targets = index["targets"]
+        .as_array()
+        .ok_or("adapters/index.json targets must be an array")?;
+    let expected = BTreeSet::from([
+        "dtcg",
+        "figma",
+        "flutter",
+        "html-css",
+        "jetpack-compose",
+        "penpot",
+        "react",
+        "svelte",
+        "svg",
+        "swiftui",
+    ]);
+    let observed = targets
+        .iter()
+        .filter_map(|target| target["id"].as_str())
+        .collect::<BTreeSet<_>>();
+    let mut failures = Vec::new();
+    if observed != expected || observed.len() != targets.len() {
+        failures
+            .push("target inventory is incomplete or contains duplicate identifiers".to_owned());
+    }
+    for target in targets {
+        audit_adapter_target(target, &mut failures);
+    }
+    let report = serde_json::json!({
+        "schema_version": 1,
+        "status": if failures.is_empty() { "passed" } else { "failed" },
+        "source": {
+            "revision": command_text("git", &["rev-parse", "HEAD"]),
+            "dirty": command_text("git", &["status", "--porcelain"]).map(|value| !value.is_empty()),
+        },
+        "summary": {
+            "advertised_targets": targets.len(),
+            "integrated_targets": targets.iter().filter(|target| target["status"] == "integrated").count(),
+            "integrated_profiles": targets.iter().filter_map(|target| target["profiles"].as_array()).map(Vec::len).sum::<usize>(),
+            "researched_or_bounded_targets": targets.len().saturating_sub(failures.len()),
+            "blocking_failures": failures.len(),
+        },
+        "targets": targets,
+        "failures": failures,
+    });
+    fs::create_dir_all("target").map_err(|error| error.to_string())?;
+    fs::write(
+        "target/adapter-coverage-report.json",
+        serde_json::to_vec_pretty(&report).map_err(|error| error.to_string())?,
+    )
+    .map_err(|error| error.to_string())?;
+    if report["status"] == "passed" {
+        Ok(())
+    } else {
+        Err("adapter coverage audit failed; inspect target/adapter-coverage-report.json".to_owned())
+    }
+}
+
+fn audit_adapter_target(target: &serde_json::Value, failures: &mut Vec<String>) {
+    let Some(id) = required_json_string(target, "id", "target", failures) else {
+        return;
+    };
+    for field in ["surface", "research", "next_profile", "boundary"] {
+        required_json_string(target, field, id, failures);
+    }
+    let status = required_json_string(target, "status", id, failures).unwrap_or_default();
+    if !matches!(
+        status,
+        "integrated" | "researched" | "external_blocked" | "external_runtime"
+    ) {
+        failures.push(format!("{id}: status {status:?} is not declared"));
+    }
+    if let Some(research) = target["research"].as_str() {
+        let record = format!("research/items/{research}.md");
+        match fs::read_to_string(&record) {
+            Ok(contents) if contents.contains(&format!("id: nuif:research:{research}")) => {}
+            Ok(_) => failures.push(format!("{id}: {record} has the wrong research identifier")),
+            Err(error) => failures.push(format!("{id}: cannot read {record}: {error}")),
+        }
+    }
+    let profiles = target["profiles"].as_array();
+    let directions = target["directions"].as_array();
+    if status == "integrated" {
+        if profiles.is_none_or(Vec::is_empty) || directions.is_none_or(Vec::is_empty) {
+            failures.push(format!(
+                "{id}: integrated target lacks profiles or directions"
+            ));
+        }
+        for profile in profiles.into_iter().flatten() {
+            audit_adapter_profile(id, profile, failures);
+        }
+    } else if profiles.is_some_and(|profiles| !profiles.is_empty())
+        || directions.is_some_and(|directions| !directions.is_empty())
+    {
+        failures.push(format!(
+            "{id}: non-integrated target claims executable capabilities"
+        ));
+    }
+}
+
+fn audit_adapter_profile(target: &str, profile: &serde_json::Value, failures: &mut Vec<String>) {
+    let Some(name) = required_json_string(profile, "name", target, failures) else {
+        return;
+    };
+    for field in ["crate", "profile"] {
+        let Some(path) = required_json_string(profile, field, name, failures) else {
+            continue;
+        };
+        let check = if field == "crate" {
+            Path::new(path).join("Cargo.toml")
+        } else {
+            Path::new(path).to_owned()
+        };
+        if !check.exists() {
+            failures.push(format!("{name}: missing {}", check.display()));
+        }
+    }
+    if let Some(gate) = required_json_string(profile, "gate", name, failures) {
+        let xtask = fs::read_to_string("xtask/src/main.rs").unwrap_or_default();
+        if !xtask.contains(&format!("Some(\"{gate}\")")) {
+            failures.push(format!("{name}: xtask command {gate} is not routed"));
+        }
+    }
+}
+
+fn required_json_string<'a>(
+    value: &'a serde_json::Value,
+    field: &str,
+    context: &str,
+    failures: &mut Vec<String>,
+) -> Option<&'a str> {
+    match value[field].as_str() {
+        Some(value) if !value.trim().is_empty() => Some(value),
+        _ => {
+            failures.push(format!("{context}: {field} must be a non-empty string"));
+            None
+        }
+    }
 }
 
 fn verify() -> Result<(), String> {

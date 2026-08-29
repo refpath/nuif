@@ -53,6 +53,12 @@ jobs:
         with:
           name: gate-b-report
           path: target/gate-b-report.json
+      - name: Upload adapter coverage audit
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: adapter-coverage-report
+          path: target/adapter-coverage-report.json
       - name: Upload hostile-input measurements
         if: always()
         uses: actions/upload-artifact@v4

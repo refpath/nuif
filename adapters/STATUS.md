@@ -4,6 +4,10 @@ The adapter program separates an ecosystem's public interchange or source
 surface from the subset for which NUIF can provide executable round-trip laws.
 Research coverage does not imply an implemented conformance profile.
 
+This table is explanatory. `adapters/index.json` is the machine-audited target
+inventory; `cargo xtask adapter-audit` checks its research, profile, crate and
+gate references and writes `target/adapter-coverage-report.json`.
+
 | Target | Primary integration surface | Executable status | Next bounded profile | Boundary |
 | --- | --- | --- | --- | --- |
 | HTML/CSS | DOM and CSS source | `nuif-html-css-0` and `nuif-html-css-v0` | Extend only with separately tested CSS/layout features | Arbitrary cascade, script and unmarked DOM are not imported |
