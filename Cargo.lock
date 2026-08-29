@@ -2199,6 +2199,7 @@ version = "0.0.1"
 dependencies = [
  "nuif-core",
  "serde",
+ "serde_json",
 ]
 
 [[package]]
