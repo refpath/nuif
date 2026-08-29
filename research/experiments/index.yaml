@@ -16,6 +16,14 @@ experiments:
     tests:
       - compare matching NUIF flex/grid fixtures with Taffy and browser output
       - classify all divergences as schema loss evaluator bug or target semantic difference
+  - id: nuif:experiment:layout-inference
+    status: planned
+    tests:
+      - capture the same foreign UI at multiple viewport widths
+      - infer candidate stack flex grid constraint and freeform representations
+      - rank candidates using held-out viewport predictions
+      - retain observations confidence and alternatives as provenance
+      - verify inferred intent is never reported as lossless without source evidence
   - id: nuif:experiment:text-pinning
     status: planned
     tests:
@@ -31,3 +39,15 @@ experiments:
     tests:
       - concurrent semantic edits through two collaboration engines
       - canonical checkpoint equality and explicit semantic conflicts
+  - id: nuif:experiment:accessibility-mapping
+    status: planned
+    tests:
+      - map portable role name state and relationship fixtures to web ARIA
+      - compare exposed browser accessibility trees across engines
+      - classify platform differences separately from NUIF semantic loss
+  - id: nuif:experiment:behavior-portability
+    status: planned
+    tests:
+      - author bounded state and interaction graphs once
+      - execute through reference engine and at least one foreign target adapter
+      - verify required optional capability negotiation and deterministic replay

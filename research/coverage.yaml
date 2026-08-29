@@ -1,0 +1,105 @@
+version: 1
+updated_at: 2026-08-29
+meaning:
+  covered: primary evidence and repository artifact exist
+  experiment-required: evidence exists but a NUIF decision requires executable validation
+  ongoing: inherently open-ended research front with structured backlog
+areas:
+  naming_identity:
+    status: covered
+    evidence: [nuif:research:naming]
+    artifacts: [docs/whitepaper/09-naming-and-identity.md]
+  mission_non_goals:
+    status: covered
+    artifacts: [README.md, docs/whitepaper/01-architecture.md, docs/whitepaper/07-risk-register.md]
+  prior_art:
+    status: ongoing
+    artifacts: [docs/whitepaper/05-prior-art-and-competitive-map.md, research/index.yaml, research/roadmap.md]
+  canonical_model:
+    status: experiment-required
+    evidence: [nuif:research:mlir, nuif:research:openusd, nuif:research:materialx]
+    artifacts: [rfcs/0001-multi-level-document-model.md, spec/01-model.md, spec/02-identity-and-properties.md]
+  document_components:
+    status: experiment-required
+    evidence: [nuif:research:dtcg, nuif:research:open-ui, nuif:research:penpot]
+    artifacts: [spec/03-components-and-composition.md]
+  layout:
+    status: experiment-required
+    evidence: [nuif:research:css-formatting, nuif:research:taffy, nuif:research:yoga, nuif:research:swiftui-layout, nuif:research:cassowary, nuif:research:reverse-layout-inference]
+    artifacts: [spec/04-layout.md, adrs/0002-layout-engine.md]
+  geometry_paint_text_renderer:
+    status: experiment-required
+    evidence: [nuif:research:svg, nuif:research:renderers, nuif:research:vello, nuif:research:harfbuzz-unicode, nuif:research:webgpu-security]
+    artifacts: [spec/05-geometry-paint-text.md, adrs/0003-reference-renderer.md]
+  protocol_operations_identity:
+    status: experiment-required
+    artifacts: [spec/02-identity-and-properties.md, spec/06-operations-and-patches.md, crates/nuif-protocol]
+  synchronization_roundtrip:
+    status: experiment-required
+    evidence: [nuif:research:retentive-lenses, nuif:research:symmetric-lenses, nuif:research:structured-merge, nuif:research:tree-sitter, nuif:research:ui-code-generation-boundaries]
+    artifacts: [spec/09-provenance-and-fidelity.md, rfcs/0003-authored-resolved-provenance.md]
+  dialect_extensions:
+    status: experiment-required
+    evidence: [nuif:research:mlir, nuif:research:gltf]
+    artifacts: [spec/07-extensions-and-dialects.md, rfcs/0002-extension-preservation.md]
+  composition_layers_variants:
+    status: experiment-required
+    evidence: [nuif:research:openusd]
+    artifacts: [spec/03-components-and-composition.md]
+  serialization_file_format:
+    status: experiment-required
+    evidence: [nuif:research:encoding, nuif:research:content-addressed-versioning]
+    artifacts: [spec/08-serialization.md, adrs/0004-serialization.md]
+  collaboration_version_control:
+    status: experiment-required
+    evidence: [nuif:research:automerge-yjs, nuif:research:structured-merge]
+    artifacts: [spec/10-collaboration-profile.md, adrs/0005-collaboration-profile.md]
+  security_trust:
+    status: covered
+    evidence: [nuif:research:webgpu-security]
+    artifacts: [spec/11-security.md, SECURITY.md]
+  implementation_language:
+    status: covered
+    evidence: [nuif:research:taffy, nuif:research:vello, nuif:research:wasm-component-model]
+    artifacts: [docs/whitepaper/06-language-and-runtime-choice.md, adrs/0001-rust-reference-core.md]
+  reference_editor:
+    status: experiment-required
+    evidence: [nuif:research:openpencil, nuif:research:penpot]
+    artifacts: [apps/editor/ARCHITECTURE.md]
+  cli_api_ai_qa:
+    status: experiment-required
+    evidence: [nuif:research:openpencil, nuif:research:wasm-component-model]
+    artifacts: [spec/12-cli-api-and-automation.md, rfcs/0004-headless-qa-contract.md, crates/nuif-api, crates/nuif-cli, apps/editor/QA.md]
+  testing_conformance:
+    status: experiment-required
+    artifacts: [spec/00-conformance.md, conformance/PLAN.md, conformance/fixtures/v0-responsive-card/README.md]
+  adapters:
+    status: ongoing
+    evidence: [nuif:research:figma, nuif:research:openfig-fig-kiwi, nuif:research:penpot, nuif:research:svg, nuif:research:tree-sitter]
+    artifacts: [adapters/README.md]
+  semantics_accessibility_behavior:
+    status: experiment-required
+    evidence: [nuif:research:accessibility-semantics, nuif:research:gltf-interactivity, nuif:research:open-ui]
+    artifacts: [spec/13-semantics-accessibility-and-behavior.md]
+  reverse_inference_program_synthesis:
+    status: ongoing
+    evidence: [nuif:research:reverse-layout-inference, nuif:research:ui-code-generation-boundaries]
+    artifacts: [research/questions.yaml, research/experiments/index.yaml]
+  refpath_graph_compatibility:
+    status: covered
+    artifacts: [research/schema/research-item.schema.json, research/index.yaml, tools/refpath/README.md]
+  repository_blueprint:
+    status: covered
+    artifacts: [README.md, Cargo.toml, GOVERNANCE.md, CONTRIBUTING.md]
+  initial_code_base:
+    status: covered
+    artifacts: [crates/nuif-core, crates/nuif-protocol, crates/nuif-layout, crates/nuif-render, crates/nuif-codec, crates/nuif-query, crates/nuif-api, crates/nuif-cli, bindings/wasm]
+  v0_hard_experiment:
+    status: experiment-required
+    artifacts: [conformance/fixtures/v0-responsive-card/README.md, research/experiments/index.yaml]
+  roadmap:
+    status: covered
+    artifacts: [docs/roadmap.md, research/roadmap.md]
+  governance_standardization:
+    status: covered
+    artifacts: [GOVERNANCE.md, docs/whitepaper/08-governance-and-standardization.md]
