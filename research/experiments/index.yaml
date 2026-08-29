@@ -51,3 +51,33 @@ experiments:
       - author bounded state and interaction graphs once
       - execute through reference engine and at least one foreign target adapter
       - verify required optional capability negotiation and deterministic replay
+  - id: nuif:experiment:unknown-extension-roundtrip
+    status: planned
+    evidence: [nuif:research:opentimelineio, nuif:research:godot-tscn-scene-format, nuif:research:gltf-validator-and-sample-assets]
+    tests:
+      - decode a document containing an unknown entity kind and an unknown extension namespace with an implementation that registers neither
+      - apply rename move and property operations to neighbouring entities
+      - encode and assert byte identity of the unknown payloads and restoration of the original kind
+  - id: nuif:experiment:roundtrip-trial-loop
+    status: planned
+    evidence: [nuif:research:deterministic-simulation-testing, nuif:research:metamorphic-testing-graphics, nuif:research:delta-debugging-and-test-case-reduction, nuif:research:property-based-testing-state-machines]
+    tests:
+      - seeded generation of documents and operation logs against an ordered-forest reference model
+      - replay inversion commutation and encode fixpoint relations on every trial
+      - adapter round trips with fidelity reports on the representable subset
+      - three-level reduction of failures into fixture directories
+      - one report per run following conformance/HARNESS.md
+  - id: nuif:experiment:render-tolerance-tiers
+    status: planned
+    evidence: [nuif:research:vello-testing-and-cpu-reference, nuif:research:flip-perceptual-difference-metric, nuif:research:resvg-test-suite, nuif:research:gpu-rendering-nondeterminism]
+    tests:
+      - render the v0 fixture through the CPU reference path and assert pixel identity across operating systems
+      - render through the Vello backend and measure FLIP mean and per-channel deltas against the CPU reference
+      - assign each visual property to a tier from the measured distributions
+  - id: nuif:experiment:editor-harness-parity
+    status: planned
+    evidence: [nuif:research:masonry-xilem-and-linebender-test-harness, nuif:research:accesskit-semantic-ui-testing, nuif:research:egui-and-egui-kittest]
+    tests:
+      - author the v0 fixture through the editor session driver using accessibility actions only
+      - assert the emitted operation log replays to the same canonical hash as the CLI-authored fixture
+      - assert the accessibility tree exposes entity identifiers for every bound widget

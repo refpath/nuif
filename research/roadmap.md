@@ -13,6 +13,8 @@ Research is maintained as a graph, not a bibliography. Each source record must s
 7. **Collaboration** — compare operation log + CRDT profiles without polluting the canonical saved document.
 8. **Serialization** — benchmark canonical text, deterministic CBOR and schema-based binary encodings on partial loading, unknown data and Git workflows.
 9. **Governance** — track W3C/Khronos-style extension/IP processes and define a neutral migration path.
+10. **Testing methodology** — seed-driven trial loops, metamorphic relations, reduction and report schema; evidence in `docs/whitepaper/11-cross-industry-patterns.md` and `conformance/HARNESS.md`.
+11. **Reference editor** — headless-testable shell whose accessibility tree carries entity identity; ADR 0006 and `apps/editor/UI-SPEC.md`.
 
 ## Update policy
 

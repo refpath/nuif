@@ -21,10 +21,12 @@ questions:
     topic: serialization
     question: What canonical text syntax best balances human review, deterministic hashing, unknown extension preservation and streaming?
     status: open
+    note: numeric, key-order and hash rules fixed by RFC 0005; surface syntax remains open
   - id: nuif:question:binary-profile
     topic: serialization
     question: Does deterministic CBOR outperform schema-generated encodings sufficiently for the authoring/wire workloads, or should NUIF ratify multiple binary profiles?
     status: benchmark-required
+    note: nuif-cbor-0 rules fixed by RFC 0005; additional profiles remain a benchmark question
   - id: nuif:question:source-correspondence
     topic: synchronization
     question: What correspondence granularity is required for minimal Svelte/HTML/CSS patches while retaining formatting and comments?
@@ -53,3 +55,38 @@ questions:
     topic: governance
     question: Which standards/foundation home is appropriate after two independent implementations exist?
     status: deferred
+  - id: nuif:question:cbor-float-zero
+    topic: serialization
+    question: Which float policy does nuif-cbor-0 adopt, given that CDE keeps -0.0 and float 1.0 while dCBOR reduces integral floats to integers and all zeros to 0x00?
+    status: decided
+    decided_by: rfcs/0005-deterministic-numeric-and-string-canonicalization.md
+    evidence: [nuif:research:canonicalization-rfc8785-and-cbor-deterministic, nuif:research:deterministic-cbor-profiles-and-numeric-canonicalization, nuif:research:ipld-dag-cbor-strictness]
+  - id: nuif:question:sibling-order-identifier
+    topic: protocol
+    question: Which list identifier (fractional index or list-CRDT position) replaces integer indices in Insert and Move so that independent operations commute?
+    status: decided
+    decided_by: rfcs/0006-sibling-order-anchors.md
+    note: canonical arrays plus anchored operations; Fugue-family profile; branch precedence and Fugue vs FugueMax remain experiment-required
+    evidence: [nuif:research:crdt-tree-move-operation, nuif:research:figma-multiplayer-and-rendering-engineering, nuif:research:list-ordering-fractional-indexing-vs-list-crdts]
+  - id: nuif:question:editor-toolchain-msrv
+    topic: editor
+    question: Which Rust toolchain does the workspace pin once the Masonry-based editor crate is added, given Masonry requires 1.88 (0.4.0) or 1.96 (main) and the workspace pins 1.85.0?
+    status: decided
+    decided_by: adrs/0006-rust-native-editor.md
+    evidence: [nuif:research:masonry-xilem-and-linebender-test-harness, nuif:research:iced-slint-gpui-makepad-floem, nuif:research:masonry-editor-stack-decision, nuif:research:rust-toolchain-and-msrv-policy]
+  - id: nuif:question:unknown-kind-preservation
+    topic: extensions
+    question: How are entities of unknown kind represented in memory and re-emitted so that their original kind and properties survive edits by an implementation that does not understand them?
+    status: decided
+    decided_by: rfcs/0007-unknown-kinds-and-opaque-payloads.md
+    evidence: [nuif:research:opentimelineio, nuif:research:godot-tscn-scene-format, nuif:research:blender-dna-rna-and-headless, nuif:research:unknown-schema-preservation-strategies]
+  - id: nuif:question:layout-assertion-vocabulary
+    topic: layout
+    question: Which visual-logic assertions (no overlap, containment, alignment, text fits, order) are expressible over resolved snapshots as fixture-level oracles without an SMT encoding?
+    status: experiment-required
+    evidence: [nuif:research:cassius-web-layout-verification, nuif:research:inferui-and-layout-synthesis]
+  - id: nuif:question:render-tolerance-tiers
+    topic: renderer
+    question: Which visual properties are assigned to the exact, bounded and perceptual tiers, and what per-channel delta, pixel count and FLIP thresholds are normative for each?
+    status: experiment-required
+    evidence: [nuif:research:vello-testing-and-cpu-reference, nuif:research:flip-perceptual-difference-metric, nuif:research:webrender-reftests, nuif:research:skia-gold-and-gm-tests]

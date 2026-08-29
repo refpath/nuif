@@ -14,49 +14,51 @@ areas:
     artifacts: [README.md, docs/whitepaper/01-architecture.md, docs/whitepaper/07-risk-register.md]
   prior_art:
     status: ongoing
-    artifacts: [docs/whitepaper/05-prior-art-and-competitive-map.md, research/index.yaml, research/roadmap.md]
+    evidence: [nuif:research:materialx-and-shader-graph-tests, nuif:research:alembic, nuif:research:hydra-render-delegate]
+    artifacts: [docs/whitepaper/05-prior-art-and-competitive-map.md, research/index.yaml, research/roadmap.md, docs/whitepaper/11-cross-industry-patterns.md]
   canonical_model:
     status: experiment-required
-    evidence: [nuif:research:mlir, nuif:research:openusd, nuif:research:materialx]
-    artifacts: [rfcs/0001-multi-level-document-model.md, spec/01-model.md, spec/02-identity-and-properties.md]
+    evidence: [nuif:research:mlir, nuif:research:openusd, nuif:research:materialx, nuif:research:openusd-composition-and-crate, nuif:research:houdini-pdg-and-hda]
+    artifacts: [rfcs/0001-multi-level-document-model.md, spec/01-model.md, spec/02-identity-and-properties.md, docs/whitepaper/11-cross-industry-patterns.md]
   document_components:
     status: experiment-required
-    evidence: [nuif:research:dtcg, nuif:research:open-ui, nuif:research:penpot]
+    evidence: [nuif:research:dtcg, nuif:research:open-ui, nuif:research:penpot, nuif:research:unity-prefabs-and-yaml-merge, nuif:research:openusd-composition-and-crate]
     artifacts: [spec/03-components-and-composition.md]
   layout:
     status: experiment-required
-    evidence: [nuif:research:css-formatting, nuif:research:taffy, nuif:research:yoga, nuif:research:swiftui-layout, nuif:research:cassowary, nuif:research:reverse-layout-inference]
+    evidence: [nuif:research:css-formatting, nuif:research:taffy, nuif:research:yoga, nuif:research:swiftui-layout, nuif:research:cassowary, nuif:research:reverse-layout-inference, nuif:research:taffy-and-yoga-browser-generated-tests, nuif:research:css-flexbox-grid-algorithm-specs, nuif:research:cassius-web-layout-verification, nuif:research:inferui-and-layout-synthesis]
     artifacts: [spec/04-layout.md, adrs/0002-layout-engine.md]
   geometry_paint_text_renderer:
     status: experiment-required
-    evidence: [nuif:research:svg, nuif:research:renderers, nuif:research:vello, nuif:research:harfbuzz-unicode, nuif:research:webgpu-security]
+    evidence: [nuif:research:svg, nuif:research:renderers, nuif:research:vello, nuif:research:harfbuzz-unicode, nuif:research:webgpu-security, nuif:research:hydra-render-delegate, nuif:research:vello-testing-and-cpu-reference, nuif:research:gpu-rendering-nondeterminism, nuif:research:text-rendering-reproducibility, nuif:research:resvg-test-suite]
     artifacts: [spec/05-geometry-paint-text.md, adrs/0003-reference-renderer.md]
   protocol_operations_identity:
     status: experiment-required
-    artifacts: [spec/02-identity-and-properties.md, spec/06-operations-and-patches.md, crates/nuif-protocol]
+    evidence: [nuif:research:crdt-tree-move-operation, nuif:research:json-patch-rfc6902-and-merge-patch, nuif:research:command-pattern-undo-and-event-sourcing, nuif:research:figma-multiplayer-and-rendering-engineering, nuif:research:godot-tscn-scene-format]
+    artifacts: [spec/02-identity-and-properties.md, spec/06-operations-and-patches.md, crates/nuif-protocol, rfcs/0006-sibling-order-anchors.md]
   synchronization_roundtrip:
     status: experiment-required
-    evidence: [nuif:research:retentive-lenses, nuif:research:symmetric-lenses, nuif:research:structured-merge, nuif:research:tree-sitter, nuif:research:ui-code-generation-boundaries]
+    evidence: [nuif:research:retentive-lenses, nuif:research:symmetric-lenses, nuif:research:structured-merge, nuif:research:tree-sitter, nuif:research:ui-code-generation-boundaries, nuif:research:lenses-foster-boomerang, nuif:research:bidirectional-evaluation-direct-manipulation, nuif:research:sketch-n-sketch-output-directed-programming, nuif:research:ast-diff-gumtree-and-structural-merge]
     artifacts: [spec/09-provenance-and-fidelity.md, rfcs/0003-authored-resolved-provenance.md]
   dialect_extensions:
     status: experiment-required
-    evidence: [nuif:research:mlir, nuif:research:gltf]
-    artifacts: [spec/07-extensions-and-dialects.md, rfcs/0002-extension-preservation.md]
+    evidence: [nuif:research:mlir, nuif:research:gltf, nuif:research:opentimelineio, nuif:research:godot-tscn-scene-format, nuif:research:blender-dna-rna-and-headless, nuif:research:gltf-validator-and-sample-assets]
+    artifacts: [spec/07-extensions-and-dialects.md, rfcs/0002-extension-preservation.md, rfcs/0007-unknown-kinds-and-opaque-payloads.md]
   composition_layers_variants:
     status: experiment-required
-    evidence: [nuif:research:openusd]
+    evidence: [nuif:research:openusd, nuif:research:openusd-composition-and-crate, nuif:research:unity-prefabs-and-yaml-merge, nuif:research:houdini-pdg-and-hda]
     artifacts: [spec/03-components-and-composition.md]
   serialization_file_format:
     status: experiment-required
-    evidence: [nuif:research:encoding, nuif:research:content-addressed-versioning]
-    artifacts: [spec/08-serialization.md, adrs/0004-serialization.md]
+    evidence: [nuif:research:encoding, nuif:research:content-addressed-versioning, nuif:research:canonicalization-rfc8785-and-cbor-deterministic, nuif:research:deterministic-cbor-profiles-and-numeric-canonicalization, nuif:research:ipld-dag-cbor-strictness, nuif:research:opentimelineio, nuif:research:unreal-asset-versioning-and-automation, nuif:research:alembic]
+    artifacts: [spec/08-serialization.md, adrs/0004-serialization.md, rfcs/0005-deterministic-numeric-and-string-canonicalization.md]
   collaboration_version_control:
     status: experiment-required
-    evidence: [nuif:research:automerge-yjs, nuif:research:structured-merge]
+    evidence: [nuif:research:automerge-yjs, nuif:research:structured-merge, nuif:research:crdt-tree-move-operation, nuif:research:operational-transformation-vs-crdt, nuif:research:patch-theory-darcs-pijul, nuif:research:unity-prefabs-and-yaml-merge]
     artifacts: [spec/10-collaboration-profile.md, adrs/0005-collaboration-profile.md]
   security_trust:
     status: covered
-    evidence: [nuif:research:webgpu-security]
+    evidence: [nuif:research:webgpu-security, nuif:research:fuzzing-structured-inputs]
     artifacts: [spec/11-security.md, SECURITY.md]
   implementation_language:
     status: covered
@@ -64,15 +66,16 @@ areas:
     artifacts: [docs/whitepaper/06-language-and-runtime-choice.md, adrs/0001-rust-reference-core.md]
   reference_editor:
     status: experiment-required
-    evidence: [nuif:research:openpencil, nuif:research:penpot]
-    artifacts: [apps/editor/ARCHITECTURE.md]
+    evidence: [nuif:research:openpencil, nuif:research:penpot, nuif:research:figma-ui3-editor-layout, nuif:research:figma-tools-and-keyboard-shortcuts, nuif:research:penpot-editor-ui-and-automation, nuif:research:design-editor-ui-conventions-synthesis, nuif:research:masonry-xilem-and-linebender-test-harness, nuif:research:egui-and-egui-kittest, nuif:research:iced-slint-gpui-makepad-floem, nuif:research:accesskit-semantic-ui-testing]
+    artifacts: [apps/editor/ARCHITECTURE.md, apps/editor/UI-SPEC.md, adrs/0006-rust-native-editor.md]
   cli_api_ai_qa:
     status: experiment-required
-    evidence: [nuif:research:openpencil, nuif:research:wasm-component-model]
+    evidence: [nuif:research:openpencil, nuif:research:wasm-component-model, nuif:research:figma-plugin-and-rest-api-as-automation-surface, nuif:research:blender-dna-rna-and-headless, nuif:research:unreal-asset-versioning-and-automation, nuif:research:gltf-validator-and-sample-assets]
     artifacts: [spec/12-cli-api-and-automation.md, rfcs/0004-headless-qa-contract.md, crates/nuif-api, crates/nuif-cli, apps/editor/QA.md]
   testing_conformance:
     status: experiment-required
-    artifacts: [spec/00-conformance.md, conformance/PLAN.md, conformance/fixtures/v0-responsive-card/README.md]
+    evidence: [nuif:research:deterministic-simulation-testing, nuif:research:metamorphic-testing-graphics, nuif:research:delta-debugging-and-test-case-reduction, nuif:research:property-based-testing-state-machines, nuif:research:differential-testing, nuif:research:golden-master-and-snapshot-testing, nuif:research:libtest-mimic-and-data-driven-fixtures, nuif:research:rust-snapshot-property-fuzz-tooling, nuif:research:cargo-workspace-xtask-and-ci-layout, nuif:research:wasm-headless-execution, nuif:research:skia-gold-and-gm-tests, nuif:research:webrender-reftests, nuif:research:flip-perceptual-difference-metric, nuif:research:ssim-and-classical-image-metrics]
+    artifacts: [spec/00-conformance.md, conformance/PLAN.md, conformance/fixtures/v0-responsive-card/README.md, conformance/HARNESS.md]
   adapters:
     status: ongoing
     evidence: [nuif:research:figma, nuif:research:openfig-fig-kiwi, nuif:research:penpot, nuif:research:svg, nuif:research:tree-sitter]
