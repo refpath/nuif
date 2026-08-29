@@ -1,7 +1,7 @@
 ---
 id: nuif:research:taffy-and-yoga-browser-generated-tests
 kind: repository
-status: reviewed
+status: verified
 title: Browser-derived layout fixtures in Taffy and Yoga (Chrome as reference oracle)
 source:
   url: https://github.com/DioxusLabs/taffy/tree/main/scripts/gentest
@@ -32,7 +32,7 @@ links:
   spec: [spec/00-conformance.md, spec/04-layout.md]
   adr: [adrs/0002-layout-engine.md]
   rfc: [rfcs/0004-headless-qa-contract.md]
-  code: [crates/nuif-layout]
+  code: [crates/nuif-layout, crates/nuif-testing/src/layout_differential.rs, conformance/browser-oracle.lock.json, tools/browser/install-chrome-for-testing.sh, xtask/src/main.rs]
   experiments: [nuif:experiment:layout-differential]
 ---
 
@@ -107,13 +107,21 @@ Divergence handling is structural, not numeric: Taffy excludes fixtures by file-
 ## NUIF relevance
 
 - **Borrow**: The fixture format (HTML tree with inline styles plus browser-measured expectations under a controlled font and scale factor) is directly reusable for nuif:experiment:layout-differential; NUIF flex/grid fixtures can be lowered to the same HTML and compared against both Chrome and Taffy without new tooling.
-- **Borrow**: Taffy's four-variant measurement (box-sizing × direction) and its 0.1 px tolerance are a tested baseline for NUIF conformance assertions on resolved geometry.
+- **Adapt**: Taffy's four-variant measurement (box-sizing × direction) is a tested baseline. Its 0.1 px value is only a safety ceiling in NUIF; the executable report derives and stores a smaller value independently for each fixture from the measured Taffy/browser delta.
 - **Borrow**: The signed-artefact plus CI-regeneration pattern (Yoga) and the porcelain-status freshness gate (Taffy) are appropriate for NUIF conformance fixtures that are derived rather than authored.
 - **Adapt**: NUIF resolved-layout snapshots must record the evaluation context fingerprint, including the reference browser version, since neither project pins it and expectations are known to move with Chrome releases (Taffy changelog, Chrome 123+ alignment change).
 - **Adapt**: Rounding must be an explicit part of the NUIF layout family contract; Taffy's separation of unrounded and edge-rounded geometry should be mirrored so that fixtures can assert either.
 - **Adapt**: Divergence flags (`x` prefix, `data-test-*`, `data-disabled`) are untyped; NUIF should replace them with the typed fidelity classes of spec/09 (evaluator bug, target semantic difference, schema loss) as required by the layout-differential experiment.
 - **Reject**: Treating Chrome as the sole ground truth is not acceptable for a vendor-neutral standard; NUIF fixtures should record specification citations and, where browsers disagree (see nuif:research:css-flexbox-grid-algorithm-specs), state which behaviour is normative for the NUIF family.
 - **Reject**: Reading input styles from the inline `style` object couples the fixtures to CSS syntax; NUIF fixtures should be authored in the NUIF layout vocabulary and lowered to CSS, not the reverse.
+
+## NUIF executable verification
+
+`cargo xtask gate-c` now applies this method without hand-edited generated expectations. The lock file selects Chrome for Testing 152.0.7977.64 revision 1669021 and Taffy is exactly pinned to 0.14.0. The generator revision is the NUIF source revision recorded in the JSON report. One deterministic seed produces the v0 card at 360, 768 and 1,440 px plus 12 stack/flex/grid cases; the harness retains all three box maps and compares NUIF/Taffy, NUIF/browser and Taffy/browser.
+
+The 2026-08-29 strict run evaluated 15 cases, 45 engine pairs and 1,008 box components. The v0, stack and flex subsets matched within their fixture-local measured bounds. The largest Taffy/browser delta was 0.01251220703125 px; that fixture's measured value was rounded upward to a 0.02 px assertion bound, while fixtures with exact foreign agreement retained a 0 px bound. Thirty-eight pairwise differences were all traced to one declared schema loss: profile 0 names `grid` but has no grid track or placement fields, so the reference stack fallback cannot encode CSS Grid auto-placement. No unclassified or blocking divergence remained. The first run also exposed an evaluator defect—`stretch` incorrectly overrode definite cross sizes—which was corrected and retained as a unit regression before the passing report was accepted.
+
+This closes the Gate C differential criterion, not the Grid implementation phase. Grid schema design and lowering remain required, and no text-dependent layout is included before Gate D pins fonts and shaping inputs.
 
 ## Open questions
 

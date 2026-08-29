@@ -27,7 +27,7 @@ areas:
   layout:
     status: experiment-required
     evidence: [nuif:research:css-formatting, nuif:research:taffy, nuif:research:yoga, nuif:research:swiftui-layout, nuif:research:cassowary, nuif:research:reverse-layout-inference, nuif:research:taffy-and-yoga-browser-generated-tests, nuif:research:css-flexbox-grid-algorithm-specs, nuif:research:cassius-web-layout-verification, nuif:research:inferui-and-layout-synthesis]
-    artifacts: [spec/04-layout.md, adrs/0002-layout-engine.md]
+    artifacts: [spec/04-layout.md, adrs/0002-layout-engine.md, crates/nuif-testing/src/layout_differential.rs, conformance/browser-oracle.lock.json]
   geometry_paint_text_renderer:
     status: experiment-required
     evidence: [nuif:research:svg, nuif:research:renderers, nuif:research:vello, nuif:research:harfbuzz-unicode, nuif:research:webgpu-security, nuif:research:hydra-render-delegate, nuif:research:vello-testing-and-cpu-reference, nuif:research:gpu-rendering-nondeterminism, nuif:research:text-rendering-reproducibility, nuif:research:resvg-test-suite]
@@ -99,7 +99,7 @@ areas:
     artifacts: [crates/nuif-core, crates/nuif-protocol, crates/nuif-layout, crates/nuif-render, crates/nuif-codec, crates/nuif-query, crates/nuif-api, crates/nuif-cli, bindings/wasm]
   v0_hard_experiment:
     status: experiment-required
-    artifacts: [conformance/fixtures/v0-responsive-card/README.md, research/experiments/index.yaml]
+    artifacts: [conformance/fixtures/v0-responsive-card/README.md, research/experiments/index.yaml, crates/nuif-testing/src/layout_differential.rs]
   roadmap:
     status: covered
     artifacts: [docs/roadmap.md, research/roadmap.md]

@@ -18,7 +18,9 @@ experiments:
       - deterministic operation replay
       - minimal source patch after design edit
   - id: nuif:experiment:layout-differential
-    status: planned
+    status: automated
+    evidence: [nuif:research:taffy, nuif:research:taffy-and-yoga-browser-generated-tests, nuif:research:css-flexbox-grid-algorithm-specs]
+    implementation: [crates/nuif-testing/src/layout_differential.rs, crates/nuif-testing/src/bin/layout-differential.rs, conformance/browser-oracle.lock.json, tools/browser/install-chrome-for-testing.sh, xtask/src/main.rs]
     oracle: foreign-reference
     acceptance:
       - pinned Taffy browser and generator versions recorded in the report
@@ -26,6 +28,7 @@ experiments:
     tests:
       - compare matching NUIF flex/grid fixtures with Taffy and browser output
       - classify all divergences as schema loss evaluator bug or target semantic difference
+      - write target/layout-differential-report.json and archive it in CI
   - id: nuif:experiment:layout-inference
     status: planned
     oracle: held-out-observations
