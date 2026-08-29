@@ -34,7 +34,7 @@ jobs:
           python-version: "3.12"
       - name: Validate research records
         run: |
-          pip install --quiet jsonschema pyyaml
+          pip install --quiet --requirement tools/research/requirements.txt
           tools/research/validate.sh
 
   rust:
@@ -53,6 +53,15 @@ jobs:
         run: cargo test --workspace --locked
       - name: Clippy
         run: cargo clippy --workspace --all-targets --locked -- -D warnings
+      - name: Seeded conformance trial
+        run: cargo run --locked -p nuif-cli -- trial 24301 100
+      - name: Gate B high-volume replay and codec trial
+        run: cargo run --locked -p nuif-cli -- trial 24301 10000 100
+      - name: Headless editor trial
+        run: |
+          cargo run --locked -p nuif-cli -- fixture v0-responsive-card "$RUNNER_TEMP/v0.nuif"
+          cargo run --locked -p nuif-editor -- --headless --script conformance/fixtures/v0-responsive-card/editor-trial.jsonl --document "$RUNNER_TEMP/v0.nuif" --output "$RUNNER_TEMP/edited.nuif"
+          cargo run --locked -p nuif-cli -- validate "$RUNNER_TEMP/edited.nuif"
 
   msrv:
     runs-on: ubuntu-latest
