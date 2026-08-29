@@ -14,8 +14,8 @@ Implement freeform + stack/flex subset and a pinned NUIF/Taffy/Chrome context ma
 ## Phase 2b — Grid schema and evaluator
 Define authored track sizing, auto-flow and item placement before wiring Taffy Grid behind NUIF types. The Gate C report proves the current family-only model is insufficient and classifies its fallback as schema loss; no Grid support is claimed until those fields and foreign fixtures pass.
 
-## Phase 3 — visual/text
-Implement vector scene lowering, color/paint basics and HarfBuzz-backed shaping experiment with pinned fonts. Exit: deterministic reference snapshots for the fixture.
+## Phase 3 — visual/text (shaping subgate complete)
+Pinned Ahem/HarfRust shaping, resolved glyph runs and cross-implementation HarfBuzz goldens are implemented. Replace the explicitly approximated glyph-ID bitmap proxy with pinned outline extraction and an unhinted grayscale CPU raster policy, then expand vector paints. Exit: deterministic, separately attributed shaping and normative raster snapshots for the fixture across the CI matrix.
 
 ## Phase 4 — serialization/protocol (complete for profile 0)
 Canonical text + deterministic CBOR; package/assets; patch/diff/query CLI. Exit: byte-stable cycles and hostile-input limits.

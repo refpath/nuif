@@ -10,13 +10,13 @@ Gate C: responsive layout falsifier. `cargo xtask gate-c` compares the v0 viewpo
 
 ## Current gate
 
-Gate D: visual and text profile. The current CPU path is deterministic only for its solid-color integer-composited subset; font bytes, Unicode data, shaping configuration and text/raster divergence are not pinned or separately measured yet.
+Gate D: visual and text profile. The first text subgate is automated: Ahem 1.50 is pinned by SHA-256, HarfRust 0.13.3 and Unicode 17.0.0 produce resolved runs with Unicode-scalar clusters, and eight LTR/RTL cases match independently captured HarfBuzz 14.4.0 glyph strings. `cargo xtask gate-d-text` separately records exact shaping and repeatable-but-approximated raster evidence. Gate D remains open because glyph outlines, grayscale coverage, blend space, broader paints/effects and cross-platform normative raster measurements are not defined.
 
 ## Queue
 
-1. Keep Gates B and C green with `cargo xtask gate-b`, `cargo xtask hostile-inputs` and `cargo xtask gate-c`; commit minimized failures as fixtures and retain both machine reports as CI artifacts.
+1. Keep Gates B and C plus the Gate D text subgate green with `cargo xtask gate-b`, `cargo xtask hostile-inputs`, `cargo xtask gate-c` and `cargo xtask gate-d-text`; commit minimized failures as fixtures and retain all machine reports as CI artifacts.
 2. Design explicit Grid track and placement fields before replacing the classified profile-0 stack fallback; do not infer Grid support from the Gate C pass.
-3. Pin font assets and shaping inputs before claiming Gate D text or cross-platform raster exactness.
+3. Add a pinned outline extractor and unhinted grayscale CPU raster stage; calibrate it across the CI matrix before claiming Gate D raster exactness.
 4. Finish Gate E by authoring the entire v0 fixture through editor accessibility actions and then attach the Masonry shell to the already-tested driver boundary.
 5. Build one HTML/CSS retentive adapter for Gate F before expanding to design-tool or native-framework adapters.
 6. Defer collaboration profiles until canonical operations, ordering and source correspondence have passed their gates.

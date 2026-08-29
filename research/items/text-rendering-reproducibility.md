@@ -1,7 +1,7 @@
 ---
 id: nuif:research:text-rendering-reproducibility
 kind: synthesis
-status: reviewed
+status: verified
 title: Text rendering reproducibility (shaping determinism, HarfBuzz test format, FreeType hinting and anti-aliasing modes, browser differences, pinning strategy)
 source:
   url: https://github.com/harfbuzz/harfbuzz/tree/main/test/shape
@@ -33,8 +33,8 @@ links:
   spec: [spec/05-geometry-paint-text.md, spec/00-conformance.md]
   adr: [adrs/0003-reference-renderer.md]
   rfc: []
-  code: [crates/nuif-render, conformance/PLAN.md]
-  experiments: []
+  code: [crates/nuif-text, crates/nuif-render, crates/nuif-testing/src/bin/text-pinning.rs, conformance/text/harfbuzz-14.4.0-ahem.json, conformance/PLAN.md]
+  experiments: [nuif:experiment:text-pinning]
 ---
 
 # Summary
@@ -49,6 +49,7 @@ Text is the least reproducible part of a rendering pipeline because three indepe
 - Serialisation format: glyphs delimited by `[` `]`, separated by `|`; each glyph is name or index, `=cluster` unless `NO_CLUSTERS`, `@x_offset,y_offset` when either offset is non-zero, `+x_advance` and `,y_advance` when non-zero, `<x_bearing,y_bearing,width,height>` with `GLYPH_EXTENTS`; example `[uni0651=0@518,0+0|uni0628=0+1897]` (`src/hb-buffer-serialize.cc`, `hb_buffer_serialize_glyphs` documentation; harfbuzz.github.io hb-buffer reference).
 - Corpus: 87 in-house test files, 94 files mirrored from Unicode's text-rendering-tests, 128 AOTS files (counts of `.tests` entries in the three `meson.build` files).
 - Unicode data version: HarfBuzz's generated UCD table is built from "Unicode 17.0.0" (`src/hb-ucd-table.hh` header).
+- Cluster coordinates are client data, not an implicit universal byte offset: the HarfBuzz cluster manual says each input code point receives a cluster value and that clients commonly use its code-point index; `hb_glyph_info_t.cluster` returns that value after any shaping merges. HarfRust 0.13.3 exposes the equivalent `UnicodeBuffer::add(char, u32)` and documents buffer length in Unicode code points (HarfBuzz manual `working-with-harfbuzz-clusters.html`; docs.rs `harfrust/0.13.3/harfrust/struct.UnicodeBuffer.html`).
 - Version drift: HarfBuzz 14.4.0 (2026-08-26) changed outputs in ways that affect expectations: "Glyph positions and extents now saturate instead of overflowing" and "Arabic Windows-1256 fallback shaping is now enabled on all platforms" (`NEWS`). The second item removed a platform dependency in shaping output.
 - Unicode text-rendering-tests: test cases are HTML snippets with rendering parameters and expected SVG; engines (FreeType+HarfBuzz+FriBidi+Raqm "FreeStack", CoreText, Allsorts, Swash, fontkit, OpenType.js, others) emit SVG; matching "is implemented by iterating over SVG paths, allowing for maximally 1 font design unit of difference" (`unicode-org/text-rendering-tests/README.md`).
 - FreeType load targets: `FT_LOAD_TARGET_NORMAL` is the default gray-level hinting; `FT_LOAD_TARGET_LIGHT` snaps only vertically, keeping horizontal spacing, and "Advance widths are rounded to integer values"; `FT_LOAD_TARGET_MONO` is for monochrome; `LCD`/`LCD_V` target decimated displays; `FT_LOAD_NO_HINTING` "generally generates 'blurrier' bitmap glyphs"; `FT_LOAD_FORCE_AUTOHINT`/`FT_LOAD_NO_AUTOHINT` choose the engine; "A font's native hinters may ignore the hinting algorithm you have specified (e.g., the TrueType bytecode interpreter)"; render modes NORMAL, LIGHT, MONO, LCD, LCD_V, SDF (freetype.org, Glyph Retrieval reference).
@@ -81,6 +82,12 @@ Stage 3 - rasterisation (deterministic only on the CPU reference path)
 Result record: font hashes, unicode version, shaper version, hinting=off, aa=grayscale, q, blend space, pixel ratio
 ```
 
+## Executable verification
+
+The profile-0 shaping layer pins the 22,572-byte Ahem 1.50 font at SHA-256 `f0a92cd0cc45735591c9b5b1fa8aecd5194e8dc518895ca22af94a46c23550dc`, HarfRust 0.13.3 and its Unicode 17.0.0 data. It assigns explicit Unicode-scalar indices through `UnicodeBuffer::add`, matching HarfBuzz's documented client-defined cluster contract instead of inheriting UTF-8 byte offsets from a convenience input method. The independent fixture was captured with HarfBuzz 14.4.0 `hb-shape --no-glyph-names`; eight ASCII, Unicode, LTR and RTL glyph strings match exactly.
+
+`cargo xtask gate-d-text` repeats each shaping call, rejects missing context fonts and malformed font hashes, and repeats scene/PNG generation at 360×640, 768×768 and 1440×900. Its machine report separates `exact_cross_implementation_golden` shaping from `approximated_deterministic_glyph_id_proxy` rasterization. This verifies the stage-1 pinning mechanism only. The record's proposed outline and grayscale raster policy remains unimplemented and cannot yet support a Gate D raster-exactness claim.
+
 ## NUIF relevance
 
 **Borrow**
@@ -97,6 +104,6 @@ Result record: font hashes, unicode version, shaper version, hinting=off, aa=gra
 
 ## Open questions
 
-- Which shaper the NUIF reference implementation pins (HarfBuzz via FFI versus a Rust shaper) and how its version is expressed in the evaluation context.
+- Whether a future profile should keep HarfRust 0.13.3 as its normative shaper or treat it only as a reference implementation once an independent implementation reproduces the declared glyph fixtures.
 - Whether NUIF should require bidi and line-breaking algorithm versions (UAX #9, UAX #14) alongside the Unicode data version, since line-break differences are a distinct portability category in the whitepaper.
 - What subpixel quantum and blend space the CPU reference path should fix; the surveyed sources document the variance but do not prescribe a value.

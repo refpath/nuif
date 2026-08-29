@@ -98,7 +98,7 @@ Principles that the diagram encodes:
 | `research/` | Evidence records, claims, open questions, experiment registry, coverage contract, schema |
 | `spec/` | Draft normative modules (model, identity, components, layout, paint and text, operations, extensions, serialization, provenance, collaboration, security, automation, semantics) |
 | `rfcs/` · `adrs/` | Proposals for the specification · decisions for the reference implementation |
-| `crates/` | Rust workspace: model, protocol, layout, render, codecs, query, API, CLI and shared seeded testing |
+| `crates/` | Rust workspace: model, protocol, layout, pinned text shaping, render, codecs, query, API, CLI and shared seeded testing |
 | `apps/editor/` | Reference test editor: architecture, headless contract, UI specification |
 | `conformance/` | Suite plan, test-harness architecture, fixtures including the v0 falsification experiment |
 | `adapters/` · `bindings/` · `schemas/` | Adapter contracts, WASM bindings, interchange schemas |
@@ -112,7 +112,7 @@ Testing is designed for automated trial loops: generate or load a document, appl
 
 ## Status
 
-Gates B and C are complete under the quantified criteria in `research/AUDIT.md`. The workspace executes structural validation, anchored atomic operations, replay/inversion, canonical text and deterministic CBOR, measured hostile-input limits, responsive profile-0 layout, solid-color CPU rasterization, pinned three-way NUIF/Taffy/Chrome layout trials, seeded reports and a headless editor driver. Gate C explicitly reports the still-missing Grid track/placement schema; it does not claim Grid conformance. Shaped text, HTML/CSS synchronization, the Masonry GUI shell, collaboration profiles and an independent implementation remain incomplete. Specifications are drafts; no conformance profile is published.
+Gates B and C are complete under the quantified criteria in `research/AUDIT.md`. The workspace executes structural validation, anchored atomic operations, replay/inversion, canonical text and deterministic CBOR, measured hostile-input limits, responsive profile-0 layout, solid-color CPU rasterization, pinned three-way NUIF/Taffy/Chrome layout trials, seeded reports and a headless editor driver. Gate C explicitly reports the still-missing Grid track/placement schema; it does not claim Grid conformance. Gate D's pinned Ahem/HarfRust shaping layer now matches eight independent HarfBuzz goldens, but outline rasterization and broader paints remain open and the current glyph-ID bitmap is explicitly approximated. HTML/CSS synchronization, the Masonry GUI shell, collaboration profiles and an independent implementation also remain incomplete. Specifications are drafts; no conformance profile is published.
 
 Run the automated baseline:
 
@@ -123,13 +123,14 @@ cargo xtask trial 24301 100
 cargo xtask gate-b # 10,000 patches; raster sample every 100 patches
 cargo xtask hostile-inputs # boundary/one-over time and allocator report
 cargo xtask gate-c # NUIF/Taffy/pinned-Chrome layout report
+cargo xtask gate-d-text # HarfBuzz golden shaping + separate raster report
 cargo run --locked -p nuif-cli -- fixture v0-responsive-card /tmp/v0.nuif
 cargo run --locked -p nuif-editor -- --headless \
   --script conformance/fixtures/v0-responsive-card/editor-trial.jsonl \
   --document /tmp/v0.nuif --output /tmp/edited.nuif
 ```
 
-`cargo xtask all` bootstraps the pinned Python research-validator environment under ignored `target/`, then runs research validation, Rust verification, the short full-raster trial, the 10,000-patch Gate B trial, the release-mode hostile-input allocation/time trial, the Gate C differential layout trial and the headless editor replay. Install the locked browser first. The measured runs write `target/hostile-input-report.json` and `target/layout-differential-report.json`; CI archives both.
+`cargo xtask all` bootstraps the pinned Python research-validator environment under ignored `target/`, then runs research validation, Rust verification, the short full-raster trial, the 10,000-patch Gate B trial, the release-mode hostile-input allocation/time trial, the Gate C differential layout trial, the Gate D text-pinning trial and the headless editor replay. Install the locked browser first. The measured runs write `target/hostile-input-report.json`, `target/layout-differential-report.json` and `target/text-pinning-report.json`; CI archives all three.
 
 ## Contributing
 

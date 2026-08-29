@@ -31,7 +31,7 @@ areas:
   geometry_paint_text_renderer:
     status: experiment-required
     evidence: [nuif:research:svg, nuif:research:renderers, nuif:research:vello, nuif:research:harfbuzz-unicode, nuif:research:webgpu-security, nuif:research:hydra-render-delegate, nuif:research:vello-testing-and-cpu-reference, nuif:research:gpu-rendering-nondeterminism, nuif:research:text-rendering-reproducibility, nuif:research:resvg-test-suite]
-    artifacts: [spec/05-geometry-paint-text.md, adrs/0003-reference-renderer.md]
+    artifacts: [spec/05-geometry-paint-text.md, adrs/0003-reference-renderer.md, crates/nuif-text, crates/nuif-render, conformance/text/harfbuzz-14.4.0-ahem.json]
   protocol_operations_identity:
     status: experiment-required
     evidence: [nuif:research:crdt-tree-move-operation, nuif:research:json-patch-rfc6902-and-merge-patch, nuif:research:command-pattern-undo-and-event-sourcing, nuif:research:figma-multiplayer-and-rendering-engineering, nuif:research:godot-tscn-scene-format]
@@ -75,7 +75,7 @@ areas:
   testing_conformance:
     status: experiment-required
     evidence: [nuif:research:deterministic-simulation-testing, nuif:research:metamorphic-testing-graphics, nuif:research:delta-debugging-and-test-case-reduction, nuif:research:property-based-testing-state-machines, nuif:research:differential-testing, nuif:research:golden-master-and-snapshot-testing, nuif:research:libtest-mimic-and-data-driven-fixtures, nuif:research:rust-snapshot-property-fuzz-tooling, nuif:research:cargo-workspace-xtask-and-ci-layout, nuif:research:wasm-headless-execution, nuif:research:skia-gold-and-gm-tests, nuif:research:webrender-reftests, nuif:research:flip-perceptual-difference-metric, nuif:research:ssim-and-classical-image-metrics, nuif:research:resource-bounded-serde-and-ciborium]
-    artifacts: [spec/00-conformance.md, conformance/PLAN.md, conformance/fixtures/v0-responsive-card/README.md, conformance/HARNESS.md]
+    artifacts: [spec/00-conformance.md, conformance/PLAN.md, conformance/fixtures/v0-responsive-card/README.md, conformance/HARNESS.md, crates/nuif-testing/src/bin/text-pinning.rs]
   adapters:
     status: ongoing
     evidence: [nuif:research:figma, nuif:research:openfig-fig-kiwi, nuif:research:penpot, nuif:research:svg, nuif:research:tree-sitter]

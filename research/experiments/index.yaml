@@ -42,14 +42,19 @@ experiments:
       - retain observations confidence and alternatives as provenance
       - verify inferred intent is never reported as lossless without source evidence
   - id: nuif:experiment:text-pinning
-    status: planned
+    status: active
+    evidence: [nuif:research:text-rendering-reproducibility, nuif:research:harfbuzz-unicode, nuif:research:golden-master-and-snapshot-testing]
+    implementation: [crates/nuif-text/src/lib.rs, crates/nuif-render/src/lib.rs, crates/nuif-testing/src/bin/text-pinning.rs, conformance/text/harfbuzz-14.4.0-ahem.json, xtask/src/main.rs]
     oracle: cross-implementation
     acceptance:
       - font bytes Unicode data shaper options and raster parameters are content-addressed
       - layout and raster divergence are reported separately
     tests:
-      - pin font hashes Unicode data shaping configuration locale and width
-      - measure cross-platform shaped-run and raster divergence
+      - compare pinned HarfRust shaped runs with HarfBuzz 14.4.0 golden strings in both directions
+      - reject missing context fonts malformed hashes and excessive shaping runs
+      - repeat scene and PNG generation at three contexts while classifying the glyph-ID raster proxy as approximated
+      - replace the proxy with pinned outline and grayscale raster stages before completing the experiment
+      - measure cross-platform shaped-run and normative raster divergence on the CI matrix
   - id: nuif:experiment:codec-benchmark
     status: planned
     oracle: measured-benchmark

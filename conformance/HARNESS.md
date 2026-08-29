@@ -65,7 +65,7 @@ Persisted expectation regeneration remains a planned extension and will use one 
 - Seed: every implemented generator draws from one xorshift PRNG seeded per trial; `nuif trial <seed> <iterations> [snapshot-interval]` records the seed and failing iteration (`deterministic-simulation-testing`).
 - Time and randomness: profile 0 has no time-dependent engine semantics; the editor uses monotonically assigned transaction identifiers, and generated values come only from the trial PRNG. Virtual time is required before behavior/animation work begins (`masonry-xilem-and-linebender-test-harness`).
 - Floating point: canonical text follows RFC 0005's stated shortest-digit layout and canonical CBOR follows RFCs 0005/0008. Gate C records each fixture's observed Taffy/browser maximum and rounds it upward to 0.01 px, capped by the 0.1 px foreign-engine safety bound. Exact agreement retains zero tolerance; no aggregate bound silently replaces the fixture values.
-- Fonts: the fixture context carries a synthetic font hash, but profile 0 intentionally renders text with a deterministic bitmap proxy. Pinned real fonts, Unicode data, shaping and raster parameters are Gate D work (`text-rendering-reproducibility`).
+- Fonts: the fixture uses the content-addressed Ahem 1.50 bytes (`f0a92c…550dc`), HarfRust 0.13.3, Unicode 17.0.0 and Unicode-scalar cluster indices. Eight LTR/RTL goldens were independently captured with HarfBuzz 14.4.0. The CPU path still uses an explicitly approximated glyph-ID bitmap proxy; outline extraction and normative raster parameters remain Gate D work (`text-rendering-reproducibility`).
 - Threads: the current suites have no shared mutable global state and pass under libtest's normal parallel execution.
 - Environment: CI uses `--locked` and pinned Rust 1.98.0; the separate MSRV job checks 1.96.0.
 
@@ -77,6 +77,7 @@ Persisted expectation regeneration remains a planned extension and will use one 
 | canonicalization | self-consistency | `E(D(E(d))) = E(d)`; hash stability; idempotent canonicalize |
 | extensions | self-consistency through an ignorant implementation | byte identity of unknown payloads after decode, edit, encode (`opentimelineio`, `godot-tscn-scene-format`) |
 | layout | implemented metamorphic relations plus pinned Taffy 0.14.0 and Chrome for Testing 152.0.7977.64 | responsive v0 at 360/768/1440 px and 12 seeded stack/flex/grid cases; raw three-engine boxes, measured fixture bounds and typed divergences (`differential-testing`, `css-flexbox-grid-algorithm-specs`) |
+| text shaping | pinned HarfRust plus independently captured HarfBuzz 14.4.0 goldens | exact glyph IDs, Unicode-scalar clusters, font-unit advances and direction over eight Ahem cases; repeated scene runs and typed missing-font failures (`text-rendering-reproducibility`) |
 | render | reference rasterization | profile-0 exact for the implemented integer-composited solid-color CPU path; proposed tier 2 bounded and tier 3 perceptual thresholds remain non-normative until the render-tolerance experiment measures NUIF fixtures (`vello-testing-and-cpu-reference`, `flip-perceptual-difference-metric`, `webrender-reftests`) |
 | operations | self-consistency and reference model | replay to identical hash; `apply(t⁻¹, apply(t, d)) ≡ d`; commutation of independent operations; undo-copy-redo invariance (`command-pattern-undo-and-event-sourcing`) |
 | merge | assertions | three-way merges produce typed conflicts, never arbitrary winners; move and order cases from `crdt-tree-move-operation` |
@@ -130,6 +131,8 @@ The hostile-input experiment writes a separate `target/hostile-input-report.json
 
 The layout-differential experiment writes `target/layout-differential-report.json`. It records the source revision, dirty state, toolchain, exact Taffy and browser pins, launch flags, seed, case source, viewport, raw box maps, observed foreign delta, fixture-local assertion value and every typed divergence. Missing browsers, version drift, evaluator defects, Taffy/browser differences beyond the measured bound and unclassified differences fail `cargo xtask gate-c`; declared schema-loss records remain visible and non-blocking.
 
+The text-pinning experiment writes `target/text-pinning-report.json`. It records the exact font, shaper, Unicode and independent HarfBuzz oracle pins; expected and observed glyph strings; source/toolchain/platform identity; repeatability at three evaluation contexts; and negative missing/malformed-font cases. Shaping and raster classifications are separate. `cargo xtask gate-d-text` fails on any pin, golden, repeatability or negative-case mismatch, while the report keeps the non-normative glyph-ID raster proxy visible as `approximated`.
+
 ## Editor participation
 
 The editor exposes an in-process session driver (`nuif-api`) that the harness calls without a window: open, apply operation, query accessibility tree, dispatch accessibility action, redraw to a CPU frame, snapshot. The accessibility tree carries entity identifiers (`accesskit-semantic-ui-testing`), so a test asserts "the selected entity is X" by role and identifier rather than by pixel position. GUI screenshot comparison is limited to shell wiring and uses the same tiers as the render suite with per-OS baselines avoided by CPU rasterization. Gesture tests assert the emitted protocol operations, not canvas pixels.
@@ -140,7 +143,7 @@ The editor exposes an in-process session driver (`nuif-api`) that the harness ca
 |---|---|
 | commit-lint | subject rules |
 | research | record validation |
-| rust | fmt, check, clippy pedantic, `cargo test --workspace --locked`, 10,000-patch Gate B trial, hostile-input release measurement, pinned Gate C three-way layout trial and both report uploads (all render suites CPU only) |
+| rust | fmt, check, clippy pedantic, `cargo test --workspace --locked`, 10,000-patch Gate B trial, hostile-input release measurement, pinned Gate C three-way layout trial, Gate D text-pinning trial and all report uploads (all render suites CPU only) |
 | fuzz-smoke (planned) | future fuzz targets with committed seed corpora |
 | layout-differential | `cargo xtask browser-install` plus `cargo xtask gate-c`; seed-derived cases run in headless Chrome and fail on pin drift or blocking/unclassified divergence |
 | editor-headless | editor session scripts through `nuif-api`; accessibility-tree assertions; CPU snapshots |
