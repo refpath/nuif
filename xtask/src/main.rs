@@ -15,6 +15,7 @@ const ALL_STEPS: &[Step] = &[
     ("gate-d", gate_d),
     ("editor-trial", editor_trial),
     ("gate-f", gate_f),
+    ("gate-g", gate_g),
 ];
 
 const VERIFICATION_ARTIFACTS: &[&str] = &[
@@ -27,6 +28,8 @@ const VERIFICATION_ARTIFACTS: &[&str] = &[
     "target/editor-authoring-snapshot",
     "target/html-sync-report.json",
     "target/html-sync-output.html",
+    "target/gate-g-report.json",
+    "target/gate-g-independent",
 ];
 
 fn main() {
@@ -67,6 +70,7 @@ fn run() -> Result<(), String> {
         Some("gate-d-text") => gate_d_text(),
         Some("gate-d-render") => gate_d_render(),
         Some("gate-f") => gate_f(),
+        Some("gate-g") => gate_g(),
         Some("browser-install") => browser_install(),
         Some("hostile-inputs") => hostile_inputs(),
         Some("research") => research(),
@@ -74,7 +78,7 @@ fn run() -> Result<(), String> {
         Some("manifest") => standalone_manifest(),
         Some("all") => all(),
         _ => Err(
-            "usage: cargo xtask <research|verify|trial [seed iterations snapshot-interval report-path]|gate-b|gate-c|gate-d|gate-d-text|gate-d-render|gate-f|browser-install|hostile-inputs|editor-trial|manifest|all>"
+            "usage: cargo xtask <research|verify|trial [seed iterations snapshot-interval report-path]|gate-b|gate-c|gate-d|gate-d-text|gate-d-render|gate-f|gate-g|browser-install|hostile-inputs|editor-trial|manifest|all>"
                 .to_owned(),
         ),
     }
@@ -215,6 +219,80 @@ fn gate_f() -> Result<(), String> {
         "--source-output",
         "target/html-sync-output.html",
     ])
+}
+
+fn gate_g() -> Result<(), String> {
+    let reference = Path::new("target/gate-g-reference");
+    let independent = Path::new("target/gate-g-independent");
+    for directory in [reference, independent] {
+        if directory.exists() {
+            fs::remove_dir_all(directory).map_err(|error| error.to_string())?;
+        }
+    }
+    fs::create_dir_all(reference).map_err(|error| error.to_string())?;
+    let input = reference.join("input.nuif");
+    cargo(&[
+        "run",
+        "--quiet",
+        "--locked",
+        "-p",
+        "nuif-cli",
+        "--",
+        "fixture",
+        "v0-responsive-card",
+        path(&input)?,
+    ])?;
+    for (name, width, height) in [
+        ("360x640", "360", "640"),
+        ("768x768", "768", "768"),
+        ("1440x900", "1440", "900"),
+    ] {
+        let output = reference.join(name);
+        cargo(&[
+            "run",
+            "--quiet",
+            "--locked",
+            "-p",
+            "nuif-cli",
+            "--",
+            "snapshot",
+            path(&input)?,
+            path(&output)?,
+            width,
+            height,
+        ])?;
+    }
+    command(
+        "python3",
+        &[
+            "-m",
+            "unittest",
+            "discover",
+            "-s",
+            "implementations/python/tests",
+            "-p",
+            "test_*.py",
+        ],
+    )?;
+    command(
+        "python3",
+        &[
+            "implementations/python/nuif_profile0.py",
+            "verify",
+            "--input",
+            path(&input)?,
+            "--case",
+            "360x640=target/gate-g-reference/360x640",
+            "--case",
+            "768x768=target/gate-g-reference/768x768",
+            "--case",
+            "1440x900=target/gate-g-reference/1440x900",
+            "--output",
+            "target/gate-g-report.json",
+            "--artifact-dir",
+            path(independent)?,
+        ],
+    )
 }
 
 fn research() -> Result<(), String> {
