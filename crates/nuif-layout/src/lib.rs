@@ -42,6 +42,13 @@ pub struct LayoutSnapshot {
 pub trait LayoutEvaluator {
     type Error;
 
+    /// Evaluates authored layout for a fully specified evaluation context.
+    ///
+    /// # Errors
+    ///
+    /// Returns an implementation-defined error when layout cannot be
+    /// evaluated because of invalid input, unsupported required semantics,
+    /// resource limits, or evaluator failure.
     fn evaluate(
         &self,
         document: &Document,

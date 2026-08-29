@@ -2,10 +2,14 @@
 
 use nuif_core::{Document, Entity, EntityId, EntityKind};
 
+/// Returns the entity with the requested stable identity.
+#[must_use]
 pub fn entity(document: &Document, id: EntityId) -> Option<&Entity> {
     document.entities.get(&id)
 }
 
+/// Iterates the document's root entities in authored root order.
+#[must_use]
 pub fn roots(document: &Document) -> impl Iterator<Item = &Entity> {
     document
         .roots
@@ -13,6 +17,8 @@ pub fn roots(document: &Document) -> impl Iterator<Item = &Entity> {
         .filter_map(|id| document.entities.get(id))
 }
 
+/// Returns all entities whose kind satisfies `predicate`.
+#[must_use]
 pub fn by_kind(document: &Document, predicate: fn(&EntityKind) -> bool) -> Vec<&Entity> {
     document
         .entities

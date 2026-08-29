@@ -41,6 +41,12 @@ pub trait Renderer {
     type Output;
     type Error;
 
+    /// Renders a lowered NUIF scene into the requested target.
+    ///
+    /// # Errors
+    ///
+    /// Returns an implementation-defined error when the target is
+    /// unsupported, resources cannot be allocated, or rendering fails.
     fn render(
         &mut self,
         scene: &RenderScene,
