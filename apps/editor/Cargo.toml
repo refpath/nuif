@@ -31,12 +31,16 @@ required-features = ["editor-automation"]
 masonry = { version = "0.4.0", git = "https://github.com/refpath/xilem.git", rev = "eabfe0a92ff5ab0e26515383fdeaf288672b3e88" }
 masonry_testing = { version = "0.4.0", git = "https://github.com/refpath/xilem.git", rev = "eabfe0a92ff5ab0e26515383fdeaf288672b3e88", optional = true }
 masonry_winit = { version = "0.4.0", git = "https://github.com/refpath/xilem.git", rev = "eabfe0a92ff5ab0e26515383fdeaf288672b3e88" }
+nuif-adapter = { version = "0.0.1", path = "../../crates/nuif-adapter" }
 nuif-api = { version = "0.0.0", path = "../../crates/nuif-api" }
 nuif-codec = { version = "0.0.0", path = "../../crates/nuif-codec" }
 nuif-core = { version = "0.0.1", path = "../../crates/nuif-core" }
+nuif-dtcg = { version = "0.0.1", path = "../../crates/nuif-dtcg" }
+nuif-html = { version = "0.0.1", path = "../../crates/nuif-html" }
 nuif-layout = { version = "0.0.0", path = "../../crates/nuif-layout" }
 nuif-protocol = { version = "0.0.1", path = "../../crates/nuif-protocol" }
 nuif-render = { version = "0.0.0", path = "../../crates/nuif-render" }
+nuif-svg = { version = "0.0.1", path = "../../crates/nuif-svg" }
 nuif-text = { version = "0.0.1", path = "../../crates/nuif-text" }
 rfd = "0.17.2"
 serde.workspace = true

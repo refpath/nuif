@@ -21,12 +21,13 @@ use masonry::widgets::{
 };
 use masonry_winit::app::{AppDriver, DriverCtx, NewWindow, WindowId};
 use masonry_winit::winit::window::Window;
+use nuif_adapter::{AdapterReport, ExportedSource, ImportedSource};
 use nuif_codec::{
     CanonicalText, Decoder, Encoder, MAX_INPUT_BYTES, read_bounded as read_bounded_stream,
 };
 use nuif_core::{
-    Align, Color, Document, Entity, EntityId, EntityKind, FlowDirection, LayoutFamily, Point,
-    ShapeKind, SizeIntent, TextContent, validate,
+    Align, Color, Document, Entity, EntityId, EntityKind, Fidelity, FlowDirection, LayoutFamily,
+    Point, ShapeKind, SizeIntent, TextContent, validate,
 };
 use nuif_protocol::{Anchor, Axis as ProtocolAxis, Operation};
 use std::collections::{BTreeMap, HashMap};
@@ -74,6 +75,7 @@ impl Tool {
 enum UiAction {
     New,
     ImportNative,
+    ImportExternal(ExternalFormat),
     Save,
     SaveAs,
     Undo,
@@ -84,6 +86,7 @@ enum UiAction {
     DuplicateSelection,
     ApplyInspector,
     ExportSnapshot,
+    ExportExternal(ExternalFormat),
     ChooseTool(Tool),
     ChooseLeftPanel(LeftPanel),
     SetLayoutFamily(LayoutFamily),
@@ -101,6 +104,49 @@ enum UiAction {
     ToggleFileMenu,
     ToggleGrid,
     ToggleRulers,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+enum ExternalFormat {
+    Svg,
+    HtmlCss,
+    Dtcg,
+}
+
+impl ExternalFormat {
+    const ALL: [Self; 3] = [Self::Svg, Self::HtmlCss, Self::Dtcg];
+
+    const fn name(self) -> &'static str {
+        match self {
+            Self::Svg => "SVG",
+            Self::HtmlCss => "HTML/CSS",
+            Self::Dtcg => "DTCG tokens",
+        }
+    }
+
+    const fn filter(self) -> (&'static str, &'static [&'static str]) {
+        match self {
+            Self::Svg => ("SVG profile", &["svg"]),
+            Self::HtmlCss => ("HTML/CSS profile", &["html", "htm"]),
+            Self::Dtcg => ("DTCG token profile", &["json"]),
+        }
+    }
+
+    const fn default_file_name(self) -> &'static str {
+        match self {
+            Self::Svg => "nuif-export.svg",
+            Self::HtmlCss => "nuif-export.html",
+            Self::Dtcg => "nuif-export.tokens.json",
+        }
+    }
+
+    const fn source_limit(self) -> usize {
+        match self {
+            Self::Svg => nuif_svg::MAX_SOURCE_BYTES,
+            Self::HtmlCss => nuif_html::MAX_SOURCE_BYTES,
+            Self::Dtcg => nuif_dtcg::MAX_SOURCE_BYTES,
+        }
+    }
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -332,13 +378,40 @@ impl Driver {
             ("Import NUIF…", UiAction::ImportNative),
             ("Save", UiAction::Save),
             ("Save as…", UiAction::SaveAs),
-            ("Export PNG…", UiAction::ExportSnapshot),
-            ("Close menu", UiAction::ToggleFileMenu),
         ] {
             menu = menu
                 .with_fixed(self.button(caption, action, false))
                 .with_fixed_spacer(4.px());
         }
+        menu = menu
+            .with_fixed_spacer(5.px())
+            .with_fixed(label("IMPORT PROFILE", 10.0, MUTED, true))
+            .with_fixed_spacer(5.px());
+        for format in ExternalFormat::ALL {
+            menu = menu
+                .with_fixed(self.button(
+                    &format!("Import {}…", format.name()),
+                    UiAction::ImportExternal(format),
+                    false,
+                ))
+                .with_fixed_spacer(4.px());
+        }
+        menu = menu
+            .with_fixed_spacer(5.px())
+            .with_fixed(label("EXPORT", 10.0, MUTED, true))
+            .with_fixed_spacer(5.px())
+            .with_fixed(self.button("Export PNG…", UiAction::ExportSnapshot, false))
+            .with_fixed_spacer(4.px());
+        for format in ExternalFormat::ALL {
+            menu = menu
+                .with_fixed(self.button(
+                    &format!("Export {}…", format.name()),
+                    UiAction::ExportExternal(format),
+                    false,
+                ))
+                .with_fixed_spacer(4.px());
+        }
+        menu = menu.with_fixed(self.button("Close menu", UiAction::ToggleFileMenu, false));
         let menu = NewWidget::new(SizedBox::new(menu.prepare()).width(Length::const_px(220.0)))
             .with_props((
                 Background::Color(PANEL),
@@ -747,6 +820,30 @@ impl Driver {
             ("Duplicate selection", UiAction::DuplicateSelection),
             ("Delete selection", UiAction::DeleteSelection),
             ("Export PNG snapshot…", UiAction::ExportSnapshot),
+            (
+                "Import SVG profile…",
+                UiAction::ImportExternal(ExternalFormat::Svg),
+            ),
+            (
+                "Import HTML/CSS profile…",
+                UiAction::ImportExternal(ExternalFormat::HtmlCss),
+            ),
+            (
+                "Import DTCG token profile…",
+                UiAction::ImportExternal(ExternalFormat::Dtcg),
+            ),
+            (
+                "Export SVG profile…",
+                UiAction::ExportExternal(ExternalFormat::Svg),
+            ),
+            (
+                "Export HTML/CSS profile…",
+                UiAction::ExportExternal(ExternalFormat::HtmlCss),
+            ),
+            (
+                "Export DTCG token profile…",
+                UiAction::ExportExternal(ExternalFormat::Dtcg),
+            ),
             ("Fit canvas", UiAction::ZoomFit),
             ("Hide interface", UiAction::ToggleUi),
             ("Close commands", UiAction::TogglePalette),
@@ -953,6 +1050,11 @@ impl Driver {
                     self.status = format!("Import failed: {error}");
                 }
             }
+            UiAction::ImportExternal(format) => {
+                if let Err(error) = self.import_external(format) {
+                    self.status = format!("{} import failed: {error}", format.name());
+                }
+            }
             UiAction::Save => {
                 if let Err(error) = self.save(false) {
                     self.status = format!("Save failed: {error}");
@@ -1004,6 +1106,11 @@ impl Driver {
             UiAction::ExportSnapshot => {
                 if let Err(error) = self.export_snapshot() {
                     self.status = format!("Snapshot failed: {error}");
+                }
+            }
+            UiAction::ExportExternal(format) => {
+                if let Err(error) = self.export_external(format) {
+                    self.status = format!("{} export failed: {error}", format.name());
                 }
             }
             UiAction::ChooseTool(tool) => {
@@ -1630,6 +1737,46 @@ impl Driver {
         Ok(())
     }
 
+    fn import_external(&mut self, format: ExternalFormat) -> Result<(), String> {
+        let (filter_name, extensions) = format.filter();
+        let Some(path) = rfd::FileDialog::new()
+            .add_filter(filter_name, extensions)
+            .pick_file()
+        else {
+            return Ok(());
+        };
+        let source = read_external_source(&path, format.source_limit())?;
+        let imported = import_external_source(format, &source)?;
+        let summary = adapter_report_summary(format, &imported.retentive.report);
+        let result = rfd::MessageDialog::new()
+            .set_level(rfd::MessageLevel::Info)
+            .set_title(format!("Import {} profile", format.name()))
+            .set_description(format!(
+                "{summary}\n\nOpen this import as a new unsaved NUIF document?"
+            ))
+            .set_buttons(rfd::MessageButtons::OkCancelCustom(
+                "Import".to_owned(),
+                "Cancel".to_owned(),
+            ))
+            .show();
+        let accepted = match result {
+            rfd::MessageDialogResult::Ok => true,
+            rfd::MessageDialogResult::Custom(value) => value == "Import",
+            _ => false,
+        };
+        if !accepted {
+            self.status = format!("Cancelled {} import", format.name());
+            return Ok(());
+        }
+
+        self.editor = EditorDriver::new(imported.document);
+        self.document_path = None;
+        self.dirty = true;
+        self.drafts.clear();
+        self.status = format!("Imported {} · {summary}", format.name());
+        Ok(())
+    }
+
     fn save(&mut self, force_dialog: bool) -> Result<(), String> {
         let path = if force_dialog || self.document_path.is_none() {
             let Some(path) = rfd::FileDialog::new()
@@ -1675,6 +1822,29 @@ impl Driver {
         self.status = format!("Exported {}", path.display());
         Ok(())
     }
+
+    fn export_external(&mut self, format: ExternalFormat) -> Result<(), String> {
+        let exported = export_external_document(format, self.editor.document())?;
+        let (filter_name, extensions) = format.filter();
+        let Some(path) = rfd::FileDialog::new()
+            .add_filter(filter_name, extensions)
+            .set_file_name(format.default_file_name())
+            .save_file()
+        else {
+            return Ok(());
+        };
+        let report_path = adapter_report_path(&path)?;
+        let report =
+            serde_json::to_vec_pretty(&exported.report).map_err(|error| error.to_string())?;
+        fs::write(&report_path, report).map_err(|error| error.to_string())?;
+        fs::write(&path, exported.source.as_bytes()).map_err(|error| error.to_string())?;
+        self.status = format!(
+            "Exported {} and fidelity report {}",
+            path.display(),
+            report_path.display()
+        );
+        Ok(())
+    }
 }
 
 impl AppDriver for Driver {
@@ -1706,6 +1876,69 @@ impl AppDriver for Driver {
             self.refresh(ctx);
         }
     }
+}
+
+fn read_external_source(path: &Path, limit: usize) -> Result<String, String> {
+    let mut file = fs::File::open(path).map_err(|error| error.to_string())?;
+    let bytes = read_bounded_stream(&mut file, limit).map_err(|error| error.to_string())?;
+    String::from_utf8(bytes).map_err(|error| format!("source is not valid UTF-8: {error}"))
+}
+
+fn import_external_source(format: ExternalFormat, source: &str) -> Result<ImportedSource, String> {
+    match format {
+        ExternalFormat::Svg => nuif_svg::import_source(source).map_err(|error| error.to_string()),
+        ExternalFormat::HtmlCss => {
+            nuif_html::import_source(source).map_err(|error| error.to_string())
+        }
+        ExternalFormat::Dtcg => nuif_dtcg::import_source(source).map_err(|error| error.to_string()),
+    }
+}
+
+fn export_external_document(
+    format: ExternalFormat,
+    document: &Document,
+) -> Result<ExportedSource, String> {
+    match format {
+        ExternalFormat::Svg => {
+            nuif_svg::export_document(document).map_err(|error| error.to_string())
+        }
+        ExternalFormat::HtmlCss => {
+            nuif_html::export_document(document).map_err(|error| error.to_string())
+        }
+        ExternalFormat::Dtcg => {
+            nuif_dtcg::export_document(document).map_err(|error| error.to_string())
+        }
+    }
+}
+
+fn adapter_report_summary(format: ExternalFormat, report: &AdapterReport) -> String {
+    let mut lossless = 0;
+    let mut representable = 0;
+    let mut approximated = 0;
+    let mut preserved = 0;
+    let mut unsupported = 0;
+    for entry in &report.fidelity {
+        match entry.status {
+            Fidelity::Lossless => lossless += 1,
+            Fidelity::Representable => representable += 1,
+            Fidelity::Approximated { .. } => approximated += 1,
+            Fidelity::PreservedUnrenderable { .. } => preserved += 1,
+            Fidelity::Unsupported { .. } => unsupported += 1,
+        }
+    }
+    format!(
+        "{} · lossless {lossless} · representable {representable} · approximated {approximated} · preserved {preserved} · unsupported {unsupported} · {} correspondences",
+        format.name(),
+        report.correspondences.len()
+    )
+}
+
+fn adapter_report_path(path: &Path) -> Result<PathBuf, String> {
+    let name = path
+        .file_name()
+        .and_then(|name| name.to_str())
+        .ok_or_else(|| "export file name is not valid UTF-8".to_owned())?;
+    Ok(path.with_file_name(format!("{name}.report.json")))
 }
 
 struct NativeOptions {
@@ -2096,7 +2329,7 @@ mod tests {
     }
 
     #[test]
-    fn file_menu_exposes_native_import_and_png_export() {
+    fn file_menu_exposes_native_and_profile_adapter_routes() {
         let (_, mut driver) = harness();
         assert!(driver.handle_ui_action(UiAction::ToggleFileMenu));
         let _ = driver.build_view();
@@ -2119,6 +2352,44 @@ mod tests {
                 .actions
                 .values()
                 .any(|action| matches!(action, UiAction::SaveAs))
+        );
+        for format in ExternalFormat::ALL {
+            assert!(
+                driver
+                    .actions
+                    .values()
+                    .any(|action| *action == UiAction::ImportExternal(format))
+            );
+            assert!(
+                driver
+                    .actions
+                    .values()
+                    .any(|action| *action == UiAction::ExportExternal(format))
+            );
+        }
+    }
+
+    #[test]
+    fn editor_adapter_routes_round_trip_declared_profiles() {
+        let fixtures = [
+            (ExternalFormat::Svg, nuif_svg::profile_fixture()),
+            (ExternalFormat::HtmlCss, nuif_html::profile_fixture()),
+            (ExternalFormat::Dtcg, nuif_dtcg::profile_fixture()),
+        ];
+        for (format, document) in fixtures {
+            let exported = export_external_document(format, &document).unwrap();
+            let imported = import_external_source(format, &exported.source).unwrap();
+            assert_eq!(imported.document, document);
+            assert!(exported.report.is_lossless());
+            assert!(adapter_report_summary(format, &exported.report).contains("unsupported 0"));
+        }
+    }
+
+    #[test]
+    fn adapter_report_is_a_sibling_of_the_export() {
+        assert_eq!(
+            adapter_report_path(Path::new("fixtures/card.svg")).unwrap(),
+            PathBuf::from("fixtures/card.svg.report.json")
         );
     }
 
