@@ -1,12 +1,12 @@
 # Reference editor architecture
 
-The editor is a client of the same semantic engine used by CLI/API tooling.
+The editor is a client of the same semantic engine used by CLI/API tooling. The shell technology is decided in ADR 0006 (accepted): a Rust-native shell on Masonry, Vello and AccessKit; the Svelte 5 shell below is retained as the browser demonstration path. The user-interface specification is `UI-SPEC.md`.
 
 ```text
-Svelte 5 / TypeScript shell
+Rust shell (Masonry widgets, AccessKit tree) — or Svelte 5 shell over WASM for the browser demonstration
         │ typed commands/events
         ▼
-Rust core via WASM boundary
+Rust core (in-process; WASM boundary only in the browser build)
   ├── document store
   ├── protocol/transactions
   ├── layout evaluators
