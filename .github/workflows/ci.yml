@@ -89,11 +89,16 @@ jobs:
         with:
           name: render-profile-report
           path: target/render-profile-report.json
-      - name: Headless editor trial
-        run: |
-          cargo run --locked -p nuif-cli -- fixture v0-responsive-card "$RUNNER_TEMP/v0.nuif"
-          cargo run --locked -p nuif-editor -- --headless --script conformance/fixtures/v0-responsive-card/editor-trial.jsonl --document "$RUNNER_TEMP/v0.nuif" --output "$RUNNER_TEMP/edited.nuif"
-          cargo run --locked -p nuif-cli -- validate "$RUNNER_TEMP/edited.nuif"
+      - name: Headless editor edit and full-authoring parity trials
+        run: cargo xtask editor-trial
+      - name: Upload editor authoring report and snapshot
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: editor-authoring-report
+          path: |
+            target/editor-authoring-report.json
+            target/editor-authoring-snapshot
 
   msrv:
     runs-on: ubuntu-latest

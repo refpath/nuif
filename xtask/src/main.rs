@@ -180,7 +180,10 @@ fn editor_trial() -> Result<(), String> {
     }
     fs::create_dir(&directory).map_err(|error| error.to_string())?;
     let input = directory.join("v0.nuif");
-    let output = directory.join("edited.nuif");
+    let edited = directory.join("edited.nuif");
+    let authored = directory.join("authored.nuif");
+    let report = Path::new("target/editor-authoring-report.json");
+    let snapshots = Path::new("target/editor-authoring-snapshot");
     cargo(&[
         "run",
         "--locked",
@@ -203,7 +206,7 @@ fn editor_trial() -> Result<(), String> {
         "--document",
         path(&input)?,
         "--output",
-        path(&output)?,
+        path(&edited)?,
     ])?;
     cargo(&[
         "run",
@@ -212,7 +215,43 @@ fn editor_trial() -> Result<(), String> {
         "nuif-cli",
         "--",
         "validate",
-        path(&output)?,
+        path(&edited)?,
+    ])?;
+    cargo(&[
+        "run",
+        "--locked",
+        "-p",
+        "nuif-editor",
+        "--",
+        "--headless",
+        "--script",
+        "conformance/fixtures/v0-responsive-card/editor-authoring.jsonl",
+        "--new-document",
+        "00000000000000000000000000000001",
+        "--expect-document",
+        path(&input)?,
+        "--output",
+        path(&authored)?,
+        "--snapshot-dir",
+        path(snapshots)?,
+        "--report",
+        path(report)?,
+    ])?;
+    let expected = fs::read(&input).map_err(|error| error.to_string())?;
+    let observed = fs::read(&authored).map_err(|error| error.to_string())?;
+    if observed != expected {
+        return Err(
+            "semantic editor authoring did not exactly reproduce the v0 fixture".to_owned(),
+        );
+    }
+    cargo(&[
+        "run",
+        "--locked",
+        "-p",
+        "nuif-cli",
+        "--",
+        "validate",
+        path(&authored)?,
     ])?;
     fs::remove_dir_all(&directory).map_err(|error| {
         format!(
