@@ -23,12 +23,13 @@
 
 ## Current implementation risks
 
-- **The macOS graphics graph carries a compiler future-compatibility warning.**
-  The pinned editor resolves `metal 0.33.0 -> block 0.1.6`; Rust 1.98 still
-  compiles it, and current metal-rs master retains the same dependency. The
-  project tracks this as `nuif:research:macos-metal-block-future-incompatibility`,
-  rechecks it at toolchain and graphics-stack updates, and does not assume
-  ownership of the Objective-C blocks ABI through an unreviewed local fork.
+- **The macOS graphics fork is a maintenance boundary.** The editor pins
+  `refpath/xilem` commit `eabfe0a`, which moves the active renderer from wgpu 28
+  and metal-rs to wgpu 29 and the objc2 Metal bindings. The fork changes public
+  API call sites and does not patch the Objective-C blocks ABI. Each fork update
+  requires the editor tests, reverse dependency trace, and macOS Metal window
+  smoke test recorded in
+  `nuif:research:macos-metal-block-future-incompatibility`.
 - **Release signing is credential-bound.** The editor packaging gate builds,
   archives and smoke-tests an unsigned host package. Platform signing and
   notarisation require release credentials and remain separate from source

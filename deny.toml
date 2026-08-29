@@ -35,4 +35,4 @@ yanked = "deny"
 [sources]
 unknown-registry = "deny"
 unknown-git = "deny"
-allow-git = ["https://github.com/linebender/xilem"]
+allow-git = ["https://github.com/refpath/xilem"]

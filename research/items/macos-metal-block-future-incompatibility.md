@@ -1,14 +1,14 @@
 ---
 id: nuif:research:macos-metal-block-future-incompatibility
 kind: repository
-status: reviewed
+status: verified
 title: macOS Metal dependency and Rust uninhabited-static future incompatibility
 source:
-  url: https://github.com/gfx-rs/metal-rs/blob/master/Cargo.toml
-  repository: https://github.com/gfx-rs/metal-rs
-  authors: [gfx-rs developers, rust-block contributors, Rust compiler team]
-  published_at: "metal-rs master and rust-block master (retrieved 2026-08-30); rust-lang/rust issue 74840 (2020-07-27)"
-  license: "metal-rs and rust-block MIT OR Apache-2.0; Rust repository MIT OR Apache-2.0"
+  url: https://github.com/gfx-rs/wgpu/pull/5641
+  repository: https://github.com/gfx-rs/wgpu
+  authors: [gfx-rs developers, Linebender developers, refpath maintainers]
+  published_at: "wgpu pull request 5641 merged 2026-01-28; refpath/xilem commit eabfe0a created 2026-08-30"
+  license: "wgpu MIT OR Apache-2.0; Xilem Apache-2.0"
 retrieved_at: 2026-08-30
 tags: [rust, macos, metal, wgpu, dependency, future-incompatibility, release-risk]
 confidence: 0.95
@@ -16,10 +16,10 @@ claims: []
 relations:
   - type: depends_on
     target: nuif:research:masonry-xilem-and-linebender-test-harness
-    note: The native editor reaches metal-rs through the pinned Masonry imaging and wgpu stack.
+    note: The native editor uses the reviewed refpath Xilem fork to reach wgpu 29 and the objc2 Metal bindings.
   - type: related_to
     target: nuif:research:rust-toolchain-and-msrv-policy
-    note: Rust 1.98 reports the dependency as future-incompatible while still compiling it.
+    note: Rust 1.98 reported the removed block 0.1.6 dependency as future-incompatible.
 links:
   spec: []
   adr: [adrs/0006-rust-native-editor.md]
@@ -30,70 +30,88 @@ links:
 
 # Summary
 
-The macOS editor resolves `masonry_winit -> imaging_wgpu -> wgpu 28.0.0 ->
-wgpu-hal 28.0.1 -> metal 0.33.0 -> block 0.1.6`. Rust 1.98 compiles this graph
-but reports `block` as future-incompatible because it declares an Objective-C
-runtime symbol as a static of an uninhabited Rust type. The current metal-rs
-master still declares `block = "0.1.6"`; upgrading from the pinned metal-rs
-release to its current branch therefore does not remove the warning.
+The previous macOS editor graph resolved `masonry_winit -> imaging_wgpu -> wgpu
+28.0.0 -> wgpu-hal 28.0.1 -> metal 0.33.0 -> block 0.1.6`. Rust 1.98 compiled
+that graph but reported `block` as future-incompatible. wgpu pull request 5641
+replaced metal-rs with `objc2-metal` and `block2`; wgpu 29 contains that
+migration. The reviewed `refpath/xilem` commit `eabfe0a` updates the NUIF
+Masonry revision to the wgpu 29 API without patching the Objective-C blocks ABI.
 
-NUIF interpretation: retain the audited upstream dependency until metal-rs or
-its wgpu consumer changes the Objective-C block binding. Do not introduce a
-workspace-local fork of foreign unsafe ABI code solely to suppress a warning.
-Re-evaluate the graph at every Rust or editor-stack update, and make a future
-compiler hard error a release blocker for the macOS package.
+NUIF pins the reviewed fork commit by full SHA. The active editor graph resolves
+`imaging_wgpu 0.0.2 -> wgpu 29.0.4 -> objc2-metal 0.3.2 -> block2 0.6.2`.
+`block 0.1.6` and metal-rs are absent from the lock file and active dependency
+graph. The fork remains a maintenance boundary until the equivalent migration
+is available from the selected upstream Xilem revision.
 
 ## Evidence
 
-- `cargo tree -i block` at revision `efbc5b8` resolves `block 0.1.6` through
-  `metal 0.33.0`, `wgpu-hal 28.0.1`, `wgpu 28.0.0`, the Xilem imaging crates and
-  `masonry_winit` into `nuif-editor` (2026-08-30).
-- `cargo report future-incompatibilities --id 1` under rustc 1.98.0 identifies
-  `block/src/lib.rs:64` and the `static of uninhabited type` lint. The command
-  references rust-lang/rust issue 74840 (2026-08-30).
-- metal-rs master declares version 0.33.0, Rust 1.82 and
-  `block = "0.1.6"`. Locator: `Cargo.toml`, `[package]` and `[dependencies]`,
-  lines 1-36, retrieved 2026-08-30:
-  https://github.com/gfx-rs/metal-rs/blob/master/Cargo.toml.
-- rust-block master declares `_NSConcreteStackBlock` with the `Class` type that
-  produces the warning in version 0.1.6. Locator: `src/lib.rs`, Objective-C
-  runtime declarations, retrieved 2026-08-30:
-  https://github.com/SSheldon/rust-block/blob/master/src/lib.rs.
-- Rust issue 74840 records the compiler problem caused by raw references to an
-  extern never value and links the implementing fix. Locator: issue title,
-  description and relationship to pull request 78324:
-  https://github.com/rust-lang/rust/issues/74840.
+- wgpu pull request 5641 replaced `metal` with `objc2-metal`, `block` with
+  `block2`, and `core-graphics-types` with `objc2-core-graphics`. The pull
+  request merged on 2026-01-28. Locator: dependency and source-file changes,
+  retrieved 2026-08-30: https://github.com/gfx-rs/wgpu/pull/5641.
+- `wgpu-hal 29.0.4` declares `block2 0.6.2`, `objc2-metal 0.3.2`, and
+  `objc2-quartz-core 0.3.2` for the Metal backend. Locator: the macOS target
+  dependencies in `wgpu-hal/Cargo.toml` at tag `v29.0.4`, retrieved 2026-08-30:
+  https://github.com/gfx-rs/wgpu/blob/v29.0.4/wgpu-hal/Cargo.toml.
+- `refpath/xilem` commit `eabfe0a92ff5ab0e26515383fdeaf288672b3e88`
+  updates the imaging dependencies and the three affected wgpu API call sites.
+  Locator: commit diff, retrieved 2026-08-30:
+  https://github.com/refpath/xilem/commit/eabfe0a92ff5ab0e26515383fdeaf288672b3e88.
+- `cargo tree -p nuif-editor -i block` reports no matching package after the
+  migration. `cargo tree -p nuif-editor` resolves wgpu 29.0.4, objc2-metal
+  0.3.2, and block2 0.6.2 at NUIF revision `897211f` plus the uncommitted
+  dependency migration (2026-08-30).
+- `cargo report future-incompatibilities` reports that no reports are available
+  after rebuilding `nuif-editor` against the migrated graph with rustc 1.98.0
+  (2026-08-30).
+- `cargo test -p nuif-editor --features editor-automation` passes 14 tests
+  against the pinned fork commit. A macOS Metal window smoke test reaches the
+  event loop and presents without a surface error (2026-08-30).
+
+## Mechanism
+
+`masonry_winit` constructs the wgpu instance, acquires each surface texture,
+and accesses the Metal presentation layer during macOS live resize. wgpu 29
+changes the instance descriptor from a borrowed value to an owned value and
+returns `CurrentSurfaceTexture` instead of `Result<SurfaceTexture,
+SurfaceError>`. The fork updates those call sites and maps `Timeout` and
+`Occluded` to a skipped frame, as specified by the wgpu 29 variant
+documentation. The live-resize path calls the objc2 selector spelling exposed
+by `objc2-quartz-core`. The dependency update selects wgpu-hal's objc2 Metal
+backend, so metal-rs and rust-block no longer participate in compilation or
+linking. Locator: `masonry_winit/src/vello_util.rs` and
+`masonry_winit/src/event_loop_runner.rs` in `refpath/xilem` commit `eabfe0a`;
+`CurrentSurfaceTexture` in wgpu 29.0.4, retrieved 2026-08-30:
+https://docs.rs/wgpu/29.0.4/wgpu/enum.CurrentSurfaceTexture.html.
 
 ## Decision boundary
 
-**Retain** the current dependency while it compiles on both the declared MSRV
-and pinned toolchain and while `cargo deny` reports no licence, ban or source
-failure.
+**Borrow** wgpu 29's objc2 Metal backend as the maintained replacement for
+metal-rs and rust-block.
 
-**Re-evaluate** after each Masonry, wgpu, metal-rs or Rust update by running
-`cargo report future-incompatibilities` and tracing the reverse dependency
-tree.
+**Adapt** the selected Xilem revision through a full-SHA fork pin. Each fork
+update includes the NUIF editor tests, the reverse dependency trace, and a
+macOS Metal window smoke test.
 
-**Reject** a local source patch without an upstream review reference. This code
-implements the Objective-C blocks ABI; a warning-only fork would move unsafe
-foreign-interface ownership into NUIF without increasing adapter or editor
-capability.
+**Reject** a direct patch to metal-rs or rust-block. The reviewed fork changes
+dependency versions and public API call sites; it does not alter unsafe
+foreign-interface code.
 
 ## NUIF relevance
 
-**Borrow** Cargo's future-incompatibility report as the reproducible diagnostic
-for the pinned toolchain and lock file.
+**Borrow** Cargo's future-incompatibility report and reverse dependency tree as
+the reproducible diagnostics for the pinned toolchain and lock file.
 
-**Adapt** dependency-update review so a macOS editor-stack change includes the
-reverse `block` dependency trace and package smoke test in addition to the
-workspace checks.
+**Adapt** dependency-update review so a macOS editor-stack change verifies the
+absence of `block`, the presence of the expected `block2` path, and a package
+smoke test in addition to the workspace checks.
 
-**Reject** treating a successful current build as evidence that the dependency
-will compile indefinitely; the compiler explicitly classifies the declaration
-as code that can become an error in a future release.
+**Reject** treating the fork as an indefinite divergence. The pin is removed
+when the selected upstream Xilem revision provides an equivalent wgpu version.
 
 ## Open questions
 
-- Which metal-rs or wgpu release first replaces or repairs the rust-block
-  binding?
-- In which Rust release does the lint become a hard error, if scheduled?
+- Which upstream Xilem revision first provides a compatible wgpu 29 or later
+  dependency graph?
+- When does `imaging_skia` publish a release that no longer requires wgpu 28 for
+  its optional GPU backend?

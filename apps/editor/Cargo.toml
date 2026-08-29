@@ -28,9 +28,9 @@ path = "src/bin/editor-automation.rs"
 required-features = ["editor-automation"]
 
 [dependencies]
-masonry = { version = "0.4.0", git = "https://github.com/linebender/xilem.git", rev = "b81d8d7a631849def6eeab282561439b963862e5" }
-masonry_testing = { version = "0.4.0", git = "https://github.com/linebender/xilem.git", rev = "b81d8d7a631849def6eeab282561439b963862e5", optional = true }
-masonry_winit = { version = "0.4.0", git = "https://github.com/linebender/xilem.git", rev = "b81d8d7a631849def6eeab282561439b963862e5" }
+masonry = { version = "0.4.0", git = "https://github.com/refpath/xilem.git", rev = "eabfe0a92ff5ab0e26515383fdeaf288672b3e88" }
+masonry_testing = { version = "0.4.0", git = "https://github.com/refpath/xilem.git", rev = "eabfe0a92ff5ab0e26515383fdeaf288672b3e88", optional = true }
+masonry_winit = { version = "0.4.0", git = "https://github.com/refpath/xilem.git", rev = "eabfe0a92ff5ab0e26515383fdeaf288672b3e88" }
 nuif-api = { version = "0.0.0", path = "../../crates/nuif-api" }
 nuif-codec = { version = "0.0.0", path = "../../crates/nuif-codec" }
 nuif-core = { version = "0.0.1", path = "../../crates/nuif-core" }
@@ -46,7 +46,7 @@ thiserror.workspace = true
 tracing = "0.1"
 
 [dev-dependencies]
-masonry_testing = { version = "0.4.0", git = "https://github.com/linebender/xilem.git", rev = "b81d8d7a631849def6eeab282561439b963862e5" }
+masonry_testing = { version = "0.4.0", git = "https://github.com/refpath/xilem.git", rev = "eabfe0a92ff5ab0e26515383fdeaf288672b3e88" }
 nuif-testing = { version = "0.0.1", path = "../../crates/nuif-testing" }
 
 [lints]
