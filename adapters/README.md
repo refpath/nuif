@@ -8,4 +8,9 @@ The follow-on [`nuif-html-css-v0`](html-css/V0-PROFILE.md) profile carries the c
 
 Further research adapters include broader HTML/CSS, SVG, Svelte, React, Penpot, Figma, Flutter, SwiftUI, and Jetpack Compose. Each adapter must emit structured fidelity diagnostics and record provenance/correspondence sufficient for later synchronization and minimal source patches where feasible.
 
+[`STATUS.md`](STATUS.md) records the current primary integration surface,
+implementation status, next bounded profile and exclusion boundary for every
+advertised target. Research coverage and executable conformance are listed
+separately.
+
 Vendor-specific semantics belong in namespaced extensions or adapter-local logic; they must not leak into the core merely because a vendor is popular.

@@ -17,11 +17,43 @@ links:
   spec: [spec/04-layout.md]
   adr: []
   rfc: []
-  code: []
+  code: [adapters/STATUS.md]
   experiments: []
 ---
 # Summary
-SwiftUI custom layout is based on parents proposing sizes, children reporting fitting sizes, and containers placing subviews. Minimum and maximum proposals can be probed rather than assuming fixed child dimensions.
+
+SwiftUI custom layout uses proposal–response measurement followed by subview
+placement. A `Layout` implementation receives proxy values rather than direct
+subviews and can query dimensions, spacing, priority and custom layout values.
+
+## Evidence
+
+- The `Layout` protocol requires
+  `sizeThatFits(proposal:subviews:cache:)` and
+  `placeSubviews(in:proposal:subviews:cache:)`. Optional methods provide
+  alignment, spacing, axis properties and caches.
+  https://developer.apple.com/documentation/swiftui/layout (retrieved
+  2026-08-29).
+- `LayoutSubview.sizeThatFits(_:)` accepts a proposed size. SwiftUI views choose
+  a size while considering the parent proposal; the result is not a CSS-style
+  fixed-width declaration.
+  https://developer.apple.com/documentation/swiftui/layoutsubview/sizethatfits(_:)
+  (retrieved 2026-08-29).
+- `ViewThatFits` can choose the first child that fits the proposal. Custom
+  layout examples share measurements between sizing and placement through a
+  cache.
+  https://developer.apple.com/documentation/swiftui/composing-custom-layouts-with-swiftui
+  (retrieved 2026-08-29).
 
 ## NUIF relevance
-NUIF layout must represent intrinsic/proposal-based sizing, not only CSS flex/grid fields. A portable layout layer should express sizing intent and permit multiple evaluator families with defined lowering boundaries.
+
+**Borrow** proposal–response sizing, intrinsic probes, stack alignment, spacing
+and explicit separation between sizing and placement.
+
+**Adapt** profile-zero stacks and fixed/intrinsic/fill sizing into a generated,
+profile-owned Swift subset. Compiler, SDK, operating-system version, dynamic
+type, locale and font registry are evaluation-context provenance.
+
+**Reject** arbitrary SwiftUI import as a lossless document operation. Result
+builders, modifiers, state, environment values, custom `Layout` types and
+platform views are executable semantics.

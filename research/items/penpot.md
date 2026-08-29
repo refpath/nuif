@@ -17,11 +17,51 @@ links:
   spec: [spec/01-model.md, spec/05-geometry-paint-text.md]
   adr: []
   rfc: []
-  code: [adapters/README.md]
+  code: [adapters/README.md, adapters/STATUS.md]
   experiments: []
 ---
 # Summary
-Penpot models a design primarily as shapes corresponding to SVG nodes augmented with constraints, interactions and editor metadata. Its open `.penpot` package stores inspectable JSON plus assets. Penpot can exactly reconstruct its own SVG exports using metadata and best-effort infer arbitrary SVG.
+
+Penpot v3 exports a ZIP package containing a manifest, JSON file data and
+content-addressed or referenced binary objects. Pages and components contain
+shape trees. Library assets include colors, typographies, components and design
+tokens.
+
+## Evidence
+
+- The user guide identifies v3 as the current ZIP and JSON format. It lists
+  `manifest.json`, per-file metadata, pages, colors, components, typographies,
+  tokens, media and an `objects/` directory. The manifest records format
+  version, producer version and feature flags.
+  https://help.penpot.app/user-guide/export-import/penpot-file-format/
+  (retrieved 2026-08-29).
+- The technical file-format reference specifies the package paths and fields
+  for page shapes, library assets, components, design-token sets/themes and
+  storage objects. Data versioning is distinct from package format versioning.
+  https://help.penpot.app/technical-guide/developer/data-model/penpot-file-format/
+  (retrieved 2026-08-29).
+- The conceptual data model defines pages and components as containers of
+  hierarchical shape trees. Files can reference shared libraries.
+  https://help.penpot.app/technical-guide/developer/data-model/#pages-and-components
+  (retrieved 2026-08-29).
+- The data guide states that shape fields are commonly optional, absence
+  denotes default behavior, and import/export processes remove `null` fields.
+  An adapter must therefore compare semantic defaults rather than JSON member
+  presence alone. https://help.penpot.app/technical-guide/developer/data-guide/
+  (retrieved 2026-08-29).
 
 ## NUIF relevance
-Strong precedent for open inspectable design documents and metadata-assisted round-trip. NUIF should not make `Shape` the universal top-level semantic abstraction; semantic entities and relationships need to exist independently of vector representation.
+
+**Borrow** the inspectable package boundary, explicit feature flags, versioned
+data migrations, stable UUIDs and separation of JSON metadata from binary
+objects.
+
+**Adapt** one page and a bounded rectangle/ellipse/text/frame subset before
+components or libraries. Package import must cap ZIP expansion, member count,
+JSON depth and object bytes. Unrecognized members and fields require retentive
+preservation.
+
+**Reject** direct mapping of every Penpot shape to a universal NUIF shape.
+Penpot constraints, grids, variants, interactions, text runs, paths, effects,
+libraries and token themes exceed profile zero and need property-attributed
+fidelity records.

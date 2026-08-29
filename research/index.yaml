@@ -27,6 +27,7 @@ topics:
   collaboration: [automerge-yjs, operational-transformation-vs-crdt]
   encoding: [encoding, openfig-fig-kiwi, deterministic-cbor-profiles-and-numeric-canonicalization, ipld-dag-cbor-strictness, cbor-data-model-and-key-order-correction]
   ecosystem: [dtcg, wasm-component-model, step]
+  adapter_surfaces: [svg, dtcg, react-jsx-adapter-surface, svelte-source-adapter-surface, penpot, figma, swiftui-layout, jetpack-compose-layout, flutter-layout]
   cgi_interchange: [openusd-composition-and-crate, unknown-schema-preservation-strategies, hydra-render-delegate, opentimelineio, alembic, gltf-validator-and-sample-assets, materialx-and-shader-graph-tests]
   game_engines: [unity-prefabs-and-yaml-merge, unreal-asset-versioning-and-automation, godot-tscn-scene-format, blender-dna-rna-and-headless, houdini-pdg-and-hda, figma-multiplayer-and-rendering-engineering]
   testing_methodology: [deterministic-simulation-testing, metamorphic-testing-graphics, delta-debugging-and-test-case-reduction, property-based-testing-state-machines, differential-testing, fuzzing-structured-inputs, golden-master-and-snapshot-testing, resource-bounded-serde-and-ciborium]
