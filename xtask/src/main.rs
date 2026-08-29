@@ -115,10 +115,11 @@ fn run() -> Result<(), String> {
         Some("editor-gui-trial") => editor_gui_trial(),
         Some("editor-package") => editor_package(),
         Some("editor-launch") => editor_launch(),
+        Some("release-check") => release_check(args.next().as_deref()),
         Some("manifest") => standalone_manifest(),
         Some("all") => all(),
         _ => Err(
-            "usage: cargo xtask <research|adapter-audit|verify|trial [seed iterations snapshot-interval report-path]|gate-b|gate-c|gate-d|gate-d-text|gate-d-render|gate-f|gate-f-v0|gate-svg|gate-dtcg|gate-g|gate-h|browser-install|hostile-inputs|editor-hostile-inputs|performance|editor-trial|editor-gui-trial|editor-package|editor-launch|manifest|all>"
+            "usage: cargo xtask <research|adapter-audit|verify|trial [seed iterations snapshot-interval report-path]|gate-b|gate-c|gate-d|gate-d-text|gate-d-render|gate-f|gate-f-v0|gate-svg|gate-dtcg|gate-g|gate-h|browser-install|hostile-inputs|editor-hostile-inputs|performance|editor-trial|editor-gui-trial|editor-package|editor-launch|release-check <tag>|manifest|all>"
                 .to_owned(),
         ),
     }
@@ -1104,15 +1105,18 @@ fn build_editor_package() -> Result<EditorPackage, String> {
             source_binary.display()
         ));
     }
-    let package_name = format!("nuif-editor-{}-{}", env::consts::OS, env::consts::ARCH);
+    let version = editor_version()?;
+    let package_name = format!(
+        "nuif-editor-{version}-{}-{}",
+        env::consts::OS,
+        env::consts::ARCH
+    );
     let dist = target_root.join("dist");
     let package_root = dist.join(&package_name);
     if package_root.exists() {
         fs::remove_dir_all(&package_root).map_err(|error| error.to_string())?;
     }
     fs::create_dir_all(&package_root).map_err(|error| error.to_string())?;
-    let version = editor_version()?;
-
     let (binary, app_bundle, launch) = match env::consts::OS {
         "macos" => package_macos(&source_binary, &package_root, &version)?,
         "windows" => package_windows(&source_binary, &package_root)?,
@@ -1160,6 +1164,15 @@ fn verify_editor_package(
     if !String::from_utf8_lossy(&smoke.stdout).contains("usage: nuif-editor") {
         return Err("packaged editor help smoke test returned unexpected output".to_owned());
     }
+    let version_output = Command::new(binary)
+        .arg("--version")
+        .output()
+        .map_err(|error| format!("could not inspect packaged editor version: {error}"))?;
+    check_status(version_output.status, path(binary)?, &["--version"])?;
+    let expected_version = format!("NUIF Editor {version}");
+    if String::from_utf8_lossy(&version_output.stdout).trim() != expected_version {
+        return Err("packaged editor version does not match its manifest".to_owned());
+    }
 
     let bytes = fs::read(binary).map_err(|error| error.to_string())?;
     let smoke_command = [binary.as_os_str(), std::ffi::OsStr::new("--help")]
@@ -1185,9 +1198,14 @@ fn verify_editor_package(
             "command": smoke_command,
             "status": "passed"
         },
+        "version_test": {
+            "command": [binary, "--version"],
+            "expected": expected_version,
+            "status": "passed"
+        },
         "signing": {
             "status": "unsigned",
-            "note": "development package; release signing requires platform credentials"
+            "note": "unsigned package; release signing requires platform credentials"
         }
     });
     let manifest_bytes = serde_json::to_vec_pretty(&manifest).map_err(|error| error.to_string())?;
@@ -1201,9 +1219,12 @@ fn verify_editor_package(
         "bytes": archive_bytes.len(),
         "sha256": format!("{:x}", Sha256::digest(&archive_bytes))
     });
+    let manifest_bytes = serde_json::to_vec_pretty(&manifest).map_err(|error| error.to_string())?;
+    fs::write(dist.join("editor-package-manifest.json"), &manifest_bytes)
+        .map_err(|error| error.to_string())?;
     fs::write(
-        dist.join("editor-package-manifest.json"),
-        serde_json::to_vec_pretty(&manifest).map_err(|error| error.to_string())?,
+        dist.join(format!("{package_name}.manifest.json")),
+        manifest_bytes,
     )
     .map_err(|error| error.to_string())?;
     Ok(archive)
@@ -1281,7 +1302,8 @@ fn package_macos(
     fs::copy(source_binary, &binary).map_err(|error| error.to_string())?;
     let plist = fs::read_to_string("apps/editor/packaging/macos/Info.plist.in")
         .map_err(|error| error.to_string())?
-        .replace("@VERSION@", version);
+        .replace("@SHORT_VERSION@", short_version(version))
+        .replace("@BUILD_VERSION@", &build_version(version)?);
     fs::write(contents.join("Info.plist"), plist).map_err(|error| error.to_string())?;
     write_package_readme(&resources.join("README.txt"), version)?;
     Ok((
@@ -1327,13 +1349,13 @@ fn package_linux(
 
 fn editor_version() -> Result<String, String> {
     let output = Command::new("cargo")
-        .args(["metadata", "--format-version", "1", "--no-deps"])
+        .args(["metadata", "--locked", "--format-version", "1", "--no-deps"])
         .output()
         .map_err(|error| error.to_string())?;
     check_status(
         output.status,
         "cargo",
-        &["metadata", "--format-version", "1", "--no-deps"],
+        &["metadata", "--locked", "--format-version", "1", "--no-deps"],
     )?;
     let metadata: serde_json::Value =
         serde_json::from_slice(&output.stdout).map_err(|error| error.to_string())?;
@@ -1347,6 +1369,65 @@ fn editor_version() -> Result<String, String> {
         .and_then(|package| package["version"].as_str())
         .map(str::to_owned)
         .ok_or_else(|| "cargo metadata did not contain the nuif-editor version".to_owned())
+}
+
+fn short_version(version: &str) -> &str {
+    version.split_once('-').map_or(version, |(base, _)| base)
+}
+
+fn build_version(version: &str) -> Result<String, String> {
+    let value = env::var("NUIF_BUILD_NUMBER").unwrap_or_else(|_| {
+        version
+            .rsplit_once('.')
+            .and_then(|(_, value)| value.parse::<u64>().ok())
+            .unwrap_or(1)
+            .to_string()
+    });
+    if value.is_empty() || !value.bytes().all(|byte| byte.is_ascii_digit()) {
+        return Err("NUIF_BUILD_NUMBER must contain decimal digits".to_owned());
+    }
+    Ok(value)
+}
+
+fn release_check(tag: Option<&str>) -> Result<(), String> {
+    let tag = tag.ok_or_else(|| "release-check requires a tag".to_owned())?;
+    let version = editor_version()?;
+    validate_release_tag(&version, tag)?;
+    let dirty =
+        command_text("git", &["status", "--porcelain"]).is_some_and(|status| !status.is_empty());
+    if dirty {
+        return Err("release source tree contains uncommitted changes".to_owned());
+    }
+    let report = serde_json::json!({
+        "schema_version": 1,
+        "status": "passed",
+        "tag": tag,
+        "version": version,
+        "source_revision": command_text("git", &["rev-parse", "HEAD"]),
+        "source_dirty": false,
+        "toolchain": command_text("rustc", &["--version"]),
+    });
+    fs::create_dir_all("target/dist").map_err(|error| error.to_string())?;
+    fs::write(
+        "target/dist/release-check.json",
+        serde_json::to_vec_pretty(&report).map_err(|error| error.to_string())?,
+    )
+    .map_err(|error| error.to_string())?;
+    println!("release tag {tag} matches NUIF Editor {version}");
+    Ok(())
+}
+
+fn validate_release_tag(version: &str, tag: &str) -> Result<(), String> {
+    let expected = format!("v{version}");
+    if tag != expected {
+        return Err(format!(
+            "release tag {tag:?} does not match editor version {version:?}; expected {expected:?}"
+        ));
+    }
+    if version.contains('+') {
+        return Err("release versions must not contain SemVer build metadata".to_owned());
+    }
+    Ok(())
 }
 
 fn write_package_readme(destination: &Path, version: &str) -> Result<(), String> {
@@ -1457,4 +1538,22 @@ fn check_status(status: ExitStatus, program: &str, arguments: &[&str]) -> Result
 fn path(path: &Path) -> Result<&str, String> {
     path.to_str()
         .ok_or_else(|| format!("path is not valid UTF-8: {}", path.display()))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn release_tag_must_match_the_editor_version_exactly() {
+        assert!(validate_release_tag("0.1.0-alpha.1", "v0.1.0-alpha.1").is_ok());
+        assert!(validate_release_tag("0.1.0-alpha.1", "v0.1.0-alpha.2").is_err());
+        assert!(validate_release_tag("0.1.0+local", "v0.1.0+local").is_err());
+    }
+
+    #[test]
+    fn macos_short_version_excludes_the_prerelease_suffix() {
+        assert_eq!(short_version("0.1.0-alpha.1"), "0.1.0");
+        assert_eq!(short_version("1.2.3"), "1.2.3");
+    }
 }

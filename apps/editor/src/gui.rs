@@ -1643,6 +1643,10 @@ fn parse_native_options() -> Result<Option<NativeOptions>, String> {
                 println!("usage: nuif-editor [--document <nuif> | --new-document <id> | <nuif>]");
                 return Ok(None);
             }
+            "--version" | "-V" => {
+                println!("NUIF Editor {}", env!("CARGO_PKG_VERSION"));
+                return Ok(None);
+            }
             "--document" => {
                 path = Some(
                     args.next()

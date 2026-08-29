@@ -1,6 +1,6 @@
 NUIF Editor @VERSION@
 
-This is an unsigned research and conformance build of the native NUIF editor.
+This is an unsigned prerelease build of the native NUIF reference editor.
 It is not a complete implementation of apps/editor/UI-SPEC.md.
 
 Open the application executable to create a profile-zero document. A canonical
