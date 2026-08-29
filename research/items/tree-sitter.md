@@ -18,7 +18,7 @@ links:
   adr: []
   rfc: [rfcs/0003-authored-resolved-provenance.md]
   code: [adapters/README.md, adapters/html-css/PROFILE.md, crates/nuif-html]
-  experiments: [nuif:experiment:html-css-retentive-sync]
+  experiments: [nuif:experiment:html-css-retentive-sync, nuif:experiment:html-css-v0-responsive-card]
 ---
 # Summary
 Tree-sitter maintains concrete syntax trees incrementally and can reuse unchanged structure after precisely described text edits. It preserves source ranges and exposes changed ranges between trees.
@@ -35,6 +35,8 @@ Tree-sitter maintains concrete syntax trees incrementally and can reuse unchange
 `nuif-html-css-0` pins Tree-sitter 0.26.10, `tree-sitter-html` 0.23.2 and `tree-sitter-css` 0.25.0. Import rejects recovery/error trees, extracts the raw style-element range from the HTML CST, validates that range with the CSS grammar and records the exact scalar byte spans used by correspondence records. Synchronization does not rely on a formatter or AST regeneration: it validates stale spans, applies replacements in descending byte order, reparses both languages and requires exact edited-document equality.
 
 `cargo xtask gate-f` independently checks the complement of the edited ranges: after a token, four padding edges and escaped text change, every byte outside the six recorded spans is identical. HTML/CSS comments and an unmapped element inserted before import survive. The repeated synchronization has the same source and edit list. This verifies the Tree-sitter-based mechanism for the declared profile, not arbitrary source languages or arbitrary HTML.
+
+`cargo xtask gate-f-v0` applies the same mechanism to the complete responsive-card model. It retains 181 scalar correspondences, requires exact re-import after eight token/padding/text/responsive span edits, detects inconsistent marked media CSS and separately drives an editor-authored name/width change through CLI synchronization and CLI import. This verifies NUIF model preservation for `nuif-html-css-v0`; it still does not establish arbitrary HTML/CSS semantics or browser rendering for preserved path, instance and unknown kinds.
 
 ## Mechanism
 

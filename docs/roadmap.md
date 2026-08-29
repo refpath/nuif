@@ -24,19 +24,19 @@ Canonical text + deterministic CBOR; package/assets; patch/diff/query CLI. Exit:
 The entire v0 fixture is authored from an empty document through identity-addressed semantic actions. Direct generation, editor output and operation replay are byte-identical, and the editor writes canonical document, context, layout, scene, CPU raster and fidelity report artifacts. The Rust-native Masonry shell from ADR 0006 and the later Svelte/WASM demonstration are non-normative interface work and cannot redefine this headless result.
 
 ## Phase 6a — first adapters/sync falsifier (complete for bounded HTML/CSS profile 0)
-`nuif-html-css-0` maps a declared container/text/finite-token subset through real DOM/CSS syntax with byte-span correspondence. Text, token and four-edge padding edits change only their six spans; comments and unmapped markup survive exactly; unsupported semantics have target/property fidelity. HTML/CSS was intentionally tested before SVG because Gate F and the architecture stop condition concern minimal source patches. The complete v0 responsive card, arbitrary HTML/CSS and SVG remain broader adapter work.
+`nuif-html-css-0` maps a declared container/text/finite-token subset through real DOM/CSS syntax with byte-span correspondence. Text, token and four-edge padding edits change only their six spans; comments and unmapped markup survive exactly; unsupported semantics have target/property fidelity. HTML/CSS was intentionally tested before SVG because Gate F and the architecture stop condition concern minimal source patches. This narrow profile remains independently automated even after the full-v0 follow-on; arbitrary HTML/CSS and SVG remain broader adapter work.
 
-## Phase 6b — broader adapters/sync
-Extend HTML/CSS to the v0 responsive card, then implement SVG and research Penpot/Figma adapters after the correspondence model survives that harder source path. Exit: full-v0 minimal patches with explicit fidelity, not whole-source regeneration or opaque sidecars.
+## Phase 6b — full-v0 HTML/CSS sync (complete)
+`nuif-html-css-v0` carries the complete responsive-card model through 181 retained correspondences. The full trial applies eight local token/padding/text/responsive edits while preserving all other source bytes and opaque payloads; the editor bridge applies name and width edits through semantic actions and the public CLI, then re-imports to byte-identical canonical NUIF. Browser path rendering, instance materialization and unknown visuals remain explicit target limitations. SVG and Penpot/Figma research are later adapter profiles, not part of this completion.
 
-## Phase 7 — collaboration
+## Phase 7 — collaboration (next falsifier)
 Prototype Automerge/Yjs profiles over semantic operations. Exit: deterministic canonical checkpoint after concurrent edits and surfaced semantic conflicts.
 
 ## Phase 8a — mechanical independent reproduction (complete for v0 profile 0)
 The standard-library-only Python implementation reads, writes, lays out and rasterizes the v0 profile without importing, invoking or linking the Rust packages. Its differential trial is exact at 360, 768 and 1,440 pixels and stays in the unified CI loop.
 
 ## Phase 8b — external reproduction and standards review
-Publish the schema/conformance kit after full-v0 source synchronization and obtain reproduction by an externally authored implementation. External provenance, interoperability review, neutral governance and a published conformance profile remain prerequisites for credible standards status; the in-repository mechanical reproduction does not establish them.
+Package the schema/conformance kit and obtain reproduction by an externally authored implementation. External provenance, interoperability review, neutral governance and a published conformance profile remain prerequisites for credible standards status; the in-repository mechanical reproduction and source adapter do not establish them.
 
 ## Early falsifiers
 Stop/rethink if: semantic model requires pervasive vendor-specific exceptions; opaque extensions cannot survive common operations; source synchronization routinely requires whole-file regeneration; or independent implementation cannot reproduce normative layout/visual behavior from the spec.

@@ -14,21 +14,23 @@ Gate E: editor/CLI parity. Twelve semantic actions author the complete v0 fixtur
 
 Gate F: bounded retentive HTML/CSS synchronization. The declared container/text/token subset reparses exactly; six mapped edits change only their scalar spans; comments and unmapped markup survive; unsupported properties remain typed and attributed.
 
+Full-v0 source follow-on: `nuif-html-css-v0` retains 181 model correspondences for the complete responsive card. Eight token/padding/text/responsive edits and the two-edit semantic editor/CLI bridge both re-import exactly, while path, instance and unknown target limitations remain explicit.
+
 Gate G: bounded mechanically independent reproduction. The standard-library-only Python implementation has no Rust/NUIF package dependency and exactly reproduces v0 canonical text, opaque preservation, 24 boxes, three decoded RGBA buffers and five fidelity records. External authorship and a general-purpose second implementation remain standards-publication work.
 
 ## Current falsifier
 
-The complete responsive card still does not traverse the retentive HTML/CSS path. Gate F proves the scalar correspondence mechanism on a bounded subset, but Surface, Component, Shape, Instance, Unknown, responsive rules and opaque extensions need explicit target mappings or fidelity before `nuif:experiment:v0-responsive-card` can complete.
+`nuif:experiment:v0-responsive-card` is complete under its declared structural, layout, codec, opaque-preservation, editor and minimal-source-patch acceptance. The next architectural falsifier is the collaboration checkpoint: concurrent semantic operations must converge through at least two independently implemented collaboration engines to the same canonical checkpoint while preserving explicit semantic conflicts. This is not implied by single-user replay determinism.
 
 ## Queue
 
 1. Keep Gates B through G green with `cargo xtask all`; commit minimized failures as fixtures and retain all machine reports as CI artifacts.
-2. Design explicit Grid track and placement fields before replacing the classified profile-0 stack fallback; do not infer Grid support from the Gate C pass.
-3. Extend the HTML/CSS correspondence profile through the complete responsive card without weakening the bounded Gate F evidence.
+2. Implement the declared collaboration checkpoint over semantic operations without putting replica metadata into canonical NUIF documents.
+3. Design explicit Grid track and placement fields before replacing the classified profile-0 stack fallback; do not infer Grid support from the Gate C pass.
 4. Attach any Masonry shell to the already-tested editor driver boundary; keep shell behavior outside model/layout/render conformance.
 5. Treat soft wrapping, gradients, strokes, paths, images and instance materialization as a separately versioned expanded profile; do not weaken profile-0 exactness to add them.
-6. Defer collaboration profiles until canonical operations, ordering and source correspondence have passed their gates.
-7. Publish the conformance kit for externally authored reproduction only after the full-v0 source round trip and its fidelity report are complete; do not treat the in-repository Python path as external interoperability evidence.
+6. Research SVG and vendor adapters only after declaring target-specific correspondence and fidelity boundaries as strictly as the HTML/CSS profiles.
+7. Package the conformance kit for externally authored reproduction; do not treat the in-repository Python path or Rust HTML/CSS adapter as external interoperability evidence.
 
 ## Update policy
 

@@ -112,7 +112,7 @@ Testing is designed for automated trial loops: generate or load a document, appl
 
 ## Status
 
-Gates B through G are complete under the bounded, quantified criteria in `research/AUDIT.md`. The workspace executes structural validation, anchored atomic operations, replay/inversion, canonical text and deterministic CBOR, measured hostile-input limits, responsive profile-0 layout, exact CPU rasterization, pinned NUIF/Taffy/Chrome layout trials, seeded reports and a headless editor driver. Gate C explicitly reports the still-missing Grid track/placement schema. Gate D pins shaping, outlines, hard-line layout, encoded-sRGB paint and integer composition; scene/PNG hashes reproduce on macOS/aarch64, Linux/aarch64 and Linux/x86_64, while paths, images, instances and extension paint remain property-attributed fidelity records. The bounded HTML/CSS synchronization profile, complete fixture authoring through semantic editor actions and a standard-library-only Python v0 reproduction are implemented. Full-v0 HTML/CSS synchronization, the Masonry GUI shell, collaboration profiles, a general-purpose second implementation and external interoperability review remain incomplete. Specifications are drafts; no conformance profile is published.
+Gates B through G are complete under the bounded, quantified criteria in `research/AUDIT.md`. The workspace executes structural validation, anchored atomic operations, replay/inversion, canonical text and deterministic CBOR, measured hostile-input limits, responsive profile-0 layout, exact CPU rasterization, pinned NUIF/Taffy/Chrome layout trials, seeded reports and a headless editor driver. Gate C explicitly reports the still-missing Grid track/placement schema. Gate D pins shaping, outlines, hard-line layout, encoded-sRGB paint and integer composition; scene/PNG hashes reproduce on macOS/aarch64, Linux/aarch64 and Linux/x86_64, while paths, images, instances and extension paint remain property-attributed fidelity records. Both the bounded mechanism profile and full-v0 HTML/CSS model synchronization are implemented, including an editor-to-CLI source bridge. Complete fixture authoring through semantic editor actions and a standard-library-only Python v0 reproduction are also automated. The Masonry GUI shell, collaboration profiles, a general-purpose second implementation and external interoperability review remain incomplete. Specifications are drafts; no conformance profile is published.
 
 Run the automated baseline:
 
@@ -126,6 +126,7 @@ cargo xtask gate-c # NUIF/Taffy/pinned-Chrome layout report
 cargo xtask gate-d-text # HarfBuzz golden shaping + separate raster report
 cargo xtask editor-trial # author the v0 fixture and emit editor evidence
 cargo xtask gate-f # retentive HTML/CSS subset synchronization
+cargo xtask gate-f-v0 # full-v0 model sync plus editor/CLI source bridge
 cargo xtask gate-g # independent Python v0 parse/write/layout/render
 cargo run --locked -p nuif-cli -- fixture v0-responsive-card /tmp/v0.nuif
 cargo run --locked -p nuif-editor -- --headless \
@@ -133,7 +134,7 @@ cargo run --locked -p nuif-editor -- --headless \
   --document /tmp/v0.nuif --output /tmp/edited.nuif
 ```
 
-`cargo xtask all` bootstraps the pinned Python research-validator environment and Chrome for Testing under ignored `target/`, then runs research validation, Rust verification, the short full-raster trial, the 10,000-patch Gate B trial, the release-mode hostile-input allocation/time trial, the Gate C differential layout trial, both Gate D text/render trials, complete headless editor authoring, bounded retentive HTML/CSS synchronization and the independent Gate G reproduction. Each measured run leaves a JSON report or snapshot under `target/`; `target/verification-manifest.json` indexes the complete evidence set and records success or the first failed step. CI archives both the individual evidence and this manifest.
+`cargo xtask all` bootstraps the pinned Python research-validator environment and Chrome for Testing under ignored `target/`, then runs research validation, Rust verification, the short full-raster trial, the 10,000-patch Gate B trial, the release-mode hostile-input allocation/time trial, the Gate C differential layout trial, both Gate D text/render trials, complete headless editor authoring, bounded and full-v0 retentive HTML/CSS synchronization, the editor/CLI source bridge and the independent Gate G reproduction. Each measured run leaves a JSON report or snapshot under `target/`; `target/verification-manifest.json` indexes the complete evidence set and records success or the first failed step. CI archives both the individual evidence and this manifest.
 
 ## Contributing
 

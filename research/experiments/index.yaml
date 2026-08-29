@@ -1,9 +1,9 @@
 version: 1
 experiments:
   - id: nuif:experiment:v0-responsive-card
-    status: active
+    status: completed
     fixture: conformance/fixtures/v0-responsive-card
-    implementation: [crates/nuif-testing/src/lib.rs, conformance/src/lib.rs]
+    implementation: [crates/nuif-testing/src/lib.rs, crates/nuif-testing/src/bin/html-sync-v0.rs, crates/nuif-html/src/v0.rs, apps/editor/src/main.rs, conformance/src/lib.rs, xtask/src/main.rs]
     oracle: mixed
     acceptance:
       - structural and codec checks pass for the in-memory fixture
@@ -194,6 +194,25 @@ experiments:
       - prove every byte outside the six edited spans is unchanged
       - reject stale spans unsupported properties and one-over source size
       - write and archive target/html-sync-report.json and synchronized HTML
+  - id: nuif:experiment:html-css-v0-responsive-card
+    status: completed
+    fixture: conformance/fixtures/v0-responsive-card
+    evidence: [nuif:research:tree-sitter, nuif:research:retentive-lenses, nuif:research:symmetric-lenses, nuif:research:bidirectional-evaluation-direct-manipulation]
+    implementation: [crates/nuif-html/src/v0.rs, crates/nuif-testing/src/bin/html-sync-v0.rs, crates/nuif-cli/src/main.rs, apps/editor/src/main.rs, adapters/html-css/V0-PROFILE.md, xtask/src/main.rs]
+    oracle: metamorphic
+    acceptance:
+      - the complete v0 responsive-card model exports and imports exactly
+      - token padding text and responsive edits touch only mapped byte spans
+      - unknown payloads and every unmapped source byte survive exactly
+      - a headless editor edit crosses CLI synchronization and import without changing canonical NUIF bytes
+      - browser-target limitations remain property-attributed fidelity
+    tests:
+      - retain and losslessly classify all 181 model source correspondences
+      - repeat the eight-span semantic synchronization and compare source and edit lists exactly
+      - reject unsupported token values structural changes stale spans derived CSS drift and one-over source size
+      - preserve path instance and unknown identities with explicit unsupported or preserved-unrenderable target fidelity
+      - apply editor-authored name and width changes as two CLI source edits and require exact canonical re-import
+      - write and archive full-v0 model and editor-bridge reports plus synchronized HTML
   - id: nuif:experiment:independent-profile-zero
     status: completed
     evidence: [nuif:research:differential-testing, nuif:research:metamorphic-testing-graphics, nuif:research:text-rendering-reproducibility]
