@@ -65,6 +65,16 @@ jobs:
         with:
           name: hostile-input-report
           path: target/hostile-input-report.json
+      - name: Install pinned browser oracle
+        run: cargo xtask browser-install
+      - name: Gate C browser and Taffy differential trial
+        run: cargo xtask gate-c
+      - name: Upload layout differential report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: layout-differential-report
+          path: target/layout-differential-report.json
       - name: Headless editor trial
         run: |
           cargo run --locked -p nuif-cli -- fixture v0-responsive-card "$RUNNER_TEMP/v0.nuif"
