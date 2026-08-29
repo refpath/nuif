@@ -75,7 +75,7 @@ areas:
   testing_conformance:
     status: experiment-required
     evidence: [nuif:research:deterministic-simulation-testing, nuif:research:metamorphic-testing-graphics, nuif:research:delta-debugging-and-test-case-reduction, nuif:research:property-based-testing-state-machines, nuif:research:differential-testing, nuif:research:golden-master-and-snapshot-testing, nuif:research:libtest-mimic-and-data-driven-fixtures, nuif:research:rust-snapshot-property-fuzz-tooling, nuif:research:cargo-workspace-xtask-and-ci-layout, nuif:research:wasm-headless-execution, nuif:research:skia-gold-and-gm-tests, nuif:research:webrender-reftests, nuif:research:flip-perceptual-difference-metric, nuif:research:ssim-and-classical-image-metrics, nuif:research:resource-bounded-serde-and-ciborium]
-    artifacts: [spec/00-conformance.md, conformance/PLAN.md, conformance/fixtures/v0-responsive-card/README.md, conformance/HARNESS.md, crates/nuif-testing/src/bin/text-pinning.rs]
+    artifacts: [spec/00-conformance.md, conformance/PLAN.md, conformance/fixtures/v0-responsive-card/README.md, conformance/HARNESS.md, crates/nuif-testing/src/bin/text-pinning.rs, implementations/python/nuif_profile0.py]
   adapters:
     status: ongoing
     evidence: [nuif:research:figma, nuif:research:openfig-fig-kiwi, nuif:research:penpot, nuif:research:svg, nuif:research:tree-sitter]
@@ -96,10 +96,14 @@ areas:
     artifacts: [README.md, Cargo.toml, GOVERNANCE.md, CONTRIBUTING.md]
   initial_code_base:
     status: covered
-    artifacts: [crates/nuif-core, crates/nuif-protocol, crates/nuif-layout, crates/nuif-render, crates/nuif-codec, crates/nuif-query, crates/nuif-api, crates/nuif-cli, bindings/wasm]
+    artifacts: [crates/nuif-core, crates/nuif-protocol, crates/nuif-layout, crates/nuif-render, crates/nuif-codec, crates/nuif-query, crates/nuif-api, crates/nuif-cli, bindings/wasm, implementations/python]
   v0_hard_experiment:
     status: experiment-required
-    artifacts: [conformance/fixtures/v0-responsive-card/README.md, research/experiments/index.yaml, crates/nuif-testing/src/layout_differential.rs]
+    artifacts: [conformance/fixtures/v0-responsive-card/README.md, research/experiments/index.yaml, crates/nuif-testing/src/layout_differential.rs, implementations/python/nuif_profile0.py]
+  independent_reproduction:
+    status: covered
+    evidence: [nuif:research:differential-testing, nuif:research:metamorphic-testing-graphics, nuif:research:text-rendering-reproducibility]
+    artifacts: [implementations/python/README.md, implementations/python/nuif_profile0.py, implementations/python/tests/test_nuif_profile0.py, research/experiments/index.yaml]
   roadmap:
     status: covered
     artifacts: [docs/roadmap.md, research/roadmap.md]

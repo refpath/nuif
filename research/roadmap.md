@@ -10,19 +10,25 @@ Gate C: responsive layout falsifier. `cargo xtask gate-c` compares the v0 viewpo
 
 Gate D: bounded visual and text profile. `cargo xtask gate-d` runs separate text and paint reports. Profile 0 pins Ahem/HarfRust/Unicode/Skrifa/Zeno; defines hard lines without automatic soft wrapping; fixes rectangle, ellipse, encoded-sRGB and integer-composition behavior by value; reproduces scene/PNG hashes on macOS/aarch64, Linux/aarch64 and Linux/x86_64; and keeps path/image/instance/extension semantics in property-attributed fidelity records.
 
-## Current gate
+Gate E: editor/CLI parity. Twelve semantic actions author the complete v0 fixture from an empty document. Direct generation, editor output and operation replay are byte-identical, while the archived snapshot carries canonical input, context, layout, scene, CPU raster and fidelity.
 
-Gate E: editor/CLI parity. The headless editor already exposes semantic accessibility nodes/actions and proves replay parity for rename and size edits. The remaining falsifier is complete v0 construction through semantic actions, with the direct fixture builder and CLI replay reaching the same canonical hash before any GUI shell can claim parity.
+Gate F: bounded retentive HTML/CSS synchronization. The declared container/text/token subset reparses exactly; six mapped edits change only their scalar spans; comments and unmapped markup survive; unsupported properties remain typed and attributed.
+
+Gate G: bounded mechanically independent reproduction. The standard-library-only Python implementation has no Rust/NUIF package dependency and exactly reproduces v0 canonical text, opaque preservation, 24 boxes, three decoded RGBA buffers and five fidelity records. External authorship and a general-purpose second implementation remain standards-publication work.
+
+## Current falsifier
+
+The complete responsive card still does not traverse the retentive HTML/CSS path. Gate F proves the scalar correspondence mechanism on a bounded subset, but Surface, Component, Shape, Instance, Unknown, responsive rules and opaque extensions need explicit target mappings or fidelity before `nuif:experiment:v0-responsive-card` can complete.
 
 ## Queue
 
-1. Keep Gates B through D green with `cargo xtask gate-b`, `cargo xtask hostile-inputs`, `cargo xtask gate-c` and `cargo xtask gate-d`; commit minimized failures as fixtures and retain all machine reports as CI artifacts.
+1. Keep Gates B through G green with `cargo xtask all`; commit minimized failures as fixtures and retain all machine reports as CI artifacts.
 2. Design explicit Grid track and placement fields before replacing the classified profile-0 stack fallback; do not infer Grid support from the Gate C pass.
-3. Finish Gate E by authoring the entire v0 fixture through editor accessibility actions and then attach the Masonry shell to the already-tested driver boundary.
-4. Build one HTML/CSS retentive adapter for Gate F before expanding to design-tool or native-framework adapters.
+3. Extend the HTML/CSS correspondence profile through the complete responsive card without weakening the bounded Gate F evidence.
+4. Attach any Masonry shell to the already-tested editor driver boundary; keep shell behavior outside model/layout/render conformance.
 5. Treat soft wrapping, gradients, strokes, paths, images and instance materialization as a separately versioned expanded profile; do not weaken profile-0 exactness to add them.
 6. Defer collaboration profiles until canonical operations, ordering and source correspondence have passed their gates.
-7. Publish the profile for independent Gate G reproduction only after the v0 round trip and its fidelity report are complete.
+7. Publish the conformance kit for externally authored reproduction only after the full-v0 source round trip and its fidelity report are complete; do not treat the in-repository Python path as external interoperability evidence.
 
 ## Update policy
 

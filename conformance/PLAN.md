@@ -14,6 +14,7 @@ NUIF conformance is split into independently testable profiles.
 8. `provenance` — correspondence retention and fidelity diagnostics.
 9. `adapter` — import/export loss reports and foreign-extension preservation.
 10. `security` — parser depth/size limits, malicious assets and renderer budgets.
+11. `independent-reproduction` — a non-reference package parses/writes the fixture and independently reproduces resolved layout, raster and fidelity.
 
 ## Test techniques
 
@@ -28,3 +29,5 @@ NUIF conformance is split into independently testable profiles.
 A test result must include implementation version, capability profile, fixture ID and evaluation context. Foreign-reference results additionally include exact oracle versions, generator source revision, raw per-engine observations, a fixture-local measured bound and typed classifications for every divergence.
 
 The implemented adapter suite currently covers only `nuif-html-css-0`: one bounded HTML/CSS container/text/token subset with exact export/import, byte-local synchronization and property-attributed rejection. Complete v0, arbitrary web source and other adapter targets remain non-conformant until separately declared profiles pass.
+
+The implemented independent-reproduction suite covers the complete v0 fixture in canonical text and the declared profile-0 layout/render subset. The Python standard-library implementation computes its own boxes and pixels, and the harness compares decoded RGBA so PNG encoder behavior is not mistaken for render divergence. This is an in-repository mechanical reproduction, not evidence of external implementation provenance or standards adoption.

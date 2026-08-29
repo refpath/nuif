@@ -32,8 +32,11 @@ Extend HTML/CSS to the v0 responsive card, then implement SVG and research Penpo
 ## Phase 7 — collaboration
 Prototype Automerge/Yjs profiles over semantic operations. Exit: deterministic canonical checkpoint after concurrent edits and surfaced semantic conflicts.
 
-## Phase 8 — independent implementation
-Publish schema/conformance kit and get a second implementation to read/write/render the v0 profile. This is the gate before claiming credible standards status.
+## Phase 8a — mechanical independent reproduction (complete for v0 profile 0)
+The standard-library-only Python implementation reads, writes, lays out and rasterizes the v0 profile without importing, invoking or linking the Rust packages. Its differential trial is exact at 360, 768 and 1,440 pixels and stays in the unified CI loop.
+
+## Phase 8b — external reproduction and standards review
+Publish the schema/conformance kit after full-v0 source synchronization and obtain reproduction by an externally authored implementation. External provenance, interoperability review, neutral governance and a published conformance profile remain prerequisites for credible standards status; the in-repository mechanical reproduction does not establish them.
 
 ## Early falsifiers
 Stop/rethink if: semantic model requires pervasive vendor-specific exceptions; opaque extensions cannot survive common operations; source synchronization routinely requires whole-file regeneration; or independent implementation cannot reproduce normative layout/visual behavior from the spec.

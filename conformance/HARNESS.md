@@ -1,6 +1,6 @@
 # Test-harness architecture
 
-Status: profile-0 baseline, Gate C browser/Taffy, Gate D text/render, Gate E complete editor authoring and Gate F bounded HTML/CSS synchronization are implemented; fuzz packages, perceptual comparison and broader adapter trials remain planned. This document specifies how round-trip trials run unattended, fail reproducibly, minimize themselves and report in machine-readable form. Evidence is cited by research record identifier.
+Status: profile-0 baseline, Gate C browser/Taffy, Gate D text/render, Gate E complete editor authoring, Gate F bounded HTML/CSS synchronization and Gate G independent v0 reproduction are implemented; fuzz packages, perceptual comparison and broader adapter trials remain planned. This document specifies how round-trip trials run unattended, fail reproducibly, minimize themselves and report in machine-readable form. Evidence is cited by research record identifier.
 
 ## Goals
 
@@ -134,6 +134,8 @@ The 10,000-patch Gate B run writes `target/gate-b-report.json`. `cargo xtask all
 The layout-differential experiment writes `target/layout-differential-report.json`. It records the source revision, dirty state, toolchain, exact Taffy and browser pins, launch flags, seed, case source, viewport, raw box maps, observed foreign delta, fixture-local assertion value and every typed divergence. Missing browsers, version drift, evaluator defects, Taffy/browser differences beyond the measured bound and unclassified differences fail `cargo xtask gate-c`; declared schema-loss records remain visible and non-blocking.
 
 The text-pinning experiment writes `target/text-pinning-report.json`. It records the exact font, shaper, Unicode, outline extractor, rasterizer and independent HarfBuzz oracle pins; expected and observed glyph/outline strings; source/toolchain/platform identity; hard-break/no-soft-wrap semantic trials; repeatability and committed scene/PNG baselines at three evaluation contexts; and negative missing/malformed-font cases. `cargo xtask gate-d-text` fails on any pin, golden, semantic, baseline, repeatability or negative-case mismatch. The bounded text profile is lossless and its hashes agree on macOS/aarch64, Linux/aarch64 and Linux/x86_64.
+
+The independent-reproduction experiment writes `target/gate-g-report.json` plus canonical text, layout and PNG artifacts under `target/gate-g-independent`. `cargo xtask gate-g` generates reference artifacts at three viewports, runs the standard-library-only Python implementation's unit suite, then compares independently computed canonical bytes, opaque preservation, boxes, decoded RGBA and fidelity. The Python implementation does not import, link or invoke any reference package; only the outer differential harness invokes both implementations.
 
 The render-profile experiment writes `target/render-profile-report.json`. It fixes every supported paint input by value, repeats rectangle and ellipse scenes/PNGs, rejects out-of-range sRGB channels, and requires entity/property pointers for unsupported path, image and instance kinds plus preserved document/entity extensions. `cargo xtask gate-d-render` fails on any baseline, repeatability, validation or fidelity-attribution mismatch; `cargo xtask gate-d` runs both Gate D reports.
 

@@ -194,3 +194,19 @@ experiments:
       - prove every byte outside the six edited spans is unchanged
       - reject stale spans unsupported properties and one-over source size
       - write and archive target/html-sync-report.json and synchronized HTML
+  - id: nuif:experiment:independent-profile-zero
+    status: completed
+    evidence: [nuif:research:differential-testing, nuif:research:metamorphic-testing-graphics, nuif:research:text-rendering-reproducibility]
+    implementation: [implementations/python/nuif_profile0.py, implementations/python/tests/test_nuif_profile0.py, implementations/python/README.md, xtask/src/main.rs]
+    oracle: cross-implementation
+    acceptance:
+      - a standard-library-only implementation with no reference package dependency parses and writes the complete canonical v0 fixture
+      - independently resolved boxes decoded RGBA and fidelity match the reference exactly at 360 768 and 1440 pixels
+      - opaque unknown payloads survive an unrelated independent edit
+    tests:
+      - reject duplicate keys and invalid document graphs before evaluation
+      - compare canonical text bytes and all eight entity boxes in three contexts
+      - compare decoded RGBA rather than encoder-specific PNG bytes
+      - compare every unsupported and preserved-unrenderable fidelity entry
+      - perturb reference layout and raster observations and require exact comparison failures
+      - write and archive target/gate-g-report.json plus independent canonical layout and PNG artifacts
