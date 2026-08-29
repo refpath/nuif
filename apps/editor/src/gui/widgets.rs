@@ -1,4 +1,5 @@
 use masonry::accesskit::{Action, ActionData, Node, Role};
+use masonry::core::keyboard::{Key, NamedKey};
 use masonry::core::{
     AccessCtx, AccessEvent, ChildrenIds, EventCtx, LayoutCtx, MeasureCtx, NewWidget, PaintCtx,
     PointerButton, PointerEvent, PropertiesMut, PropertiesRef, RegisterCtx, TextEvent, Widget,
@@ -23,6 +24,24 @@ pub enum CanvasAction {
         entity: Option<EntityId>,
         document_position: Option<(f64, f64)>,
     },
+    Shortcut(CanvasShortcut),
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum CanvasShortcut {
+    Tool(char),
+    Undo,
+    Redo,
+    Save,
+    Duplicate,
+    Delete,
+    Palette,
+    Export,
+    ZoomIn,
+    ZoomOut,
+    ZoomFit,
+    ZoomActual,
+    ToggleUi,
 }
 
 pub struct DocumentCanvas {
@@ -30,6 +49,7 @@ pub struct DocumentCanvas {
     image_size: Size,
     boxes: Vec<(EntityId, LayoutRect)>,
     selection: Option<EntityId>,
+    zoom: f64,
     size: Size,
 }
 
@@ -40,6 +60,7 @@ impl DocumentCanvas {
         rgba: Vec<u8>,
         boxes: Vec<(EntityId, LayoutRect)>,
         selection: Option<EntityId>,
+        zoom: f64,
     ) -> Self {
         Self {
             image: ImageBrush::new(ImageData {
@@ -52,6 +73,7 @@ impl DocumentCanvas {
             image_size: Size::new(f64::from(width), f64::from(height)),
             boxes,
             selection,
+            zoom,
             size: Size::ZERO,
         }
     }
@@ -59,9 +81,11 @@ impl DocumentCanvas {
     fn page_transform(&self) -> (f64, Vec2) {
         let available_width = (self.size.width - 96.0).max(1.0);
         let available_height = (self.size.height - 96.0).max(1.0);
-        let scale = (available_width / self.image_size.width)
+        let scale = ((available_width / self.image_size.width)
             .min(available_height / self.image_size.height)
-            .clamp(0.05, 2.0);
+            .clamp(0.05, 2.0)
+            * self.zoom)
+            .clamp(0.05, 8.0);
         let offset = Vec2::new(
             (self.size.width - self.image_size.width * scale) * 0.5,
             (self.size.height - self.image_size.height * scale) * 0.5,
@@ -134,10 +158,69 @@ impl Widget for DocumentCanvas {
 
     fn on_text_event(
         &mut self,
-        _ctx: &mut EventCtx<'_>,
+        ctx: &mut EventCtx<'_>,
         _props: &mut PropertiesMut<'_>,
-        _event: &TextEvent,
+        event: &TextEvent,
     ) {
+        let TextEvent::Keyboard(event) = event else {
+            return;
+        };
+        if !event.state.is_down() {
+            return;
+        }
+        let command = if cfg!(target_os = "macos") {
+            event.modifiers.meta()
+        } else {
+            event.modifiers.ctrl()
+        };
+        let shortcut = match &event.key {
+            Key::Character(value) if command && value.eq_ignore_ascii_case("z") => {
+                Some(if event.modifiers.shift() {
+                    CanvasShortcut::Redo
+                } else {
+                    CanvasShortcut::Undo
+                })
+            }
+            Key::Character(value) if command && value.eq_ignore_ascii_case("y") => {
+                Some(CanvasShortcut::Redo)
+            }
+            Key::Character(value) if command && value.eq_ignore_ascii_case("s") => {
+                Some(CanvasShortcut::Save)
+            }
+            Key::Character(value) if command && value.eq_ignore_ascii_case("d") => {
+                Some(CanvasShortcut::Duplicate)
+            }
+            Key::Character(value) if command && value.eq_ignore_ascii_case("k") => {
+                Some(CanvasShortcut::Palette)
+            }
+            Key::Character(value)
+                if command && event.modifiers.shift() && value.eq_ignore_ascii_case("e") =>
+            {
+                Some(CanvasShortcut::Export)
+            }
+            Key::Character(value) if command && matches!(value.as_str(), "+" | "=") => {
+                Some(CanvasShortcut::ZoomIn)
+            }
+            Key::Character(value) if command && value == "-" => Some(CanvasShortcut::ZoomOut),
+            Key::Character(value) if event.modifiers.shift() && value == "1" => {
+                Some(CanvasShortcut::ZoomFit)
+            }
+            Key::Character(value) if event.modifiers.shift() && value == "0" => {
+                Some(CanvasShortcut::ZoomActual)
+            }
+            Key::Character(value) if command && value == "\\" => Some(CanvasShortcut::ToggleUi),
+            Key::Character(value)
+                if !command && !event.modifiers.alt() && value.chars().count() == 1 =>
+            {
+                value.chars().next().map(CanvasShortcut::Tool)
+            }
+            Key::Named(NamedKey::Delete | NamedKey::Backspace) => Some(CanvasShortcut::Delete),
+            _ => None,
+        };
+        if let Some(shortcut) = shortcut {
+            ctx.submit_action::<Self::Action>(CanvasAction::Shortcut(shortcut));
+            ctx.set_handled();
+        }
     }
 
     fn on_access_event(

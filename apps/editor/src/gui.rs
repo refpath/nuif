@@ -5,7 +5,7 @@ mod widgets;
 #[cfg(feature = "editor-automation")]
 pub mod automation;
 
-use self::widgets::{AuthorAction, AuthorContainer, CanvasAction, DocumentCanvas};
+use self::widgets::{AuthorAction, AuthorContainer, CanvasAction, CanvasShortcut, DocumentCanvas};
 use crate::{AccessibilityAction, EditorCommand, EditorDriver, EditorEvent};
 use masonry::core::{ErasedAction, NewWidget, StyleProperty, Widget, WidgetId};
 use masonry::dpi::LogicalSize;
@@ -25,19 +25,20 @@ use nuif_codec::{
     CanonicalText, Decoder, Encoder, MAX_INPUT_BYTES, read_bounded as read_bounded_stream,
 };
 use nuif_core::{
-    Color, Document, Entity, EntityId, EntityKind, Point, ShapeKind, SizeIntent, TextContent,
+    Align, Color, Document, Entity, EntityId, EntityKind, FlowDirection, LayoutFamily, Point,
+    ShapeKind, SizeIntent, TextContent, validate,
 };
-use nuif_protocol::Anchor;
-use std::collections::HashMap;
+use nuif_protocol::{Anchor, Axis as ProtocolAxis, Operation};
+use std::collections::{BTreeMap, HashMap};
 use std::env;
 use std::fs;
 use std::path::{Path, PathBuf};
 
 const VIEWPORT_WIDTH: u32 = 768;
 const VIEWPORT_HEIGHT: u32 = 640;
-const NAVIGATION_WIDTH: Length = Length::const_px(48.0);
-const LEFT_PANEL_WIDTH: Length = Length::const_px(248.0);
+const LEFT_PANEL_WIDTH: Length = Length::const_px(272.0);
 const RIGHT_PANEL_WIDTH: Length = Length::const_px(264.0);
+const TOP_BAR_HEIGHT: Length = Length::const_px(48.0);
 const STATUS_HEIGHT: Length = Length::const_px(28.0);
 const PANEL: UiColor = UiColor::from_rgb8(0x1F, 0x1F, 0x1F);
 const PANEL_RAISED: UiColor = UiColor::from_rgb8(0x28, 0x28, 0x28);
@@ -78,9 +79,32 @@ enum UiAction {
     Undo,
     Redo,
     Select(EntityId),
+    AddPage,
+    DeleteSelection,
+    DuplicateSelection,
     ApplyInspector,
     ExportSnapshot,
     ChooseTool(Tool),
+    ChooseLeftPanel(LeftPanel),
+    SetLayoutFamily(LayoutFamily),
+    SetDirection(FlowDirection),
+    SetAlign(Align),
+    SetViewport(u32),
+    ZoomIn,
+    ZoomOut,
+    ZoomFit,
+    ZoomActual,
+    ToggleLeftPanel,
+    ToggleRightPanel,
+    ToggleUi,
+    TogglePalette,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+enum LeftPanel {
+    Pages,
+    Layers,
+    Components,
 }
 
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
@@ -88,8 +112,23 @@ enum InspectorField {
     Name(EntityId),
     Width(EntityId),
     Height(EntityId),
+    X(EntityId),
+    Y(EntityId),
+    Gap(EntityId),
+    PaddingTop(EntityId),
+    PaddingRight(EntityId),
+    PaddingBottom(EntityId),
+    PaddingLeft(EntityId),
+    Fill(EntityId),
+    TextContent(EntityId),
+    FontSize(EntityId),
+    LineHeight(EntityId),
 }
 
+#[expect(
+    clippy::struct_excessive_bools,
+    reason = "independent ephemeral editor-view toggles are clearer as named flags"
+)]
 struct Driver {
     window_id: WindowId,
     root_widget_id: Option<WidgetId>,
@@ -98,6 +137,13 @@ struct Driver {
     dirty: bool,
     status: String,
     tool: Tool,
+    left_panel: LeftPanel,
+    viewport_width: u32,
+    zoom: f64,
+    show_left_panel: bool,
+    show_right_panel: bool,
+    hide_ui: bool,
+    show_palette: bool,
     actions: HashMap<WidgetId, UiAction>,
     entity_widgets: HashMap<EntityId, WidgetId>,
     control_widgets: HashMap<(EntityId, &'static str), WidgetId>,
@@ -115,6 +161,13 @@ impl Driver {
             dirty: false,
             status: "Ready · profile 0 · 768 × 640".to_owned(),
             tool: Tool::Move,
+            left_panel: LeftPanel::Layers,
+            viewport_width: VIEWPORT_WIDTH,
+            zoom: 1.0,
+            show_left_panel: true,
+            show_right_panel: true,
+            hide_ui: false,
+            show_palette: false,
             actions: HashMap::new(),
             entity_widgets: HashMap::new(),
             control_widgets: HashMap::new(),
@@ -130,7 +183,7 @@ impl Driver {
         self.text_fields.clear();
 
         let snapshot = match self.editor.execute(EditorCommand::Snapshot {
-            width: VIEWPORT_WIDTH,
+            width: self.viewport_width,
             height: VIEWPORT_HEIGHT,
         }) {
             Ok(EditorEvent::Snapshot { snapshot }) => Some(snapshot),
@@ -145,7 +198,7 @@ impl Driver {
         let (rgba, boxes) = snapshot.as_ref().map_or_else(
             || {
                 (
-                    vec![0xFF; VIEWPORT_WIDTH as usize * VIEWPORT_HEIGHT as usize * 4],
+                    vec![0xFF; self.viewport_width as usize * VIEWPORT_HEIGHT as usize * 4],
                     Vec::new(),
                 )
             },
@@ -161,56 +214,43 @@ impl Driver {
                 )
             },
         );
-        let canvas = DocumentCanvas::new(VIEWPORT_WIDTH, VIEWPORT_HEIGHT, rgba, boxes, selection)
-            .prepare()
-            .with_props(Dimensions::STRETCH);
-        let toolbar = self.build_toolbar();
-        let canvas_region = ZStack::new()
-            .with(canvas, UnitPoint::CENTER)
-            .with(toolbar, UnitPoint::BOTTOM)
-            .prepare()
-            .with_props(Dimensions::STRETCH);
+        let canvas = DocumentCanvas::new(
+            self.viewport_width,
+            VIEWPORT_HEIGHT,
+            rgba,
+            boxes,
+            selection,
+            self.zoom,
+        )
+        .prepare()
+        .with_props(Dimensions::STRETCH);
+        let mut canvas_stack = ZStack::new().with(canvas, UnitPoint::CENTER);
+        if !self.hide_ui {
+            canvas_stack = canvas_stack.with(self.build_toolbar(), UnitPoint::BOTTOM);
+        }
+        if self.show_palette {
+            canvas_stack = canvas_stack.with(self.build_command_palette(), UnitPoint::CENTER);
+        }
+        let canvas_region = canvas_stack.prepare().with_props(Dimensions::STRETCH);
 
-        let navigation = self.build_navigation();
-        let left = self.build_left_panel(selection);
-        let right = self.build_right_panel(selection);
-        let body = Flex::row()
-            .with_fixed(navigation)
-            .with_fixed(left)
-            .with(canvas_region, 1.0)
-            .with_fixed(right);
+        let mut body = Flex::row();
+        if !self.hide_ui && self.show_left_panel {
+            body = body.with_fixed(self.build_left_panel(selection));
+        }
+        body = body.with(canvas_region, 1.0);
+        if !self.hide_ui && self.show_right_panel {
+            body = body.with_fixed(self.build_right_panel(selection));
+        }
         let status = self.build_status();
-        let root = Flex::column().with(body.prepare(), 1.0).with_fixed(status);
+        let mut root = Flex::column();
+        if !self.hide_ui {
+            root = root.with_fixed(self.build_top_bar());
+        }
+        root = root.with(body.prepare(), 1.0).with_fixed(status);
         NewWidget::new(root).with_props(Gap::ZERO).erased()
     }
 
-    fn build_navigation(&mut self) -> NewWidget<dyn Widget> {
-        let mark = label("N", 18.0, TEXT, true);
-        let mut column = Flex::column().with_fixed(mark);
-        for (caption, action) in [
-            ("OP", UiAction::Open),
-            ("NW", UiAction::New),
-            ("SV", UiAction::Save),
-            ("AS", UiAction::SaveAs),
-            ("UN", UiAction::Undo),
-            ("RE", UiAction::Redo),
-            ("EX", UiAction::ExportSnapshot),
-        ] {
-            column = column
-                .with_fixed_spacer(8.px())
-                .with_fixed(self.button(caption, action, false));
-        }
-        NewWidget::new(SizedBox::new(column.prepare()).width(NAVIGATION_WIDTH))
-            .with_props((
-                Background::Color(PANEL),
-                BorderColor::new(BORDER),
-                BorderWidth::all(1.px()),
-                Padding::from_vh(12.px(), 7.px()),
-            ))
-            .erased()
-    }
-
-    fn build_left_panel(&mut self, selection: Option<EntityId>) -> NewWidget<dyn Widget> {
+    fn build_top_bar(&mut self) -> NewWidget<dyn Widget> {
         let title = self
             .document_path
             .as_deref()
@@ -218,32 +258,166 @@ impl Driver {
             .and_then(|name| name.to_str())
             .unwrap_or("Untitled.nuif")
             .to_owned();
-        let mut content = Flex::column()
-            .with_fixed(label(&title, 13.0, TEXT, true))
-            .with_fixed_spacer(18.px())
-            .with_fixed(label("PAGES", 10.0, MUTED, true))
-            .with_fixed_spacer(7.px())
-            .with_fixed(label("Page 1", 12.0, TEXT, false))
-            .with_fixed_spacer(18.px())
-            .with_fixed(label("LAYERS", 10.0, MUTED, true));
-
-        let rows = layer_rows(self.editor.document());
-        if rows.is_empty() {
-            content = content.with_fixed_spacer(8.px()).with_fixed(label(
-                "No layers",
-                12.0,
-                MUTED,
+        let mut row = Flex::row()
+            .with_fixed(label("NUIF", 14.0, TEXT, true))
+            .with_fixed_spacer(12.px());
+        for (caption, action) in [
+            ("New", UiAction::New),
+            ("Open", UiAction::Open),
+            ("Save", UiAction::Save),
+            ("Undo", UiAction::Undo),
+            ("Redo", UiAction::Redo),
+        ] {
+            row = row.with_fixed(self.button(caption, action, false));
+        }
+        row = row
+            .with_fixed_spacer(12.px())
+            .with(label(&title, 12.0, TEXT, true), 1.0)
+            .with_fixed(self.button(
+                "360",
+                UiAction::SetViewport(360),
+                self.viewport_width == 360,
+            ))
+            .with_fixed(self.button(
+                "768",
+                UiAction::SetViewport(768),
+                self.viewport_width == 768,
+            ))
+            .with_fixed(self.button(
+                "1440",
+                UiAction::SetViewport(1440),
+                self.viewport_width == 1440,
+            ))
+            .with_fixed_spacer(8.px())
+            .with_fixed(self.button("−", UiAction::ZoomOut, false))
+            .with_fixed(label(
+                &format!("{}%", (self.zoom * 100.0).round()),
+                11.0,
+                TEXT,
                 false,
+            ))
+            .with_fixed(self.button("+", UiAction::ZoomIn, false))
+            .with_fixed(self.button("Layers", UiAction::ToggleLeftPanel, self.show_left_panel))
+            .with_fixed(self.button("Design", UiAction::ToggleRightPanel, self.show_right_panel))
+            .with_fixed(self.button("Commands", UiAction::TogglePalette, self.show_palette))
+            .with_fixed(self.button("Export", UiAction::ExportSnapshot, true));
+        NewWidget::new(SizedBox::new(row.prepare()).height(TOP_BAR_HEIGHT))
+            .with_props((
+                Background::Color(PANEL),
+                BorderColor::new(BORDER),
+                BorderWidth::all(1.px()),
+                Padding::from_vh(7.px(), 10.px()),
+            ))
+            .erased()
+    }
+
+    #[expect(
+        clippy::too_many_lines,
+        reason = "the navigation modes stay together so identity wiring is auditable"
+    )]
+    fn build_left_panel(&mut self, selection: Option<EntityId>) -> NewWidget<dyn Widget> {
+        let mut tabs = Flex::row();
+        for (caption, panel) in [
+            ("Pages", LeftPanel::Pages),
+            ("Layers", LeftPanel::Layers),
+            ("Components", LeftPanel::Components),
+        ] {
+            tabs = tabs.with_fixed(self.button(
+                caption,
+                UiAction::ChooseLeftPanel(panel),
+                self.left_panel == panel,
             ));
-        } else {
-            for (entity, name, depth) in rows {
-                let selected = selection == Some(entity);
-                let caption = format!("{}{}", "  ".repeat(depth), name);
-                let button = self.button(&caption, UiAction::Select(entity), selected);
-                let row =
-                    AuthorContainer::tree_item(button, entity, format!("Layer {name}")).prepare();
-                self.entity_widgets.insert(entity, row.id());
-                content = content.with_fixed_spacer(4.px()).with_fixed(row);
+        }
+        let mut content = Flex::column()
+            .with_fixed(tabs.prepare())
+            .with_fixed_spacer(14.px());
+        match self.left_panel {
+            LeftPanel::Pages => {
+                content = content
+                    .with_fixed(label("SURFACES", 10.0, MUTED, true))
+                    .with_fixed_spacer(7.px());
+                let roots = self.editor.document().roots.clone();
+                for (index, entity) in roots.into_iter().enumerate() {
+                    let name = self.editor.document().entities[&entity]
+                        .name
+                        .clone()
+                        .unwrap_or_else(|| format!("Page {}", index + 1));
+                    let button =
+                        self.button(&name, UiAction::Select(entity), selection == Some(entity));
+                    let row = AuthorContainer::tree_item(button, entity, format!("Page {name}"))
+                        .prepare();
+                    self.entity_widgets.insert(entity, row.id());
+                    content = content.with_fixed_spacer(4.px()).with_fixed(row);
+                }
+                content = content.with_fixed_spacer(10.px()).with_fixed(self.button(
+                    "+ Add page",
+                    UiAction::AddPage,
+                    false,
+                ));
+            }
+            LeftPanel::Layers => {
+                content = content
+                    .with_fixed(label("LAYER TREE", 10.0, MUTED, true))
+                    .with_fixed_spacer(7.px());
+                let rows = layer_rows(self.editor.document());
+                if rows.is_empty() {
+                    content = content.with_fixed(label("No layers", 12.0, MUTED, false));
+                } else {
+                    for (entity, name, depth) in rows {
+                        let caption = format!(
+                            "{}{}  {}",
+                            "  ".repeat(depth),
+                            kind_glyph(&self.editor.document().entities[&entity].kind),
+                            name
+                        );
+                        let button = self.button(
+                            &caption,
+                            UiAction::Select(entity),
+                            selection == Some(entity),
+                        );
+                        let row =
+                            AuthorContainer::tree_item(button, entity, format!("Layer {name}"))
+                                .prepare();
+                        self.entity_widgets.insert(entity, row.id());
+                        content = content.with_fixed_spacer(4.px()).with_fixed(row);
+                    }
+                }
+            }
+            LeftPanel::Components => {
+                content = content
+                    .with_fixed(label("LOCAL COMPONENTS", 10.0, MUTED, true))
+                    .with_fixed_spacer(7.px());
+                let components = self
+                    .editor
+                    .document()
+                    .entities
+                    .values()
+                    .filter(|entity| matches!(entity.kind, EntityKind::Component))
+                    .map(|entity| {
+                        (
+                            entity.id,
+                            entity
+                                .name
+                                .clone()
+                                .unwrap_or_else(|| "Component".to_owned()),
+                        )
+                    })
+                    .collect::<Vec<_>>();
+                if components.is_empty() {
+                    content = content.with_fixed(label("No local components", 12.0, MUTED, false));
+                }
+                for (entity, name) in components {
+                    let button = self.button(
+                        &format!("◇ {name}"),
+                        UiAction::Select(entity),
+                        selection == Some(entity),
+                    );
+                    let row =
+                        AuthorContainer::tree_item(button, entity, format!("Component {name}"))
+                            .prepare();
+                    self.entity_widgets.insert(entity, row.id());
+                    content = content.with_fixed_spacer(4.px()).with_fixed(row);
+                }
             }
         }
 
@@ -258,6 +432,10 @@ impl Driver {
             .erased()
     }
 
+    #[expect(
+        clippy::too_many_lines,
+        reason = "inspector sections stay together so their specified order is auditable"
+    )]
     fn build_right_panel(&mut self, selection: Option<EntityId>) -> NewWidget<dyn Widget> {
         let mut content = Flex::column()
             .with_fixed(label("Design", 12.0, TEXT, true))
@@ -267,7 +445,12 @@ impl Driver {
             content = content
                 .with_fixed(label("SELECTION", 10.0, MUTED, true))
                 .with_fixed_spacer(7.px())
-                .with_fixed(label(&kind_name(&entity.kind), 11.0, MUTED, false))
+                .with_fixed(label(
+                    &format!("{}  {}", kind_glyph(&entity.kind), kind_name(&entity.kind)),
+                    11.0,
+                    MUTED,
+                    false,
+                ))
                 .with_fixed_spacer(12.px())
                 .with_fixed(label("Name", 11.0, TEXT, false))
                 .with_fixed_spacer(5.px())
@@ -276,10 +459,29 @@ impl Driver {
                     entity.name.as_deref().unwrap_or(""),
                     "Layer name",
                 ))
-                .with_fixed_spacer(14.px())
-                .with_fixed(label("LAYOUT", 10.0, MUTED, true))
+                .with_fixed_spacer(10.px())
+                .with_fixed(self.button("Duplicate", UiAction::DuplicateSelection, false))
+                .with_fixed(self.button("Delete", UiAction::DeleteSelection, false))
+                .with_fixed_spacer(18.px())
+                .with_fixed(label("POSITION", 10.0, MUTED, true))
                 .with_fixed_spacer(7.px())
-                .with_fixed(label("Width", 11.0, TEXT, false))
+                .with_fixed(label("X", 11.0, TEXT, false))
+                .with_fixed(self.inspector_input(
+                    InspectorField::X(entity_id),
+                    &entity.authored.position.x.to_string(),
+                    "X",
+                ))
+                .with_fixed_spacer(5.px())
+                .with_fixed(label("Y", 11.0, TEXT, false))
+                .with_fixed(self.inspector_input(
+                    InspectorField::Y(entity_id),
+                    &entity.authored.position.y.to_string(),
+                    "Y",
+                ))
+                .with_fixed_spacer(14.px())
+                .with_fixed(label("SIZING", 10.0, MUTED, true))
+                .with_fixed_spacer(7.px())
+                .with_fixed(label("Width · number, fill, auto or %", 11.0, TEXT, false))
                 .with_fixed_spacer(5.px())
                 .with_fixed(self.inspector_input(
                     InspectorField::Width(entity_id),
@@ -294,12 +496,145 @@ impl Driver {
                     &size_value(&entity.authored.height),
                     "Height",
                 ))
-                .with_fixed_spacer(10.px())
-                .with_fixed(self.button("Apply", UiAction::ApplyInspector, true))
-                .with_fixed_spacer(18.px())
-                .with_fixed(label("APPEARANCE", 10.0, MUTED, true))
+                .with_fixed_spacer(18.px());
+
+            if matches!(
+                entity.kind,
+                EntityKind::Surface | EntityKind::Container | EntityKind::Component
+            ) {
+                content = content
+                    .with_fixed(label("LAYOUT FAMILY", 10.0, MUTED, true))
+                    .with_fixed_spacer(7.px());
+                let mut families = Flex::row();
+                for (caption, family) in [
+                    ("Free", LayoutFamily::Freeform),
+                    ("Stack", LayoutFamily::Stack),
+                    ("Flex", LayoutFamily::Flex),
+                ] {
+                    families = families.with_fixed(self.button(
+                        caption,
+                        UiAction::SetLayoutFamily(family),
+                        entity.authored.layout.family == family,
+                    ));
+                }
+                content = content
+                    .with_fixed(families.prepare())
+                    .with_fixed_spacer(7.px());
+                let mut directions = Flex::row();
+                for (caption, direction) in [
+                    ("Row", FlowDirection::Row),
+                    ("Column", FlowDirection::Column),
+                ] {
+                    directions = directions.with_fixed(self.button(
+                        caption,
+                        UiAction::SetDirection(direction),
+                        entity.authored.layout.direction == direction,
+                    ));
+                }
+                content = content
+                    .with_fixed(directions.prepare())
+                    .with_fixed_spacer(7.px())
+                    .with_fixed(label("Gap", 11.0, TEXT, false))
+                    .with_fixed(self.inspector_input(
+                        InspectorField::Gap(entity_id),
+                        &entity.authored.layout.gap.to_string(),
+                        "Gap",
+                    ))
+                    .with_fixed_spacer(7.px())
+                    .with_fixed(label("Padding T / R / B / L", 11.0, TEXT, false))
+                    .with_fixed(self.inspector_input(
+                        InspectorField::PaddingTop(entity_id),
+                        &entity.authored.layout.padding.top.to_string(),
+                        "Top",
+                    ))
+                    .with_fixed(self.inspector_input(
+                        InspectorField::PaddingRight(entity_id),
+                        &entity.authored.layout.padding.right.to_string(),
+                        "Right",
+                    ))
+                    .with_fixed(self.inspector_input(
+                        InspectorField::PaddingBottom(entity_id),
+                        &entity.authored.layout.padding.bottom.to_string(),
+                        "Bottom",
+                    ))
+                    .with_fixed(self.inspector_input(
+                        InspectorField::PaddingLeft(entity_id),
+                        &entity.authored.layout.padding.left.to_string(),
+                        "Left",
+                    ))
+                    .with_fixed_spacer(7.px());
+                let mut alignments = Flex::row();
+                for (caption, align) in [
+                    ("Start", Align::Start),
+                    ("Center", Align::Center),
+                    ("End", Align::End),
+                    ("Stretch", Align::Stretch),
+                ] {
+                    alignments = alignments.with_fixed(self.button(
+                        caption,
+                        UiAction::SetAlign(align),
+                        entity.authored.layout.align == align,
+                    ));
+                }
+                content = content
+                    .with_fixed(alignments.prepare())
+                    .with_fixed_spacer(18.px());
+            }
+
+            content = content
+                .with_fixed(label("FILL", 10.0, MUTED, true))
                 .with_fixed_spacer(7.px())
-                .with_fixed(label("Profile-zero solid fill", 11.0, MUTED, false));
+                .with_fixed(label("Hex RGBA · use none to clear", 11.0, TEXT, false))
+                .with_fixed(self.inspector_input(
+                    InspectorField::Fill(entity_id),
+                    &fill_value(entity.authored.fill),
+                    "#RRGGBB",
+                ))
+                .with_fixed_spacer(18.px());
+
+            if let Some(text) = &entity.authored.text {
+                content = content
+                    .with_fixed(label("TYPOGRAPHY", 10.0, MUTED, true))
+                    .with_fixed_spacer(7.px())
+                    .with_fixed(label("Content", 11.0, TEXT, false))
+                    .with_fixed(self.inspector_input(
+                        InspectorField::TextContent(entity_id),
+                        &text.content,
+                        "Text",
+                    ))
+                    .with_fixed_spacer(7.px())
+                    .with_fixed(label("Font size", 11.0, TEXT, false))
+                    .with_fixed(self.inspector_input(
+                        InspectorField::FontSize(entity_id),
+                        &text.size.to_string(),
+                        "Size",
+                    ))
+                    .with_fixed_spacer(7.px())
+                    .with_fixed(label("Line height", 11.0, TEXT, false))
+                    .with_fixed(self.inspector_input(
+                        InspectorField::LineHeight(entity_id),
+                        &text.line_height.to_string(),
+                        "Line height",
+                    ))
+                    .with_fixed_spacer(18.px());
+            }
+
+            let diagnostics = validate(self.editor.document());
+            content = content
+                .with_fixed(self.button("Apply changes", UiAction::ApplyInspector, true))
+                .with_fixed_spacer(18.px())
+                .with_fixed(label("DIAGNOSTICS", 10.0, MUTED, true))
+                .with_fixed_spacer(7.px())
+                .with_fixed(label(
+                    if diagnostics.is_empty() {
+                        "No validation issues"
+                    } else {
+                        "Document has validation issues"
+                    },
+                    11.0,
+                    if diagnostics.is_empty() { MUTED } else { TEXT },
+                    false,
+                ));
         } else {
             content = content
                 .with_fixed(label("DOCUMENT", 10.0, MUTED, true))
@@ -349,6 +684,39 @@ impl Driver {
                 BorderWidth::all(1.px()),
                 CornerRadius::all(10.px()),
                 Padding::from_vh(6.px(), 7.px()),
+            ))
+            .erased()
+    }
+
+    fn build_command_palette(&mut self) -> NewWidget<dyn Widget> {
+        let mut commands = Flex::column()
+            .with_fixed(label("COMMANDS", 11.0, MUTED, true))
+            .with_fixed_spacer(8.px());
+        for (caption, action) in [
+            ("New document", UiAction::New),
+            ("Open document…", UiAction::Open),
+            ("Save", UiAction::Save),
+            ("Save as…", UiAction::SaveAs),
+            ("Undo", UiAction::Undo),
+            ("Redo", UiAction::Redo),
+            ("Duplicate selection", UiAction::DuplicateSelection),
+            ("Delete selection", UiAction::DeleteSelection),
+            ("Export PNG snapshot…", UiAction::ExportSnapshot),
+            ("Fit canvas", UiAction::ZoomFit),
+            ("Hide interface", UiAction::ToggleUi),
+            ("Close commands", UiAction::TogglePalette),
+        ] {
+            commands = commands
+                .with_fixed(self.button(caption, action, false))
+                .with_fixed_spacer(4.px());
+        }
+        NewWidget::new(SizedBox::new(commands.prepare()).width(Length::const_px(280.0)))
+            .with_props((
+                Background::Color(PANEL),
+                BorderColor::new(ACCENT),
+                BorderWidth::all(1.px()),
+                CornerRadius::all(10.px()),
+                Padding::from_vh(14.px(), 14.px()),
             ))
             .erased()
     }
@@ -407,7 +775,18 @@ impl Driver {
         let entity = match field {
             InspectorField::Name(entity)
             | InspectorField::Width(entity)
-            | InspectorField::Height(entity) => entity,
+            | InspectorField::Height(entity)
+            | InspectorField::X(entity)
+            | InspectorField::Y(entity)
+            | InspectorField::Gap(entity)
+            | InspectorField::PaddingTop(entity)
+            | InspectorField::PaddingRight(entity)
+            | InspectorField::PaddingBottom(entity)
+            | InspectorField::PaddingLeft(entity)
+            | InspectorField::Fill(entity)
+            | InspectorField::TextContent(entity)
+            | InspectorField::FontSize(entity)
+            | InspectorField::LineHeight(entity) => entity,
         };
         let (label, semantic_label, role) = match field {
             InspectorField::Name(_) => {
@@ -421,6 +800,47 @@ impl Driver {
             InspectorField::Height(_) => (
                 "Height control",
                 "height",
+                masonry::accesskit::Role::SpinButton,
+            ),
+            InspectorField::X(_) => ("X control", "x", masonry::accesskit::Role::SpinButton),
+            InspectorField::Y(_) => ("Y control", "y", masonry::accesskit::Role::SpinButton),
+            InspectorField::Gap(_) => ("Gap control", "gap", masonry::accesskit::Role::SpinButton),
+            InspectorField::PaddingTop(_) => (
+                "Top padding control",
+                "padding_top",
+                masonry::accesskit::Role::SpinButton,
+            ),
+            InspectorField::PaddingRight(_) => (
+                "Right padding control",
+                "padding_right",
+                masonry::accesskit::Role::SpinButton,
+            ),
+            InspectorField::PaddingBottom(_) => (
+                "Bottom padding control",
+                "padding_bottom",
+                masonry::accesskit::Role::SpinButton,
+            ),
+            InspectorField::PaddingLeft(_) => (
+                "Left padding control",
+                "padding_left",
+                masonry::accesskit::Role::SpinButton,
+            ),
+            InspectorField::Fill(_) => {
+                ("Fill control", "fill", masonry::accesskit::Role::TextInput)
+            }
+            InspectorField::TextContent(_) => (
+                "Text content control",
+                "text",
+                masonry::accesskit::Role::TextInput,
+            ),
+            InspectorField::FontSize(_) => (
+                "Font size control",
+                "font_size",
+                masonry::accesskit::Role::SpinButton,
+            ),
+            InspectorField::LineHeight(_) => (
+                "Line height control",
+                "line_height",
                 masonry::accesskit::Role::SpinButton,
             ),
         };
@@ -462,6 +882,10 @@ impl Driver {
         format!("{}{} — NUIF", if self.dirty { "● " } else { "" }, file)
     }
 
+    #[expect(
+        clippy::too_many_lines,
+        reason = "command routing stays exhaustive and centralized"
+    )]
     fn handle_ui_action(&mut self, action: UiAction) -> bool {
         match action {
             UiAction::New => {
@@ -514,6 +938,21 @@ impl Driver {
                     self.status = format!("Selected {entity}");
                 }
             }
+            UiAction::AddPage => {
+                if let Err(error) = self.add_page() {
+                    self.status = format!("Add page failed: {error}");
+                }
+            }
+            UiAction::DeleteSelection => {
+                if let Err(error) = self.delete_selection() {
+                    self.status = format!("Delete failed: {error}");
+                }
+            }
+            UiAction::DuplicateSelection => {
+                if let Err(error) = self.duplicate_selection() {
+                    self.status = format!("Duplicate failed: {error}");
+                }
+            }
             UiAction::ApplyInspector => self.apply_all_drafts(),
             UiAction::ExportSnapshot => {
                 if let Err(error) = self.export_snapshot() {
@@ -524,6 +963,35 @@ impl Driver {
                 self.tool = tool;
                 self.status = format!("{} tool selected", tool_name(tool));
             }
+            UiAction::ChooseLeftPanel(panel) => self.left_panel = panel,
+            UiAction::SetLayoutFamily(family) => {
+                self.update_selected_layout(|layout| layout.family = family);
+            }
+            UiAction::SetDirection(direction) => {
+                self.update_selected_layout(|layout| layout.direction = direction);
+            }
+            UiAction::SetAlign(align) => self.update_selected_layout(|layout| layout.align = align),
+            UiAction::SetViewport(width) => {
+                self.viewport_width = width;
+                self.zoom = 1.0;
+                self.status = format!("Evaluation viewport set to {width} × {VIEWPORT_HEIGHT}");
+            }
+            UiAction::ZoomIn => {
+                self.zoom = (self.zoom * 1.25).min(4.0);
+                self.status = format!("Canvas zoom {}%", (self.zoom * 100.0).round());
+            }
+            UiAction::ZoomOut => {
+                self.zoom = (self.zoom / 1.25).max(0.25);
+                self.status = format!("Canvas zoom {}%", (self.zoom * 100.0).round());
+            }
+            UiAction::ZoomFit | UiAction::ZoomActual => self.zoom = 1.0,
+            UiAction::ToggleLeftPanel => self.show_left_panel = !self.show_left_panel,
+            UiAction::ToggleRightPanel => self.show_right_panel = !self.show_right_panel,
+            UiAction::ToggleUi => {
+                self.hide_ui = !self.hide_ui;
+                self.show_palette = false;
+            }
+            UiAction::TogglePalette => self.show_palette = !self.show_palette,
         }
         true
     }
@@ -532,7 +1000,14 @@ impl Driver {
         let CanvasAction::Activate {
             entity,
             document_position,
-        } = action;
+        } = action
+        else {
+            let CanvasAction::Shortcut(shortcut) = action else {
+                unreachable!()
+            };
+            self.handle_shortcut(shortcut);
+            return;
+        };
         match self.tool {
             Tool::Move => {
                 let result = match entity {
@@ -562,6 +1037,36 @@ impl Driver {
                     self.status = format!("Insert failed: {error}");
                 }
             }
+        }
+    }
+
+    fn handle_shortcut(&mut self, shortcut: CanvasShortcut) {
+        let action = match shortcut {
+            CanvasShortcut::Tool(key) => match key.to_ascii_uppercase() {
+                'V' => Some(UiAction::ChooseTool(Tool::Move)),
+                'H' => Some(UiAction::ChooseTool(Tool::Hand)),
+                'F' => Some(UiAction::ChooseTool(Tool::Frame)),
+                'R' => Some(UiAction::ChooseTool(Tool::Rectangle)),
+                'O' => Some(UiAction::ChooseTool(Tool::Ellipse)),
+                'P' => Some(UiAction::ChooseTool(Tool::Pen)),
+                'T' => Some(UiAction::ChooseTool(Tool::Text)),
+                _ => None,
+            },
+            CanvasShortcut::Undo => Some(UiAction::Undo),
+            CanvasShortcut::Redo => Some(UiAction::Redo),
+            CanvasShortcut::Save => Some(UiAction::Save),
+            CanvasShortcut::Duplicate => Some(UiAction::DuplicateSelection),
+            CanvasShortcut::Delete => Some(UiAction::DeleteSelection),
+            CanvasShortcut::Palette => Some(UiAction::TogglePalette),
+            CanvasShortcut::Export => Some(UiAction::ExportSnapshot),
+            CanvasShortcut::ZoomIn => Some(UiAction::ZoomIn),
+            CanvasShortcut::ZoomOut => Some(UiAction::ZoomOut),
+            CanvasShortcut::ZoomFit => Some(UiAction::ZoomFit),
+            CanvasShortcut::ZoomActual => Some(UiAction::ZoomActual),
+            CanvasShortcut::ToggleUi => Some(UiAction::ToggleUi),
+        };
+        if let Some(action) = action {
+            self.handle_ui_action(action);
         }
     }
 
@@ -683,6 +1188,148 @@ impl Driver {
         Ok(())
     }
 
+    fn add_page(&mut self) -> Result<(), String> {
+        let id = next_entity_id(self.editor.document())?;
+        let mut surface = Entity::new(id, EntityKind::Surface);
+        surface.name = Some(format!("Page {}", self.editor.document().roots.len() + 1));
+        surface.authored.width = SizeIntent::Fill;
+        surface.authored.height = SizeIntent::Fill;
+        surface.authored.fill = Some(color(0.96, 0.96, 0.97, 1.0));
+        let anchor = self
+            .editor
+            .document()
+            .roots
+            .last()
+            .copied()
+            .map_or(Anchor::Start, Anchor::After);
+        self.editor
+            .execute(EditorCommand::Apply {
+                operations: vec![Operation::Insert {
+                    parent: None,
+                    anchor,
+                    entity: Box::new(surface),
+                }],
+            })
+            .map_err(|error| error.to_string())?;
+        self.editor
+            .execute(EditorCommand::Select { entity: id })
+            .map_err(|error| error.to_string())?;
+        self.left_panel = LeftPanel::Pages;
+        self.dirty = true;
+        "Added a page".clone_into(&mut self.status);
+        Ok(())
+    }
+
+    fn delete_selection(&mut self) -> Result<(), String> {
+        let Some(entity) = self.editor.selection().first().copied() else {
+            "Nothing is selected".clone_into(&mut self.status);
+            return Ok(());
+        };
+        self.editor
+            .execute(EditorCommand::Remove { entity })
+            .map_err(|error| error.to_string())?;
+        self.drafts.clear();
+        self.dirty = true;
+        self.status = format!("Deleted {entity}");
+        Ok(())
+    }
+
+    fn duplicate_selection(&mut self) -> Result<(), String> {
+        let Some(root) = self.editor.selection().first().copied() else {
+            "Nothing is selected".clone_into(&mut self.status);
+            return Ok(());
+        };
+        let document = self.editor.document();
+        let mut source_ids = Vec::new();
+        collect_subtree(document, root, &mut source_ids);
+        let first_id = next_entity_id(document)?.0;
+        let id_map = source_ids
+            .iter()
+            .enumerate()
+            .map(|(offset, source)| (*source, EntityId::new(first_id + offset as u128)))
+            .collect::<BTreeMap<_, _>>();
+        let root_parent = document.parent_of(root);
+        let mut operations = Vec::with_capacity(source_ids.len());
+        for source in &source_ids {
+            let mut entity = document.entities[source].clone();
+            entity.id = id_map[source];
+            entity.children.clear();
+            if *source == root {
+                entity.authored.position.x += 16.0;
+                entity.authored.position.y += 16.0;
+                if let Some(name) = &mut entity.name {
+                    name.push_str(" copy");
+                }
+            }
+            if let EntityKind::Instance { component } = &mut entity.kind
+                && let Some(mapped) = id_map.get(component)
+            {
+                *component = *mapped;
+            }
+            let source_parent = document.parent_of(*source);
+            let parent = if *source == root {
+                root_parent
+            } else {
+                source_parent.and_then(|parent| id_map.get(&parent).copied())
+            };
+            let source_siblings = source_parent.map_or(&document.roots, |parent| {
+                &document.entities[&parent].children
+            });
+            let source_index = source_siblings
+                .iter()
+                .position(|id| id == source)
+                .unwrap_or(0);
+            let anchor = if *source == root {
+                Anchor::After(root)
+            } else {
+                source_siblings[..source_index]
+                    .iter()
+                    .rev()
+                    .find_map(|sibling| id_map.get(sibling).copied())
+                    .map_or(Anchor::Start, Anchor::After)
+            };
+            operations.push(Operation::Insert {
+                parent,
+                anchor,
+                entity: Box::new(entity),
+            });
+        }
+        let duplicate = id_map[&root];
+        self.editor
+            .execute(EditorCommand::Apply { operations })
+            .map_err(|error| error.to_string())?;
+        self.editor
+            .execute(EditorCommand::Select { entity: duplicate })
+            .map_err(|error| error.to_string())?;
+        self.drafts.clear();
+        self.dirty = true;
+        self.status = format!("Duplicated {root}");
+        Ok(())
+    }
+
+    fn update_selected_layout(&mut self, update: impl FnOnce(&mut nuif_core::LayoutStyle)) {
+        let Some(entity) = self.editor.selection().first().copied() else {
+            "Select a container to edit layout".clone_into(&mut self.status);
+            return;
+        };
+        let mut layout = self.editor.document().entities[&entity]
+            .authored
+            .layout
+            .clone();
+        update(&mut layout);
+        match self.editor.execute(EditorCommand::SetLayout {
+            entity,
+            value: layout,
+        }) {
+            Ok(_) => {
+                self.dirty = true;
+                self.drafts.clear();
+                "Updated layout".clone_into(&mut self.status);
+            }
+            Err(error) => self.status = format!("Layout edit failed: {error}"),
+        }
+    }
+
     fn handle_text_action(&mut self, widget_id: WidgetId, action: TextAction) -> bool {
         let Some(field) = self.text_fields.get(&widget_id).copied() else {
             return false;
@@ -710,33 +1357,175 @@ impl Driver {
             "No changed properties to apply".clone_into(&mut self.status);
             return;
         }
-        for field in fields {
-            if !self.apply_field(&field) {
-                return;
-            }
-        }
+        self.apply_fields(&fields);
     }
 
     fn apply_field(&mut self, field: &InspectorField) -> bool {
-        let Some(value) = self.drafts.get(field).cloned() else {
+        self.apply_fields(&[*field])
+    }
+
+    #[expect(
+        clippy::too_many_lines,
+        reason = "atomic inspector lowering keeps parsing and grouping in one audit path"
+    )]
+    fn apply_fields(&mut self, fields: &[InspectorField]) -> bool {
+        let Some(entity_id) = fields.first().map(inspector_entity) else {
             return true;
         };
-        let (entity, field_label) = match field {
-            InspectorField::Name(entity) => (*entity, "name"),
-            InspectorField::Width(entity) => (*entity, "width"),
-            InspectorField::Height(entity) => (*entity, "height"),
+        let Some(original) = self.editor.document().entities.get(&entity_id).cloned() else {
+            self.status = format!("Property edit failed: entity {entity_id} no longer exists");
+            return false;
         };
-        match self
-            .editor
-            .dispatch_accessibility_action(AccessibilityAction::SetValue {
-                author_id: entity,
-                label: field_label.to_owned(),
-                value,
-            }) {
+        let mut edited = original.clone();
+        let mut rename = None;
+        let mut width_changed = false;
+        let mut height_changed = false;
+        let mut position_changed = false;
+        let mut layout_changed = false;
+        let mut fill_changed = false;
+        let mut text_changed = false;
+        for field in fields {
+            let Some(value) = self.drafts.get(field) else {
+                continue;
+            };
+            let parsed = match *field {
+                InspectorField::Name(_) => {
+                    rename = Some(value.clone());
+                    Ok(())
+                }
+                InspectorField::Width(_) => parse_size_intent(value).map(|value| {
+                    edited.authored.width = value;
+                    width_changed = true;
+                }),
+                InspectorField::Height(_) => parse_size_intent(value).map(|value| {
+                    edited.authored.height = value;
+                    height_changed = true;
+                }),
+                InspectorField::X(_) => parse_number(value).map(|value| {
+                    edited.authored.position.x = value;
+                    position_changed = true;
+                }),
+                InspectorField::Y(_) => parse_number(value).map(|value| {
+                    edited.authored.position.y = value;
+                    position_changed = true;
+                }),
+                InspectorField::Gap(_) => parse_number(value).map(|value| {
+                    edited.authored.layout.gap = value;
+                    layout_changed = true;
+                }),
+                InspectorField::PaddingTop(_) => parse_number(value).map(|value| {
+                    edited.authored.layout.padding.top = value;
+                    layout_changed = true;
+                }),
+                InspectorField::PaddingRight(_) => parse_number(value).map(|value| {
+                    edited.authored.layout.padding.right = value;
+                    layout_changed = true;
+                }),
+                InspectorField::PaddingBottom(_) => parse_number(value).map(|value| {
+                    edited.authored.layout.padding.bottom = value;
+                    layout_changed = true;
+                }),
+                InspectorField::PaddingLeft(_) => parse_number(value).map(|value| {
+                    edited.authored.layout.padding.left = value;
+                    layout_changed = true;
+                }),
+                InspectorField::Fill(_) => parse_fill(value).map(|value| {
+                    edited.authored.fill = value;
+                    fill_changed = true;
+                }),
+                InspectorField::TextContent(_) => edited.authored.text.as_mut().map_or_else(
+                    || Err("selected entity has no text content".to_owned()),
+                    |text| {
+                        value.clone_into(&mut text.content);
+                        text_changed = true;
+                        Ok(())
+                    },
+                ),
+                InspectorField::FontSize(_) => parse_number(value).and_then(|value| {
+                    let text = edited
+                        .authored
+                        .text
+                        .as_mut()
+                        .ok_or_else(|| "selected entity has no text content".to_owned())?;
+                    text.size = value;
+                    text_changed = true;
+                    Ok(())
+                }),
+                InspectorField::LineHeight(_) => parse_number(value).and_then(|value| {
+                    let text = edited
+                        .authored
+                        .text
+                        .as_mut()
+                        .ok_or_else(|| "selected entity has no text content".to_owned())?;
+                    text.line_height = value;
+                    text_changed = true;
+                    Ok(())
+                }),
+            };
+            if let Err(error) = parsed {
+                self.status = format!("Property edit failed: {error}");
+                return false;
+            }
+        }
+        let mut operations = Vec::new();
+        if let Some(name) = rename {
+            operations.push(Operation::Rename {
+                entity: entity_id,
+                name: Some(name),
+            });
+        }
+        if width_changed {
+            operations.push(Operation::SetSize {
+                entity: entity_id,
+                axis: ProtocolAxis::Horizontal,
+                value: edited.authored.width.clone(),
+            });
+        }
+        if height_changed {
+            operations.push(Operation::SetSize {
+                entity: entity_id,
+                axis: ProtocolAxis::Vertical,
+                value: edited.authored.height.clone(),
+            });
+        }
+        if position_changed {
+            operations.push(Operation::SetPosition {
+                entity: entity_id,
+                value: edited.authored.position,
+            });
+        }
+        if layout_changed {
+            operations.push(Operation::SetLayout {
+                entity: entity_id,
+                value: edited.authored.layout.clone(),
+            });
+        }
+        if fill_changed {
+            operations.push(Operation::SetFill {
+                entity: entity_id,
+                value: edited.authored.fill,
+            });
+        }
+        if text_changed {
+            operations.push(Operation::SetText {
+                entity: entity_id,
+                value: edited.authored.text.clone(),
+            });
+        }
+        if operations.is_empty() {
+            return true;
+        }
+        match self.editor.execute(EditorCommand::Apply { operations }) {
             Ok(_) => {
-                self.drafts.remove(field);
+                for field in fields {
+                    self.drafts.remove(field);
+                }
                 self.dirty = true;
-                self.status = format!("Updated {field_label}");
+                self.status = if fields.len() == 1 {
+                    "Updated property".to_owned()
+                } else {
+                    format!("Updated {} properties atomically", fields.len())
+                };
                 true
             }
             Err(error) => {
@@ -993,6 +1782,21 @@ fn kind_name(kind: &EntityKind) -> String {
     .to_owned()
 }
 
+fn kind_glyph(kind: &EntityKind) -> &'static str {
+    match kind {
+        EntityKind::Surface => "S",
+        EntityKind::Container => "F",
+        EntityKind::Shape(ShapeKind::Rectangle) => "R",
+        EntityKind::Shape(ShapeKind::Ellipse) => "O",
+        EntityKind::Shape(ShapeKind::Path) => "P",
+        EntityKind::Text => "T",
+        EntityKind::Image => "I",
+        EntityKind::Component => "C",
+        EntityKind::Instance { .. } => "i",
+        EntityKind::Unknown(_) => "?",
+    }
+}
+
 fn tool_name(tool: Tool) -> &'static str {
     Tool::ALL
         .iter()
@@ -1010,6 +1814,112 @@ fn size_value(value: &SizeIntent) -> String {
         SizeIntent::MinContent => "min-content".to_owned(),
         SizeIntent::MaxContent => "max-content".to_owned(),
         SizeIntent::FitContent(value) => format!("fit-content({value})"),
+    }
+}
+
+fn parse_size_intent(value: &str) -> Result<SizeIntent, String> {
+    let value = value.trim();
+    match value {
+        "auto" => Ok(SizeIntent::Auto),
+        "fill" => Ok(SizeIntent::Fill),
+        "intrinsic" => Ok(SizeIntent::Intrinsic),
+        "min-content" => Ok(SizeIntent::MinContent),
+        "max-content" => Ok(SizeIntent::MaxContent),
+        _ if value.ends_with('%') => value
+            .strip_suffix('%')
+            .and_then(|value| value.parse::<f64>().ok())
+            .map(SizeIntent::Percentage)
+            .ok_or_else(|| format!("invalid percentage {value:?}")),
+        _ if value.starts_with("fit-content(") && value.ends_with(')') => value
+            .strip_prefix("fit-content(")
+            .and_then(|value| value.strip_suffix(')'))
+            .and_then(|value| value.parse::<f64>().ok())
+            .map(SizeIntent::FitContent)
+            .ok_or_else(|| format!("invalid fit-content value {value:?}")),
+        _ => parse_number(value).map(SizeIntent::Fixed),
+    }
+}
+
+fn parse_number(value: &str) -> Result<f64, String> {
+    let number = value
+        .trim()
+        .parse::<f64>()
+        .map_err(|_| format!("invalid number {value:?}"))?;
+    if number.is_finite() {
+        Ok(number)
+    } else {
+        Err("numbers must be finite".to_owned())
+    }
+}
+
+#[expect(
+    clippy::cast_possible_truncation,
+    clippy::cast_sign_loss,
+    reason = "channels are clamped to the exact u8 range before conversion"
+)]
+fn fill_value(fill: Option<Color>) -> String {
+    fill.map_or_else(
+        || "none".to_owned(),
+        |fill| {
+            format!(
+                "#{:02X}{:02X}{:02X}{:02X}",
+                (fill.red.clamp(0.0, 1.0) * 255.0).round() as u8,
+                (fill.green.clamp(0.0, 1.0) * 255.0).round() as u8,
+                (fill.blue.clamp(0.0, 1.0) * 255.0).round() as u8,
+                (fill.alpha.clamp(0.0, 1.0) * 255.0).round() as u8,
+            )
+        },
+    )
+}
+
+fn parse_fill(value: &str) -> Result<Option<Color>, String> {
+    let value = value.trim();
+    if value.eq_ignore_ascii_case("none") {
+        return Ok(None);
+    }
+    let hex = value.strip_prefix('#').unwrap_or(value);
+    if !matches!(hex.len(), 6 | 8) || !hex.bytes().all(|byte| byte.is_ascii_hexdigit()) {
+        return Err("fill must be #RRGGBB, #RRGGBBAA or none".to_owned());
+    }
+    let channel = |start| {
+        u8::from_str_radix(&hex[start..start + 2], 16)
+            .map(f32::from)
+            .map(|value| value / 255.0)
+            .map_err(|_| "invalid fill colour".to_owned())
+    };
+    Ok(Some(color(
+        channel(0)?,
+        channel(2)?,
+        channel(4)?,
+        if hex.len() == 8 { channel(6)? } else { 1.0 },
+    )))
+}
+
+fn inspector_entity(field: &InspectorField) -> EntityId {
+    match *field {
+        InspectorField::Name(entity)
+        | InspectorField::Width(entity)
+        | InspectorField::Height(entity)
+        | InspectorField::X(entity)
+        | InspectorField::Y(entity)
+        | InspectorField::Gap(entity)
+        | InspectorField::PaddingTop(entity)
+        | InspectorField::PaddingRight(entity)
+        | InspectorField::PaddingBottom(entity)
+        | InspectorField::PaddingLeft(entity)
+        | InspectorField::Fill(entity)
+        | InspectorField::TextContent(entity)
+        | InspectorField::FontSize(entity)
+        | InspectorField::LineHeight(entity) => entity,
+    }
+}
+
+fn collect_subtree(document: &Document, entity: EntityId, output: &mut Vec<EntityId>) {
+    output.push(entity);
+    if let Some(value) = document.entities.get(&entity) {
+        for child in &value.children {
+            collect_subtree(document, *child, output);
+        }
     }
 }
 
@@ -1134,5 +2044,67 @@ mod tests {
             driver.editor.document().entities[&surface].authored.width,
             SizeIntent::Fixed(320.0)
         );
+    }
+
+    #[test]
+    fn inspector_applies_related_drafts_as_one_transaction() {
+        let (_, mut driver) = harness();
+        let surface = driver.editor.document().roots[0];
+        driver
+            .editor
+            .execute(EditorCommand::Select { entity: surface })
+            .unwrap();
+        driver
+            .drafts
+            .insert(InspectorField::X(surface), "24".to_owned());
+        driver
+            .drafts
+            .insert(InspectorField::Y(surface), "36".to_owned());
+        driver
+            .drafts
+            .insert(InspectorField::Gap(surface), "12".to_owned());
+        driver
+            .drafts
+            .insert(InspectorField::Fill(surface), "#336699CC".to_owned());
+        driver.apply_all_drafts();
+
+        let entity = &driver.editor.document().entities[&surface];
+        assert_eq!(entity.authored.position, Point { x: 24.0, y: 36.0 });
+        assert!((entity.authored.layout.gap - 12.0).abs() < f64::EPSILON);
+        assert_eq!(fill_value(entity.authored.fill), "#336699CC");
+        assert_eq!(driver.editor.operation_log().len(), 1);
+        assert_eq!(
+            driver.editor.operation_log()[0].transactions[0]
+                .operations
+                .len(),
+            3
+        );
+    }
+
+    #[test]
+    fn duplicate_selection_clones_a_complete_subtree() {
+        let (_, mut driver) = harness();
+        let surface = driver.editor.document().roots[0];
+        driver
+            .insert_entity(Tool::Frame, Some(surface), 20.0, 20.0)
+            .unwrap();
+        let frame = driver.editor.selection()[0];
+        driver
+            .insert_entity(Tool::Rectangle, Some(frame), 8.0, 8.0)
+            .unwrap();
+        driver
+            .editor
+            .execute(EditorCommand::Select { entity: frame })
+            .unwrap();
+        driver.duplicate_selection().unwrap();
+
+        let duplicate = driver.editor.selection()[0];
+        assert_ne!(duplicate, frame);
+        assert_eq!(
+            driver.editor.document().entities[&duplicate].children.len(),
+            1
+        );
+        assert_eq!(driver.editor.document().entities.len(), 5);
+        assert_eq!(driver.editor.operation_log().len(), 3);
     }
 }
