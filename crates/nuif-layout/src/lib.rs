@@ -55,13 +55,14 @@ impl EvaluationContext {
     #[must_use]
     pub fn fingerprint(&self) -> String {
         format!(
-            "{}x{}@{}:{}:{:?}:{:?}:{:?}",
+            "{}x{}@{}:{}:{:?}:{:?}:{:?}:{:?}",
             self.viewport.width,
             self.viewport.height,
             self.scale_factor,
             self.locale,
             self.writing_direction,
             self.theme,
+            self.font_hashes,
             self.capabilities
         )
     }
@@ -552,6 +553,14 @@ mod tests {
     use nuif_core::{Entity, LayoutStyle, OpaqueEncoding, OpaquePayload, TextContent, UnknownKind};
 
     #[test]
+    fn fingerprint_includes_content_addressed_font_set() {
+        let first = EvaluationContext::viewport(100.0, 100.0);
+        let mut second = first.clone();
+        second.font_hashes.insert("a".repeat(64));
+        assert_ne!(first.fingerprint(), second.fingerprint());
+    }
+
+    #[test]
     fn responsive_stack_changes_direction() {
         let mut document = Document::empty(EntityId::new(1));
         let mut root = Entity::new(EntityId::new(2), EntityKind::Container);
@@ -626,7 +635,7 @@ mod tests {
         text.authored.text = Some(TextContent {
             content: "probe".to_owned(),
             font: "missing".to_owned(),
-            font_sha256: "missing-hash".to_owned(),
+            font_sha256: "0".repeat(64),
             size: 12.0,
             line_height: 16.0,
         });

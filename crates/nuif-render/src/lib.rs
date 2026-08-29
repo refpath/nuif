@@ -1,7 +1,10 @@
 #![doc = "Renderer-independent scene lowering and deterministic CPU rasterization."]
 
 use nuif_core::{Color as ModelColor, Document, EntityId, EntityKind, Fidelity, ShapeKind};
-use nuif_layout::{LayoutSnapshot, Rect};
+use nuif_layout::{EvaluationContext, LayoutSnapshot, Rect, WritingDirection};
+use nuif_text::{
+    CLUSTER_UNIT, MAX_SHAPING_CODEPOINTS, ShapeRequest, ShapedRun, TextDirection, TextError, shape,
+};
 use serde::{Deserialize, Serialize};
 use std::io::Cursor;
 use thiserror::Error;
@@ -37,7 +40,7 @@ pub enum DrawCommand {
     Text {
         entity: EntityId,
         rect: Rect,
-        text: String,
+        run: Box<ShapedRun>,
         color: Color,
     },
 }
@@ -118,6 +121,12 @@ pub enum RenderError {
     InvalidTarget,
     #[error("render scene contains invalid geometry or color for entity {entity}")]
     InvalidScene { entity: EntityId },
+    #[error("text shaping failed for entity {entity}: {source}")]
+    Text {
+        entity: EntityId,
+        #[source]
+        source: TextError,
+    },
     #[error("PNG encoding failed: {0}")]
     Png(String),
 }
@@ -138,8 +147,17 @@ impl Renderer for CpuRenderer {
     }
 }
 
-#[must_use]
-pub fn build_scene(document: &Document, layout: &LayoutSnapshot) -> RenderScene {
+/// Lowers resolved layout and text runs into a renderer-independent scene.
+///
+/// # Errors
+///
+/// Returns a typed text error when a document requests a font absent from the
+/// evaluation context or outside the pinned profile-0 resource set.
+pub fn build_scene(
+    document: &Document,
+    layout: &LayoutSnapshot,
+    context: &EvaluationContext,
+) -> Result<RenderScene, RenderError> {
     let mut scene = RenderScene::default();
     for (id, entity) in &document.entities {
         let Some(rect) = layout.boxes.get(id).copied() else {
@@ -172,17 +190,38 @@ pub fn build_scene(document: &Document, layout: &LayoutSnapshot) -> RenderScene 
             });
         }
         if let Some(text) = &entity.authored.text {
+            if !context.font_hashes.contains(&text.font_sha256) {
+                return Err(RenderError::Text {
+                    entity: *id,
+                    source: TextError::FontAbsentFromContext {
+                        hash: text.font_sha256.clone(),
+                    },
+                });
+            }
+            let run = shape(&ShapeRequest {
+                text: &text.content,
+                font_sha256: &text.font_sha256,
+                font_size: text.size,
+                direction: match context.writing_direction {
+                    WritingDirection::LeftToRight => TextDirection::LeftToRight,
+                    WritingDirection::RightToLeft => TextDirection::RightToLeft,
+                },
+                language: &context.locale,
+            })
+            .map_err(|source| RenderError::Text {
+                entity: *id,
+                source,
+            })?;
             scene.fidelity.push(RenderFidelity {
                 entity: *id,
                 status: Fidelity::Approximated {
-                    reason: "profile 0 uses a deterministic bitmap proxy instead of shaped text"
-                        .to_owned(),
+                    reason: "profile 0 shapes pinned glyph runs exactly but rasterizes glyph IDs with a deterministic bitmap proxy instead of normative outlines".to_owned(),
                 },
             });
             scene.commands.push(DrawCommand::Text {
                 entity: *id,
                 rect,
-                text: text.content.clone(),
+                run: Box::new(run),
                 color: Color {
                     red: 0.0,
                     green: 0.0,
@@ -192,7 +231,7 @@ pub fn build_scene(document: &Document, layout: &LayoutSnapshot) -> RenderScene 
             });
         }
     }
-    scene
+    Ok(scene)
 }
 
 /// Deterministic profile-0 rasterizer. It intentionally supports only solid
@@ -215,18 +254,19 @@ pub fn render_cpu(scene: &RenderScene, target: RenderTarget) -> Result<RasterIma
         return Err(RenderError::InvalidTarget);
     }
     for command in &scene.commands {
-        let (entity, rect, color) = match command {
-            DrawCommand::Rect { entity, rect, fill } => (*entity, *rect, *fill),
+        let (entity, rect, color, valid_text_run) = match command {
+            DrawCommand::Rect { entity, rect, fill } => (*entity, *rect, *fill, true),
             DrawCommand::Text {
                 entity,
                 rect,
                 color,
-                ..
-            } => (*entity, *rect, *color),
+                run,
+            } => (*entity, *rect, *color, shaped_run_is_valid(run)),
         };
         if !rect_is_valid(rect)
             || !rect_is_valid(scale_rect(rect, f64::from(target.scale_factor)))
             || !color_is_finite(color)
+            || !valid_text_run
         {
             return Err(RenderError::InvalidScene { entity });
         }
@@ -244,11 +284,12 @@ pub fn render_cpu(scene: &RenderScene, target: RenderTarget) -> Result<RasterIma
                 *fill,
             ),
             DrawCommand::Text {
-                rect, text, color, ..
-            } => draw_text_proxy(
+                rect, run, color, ..
+            } => draw_shaped_text_proxy(
                 &mut image,
                 scale_rect(*rect, f64::from(target.scale_factor)),
-                text,
+                run,
+                f64::from(target.scale_factor),
                 *color,
             ),
         }
@@ -279,6 +320,19 @@ fn color_is_finite(color: Color) -> bool {
         .all(f32::is_finite)
 }
 
+fn shaped_run_is_valid(run: &ShapedRun) -> bool {
+    let codepoints = run.text.chars().count();
+    run.font_size.is_finite()
+        && run.font_size > 0.0
+        && run.units_per_em > 0
+        && run.cluster_unit == CLUSTER_UNIT
+        && codepoints <= MAX_SHAPING_CODEPOINTS
+        && run
+            .glyphs
+            .iter()
+            .all(|glyph| usize::try_from(glyph.cluster).is_ok_and(|cluster| cluster < codepoints))
+}
+
 fn fill_rect(image: &mut RasterImage, rect: Rect, color: Color) {
     let x0 = floor_coordinate(rect.x, image.width);
     let y0 = floor_coordinate(rect.y, image.height);
@@ -297,23 +351,45 @@ fn fill_rect(image: &mut RasterImage, rect: Rect, color: Color) {
     }
 }
 
-fn draw_text_proxy(image: &mut RasterImage, rect: Rect, text: &str, color: Color) {
+fn draw_shaped_text_proxy(
+    image: &mut RasterImage,
+    rect: Rect,
+    run: &ShapedRun,
+    target_scale: f64,
+    color: Color,
+) {
     let source = [
         channel(color.red),
         channel(color.green),
         channel(color.blue),
         channel(color.alpha),
     ];
-    let base_x = floor_coordinate(rect.x, image.width);
-    let base_y = floor_coordinate(rect.y, image.height);
-    for (index, byte) in text.bytes().enumerate() {
-        let glyph_x = base_x.saturating_add(u32::try_from(index).unwrap_or(u32::MAX) * 6);
+    let font_unit_scale = run.font_size * target_scale / f64::from(run.units_per_em);
+    let codepoints = run.text.chars().collect::<Vec<_>>();
+    let mut pen_x = rect.x;
+    let mut pen_y = rect.y;
+    for glyph in &run.glyphs {
+        let glyph_x = floor_coordinate(
+            pen_x + f64::from(glyph.x_offset) * font_unit_scale,
+            image.width,
+        );
+        let glyph_y = floor_coordinate(
+            pen_y - f64::from(glyph.y_offset) * font_unit_scale,
+            image.height,
+        );
+        let is_space = usize::try_from(glyph.cluster)
+            .ok()
+            .and_then(|cluster| codepoints.get(cluster))
+            .copied()
+            .is_some_and(char::is_whitespace);
+        let glyph_bits = glyph.glyph_id.to_le_bytes();
         for row in 0..7_u32 {
             for column in 0..5_u32 {
                 let bit = (row * 5 + column) % 8;
-                if (byte >> bit) & 1 == 1 {
+                let byte = glyph_bits[usize::try_from((row + column) % 4).unwrap_or(0)];
+                if !is_space && (byte >> bit) & 1 == 1 {
                     let x = glyph_x + column;
-                    let y = base_y + row;
+                    let y = glyph_y + row;
                     if x < image.width
                         && y < image.height
                         && f64::from(x) < rect.x + rect.width
@@ -324,6 +400,8 @@ fn draw_text_proxy(image: &mut RasterImage, rect: Rect, text: &str, color: Color
                 }
             }
         }
+        pen_x += f64::from(glyph.x_advance) * font_unit_scale;
+        pen_y += f64::from(glyph.y_advance) * font_unit_scale;
     }
 }
 
@@ -370,6 +448,47 @@ fn blend_pixel(image: &mut RasterImage, x: u32, y: u32, source: [u8; 4]) {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use nuif_core::{Entity, SizeIntent, TextContent};
+    use nuif_text::{PINNED_FONT_NAME, PINNED_FONT_SHA256};
+
+    fn text_document_and_layout() -> (Document, LayoutSnapshot) {
+        let mut document = Document::empty(EntityId::new(1));
+        let mut text = Entity::new(EntityId::new(2), EntityKind::Text);
+        text.authored.width = SizeIntent::Fixed(100.0);
+        text.authored.height = SizeIntent::Fixed(20.0);
+        text.authored.text = Some(TextContent {
+            content: "A B".to_owned(),
+            font: PINNED_FONT_NAME.to_owned(),
+            font_sha256: PINNED_FONT_SHA256.to_owned(),
+            size: 18.0,
+            line_height: 20.0,
+        });
+        document.roots.push(text.id);
+        document.entities.insert(text.id, text);
+        let layout = nuif_layout::evaluate(&document, &EvaluationContext::viewport(100.0, 20.0));
+        (document, layout)
+    }
+
+    #[test]
+    fn scene_contains_resolved_glyphs_and_requires_context_font() {
+        let (document, layout) = text_document_and_layout();
+        let missing = EvaluationContext::viewport(100.0, 20.0);
+        assert!(matches!(
+            build_scene(&document, &layout, &missing),
+            Err(RenderError::Text {
+                source: TextError::FontAbsentFromContext { .. },
+                ..
+            })
+        ));
+
+        let mut available = missing;
+        available.font_hashes.insert(PINNED_FONT_SHA256.to_owned());
+        let scene = build_scene(&document, &layout, &available).unwrap();
+        let DrawCommand::Text { run, .. } = &scene.commands[0] else {
+            panic!("text entity must lower to a text command");
+        };
+        assert_eq!(run.serialized_glyphs, "[35=0+1000|3=1+1000|36=2+1000]");
+    }
 
     #[test]
     fn cpu_raster_is_repeatable() {

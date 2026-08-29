@@ -6,6 +6,7 @@ members = [
   "crates/nuif-cli",
   "crates/nuif-layout",
   "crates/nuif-render",
+  "crates/nuif-text",
   "crates/nuif-codec",
   "crates/nuif-query",
   "crates/nuif-api",
@@ -23,6 +24,8 @@ repository = "https://github.com/refpath/nuif"
 
 [workspace.dependencies]
 ciborium = "0.2.2"
+font-test-data = "=0.7.0"
+harfrust = "=0.13.3"
 json5 = "0.4.1"
 png = "0.18.0"
 serde = { version = "1.0", features = ["derive"] }

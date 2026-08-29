@@ -2,10 +2,9 @@
 
 #[cfg(test)]
 mod tests {
-    use nuif_api::Session;
+    use nuif_api::{Session, profile_zero_context};
     use nuif_codec::{Decoder, DeterministicCbor, Encoder, canonical_hash};
     use nuif_core::{EntityId, EntityKind, FlowDirection, OpaquePayload};
-    use nuif_layout::EvaluationContext;
     use nuif_protocol::{Operation, Patch, Transaction, apply_patch};
     use nuif_testing::{TrialConfig, responsive_card_fixture, run_trials};
 
@@ -13,10 +12,10 @@ mod tests {
     fn responsive_card_changes_flow_at_declared_breakpoint() {
         let document = responsive_card_fixture();
         let narrow = Session::new(document.clone())
-            .snapshot(&EvaluationContext::viewport(360.0, 640.0))
+            .snapshot(&profile_zero_context(360.0, 640.0))
             .unwrap();
         let wide = Session::new(document)
-            .snapshot(&EvaluationContext::viewport(768.0, 640.0))
+            .snapshot(&profile_zero_context(768.0, 640.0))
             .unwrap();
         let media = EntityId::new(0x21);
         let copy = EntityId::new(0x22);

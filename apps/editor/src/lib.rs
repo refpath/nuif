@@ -1,9 +1,8 @@
 #![doc = "Headless-testable reference-editor session and accessibility action surface."]
 
-use nuif_api::{EngineError, Session};
+use nuif_api::{EngineError, Session, profile_zero_context};
 use nuif_codec::canonical_hash;
 use nuif_core::{Document, EntityId, EntityKind, SizeIntent};
-use nuif_layout::EvaluationContext;
 use nuif_protocol::{Axis, Operation, Patch, Transaction};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
@@ -208,10 +207,9 @@ impl EditorDriver {
                 Ok(EditorEvent::HistoryChanged)
             }
             EditorCommand::Snapshot { width, height } => {
-                let snapshot = self.session.snapshot(&EvaluationContext::viewport(
-                    f64::from(width),
-                    f64::from(height),
-                ))?;
+                let snapshot = self
+                    .session
+                    .snapshot(&profile_zero_context(f64::from(width), f64::from(height)))?;
                 Ok(EditorEvent::Snapshot {
                     canonical_hash: snapshot.canonical_hash,
                     layout_boxes: snapshot.layout.boxes.len(),

@@ -1,10 +1,11 @@
 #![doc = "Stable headless engine and editor-session contract shared by every client."]
 
 use nuif_codec::{CodecError, canonical_hash};
-use nuif_core::{Diagnostic, Document, EntityId, validate};
+use nuif_core::{Diagnostic, Document, EntityId, Severity, validate};
 use nuif_layout::{EvaluationContext, LayoutSnapshot, evaluate};
 use nuif_protocol::{ApplyError, Patch, apply_patch_with_inverse};
 use nuif_render::{RasterImage, RenderError, RenderScene, RenderTarget, build_scene, render_cpu};
+use nuif_text::PINNED_FONT_SHA256;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
@@ -91,6 +92,7 @@ pub trait Engine {
         &self,
         document: &Document,
         layout: &LayoutSnapshot,
+        context: &EvaluationContext,
     ) -> Result<RenderScene, Self::Error>;
 
     fn render_target_supported(&self, target: RenderTarget) -> bool;
@@ -98,6 +100,15 @@ pub trait Engine {
 
 #[derive(Clone, Debug, Default)]
 pub struct ReferenceEngine;
+
+/// Creates a profile-0 evaluation context with the built-in content-addressed
+/// font resource registered.
+#[must_use]
+pub fn profile_zero_context(width: f64, height: f64) -> EvaluationContext {
+    let mut context = EvaluationContext::viewport(width, height);
+    context.font_hashes.insert(PINNED_FONT_SHA256.to_owned());
+    context
+}
 
 impl Engine for ReferenceEngine {
     type Error = EngineError;
@@ -122,15 +133,26 @@ impl Engine for ReferenceEngine {
         context: &EvaluationContext,
     ) -> Result<LayoutSnapshot, Self::Error> {
         validate_context(context)?;
-        Ok(evaluate(document, context))
+        let snapshot = evaluate(document, context);
+        let errors = snapshot
+            .diagnostics
+            .iter()
+            .filter(|diagnostic| diagnostic.severity == Severity::Error)
+            .count();
+        if errors > 0 {
+            Err(EngineError::DocumentInvalid { errors })
+        } else {
+            Ok(snapshot)
+        }
     }
 
     fn build_render_scene(
         &self,
         document: &Document,
         layout: &LayoutSnapshot,
+        context: &EvaluationContext,
     ) -> Result<RenderScene, Self::Error> {
-        Ok(build_scene(document, layout))
+        build_scene(document, layout, context).map_err(Into::into)
     }
 
     fn render_target_supported(&self, target: RenderTarget) -> bool {
@@ -154,6 +176,8 @@ pub enum EngineError {
     HistoryEmpty,
     #[error("invalid evaluation context: {reason}")]
     InvalidContext { reason: &'static str },
+    #[error("document validation failed with {errors} error diagnostics")]
+    DocumentInvalid { errors: usize },
 }
 
 fn validate_context(context: &EvaluationContext) -> Result<(), EngineError> {
@@ -269,7 +293,9 @@ impl Session {
     /// Returns an engine error if hashing or rasterization fails.
     pub fn snapshot(&self, context: &EvaluationContext) -> Result<Snapshot, EngineError> {
         let layout = self.engine.layout(&self.document, context)?;
-        let scene = self.engine.build_render_scene(&self.document, &layout)?;
+        let scene = self
+            .engine
+            .build_render_scene(&self.document, &layout, context)?;
         let target = RenderTarget {
             width: target_dimension(context.viewport.width * context.scale_factor),
             height: target_dimension(context.viewport.height * context.scale_factor),
@@ -368,5 +394,15 @@ mod tests {
         let snapshot = session.snapshot(&context).unwrap();
         assert_eq!(snapshot.raster.width, 20);
         assert_eq!(snapshot.raster.height, 24);
+    }
+
+    #[test]
+    fn snapshot_rejects_a_document_with_validation_errors() {
+        let mut invalid = document();
+        invalid.roots.push(EntityId::new(999));
+        assert!(matches!(
+            Session::new(invalid).snapshot(&EvaluationContext::viewport(10.0, 12.0)),
+            Err(EngineError::DocumentInvalid { errors: 1 })
+        ));
     }
 }

@@ -1,16 +1,15 @@
 [package]
-name = "nuif-render"
-version = "0.0.0"
+name = "nuif-text"
+version = "0.0.1"
 edition.workspace = true
 license.workspace = true
 repository.workspace = true
 
 [dependencies]
-nuif-core = { path = "../nuif-core" }
-nuif-layout = { path = "../nuif-layout" }
-nuif-text = { path = "../nuif-text" }
-png.workspace = true
+font-test-data.workspace = true
+harfrust.workspace = true
 serde.workspace = true
+sha2.workspace = true
 thiserror.workspace = true
 
 [lints]

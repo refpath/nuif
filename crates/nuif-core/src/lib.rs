@@ -1020,6 +1020,25 @@ pub fn validate(document: &Document) -> Vec<Diagnostic> {
 fn validate_entity(document: &Document, entity: &Entity, diagnostics: &mut Vec<Diagnostic>) {
     validate_authored_numbers(entity, diagnostics);
     validate_entity_identifiers(document, entity, diagnostics);
+    if let Some(text) = &entity.authored.text {
+        if !is_sha256(&text.font_sha256) {
+            diagnostics.push_capped(Diagnostic::error(
+                "TEXT_FONT_HASH_INVALID",
+                "text font_sha256 must contain exactly 64 lowercase hexadecimal digits",
+                Some(entity.id),
+            ));
+        }
+        if text.size.is_finite()
+            && text.line_height.is_finite()
+            && (text.size <= 0.0 || text.line_height <= 0.0)
+        {
+            diagnostics.push_capped(Diagnostic::error(
+                "TEXT_METRICS_INVALID",
+                "text size and line_height must be positive",
+                Some(entity.id),
+            ));
+        }
+    }
     if let EntityKind::Instance { component } = entity.kind
         && !matches!(
             document.entities.get(&component).map(|item| &item.kind),
@@ -1039,6 +1058,13 @@ fn validate_entity(document: &Document, entity: &Entity, diagnostics: &mut Vec<D
         Some(entity.id),
         diagnostics,
     );
+}
+
+fn is_sha256(value: &str) -> bool {
+    value.len() == 64
+        && value
+            .bytes()
+            .all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte))
 }
 
 fn validate_authored_numbers(entity: &Entity, diagnostics: &mut Vec<Diagnostic>) {
@@ -1337,6 +1363,27 @@ mod tests {
         assert!(is_identifier("vendor.probe-1"));
         assert!(!is_identifier("VENDOR_probe"));
         assert!(!is_identifier("-bad"));
+    }
+
+    #[test]
+    fn validation_rejects_unpinned_text_identity_and_metrics() {
+        let mut document = Document::empty(EntityId::new(1));
+        let mut text = Entity::new(EntityId::new(2), EntityKind::Text);
+        text.authored.text = Some(TextContent {
+            content: "probe".to_owned(),
+            font: "unresolved".to_owned(),
+            font_sha256: "NOT-A-SHA256".to_owned(),
+            size: 0.0,
+            line_height: -1.0,
+        });
+        document.roots.push(text.id);
+        document.entities.insert(text.id, text);
+        let codes = validate(&document)
+            .into_iter()
+            .map(|diagnostic| diagnostic.code)
+            .collect::<BTreeSet<_>>();
+        assert!(codes.contains("TEXT_FONT_HASH_INVALID"));
+        assert!(codes.contains("TEXT_METRICS_INVALID"));
     }
 
     #[test]

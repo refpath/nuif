@@ -10,6 +10,7 @@ nuif-core = { path = "../nuif-core" }
 nuif-protocol = { path = "../nuif-protocol" }
 nuif-layout = { path = "../nuif-layout" }
 nuif-render = { path = "../nuif-render" }
+nuif-text = { path = "../nuif-text" }
 nuif-codec = { path = "../nuif-codec" }
 nuif-query = { path = "../nuif-query" }
 serde.workspace = true

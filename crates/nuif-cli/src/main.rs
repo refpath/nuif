@@ -1,4 +1,4 @@
-use nuif_api::{Engine, ReferenceEngine, Session};
+use nuif_api::{Engine, ReferenceEngine, Session, profile_zero_context};
 use nuif_codec::{
     BoundedReadError, CanonicalText, Canonicalizer, Decoder, DeterministicCbor, Encoder,
     MAX_INPUT_BYTES, MAX_SYNTAX_DEPTH, MAX_TEXT_BINARY_BYTES, canonical_hash,
@@ -283,7 +283,7 @@ fn render(args: &[String]) -> Result<(), CliError> {
     let height = number(args, 3, 640.0)?;
     let session = Session::new(document);
     let snapshot = session
-        .snapshot(&EvaluationContext::viewport(width, height))
+        .snapshot(&profile_zero_context(width, height))
         .map_err(|error| CliError::new(1, "RENDER_FAILED", error.to_string()))?;
     let png = snapshot
         .raster
@@ -309,7 +309,7 @@ fn snapshot(args: &[String]) -> Result<(), CliError> {
         .map_err(|error| CliError::new(1, "WRITE_FAILED", error.to_string()))?;
     let session = Session::new(document.clone());
     let snapshot = session
-        .snapshot(&EvaluationContext::viewport(width, height))
+        .snapshot(&profile_zero_context(width, height))
         .map_err(|error| CliError::new(1, "SNAPSHOT_FAILED", error.to_string()))?;
     write_file(
         &directory.join("input.nuif"),

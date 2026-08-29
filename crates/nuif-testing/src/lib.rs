@@ -266,8 +266,8 @@ pub fn responsive_card_fixture() -> Document {
     copy.authored.height = SizeIntent::Intrinsic;
     copy.authored.text = Some(TextContent {
         content: "Portable authored intent".to_owned(),
-        font: "NUIF Test Sans".to_owned(),
-        font_sha256: "test-font-sha256".to_owned(),
+        font: nuif_text::PINNED_FONT_NAME.to_owned(),
+        font_sha256: nuif_text::PINNED_FONT_SHA256.to_owned(),
         size: 18.0,
         line_height: 24.0,
     });
@@ -658,9 +658,7 @@ fn generate_operations(rng: &mut TrialRng, count: u32, iteration: u32) -> Vec<Op
 }
 
 fn fixture_context(width: u32, height: u32) -> EvaluationContext {
-    let mut context = EvaluationContext::viewport(f64::from(width), f64::from(height));
-    context.font_hashes.insert("test-font-sha256".to_owned());
-    context
+    nuif_api::profile_zero_context(f64::from(width), f64::from(height))
 }
 
 fn context_report(viewport: (u32, u32), snapshot: &Snapshot) -> ContextReport {
