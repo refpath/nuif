@@ -1,7 +1,7 @@
 ---
 id: nuif:research:encoding
 kind: standard
-status: active
+status: reviewed
 title: Deterministic CBOR, Protobuf unknown fields and Kiwi schema evolution
 source:
   url: https://www.rfc-editor.org/rfc/rfc8949.html

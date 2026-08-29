@@ -1,7 +1,7 @@
 ---
 id: nuif:research:vello
 kind: repository
-status: active
+status: reviewed
 title: Vello Rust 2D renderer
 source:
   url: https://github.com/linebender/vello

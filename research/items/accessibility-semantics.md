@@ -1,7 +1,7 @@
 ---
 id: nuif:research:accessibility-semantics
 kind: standard
-status: active
+status: reviewed
 title: WAI-ARIA and accessibility API mappings
 source:
   url: https://www.w3.org/TR/wai-aria-1.3/

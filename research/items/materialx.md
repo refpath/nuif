@@ -1,7 +1,7 @@
 ---
 id: nuif:research:materialx
 kind: standard
-status: active
+status: reviewed
 title: MaterialX open graph standard for cross-renderer content
 source:
   url: https://materialx.org/Specification.html

@@ -1,7 +1,7 @@
 ---
 id: nuif:research:symmetric-lenses
 kind: paper
-status: active
+status: reviewed
 title: Symmetric Lenses
 source:
   url: https://doi.org/10.1145/1925844.1926428

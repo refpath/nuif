@@ -1,7 +1,7 @@
 ---
 id: nuif:research:structured-merge
 kind: paper
-status: active
+status: reviewed
 title: Structured differencing and three-way merge
 source:
   url: https://doi.org/10.1016/j.sysarc.2023.103011

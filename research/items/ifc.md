@@ -1,7 +1,7 @@
 ---
 id: nuif:research:ifc
 kind: standard
-status: active
+status: reviewed
 title: Industry Foundation Classes interoperability standard
 source:
   url: https://standards.buildingsmart.org/IFC/RELEASE/IFC4_3/

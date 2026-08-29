@@ -1,7 +1,7 @@
 ---
 id: nuif:research:ui-spec-schema-cg
 kind: standard
-status: closed
+status: reviewed
 title: W3C UI Specification Schema Community Group
 source:
   url: https://www.w3.org/groups/cg/uispec/

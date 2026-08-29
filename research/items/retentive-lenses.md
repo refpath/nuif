@@ -1,7 +1,7 @@
 ---
 id: nuif:research:retentive-lenses
 kind: paper
-status: active
+status: reviewed
 title: Retentive Lenses
 source:
   url: https://arxiv.org/abs/2001.02031

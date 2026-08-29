@@ -1,7 +1,7 @@
 ---
 id: nuif:research:figma
 kind: standard
-status: active
+status: reviewed
 title: Figma public plugin/document node model
 source:
   url: https://developers.figma.com/docs/plugins/api/nodes/

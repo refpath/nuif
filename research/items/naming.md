@@ -1,7 +1,7 @@
 ---
 id: nuif:research:naming
-kind: research-note
-status: active
+kind: synthesis
+status: reviewed
 title: NUIF naming collision reconnaissance
 source:
   url: https://github.com/refpath/nuif
@@ -20,7 +20,7 @@ links:
   code: []
   experiments: []
 ---
-# Findings
+# Summary
 
 `NUIF` is not unique. Public search finds at least:
 
@@ -30,6 +30,6 @@ links:
 
 No reviewed result appears to be an active authored-interface interchange standard, but this search is not a legal trademark clearance.
 
-# Decision
+## NUIF relevance
 
 Keep `nuif` as the working repository/project identifier. Do not freeze the expanded standards name, trademark policy or final file-format branding until a proper legal/name clearance and standards-governance review occurs. A later rename must not affect stable document semantics or namespace/version identifiers.

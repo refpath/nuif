@@ -1,7 +1,7 @@
 ---
 id: nuif:research:harfbuzz-unicode
 kind: standard
-status: active
+status: reviewed
 title: HarfBuzz shaping and Unicode text algorithms
 source:
   url: https://harfbuzz.github.io/shaping-and-shape-plans.html

@@ -1,7 +1,7 @@
 ---
 id: nuif:research:webgpu-security
 kind: standard
-status: active
+status: reviewed
 title: WebGPU security and robustness model
 source:
   url: https://www.w3.org/TR/webgpu/

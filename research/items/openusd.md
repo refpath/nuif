@@ -1,7 +1,7 @@
 ---
 id: nuif:research:openusd
 kind: standard
-status: active
+status: reviewed
 title: OpenUSD composition, layers, references and variants
 source:
   url: https://openusd.org/release/intro.html

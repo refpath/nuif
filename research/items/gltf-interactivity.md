@@ -1,7 +1,7 @@
 ---
 id: nuif:research:gltf-interactivity
 kind: standard
-status: active
+status: reviewed
 title: KHR_interactivity portable behavior graphs
 source:
   url: https://www.khronos.org/news/press/gltf-interactivity-extension-submitted-for-ratification

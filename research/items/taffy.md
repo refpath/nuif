@@ -1,7 +1,7 @@
 ---
 id: nuif:research:taffy
 kind: repository
-status: active
+status: reviewed
 title: Taffy Rust CSS layout engine
 source:
   url: https://github.com/DioxusLabs/taffy

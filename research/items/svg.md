@@ -1,7 +1,7 @@
 ---
 id: nuif:research:svg
 kind: standard
-status: active
+status: reviewed
 title: SVG 2 vector graphics model
 source:
   url: https://www.w3.org/TR/SVG2/

@@ -1,7 +1,7 @@
 ---
 id: nuif:research:dtcg
 kind: standard
-status: active
+status: reviewed
 title: Design Tokens Format Module 2025.10
 source:
   url: https://www.w3.org/community/reports/design-tokens/CG-FINAL-format-20251028/

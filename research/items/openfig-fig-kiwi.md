@@ -1,7 +1,7 @@
 ---
 id: nuif:research:openfig-fig-kiwi
 kind: repository
-status: active
+status: reviewed
 title: OpenFig reverse engineering of the Figma .fig Kiwi format
 source:
   url: https://github.com/OpenFig-org/openfig-core/blob/main/docs/research.md

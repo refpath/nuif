@@ -1,7 +1,7 @@
 ---
 id: nuif:research:renderers
 kind: repository
-status: active
+status: reviewed
 title: Skia, WebRender, Servo pipeline and wgpu rendering architectures
 source:
   url: https://skia.org/docs/

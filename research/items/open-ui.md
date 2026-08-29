@@ -1,7 +1,7 @@
 ---
 id: nuif:research:open-ui
 kind: standard
-status: active
+status: reviewed
 title: W3C Open UI Community Group component anatomy research
 source:
   url: https://open-ui.org/

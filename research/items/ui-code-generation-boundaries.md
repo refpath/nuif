@@ -1,7 +1,7 @@
 ---
 id: nuif:research:ui-code-generation-boundaries
 kind: paper
-status: active
+status: reviewed
 title: Screenshot-to-code and interaction-inference limits
 source:
   url: https://doi.org/10.1145/3729364

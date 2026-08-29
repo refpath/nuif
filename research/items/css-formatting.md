@@ -1,7 +1,7 @@
 ---
 id: nuif:research:css-formatting
 kind: standard
-status: active
+status: reviewed
 title: CSS formatting tree, Flexbox and Grid algorithms
 source:
   url: https://www.w3.org/TR/css-display-3/

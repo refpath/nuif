@@ -1,7 +1,7 @@
 ---
 id: nuif:research:lottie-rive
 kind: standard
-status: active
+status: reviewed
 title: Lottie and Rive portable animation/runtime models
 source:
   url: https://lottiefiles.github.io/lottie-spec/

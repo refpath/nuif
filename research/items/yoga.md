@@ -1,7 +1,7 @@
 ---
 id: nuif:research:yoga
 kind: repository
-status: active
+status: reviewed
 title: Yoga embeddable Flexbox layout engine
 source:
   url: https://github.com/facebook/yoga

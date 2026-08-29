@@ -1,7 +1,7 @@
 ---
 id: nuif:research:swiftui-layout
 kind: standard
-status: active
+status: reviewed
 title: SwiftUI proposal-response layout model
 source:
   url: https://developer.apple.com/documentation/swiftui/layout

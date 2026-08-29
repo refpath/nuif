@@ -1,7 +1,7 @@
 ---
 id: nuif:research:cassowary
 kind: paper
-status: active
+status: reviewed
 title: Cassowary incremental linear constraint solving for user interfaces
 source:
   url: https://constraints.cs.washington.edu/solvers/cassowary-tr.html

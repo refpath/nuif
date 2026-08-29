@@ -1,7 +1,7 @@
 ---
 id: nuif:research:wasm-component-model
 kind: standard
-status: active
+status: reviewed
 title: WebAssembly Component Model and WIT
 source:
   url: https://component-model.bytecodealliance.org/

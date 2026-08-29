@@ -1,7 +1,7 @@
 ---
 id: nuif:research:gltf
 kind: standard
-status: active
+status: reviewed
 title: glTF core and extension registry model
 source:
   url: https://github.com/KhronosGroup/glTF

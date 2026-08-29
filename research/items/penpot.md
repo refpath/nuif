@@ -1,7 +1,7 @@
 ---
 id: nuif:research:penpot
 kind: repository
-status: active
+status: reviewed
 title: Penpot open design data model and file format
 source:
   url: https://help.penpot.app/technical-guide/developer/data-model/

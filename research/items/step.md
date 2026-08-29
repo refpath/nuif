@@ -1,7 +1,7 @@
 ---
 id: nuif:research:step
 kind: standard
-status: active
+status: reviewed
 title: ISO 10303 STEP product-data exchange architecture
 source:
   url: https://www.iso.org/standard/83105.html

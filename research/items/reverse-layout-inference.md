@@ -1,7 +1,7 @@
 ---
 id: nuif:research:reverse-layout-inference
 kind: paper
-status: active
+status: reviewed
 title: Reverse engineering flexible GUI layouts from observations
 source:
   url: https://arxiv.org/abs/2202.11523

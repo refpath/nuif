@@ -1,7 +1,7 @@
 ---
 id: nuif:research:content-addressed-versioning
 kind: standard
-status: active
+status: reviewed
 title: Content-addressed Merkle DAGs for immutable resources and snapshots
 source:
   url: https://docs.ipfs.tech/concepts/merkle-dag/

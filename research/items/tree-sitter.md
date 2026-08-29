@@ -1,7 +1,7 @@
 ---
 id: nuif:research:tree-sitter
 kind: repository
-status: active
+status: reviewed
 title: Tree-sitter incremental concrete syntax trees
 source:
   url: https://tree-sitter.github.io/tree-sitter/

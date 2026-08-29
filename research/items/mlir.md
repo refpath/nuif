@@ -1,7 +1,7 @@
 ---
 id: nuif:research:mlir
 kind: standard
-status: active
+status: reviewed
 title: MLIR multi-level intermediate representation and dialect conversion
 source:
   url: https://mlir.llvm.org/docs/LangRef/

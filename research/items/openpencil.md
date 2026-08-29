@@ -1,7 +1,7 @@
 ---
 id: nuif:research:openpencil
 kind: repository
-status: active
+status: reviewed
 title: OpenPencil programmable editor, scene graph, Figma codec and DOM/CSS conversion
 source:
   url: https://github.com/open-pencil/open-pencil

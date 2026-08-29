@@ -1,7 +1,7 @@
 ---
 id: nuif:research:automerge-yjs
 kind: repository
-status: active
+status: reviewed
 title: Automerge and Yjs CRDT architectures
 source:
   url: https://github.com/automerge/automerge
