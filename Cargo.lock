@@ -2335,6 +2335,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "nuif-dtcg"
+version = "0.0.1"
+dependencies = [
+ "nuif-adapter",
+ "nuif-codec",
+ "nuif-core",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.20",
+]
+
+[[package]]
 name = "nuif-editor"
 version = "0.0.1"
 dependencies = [

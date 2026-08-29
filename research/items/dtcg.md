@@ -17,7 +17,7 @@ links:
   spec: [spec/03-components-and-composition.md]
   adr: []
   rfc: []
-  code: [adapters/STATUS.md]
+  code: [adapters/STATUS.md, adapters/dtcg/PROFILE.md, crates/nuif-dtcg/src/lib.rs]
   experiments: []
 ---
 # Summary
