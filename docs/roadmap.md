@@ -8,8 +8,11 @@ Exit: research graph schema, architectural RFCs, compilable core seams, CI and v
 ## Phase 1 — canonical model (complete)
 Implement typed properties, relations, components, tokens, extensions, deterministic IDs, validation and operation replay. Exit: structural conformance suite and canonical hash stability.
 
-## Phase 2 — layout
-Implement freeform + stack model and Taffy-backed flex/grid evaluator; add context matrices and loss reports. Exit: responsive-card layout conformance at three viewports.
+## Phase 2a — responsive layout falsifier (complete)
+Implement freeform + stack/flex subset and a pinned NUIF/Taffy/Chrome context matrix. Exit: responsive-card layout agreement at three viewports, measured per-fixture bounds and classification of every generated divergence.
+
+## Phase 2b — Grid schema and evaluator
+Define authored track sizing, auto-flow and item placement before wiring Taffy Grid behind NUIF types. The Gate C report proves the current family-only model is insufficient and classifies its fallback as schema loss; no Grid support is claimed until those fields and foreign fixtures pass.
 
 ## Phase 3 — visual/text
 Implement vector scene lowering, color/paint basics and HarfBuzz-backed shaping experiment with pinned fonts. Exit: deterministic reference snapshots for the fixture.

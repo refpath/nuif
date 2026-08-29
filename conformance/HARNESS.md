@@ -1,6 +1,6 @@
 # Test-harness architecture
 
-Status: profile-0 baseline implemented; browser differential generation, fuzz packages, shaped text, perceptual comparison and adapter trials remain planned. This document specifies how round-trip trials run unattended, fail reproducibly, minimize themselves and report in one machine-readable form. Evidence is cited by research record identifier.
+Status: profile-0 baseline and Gate C browser/Taffy differential generation are implemented; fuzz packages, shaped text, perceptual comparison and adapter trials remain planned. This document specifies how round-trip trials run unattended, fail reproducibly, minimize themselves and report in machine-readable form. Evidence is cited by research record identifier.
 
 ## Goals
 
@@ -18,13 +18,13 @@ rust-toolchain.toml        pinned toolchain (see ADR 0006 for the MSRV decision)
 crates/
   nuif-core                canonical model
   nuif-protocol            operations, transactions, patches, inverses
-  nuif-layout              evaluation context, evaluators (Taffy behind NUIF types)
+  nuif-layout              evaluation context and profile-0 reference evaluator
   nuif-render              render scene, backends (CPU reference; Vello interactive)
   nuif-codec               nuif-text-0, nuif-cbor-0, canonicalizer, migrations
   nuif-query               semantic queries
   nuif-api                 Engine trait, report types, session driver
   nuif-cli                 command surface; JSON output; stable exit codes
-  nuif-testing             shared test support: seeded trials, hostile-input measurement, v0 fixture, oracles, reducer, report writer
+  nuif-testing             seeded trials, hostile-input measurement, v0 fixture, direct Taffy/Chrome oracles, reducer and reports
 apps/
   editor                   headless editor driver and binary; Masonry GUI shell remains pending
 conformance/
@@ -32,9 +32,9 @@ conformance/
   src/lib.rs               v0 responsive, extension, seeded-trial and parity assertions
   fixtures/<suite>/<id>/   input.nuif, context.toml, expected.*, meta.toml
   fonts/                   pinned fonts referenced by fixtures; no system fonts
-  generated/               browser-differential cases written by xtask; never edited by hand
+  generated/               planned persisted browser cases; runtime Gate C cases are seed-derived
 fuzz/                      planned cargo-fuzz package; no targets are implemented yet
-xtask/                     implemented research/verify/trial/hostile-input/editor loop; browser gentest and expectation regeneration pending
+xtask/                     implemented research/verify/Gate B/Gate C/hostile-input/editor loop
 tools/
   research/                record validator
   git/                     commit lint
@@ -58,13 +58,13 @@ One directory per case. Files:
 | `ops.nuif-log` | operation log for operations, merge and replay cases |
 | `meta.toml` | unique title, issue reference, tags, `disabled = true|false` with reason, tolerance overrides |
 
-Regeneration uses one variable, `NUIF_UPDATE_EXPECT=1`. A missing expectation fails the case and writes `expected.*.new`. Generated suites are regenerated wholesale by `cargo xtask gentest` and committed separately from hand-written fixtures (`taffy-and-yoga-browser-generated-tests`). Per-asset metadata follows the sample-asset corpus model (`gltf-validator-and-sample-assets`).
+Persisted expectation regeneration remains a planned extension and will use one variable, `NUIF_UPDATE_EXPECT=1`: a missing expectation fails the case and writes `expected.*.new`, and generated suites are replaced wholesale rather than hand-edited (`taffy-and-yoga-browser-generated-tests`). The implemented Gate C runner instead derives cases from a recorded seed, measures all three engines in one run and stores raw observations in its report; it has no stale golden file to update. Per-asset metadata for future persisted suites follows the sample-asset corpus model (`gltf-validator-and-sample-assets`).
 
 ## Determinism controls
 
 - Seed: every implemented generator draws from one xorshift PRNG seeded per trial; `nuif trial <seed> <iterations> [snapshot-interval]` records the seed and failing iteration (`deterministic-simulation-testing`).
 - Time and randomness: profile 0 has no time-dependent engine semantics; the editor uses monotonically assigned transaction identifiers, and generated values come only from the trial PRNG. Virtual time is required before behavior/animation work begins (`masonry-xilem-and-linebender-test-harness`).
-- Floating point: canonical text follows RFC 0005's stated shortest-digit layout and canonical CBOR follows RFCs 0005/0008. Current layout tests assert structural relations and repeatability; foreign-oracle tolerance comparison is not implemented.
+- Floating point: canonical text follows RFC 0005's stated shortest-digit layout and canonical CBOR follows RFCs 0005/0008. Gate C records each fixture's observed Taffy/browser maximum and rounds it upward to 0.01 px, capped by the 0.1 px foreign-engine safety bound. Exact agreement retains zero tolerance; no aggregate bound silently replaces the fixture values.
 - Fonts: the fixture context carries a synthetic font hash, but profile 0 intentionally renders text with a deterministic bitmap proxy. Pinned real fonts, Unicode data, shaping and raster parameters are Gate D work (`text-rendering-reproducibility`).
 - Threads: the current suites have no shared mutable global state and pass under libtest's normal parallel execution.
 - Environment: CI uses `--locked` and pinned Rust 1.98.0; the separate MSRV job checks 1.96.0.
@@ -76,7 +76,7 @@ Regeneration uses one variable, `NUIF_UPDATE_EXPECT=1`. A missing expectation fa
 | model | assertions | identity uniqueness, containment acyclicity, relation target existence |
 | canonicalization | self-consistency | `E(D(E(d))) = E(d)`; hash stability; idempotent canonicalize |
 | extensions | self-consistency through an ignorant implementation | byte identity of unknown payloads after decode, edit, encode (`opentimelineio`, `godot-tscn-scene-format`) |
-| layout | implemented metamorphic relations; browser/Taffy foreign references planned | responsive direction and relative-position assertions at 360/768/1440 px; no numeric tolerance is normative until the differential corpus is measured (`differential-testing`, `css-flexbox-grid-algorithm-specs`) |
+| layout | implemented metamorphic relations plus pinned Taffy 0.14.0 and Chrome for Testing 152.0.7977.64 | responsive v0 at 360/768/1440 px and 12 seeded stack/flex/grid cases; raw three-engine boxes, measured fixture bounds and typed divergences (`differential-testing`, `css-flexbox-grid-algorithm-specs`) |
 | render | reference rasterization | profile-0 exact for the implemented integer-composited solid-color CPU path; proposed tier 2 bounded and tier 3 perceptual thresholds remain non-normative until the render-tolerance experiment measures NUIF fixtures (`vello-testing-and-cpu-reference`, `flip-perceptual-difference-metric`, `webrender-reftests`) |
 | operations | self-consistency and reference model | replay to identical hash; `apply(t⁻¹, apply(t, d)) ≡ d`; commutation of independent operations; undo-copy-redo invariance (`command-pattern-undo-and-event-sourcing`) |
 | merge | assertions | three-way merges produce typed conflicts, never arbitrary winners; move and order cases from `crdt-tree-move-operation` |
@@ -86,7 +86,7 @@ Regeneration uses one variable, `NUIF_UPDATE_EXPECT=1`. A missing expectation fa
 
 ## Trial loop
 
-The target loop is shared conceptually by CLI, CI and editor automation. Profile 0 currently implements generation, replay, inverse, canonical encodings, responsive layout, CPU rerender and operation ddmin; the context-matrix foreign comparisons, adapters and fixture writer shown below are planned stages.
+The target loop is shared conceptually by CLI, CI and editor automation. Profile 0 currently implements generation, replay, inverse, canonical encodings, responsive layout, CPU rerender, operation ddmin and the Gate C foreign layout matrix. Adapters and automatic minimized-fixture writing shown below remain planned stages.
 
 ```text
 trial(seed, profile):
@@ -128,6 +128,8 @@ Diagnostic codes are stable strings emitted in machine reports; severities seria
 
 The hostile-input experiment writes a separate `target/hostile-input-report.json` because allocator and elapsed-time measurements are process-level rather than document fidelity entries. It records every input size, expected/observed error class, allocation counters, retained bytes, elapsed microseconds, limits, warmup, allocator method, toolchain and platform. `cargo xtask hostile-inputs` regenerates it and CI uploads it as `hostile-input-report`.
 
+The layout-differential experiment writes `target/layout-differential-report.json`. It records the source revision, dirty state, toolchain, exact Taffy and browser pins, launch flags, seed, case source, viewport, raw box maps, observed foreign delta, fixture-local assertion value and every typed divergence. Missing browsers, version drift, evaluator defects, Taffy/browser differences beyond the measured bound and unclassified differences fail `cargo xtask gate-c`; declared schema-loss records remain visible and non-blocking.
+
 ## Editor participation
 
 The editor exposes an in-process session driver (`nuif-api`) that the harness calls without a window: open, apply operation, query accessibility tree, dispatch accessibility action, redraw to a CPU frame, snapshot. The accessibility tree carries entity identifiers (`accesskit-semantic-ui-testing`), so a test asserts "the selected entity is X" by role and identifier rather than by pixel position. GUI screenshot comparison is limited to shell wiring and uses the same tiers as the render suite with per-OS baselines avoided by CPU rasterization. Gesture tests assert the emitted protocol operations, not canvas pixels.
@@ -138,9 +140,9 @@ The editor exposes an in-process session driver (`nuif-api`) that the harness ca
 |---|---|
 | commit-lint | subject rules |
 | research | record validation |
-| rust | fmt, check, clippy pedantic, `cargo test --workspace --locked`, 10,000-patch Gate B trial, hostile-input release measurement and report upload (all suites, CPU only) |
+| rust | fmt, check, clippy pedantic, `cargo test --workspace --locked`, 10,000-patch Gate B trial, hostile-input release measurement, pinned Gate C three-way layout trial and both report uploads (all render suites CPU only) |
 | fuzz-smoke (planned) | future fuzz targets with committed seed corpora |
-| gentest-check (planned) | future `cargo xtask gentest --check` regenerates browser-differential cases in headless Chrome and fails on diff |
+| layout-differential | `cargo xtask browser-install` plus `cargo xtask gate-c`; seed-derived cases run in headless Chrome and fail on pin drift or blocking/unclassified divergence |
 | editor-headless | editor session scripts through `nuif-api`; accessibility-tree assertions; CPU snapshots |
 | gpu-optional | interactive backend under tier 3 on a GPU runner; failures are reported, not blocking |
 

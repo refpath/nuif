@@ -112,22 +112,24 @@ Testing is designed for automated trial loops: generate or load a document, appl
 
 ## Status
 
-Gate B (canonical model, operations and encodings) is complete. The workspace now executes structural validation, anchored atomic operations, replay/inversion, canonical text and deterministic CBOR, measured hostile-input limits, responsive profile-0 layout, solid-color CPU rasterization, seeded trial reports and a headless editor driver. Gate C browser/Taffy differential layout, shaped text, HTML/CSS synchronization, the Masonry GUI shell, collaboration profiles and an independent implementation remain incomplete. Specifications are drafts; no conformance profile is published. `research/AUDIT.md` records the accuracy review, evidence limits, quantified gates and stop conditions.
+Gates B and C are complete under the quantified criteria in `research/AUDIT.md`. The workspace executes structural validation, anchored atomic operations, replay/inversion, canonical text and deterministic CBOR, measured hostile-input limits, responsive profile-0 layout, solid-color CPU rasterization, pinned three-way NUIF/Taffy/Chrome layout trials, seeded reports and a headless editor driver. Gate C explicitly reports the still-missing Grid track/placement schema; it does not claim Grid conformance. Shaped text, HTML/CSS synchronization, the Masonry GUI shell, collaboration profiles and an independent implementation remain incomplete. Specifications are drafts; no conformance profile is published.
 
 Run the automated baseline:
 
 ```sh
+cargo xtask browser-install # one-time pinned Chrome for Testing download
 cargo xtask all
 cargo xtask trial 24301 100
 cargo xtask gate-b # 10,000 patches; raster sample every 100 patches
 cargo xtask hostile-inputs # boundary/one-over time and allocator report
+cargo xtask gate-c # NUIF/Taffy/pinned-Chrome layout report
 cargo run --locked -p nuif-cli -- fixture v0-responsive-card /tmp/v0.nuif
 cargo run --locked -p nuif-editor -- --headless \
   --script conformance/fixtures/v0-responsive-card/editor-trial.jsonl \
   --document /tmp/v0.nuif --output /tmp/edited.nuif
 ```
 
-`cargo xtask all` bootstraps the pinned Python research-validator environment under ignored `target/`, then runs research validation, Rust verification, the short full-raster trial, the 10,000-patch Gate B trial, the release-mode hostile-input allocation/time trial and the headless editor replay. The hostile-input run writes `target/hostile-input-report.json`.
+`cargo xtask all` bootstraps the pinned Python research-validator environment under ignored `target/`, then runs research validation, Rust verification, the short full-raster trial, the 10,000-patch Gate B trial, the release-mode hostile-input allocation/time trial, the Gate C differential layout trial and the headless editor replay. Install the locked browser first. The measured runs write `target/hostile-input-report.json` and `target/layout-differential-report.json`; CI archives both.
 
 ## Contributing
 

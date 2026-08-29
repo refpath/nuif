@@ -25,4 +25,4 @@ NUIF conformance is split into independently testable profiles.
 - deterministic operation replay;
 - visual snapshots with perceptual thresholds only where exact pixels are not normative.
 
-A test result must include implementation version, capability profile, fixture ID and evaluation context.
+A test result must include implementation version, capability profile, fixture ID and evaluation context. Foreign-reference results additionally include exact oracle versions, generator source revision, raw per-engine observations, a fixture-local measured bound and typed classifications for every divergence.
