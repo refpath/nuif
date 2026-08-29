@@ -95,8 +95,18 @@
       "research": "figma",
       "directions": [],
       "profiles": [],
-      "next_profile": "checked-in one-page REST fixtures and a separately tested plugin bridge",
+      "next_profile": "the bounded mapping and live-host fixtures in adapters/figma/PROFILE-DRAFT.md",
       "boundary": "The public REST surface is authenticated and read-oriented; writes require plugin execution, credentials, scopes, plan access and rate limits."
+    },
+    {
+      "id": "adobe-uxp",
+      "surface": "host-specific UXP document APIs and CCX packages",
+      "status": "external_runtime",
+      "research": "adobe-uxp-host-integration",
+      "directions": [],
+      "profiles": [],
+      "next_profile": "the InDesign page-item mapping and live-host fixtures in adapters/adobe/PROFILE-DRAFT.md",
+      "boundary": "UXP object models, mutation rules and packages are host-specific; no generic Adobe or Illustrator UXP capability is claimed."
     },
     {
       "id": "swiftui",

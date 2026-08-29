@@ -8,7 +8,7 @@ source:
   authors: [Figma]
   published_at: "unknown"
   license: proprietary API documentation (Figma); facts only recorded here
-retrieved_at: 2026-08-29
+retrieved_at: 2026-08-30
 tags: [figma, plugin-api, rest-api, automation, headless, plugin-data, variables, export, mcp]
 confidence: 0.9
 claims: [nuif:claim:semantic-automation, nuif:claim:opaque-preservation]
@@ -33,9 +33,9 @@ relations:
     note: pluginData / sharedPluginData are opaque per-node string stores that survive in the file and the REST export.
 links:
   spec: [spec/12-cli-api-and-automation.md, spec/07-extensions-and-dialects.md]
-  adr: []
+  adr: [adrs/0008-vendor-host-adapters.md]
   rfc: [rfcs/0004-headless-qa-contract.md, rfcs/0002-extension-preservation.md]
-  code: [apps/editor/ARCHITECTURE.md, apps/editor/QA.md, adapters/README.md]
+  code: [apps/editor/ARCHITECTURE.md, apps/editor/QA.md, adapters/README.md, adapters/figma/PROFILE-DRAFT.md, crates/nuif-adapter/src/lib.rs]
   experiments: []
 ---
 
@@ -47,17 +47,46 @@ NUIF interpretation: Figma proves that a design editor's entire semantic surface
 
 ## Evidence
 
-Retrieval date for all locators: 2026-08-29.
+Retrieval date for all locators: 2026-08-30.
 
 - `figma.createFrame(): FrameNode` — "similar to using the F shortcut followed by a click"; the frame defaults to 100×100 with a white background and is parented to `figma.currentPage`. https://developers.figma.com/docs/plugins/api/properties/figma-createframe/.
 - The global object exposes `currentPage: PageNode` (settable), `root: DocumentNode`, `editorType` ('figma' | 'figjam' | 'dev' | 'slides' | 'buzz'), `mode` ('default' | 'textreview' | 'inspect' | 'codegen' | 'linkpreview' | 'auth'), `create*` constructors (Frame, Rectangle, Ellipse, Polygon, Star, Text, Component, Page, Section), `getNodeByIdAsync`, `loadAllPagesAsync`, `on/off/once`, `commitUndo`, `triggerUndo`, `notify`, `closePlugin`, `viewport`, `ui`, `clientStorage`, `variables`, `teamLibrary`, `skipInvisibleInstanceChildren`. https://developers.figma.com/docs/plugins/api/figma/.
 - `PageNode.selection: ReadonlyArray<SceneNode>`; "Each page stores its own selection separately"; order unspecified; `selectedTextRange`; `loadAsync()` required under dynamic page loading. https://developers.figma.com/docs/plugins/api/PageNode/. Whether assignment to `selection` is permitted was not confirmed in the retrieved text (unverified; the older URL /properties/figma-currentpage/ returns 404).
 - `setPluginData(key: string, value: string): void` — entry (pluginId, key, value) limited to 100 kB; private to the plugin ID; privacy is "for stability, not security"; empty string deletes the key. https://developers.figma.com/docs/plugins/api/properties/nodes-setplugindata/.
+- Private plug-in data becomes inaccessible if the plug-in ID changes. Shared
+  plug-in data is namespaced, readable by every plug-in and also limited to
+  100 kB per entry. Locators:
+  https://developers.figma.com/docs/plugins/api/properties/nodes-setplugindata/
+  and
+  https://developers.figma.com/docs/plugins/api/properties/nodes-setsharedplugindata/.
+- New plug-ins must declare `documentAccess: "dynamic-page"`. The manifest can
+  constrain network requests with `networkAccess.allowedDomains`; `["none"]`
+  declares no network. Locator: *Plugin Manifest*, retrieved 2026-08-30:
+  https://developers.figma.com/docs/plugins/manifest/.
+- Figma recommends loading pages only as needed. Document-wide traversal under
+  dynamic loading requires explicit page loads, and several `DocumentNode`
+  searches require `loadAllPagesAsync()`. Locators: *Accessing the Document*
+  and *Migrating Plugins to Dynamically Load Pages*, retrieved 2026-08-30:
+  https://developers.figma.com/docs/plugins/accessing-document/ and
+  https://developers.figma.com/docs/plugins/migrating-to-dynamic-loading/.
 - `setSharedPluginData(namespace: string, key: string, value: string): void` — readable by all plugins; namespace at least 3 alphanumeric characters; 100 kB limit; `getSharedPluginDataKeys` enumerates a namespace. https://developers.figma.com/docs/plugins/api/properties/nodes-setsharedplugindata/.
 - REST `GET /v1/files/:key` query `plugin_data` accepts "Comma separated list of plugin IDs and/or the string shared" and adds `pluginData` and `sharedPluginData` to nodes in the response; other parameters `version`, `ids`, `depth`, `geometry=paths`, `branch_data`; response includes `document`, `components`, `componentSets`, `styles`, `schemaVersion`, `version`. Tier 1, scope `file_content:read`. https://developers.figma.com/docs/rest-api/file-endpoints/.
 - REST `GET /v1/files/:key/nodes` (ids, version, depth, geometry, plugin_data); `GET /v1/images/:key` renders nodes with `scale` 0.01–4, `format` jpg/png/svg/pdf, `svg_outline_text`, `svg_include_id`, `svg_include_node_id`, `svg_simplify_stroke`, `contents_only`, `use_absolute_bounds`, `version`; `GET /v1/files/:key/images` returns image-fill URLs expiring within 14 days. Same page.
 - The REST API is "Largely read-only" except comments, comment reactions, variables and dev resources; it operates where "a user does not need to be present"; the Plugin API requires that "A user has a particular Figma design or FigJam file open" and can "only read and edit the current file that a user has open". https://developers.figma.com/compare-apis/.
-- Plugin execution: main thread runs in a sandbox with ES2020+ but without `fetch`, `XMLHttpRequest`, `setTimeout` or the DOM; UI runs in an iframe created by `figma.showUI()`; the two communicate by message passing; a plugin that never calls `figma.closePlugin()` "runs indefinitely" with a "Running" toast. https://developers.figma.com/docs/plugins/how-plugins-run/.
+- Plugin execution: the main thread runs in an ES2020+ sandbox without the DOM
+  or the full browser API; UI runs in an iframe created by `figma.showUI()` and
+  communicates with the main thread by messages. A plug-in must close when its
+  work ends. Locator: *How Plugins Run*, retrieved 2026-08-30:
+  https://developers.figma.com/docs/plugins/how-plugins-run/.
+- Current documentation now exposes a Figma Fetch API in the sandbox, governed
+  by the manifest domain allow-list; UI iframes continue to provide browser
+  APIs. A credential-free NUIF bridge does not require network access. Locator:
+  *Making Network Requests*, retrieved 2026-08-30:
+  https://developers.figma.com/docs/plugins/making-network-requests/.
+- By default, one undo reverses all actions performed by a plug-in run.
+  `figma.commitUndo()` partitions later actions into another undo segment.
+  Locator: `commitUndo`, retrieved 2026-08-30:
+  https://developers.figma.com/docs/plugins/api/properties/figma-commitundo/.
 - "It's not possible to build plugins that run in the background"; users run one plugin at a time; actions are "initiated by the user". https://developers.figma.com/docs/plugins/ — introduction.
 - Dev Mode plugins (`editorType: ["dev"]`, capabilities `inspect` / `codegen`) are read-only; "setter methods in the Plugin API do not work in Dev Mode" except metadata such as `pluginData` and `relaunchData`; pages are always dynamically loaded. https://developers.figma.com/docs/plugins/working-in-dev-mode/.
 - `figma.on` events: selectionchange, currentpagechange, documentchange, close, run, drop, timer events, stylechange, textreview. `documentchange` requires `"documentAccess": "dynamic-page"` in the manifest and a prior `figma.loadAllPagesAsync()`; Figma "will not call the 'documentchange' callback synchronously and will instead batch the updates". https://developers.figma.com/docs/plugins/api/properties/figma-on/.
@@ -66,6 +95,10 @@ Retrieval date for all locators: 2026-08-29.
 - Variables REST: `GET .../variables/local` and `GET .../variables/published` (scope `file_variables:read`), `POST .../variables` (scope `file_variables:write`, edit permission, 4 MB body, up to 5,000 variables per collection, 40 modes per collection); all require an Enterprise organisation. https://developers.figma.com/docs/rest-api/variables-endpoints/.
 - REST authentication is by personal access token or OAuth2; base URL `https://api.figma.com`. https://developers.figma.com/docs/rest-api/.
 - MCP server: remote (Figma-hosted) or desktop-app server; agents can read variables, components, layout and design context, generate code, and "create and modify native Figma content directly"; only clients in the Figma MCP Catalog can connect. https://developers.figma.com/docs/figma-mcp-server/.
+- After initial approval, plug-in updates publish immediately to every user and
+  users cannot select an older version. Rollback requires republishing earlier
+  code as a new update. Locator: plug-in introduction, *Versioning*, retrieved
+  2026-08-30: https://developers.figma.com/docs/plugins/.
 - Headless execution: no Figma developer page retrieved offers headless or CLI plugin execution. A community feature request confirms plugins cannot auto-run headlessly (secondary source). https://forum.figma.com/suggest-a-feature-11/are-headless-auto-start-figma-plugins-possible-39156.
 - Unverified: whether `pluginData` survives copy/paste and duplication of nodes; the setPluginData page does not state it.
 - Unverified: whether `figma.currentPage.selection` is assignable (commonly used in plugin code, but not confirmed in the retrieved text).
@@ -83,6 +116,9 @@ Call surface relevant to a programmable editor, grouped by the QA capabilities i
 6. Render: `exportAsync` (PNG, JPG, SVG, PDF, SVG string, JSON_REST_V1, video); REST `GET /v1/images/:key`.
 7. Tokens: `figma.variables` in-editor; REST variables endpoints (Enterprise).
 8. Execution boundary: plugin main thread inside an open file, initiated by a user; REST outside the editor, read-mostly; MCP server as an agent bridge with catalogued clients.
+9. Delivery boundary: manifest API version and plug-in identifier are host
+   contracts. Updates are global, so a NUIF bridge needs independent semantic
+   versioning, fixture gates and an explicit rollback release.
 
 ## NUIF relevance
 
@@ -97,6 +133,10 @@ Call surface relevant to a programmable editor, grouped by the QA capabilities i
 - Replace the plugin-ID-keyed private store with NUIF's dialect/extension namespaces so preserved data is portable rather than tied to a vendor plugin identity (`spec/07-extensions-and-dialects.md`).
 - Make the export-to-JSON path (`JSON_REST_V1`) the canonical serialisation rather than a secondary export, because NUIF's canonical document is the neutral format itself.
 - Provide the same operation surface in-process and over a local endpoint so the editor is not required to be open (contrast with Figma's editor-bound plugin runtime).
+- Use dynamic page loading, a no-network manifest by default and one undo group
+  per confirmed import. Store portable identity in a shared `nuif` namespace,
+  while treating host node IDs and duplicate detection as the authoritative
+  correspondence evidence.
 
 **Reject**
 - Editor-bound plugin execution with no headless mode; single-plugin-at-a-time and user-initiated constraints; Enterprise-gated variables API; MCP access restricted to a client catalogue; comments and dev-resources write endpoints; FigJam/Slides/Buzz editor types. Reason: the NUIF test editor must be scriptable headlessly and without plan or client gating.

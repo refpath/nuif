@@ -19,8 +19,10 @@ same CLI synchronization contract as the source adapters. Its deliberately
 narrow boundary precedes the token-model RFC required for groups, aliases and
 composite types.
 
-The remaining researched targets are Svelte, React, Penpot, Figma, Flutter,
-SwiftUI and Jetpack Compose. Broader HTML/CSS, SVG and DTCG profiles remain
+The remaining researched targets are Svelte, React, Penpot, Figma, Adobe UXP,
+Flutter, SwiftUI and Jetpack Compose. Figma and Adobe now have bounded draft
+host profiles and a serializable host-object correspondence report, but no live
+plug-in claim. Broader HTML/CSS, SVG and DTCG profiles remain
 separate future work beyond the four executable profiles. Each adapter must
 emit structured fidelity diagnostics and record provenance/correspondence
 sufficient for later synchronization and minimal source patches where feasible.
@@ -31,10 +33,14 @@ advertised target. Research coverage and executable conformance are listed
 separately.
 
 [`index.json`](index.json) is the machine-readable counterpart. `cargo xtask
-adapter-audit` requires all ten advertised targets to have a primary research
+adapter-audit` requires all advertised targets to have a primary research
 record, explicit directionality, a next bounded profile and a non-empty
 boundary. Integrated entries additionally require crate, profile and routed
 gate paths; non-integrated entries cannot claim executable directions. The
 audit writes `target/adapter-coverage-report.json` and blocks the complete gate.
 
 Vendor-specific semantics belong in namespaced extensions or adapter-local logic; they must not leak into the core merely because a vendor is popular.
+
+Source adapters use `AdapterReport` and byte-span correspondence. Plug-in/API
+hosts use `HostAdapterReport` and stable host-object identifiers because they do
+not expose retained source bytes. See ADR 0008 and `docs/HOST-INTEGRATION.md`.
