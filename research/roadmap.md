@@ -2,13 +2,17 @@
 
 The operational plan and audit findings are in `AUDIT.md`. Work advances by evidence gates, not by document volume or implementation phase names.
 
+## Completed gate
+
+Gate B: canonical model, operations and encodings. The executable baseline covers structural validation, anchored atomic operations, stale-base rejection, replay/inversion, text/CBOR fixpoints, negative numeric/canonical cases, opaque-byte cycles, a passing 10,000-patch seeded trial, and measured hostile-input byte, depth, node, allocation and time budgets. RFC 0009 and `cargo xtask hostile-inputs` close the final Gate B condition.
+
 ## Current gate
 
-Gate B: canonical model, operations and encodings. The executable baseline covers structural validation, anchored atomic operations, stale-base rejection, replay/inversion, text/CBOR fixpoints, negative numeric/canonical cases, opaque-byte cycles and a passing 10,000-patch seeded trial. The remaining Gate B work is measured hostile-input depth, node, allocation and time budgets.
+Gate C: responsive layout falsifier. Profile-0 responsive stack relations pass at 360, 768 and 1,440 pixels, but no pinned browser/Taffy foreign oracle or tolerance calibration is wired into the repository yet.
 
 ## Queue
 
-1. Keep Gate B green with `cargo xtask gate-b` (10,000 deterministic generated patches, with expensive raster checks sampled every 100 patches) and commit any minimized failures as fixtures; add measured hostile-input limits before closing the gate.
+1. Keep Gate B green with `cargo xtask gate-b` and `cargo xtask hostile-inputs`; commit any minimized failure as a fixture and retain hostile-input reports as CI artifacts.
 2. Run Gate C layout differential generation against pinned Taffy and browser versions; derive tolerance distributions from results.
 3. Pin font assets and shaping inputs before claiming Gate D text or cross-platform raster exactness.
 4. Finish Gate E by authoring the entire v0 fixture through editor accessibility actions and then attach the Masonry shell to the already-tested driver boundary.

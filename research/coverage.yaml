@@ -58,8 +58,8 @@ areas:
     artifacts: [spec/10-collaboration-profile.md, adrs/0005-collaboration-profile.md]
   security_trust:
     status: covered
-    evidence: [nuif:research:webgpu-security, nuif:research:fuzzing-structured-inputs]
-    artifacts: [spec/11-security.md, SECURITY.md]
+    evidence: [nuif:research:webgpu-security, nuif:research:fuzzing-structured-inputs, nuif:research:resource-bounded-serde-and-ciborium]
+    artifacts: [spec/11-security.md, rfcs/0009-profile-zero-resource-budgets.md, SECURITY.md]
   implementation_language:
     status: covered
     evidence: [nuif:research:taffy, nuif:research:vello, nuif:research:wasm-component-model]
@@ -74,7 +74,7 @@ areas:
     artifacts: [spec/12-cli-api-and-automation.md, rfcs/0004-headless-qa-contract.md, crates/nuif-api, crates/nuif-cli, apps/editor/QA.md]
   testing_conformance:
     status: experiment-required
-    evidence: [nuif:research:deterministic-simulation-testing, nuif:research:metamorphic-testing-graphics, nuif:research:delta-debugging-and-test-case-reduction, nuif:research:property-based-testing-state-machines, nuif:research:differential-testing, nuif:research:golden-master-and-snapshot-testing, nuif:research:libtest-mimic-and-data-driven-fixtures, nuif:research:rust-snapshot-property-fuzz-tooling, nuif:research:cargo-workspace-xtask-and-ci-layout, nuif:research:wasm-headless-execution, nuif:research:skia-gold-and-gm-tests, nuif:research:webrender-reftests, nuif:research:flip-perceptual-difference-metric, nuif:research:ssim-and-classical-image-metrics]
+    evidence: [nuif:research:deterministic-simulation-testing, nuif:research:metamorphic-testing-graphics, nuif:research:delta-debugging-and-test-case-reduction, nuif:research:property-based-testing-state-machines, nuif:research:differential-testing, nuif:research:golden-master-and-snapshot-testing, nuif:research:libtest-mimic-and-data-driven-fixtures, nuif:research:rust-snapshot-property-fuzz-tooling, nuif:research:cargo-workspace-xtask-and-ci-layout, nuif:research:wasm-headless-execution, nuif:research:skia-gold-and-gm-tests, nuif:research:webrender-reftests, nuif:research:flip-perceptual-difference-metric, nuif:research:ssim-and-classical-image-metrics, nuif:research:resource-bounded-serde-and-ciborium]
     artifacts: [spec/00-conformance.md, conformance/PLAN.md, conformance/fixtures/v0-responsive-card/README.md, conformance/HARNESS.md]
   adapters:
     status: ongoing

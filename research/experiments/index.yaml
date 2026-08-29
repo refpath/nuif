@@ -112,6 +112,23 @@ experiments:
       - sampled responsive layout and CPU rerender equality
       - operation-sequence ddmin when a relation fails
       - one JSON report per run following conformance/HARNESS.md
+  - id: nuif:experiment:hostile-input-budgets
+    status: automated
+    evidence: [nuif:research:resource-bounded-serde-and-ciborium, nuif:research:deterministic-simulation-testing, nuif:research:fuzzing-structured-inputs]
+    implementation: [crates/nuif-core/src/lib.rs, crates/nuif-codec/src/lib.rs, crates/nuif-testing/src/bin/hostile-inputs.rs, xtask/src/main.rs]
+    oracle: measured-benchmark
+    acceptance:
+      - one-over encoded byte syntax depth and semantic cardinality cases return the named resource-limit class
+      - boundary entity property containment string and binary cases are accepted
+      - every release case stays below 2 seconds 64 MiB allocated and 16 MiB retained after fixed warmup
+      - report records toolchain build profile allocator protocol operating system architecture CPU and available parallelism
+    tests:
+      - bounded file and standard-input reads stop after the first excess byte
+      - text depth scanning ignores strings escapes and JSON5 comments
+      - CBOR parsing applies the selected recursion limit and canonical wide-map sorting encodes each key once
+      - iterative semantic accounting covers entities roots tokens relations child references responsive rules property nodes strings and binary payloads
+      - validation retains at most 1024 ordinary diagnostics plus one truncation issue
+      - CI uploads target/hostile-input-report.json
   - id: nuif:experiment:render-tolerance-tiers
     status: active
     evidence: [nuif:research:vello-testing-and-cpu-reference, nuif:research:flip-perceptual-difference-metric, nuif:research:resvg-test-suite, nuif:research:gpu-rendering-nondeterminism]

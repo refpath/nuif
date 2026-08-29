@@ -5,7 +5,7 @@ The evidence gates and quantified acceptance criteria are normative for project 
 ## Phase 0 — foundation (complete)
 Exit: research graph schema, architectural RFCs, compilable core seams, CI and v0 falsification fixture exist.
 
-## Phase 1 — canonical model (active)
+## Phase 1 — canonical model (complete)
 Implement typed properties, relations, components, tokens, extensions, deterministic IDs, validation and operation replay. Exit: structural conformance suite and canonical hash stability.
 
 ## Phase 2 — layout
@@ -14,7 +14,7 @@ Implement freeform + stack model and Taffy-backed flex/grid evaluator; add conte
 ## Phase 3 — visual/text
 Implement vector scene lowering, color/paint basics and HarfBuzz-backed shaping experiment with pinned fonts. Exit: deterministic reference snapshots for the fixture.
 
-## Phase 4 — serialization/protocol
+## Phase 4 — serialization/protocol (complete for profile 0)
 Canonical text + deterministic CBOR; package/assets; patch/diff/query CLI. Exit: byte-stable cycles and hostile-input limits.
 
 ## Phase 5 — editor

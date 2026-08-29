@@ -16,3 +16,5 @@ An automated QA client must be able to perform the following without synthetic m
 10. emit one machine-readable report containing inputs, versions, capabilities and artifacts.
 
 GUI automation is reserved for testing shell wiring, focus, pointer/keyboard interactions and browser integration.
+
+The headless client MUST apply the same bounded document reader as the CLI and MUST bound script bytes, line bytes and command count before retaining an operation log. `cargo xtask hostile-inputs` verifies document-ingestion boundaries; editor unit tests verify the limit-plus-one reader.

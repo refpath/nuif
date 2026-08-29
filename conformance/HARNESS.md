@@ -24,7 +24,7 @@ crates/
   nuif-query               semantic queries
   nuif-api                 Engine trait, report types, session driver
   nuif-cli                 command surface; JSON output; stable exit codes
-  nuif-testing             shared test support: seeded trials, v0 fixture, oracles, reducer, report writer
+  nuif-testing             shared test support: seeded trials, hostile-input measurement, v0 fixture, oracles, reducer, report writer
 apps/
   editor                   headless editor driver and binary; Masonry GUI shell remains pending
 conformance/
@@ -34,7 +34,7 @@ conformance/
   fonts/                   pinned fonts referenced by fixtures; no system fonts
   generated/               browser-differential cases written by xtask; never edited by hand
 fuzz/                      planned cargo-fuzz package; no targets are implemented yet
-xtask/                     implemented research/verify/trial/editor loop; browser gentest and expectation regeneration pending
+xtask/                     implemented research/verify/trial/hostile-input/editor loop; browser gentest and expectation regeneration pending
 tools/
   research/                record validator
   git/                     commit lint
@@ -82,7 +82,7 @@ Regeneration uses one variable, `NUIF_UPDATE_EXPECT=1`. A missing expectation fa
 | merge | assertions | three-way merges produce typed conflicts, never arbitrary winners; move and order cases from `crdt-tree-move-operation` |
 | provenance | assertions | correspondence records survive representable round trips; minimal-patch locality measured as changed source spans |
 | adapter | round trip and fidelity report | `canon(Y(X(d))) = canon(d)` on the representable subset; every deviation explained by a report entry |
-| security | implemented byte/pixel guards plus planned fuzzing and measurement | text/CBOR input is capped at 64 MiB before parsing and CPU targets at 16,777,216 pixels; depth/node/time values are unresolved hypotheses, not conformance limits (`fuzzing-structured-inputs`) |
+| security | measured boundary and one-over cases | readers stop at 16 MiB plus one byte; syntax depth 64 and the RFC 0009 semantic limits are enforced; release cases fail above 2 s, 64 MiB allocated or 16 MiB retained; CPU targets remain capped at 16,777,216 pixels (`resource-bounded-serde-and-ciborium`) |
 
 ## Trial loop
 
@@ -126,6 +126,8 @@ One JSON document per run, modelled on the glTF Validator report (`gltf-validato
 
 Diagnostic codes are stable strings emitted in machine reports; severities serialize as `error`, `warning`, `information` or `hint`, and command exit status depends only on errors. A complete public code registry is still required before profile publication.
 
+The hostile-input experiment writes a separate `target/hostile-input-report.json` because allocator and elapsed-time measurements are process-level rather than document fidelity entries. It records every input size, expected/observed error class, allocation counters, retained bytes, elapsed microseconds, limits, warmup, allocator method, toolchain and platform. `cargo xtask hostile-inputs` regenerates it and CI uploads it as `hostile-input-report`.
+
 ## Editor participation
 
 The editor exposes an in-process session driver (`nuif-api`) that the harness calls without a window: open, apply operation, query accessibility tree, dispatch accessibility action, redraw to a CPU frame, snapshot. The accessibility tree carries entity identifiers (`accesskit-semantic-ui-testing`), so a test asserts "the selected entity is X" by role and identifier rather than by pixel position. GUI screenshot comparison is limited to shell wiring and uses the same tiers as the render suite with per-OS baselines avoided by CPU rasterization. Gesture tests assert the emitted protocol operations, not canvas pixels.
@@ -136,7 +138,7 @@ The editor exposes an in-process session driver (`nuif-api`) that the harness ca
 |---|---|
 | commit-lint | subject rules |
 | research | record validation |
-| rust | fmt, check, clippy pedantic, `cargo test --workspace --locked` (all suites, CPU only) |
+| rust | fmt, check, clippy pedantic, `cargo test --workspace --locked`, 10,000-patch Gate B trial, hostile-input release measurement and report upload (all suites, CPU only) |
 | fuzz-smoke (planned) | future fuzz targets with committed seed corpora |
 | gentest-check (planned) | future `cargo xtask gentest --check` regenerates browser-differential cases in headless Chrome and fails on diff |
 | editor-headless | editor session scripts through `nuif-api`; accessibility-tree assertions; CPU snapshots |

@@ -1,6 +1,6 @@
 # Research audit and corrected base plan
 
-Audit date: 2026-08-29. Scope: the research index, 98 source records, questions, coverage map, experiments, whitepaper synthesis, accepted RFCs/ADRs, draft specification, conformance design and executable seams.
+Audit date: 2026-08-29. Scope: the research index, 99 source records, questions, coverage map, experiments, whitepaper synthesis, accepted RFCs/ADRs, draft specification, conformance design and executable seams.
 
 ## Outcome
 
@@ -20,7 +20,7 @@ The research base is solid enough to continue only under the gates below. It is 
 | Oracle independence | The harness listed the reference implementation as oracle for several properties without separating self-consistency from independent correctness. | Reports identify oracle class. Codec, replay and inverse tests are metamorphic; layout and adapter claims remain experimental until a foreign oracle is wired in. |
 | Layout thresholds | A global `< 0.1 px` browser threshold and fixed visual thresholds were copied from prior systems without a NUIF calibration dataset. | No tolerance becomes normative until distributions are measured per property/platform. Profile-0 tests currently assert structural responsive relations and deterministic output. |
 | CPU exactness | “CPU `f32`, tolerance 0 across operating systems” was asserted before a pinned math, font and raster pipeline existed. | Exactness is limited to the current integer-composited profile-0 raster path. Text uses a deterministic proxy; shaped-text and cross-platform exactness remain open experiments. |
-| Resource limits | Depth 1024 and one million nodes were listed without memory/time measurements. | They remain upper-bound hypotheses, not safe defaults. Parser and renderer budgets must be benchmarked under adversarial fixtures before profile publication. |
+| Resource limits | Depth 1024 and one million nodes were listed without memory/time measurements. | RFC 0009 replaces them with measured profile-0 byte, syntax, semantic, diagnostic, allocation and time bounds. Image/font/path/GPU budgets remain future-profile work. |
 | Editor stack | ADR 0006 selects an unreleased Masonry revision with acknowledged API churn. The choice is plausible but not yet verified in this repository. | The stable boundary is the headless `EditorDriver` and accessibility action contract. Masonry is a replaceable shell client and cannot change document semantics. |
 | Scope and adoption | The prior plan attempted model, layout, rendering, text, source synchronization, adapters, collaboration and a full editor before proving the hard round trip. | Work is gated by the v0 falsifier. No collaboration or broad GUI expansion precedes codec, responsive layout, opaque preservation and one minimal source patch. |
 
@@ -40,7 +40,7 @@ Confidence is not a substitute for status. A `0.99` reviewed record is not verif
 
 Exit only when the research validator resolves every record, claim, topic, question, experiment and artifact link; every accepted RFC has primary evidence; contradictions use `contradicts`/`supersedes`; and claims described as verified have locator-level evidence. Source-health checks are periodic and non-normative because network availability must not make conformance nondeterministic.
 
-### Gate B — canonical model, operations and encodings
+### Gate B — canonical model, operations and encodings (complete)
 
 Exit metrics:
 
@@ -94,4 +94,4 @@ Stop or narrow the architecture if the v0 source patch routinely becomes whole-f
 
 ## Executable baseline after this audit
 
-The repository now has a typed canonical model, structural validator, anchored atomic operations with stale-base rejection and replay/inversion, canonical text and deterministic CBOR codecs, responsive profile-0 layout, deterministic CPU rasterization, a seeded trial/ddmin/report library, an executable conformance package, a multi-command CLI and a headless editor accessibility driver with complete mutation-log replay. The Gate B long run passes 10,000 generated patches (160,000 operations), checking replay, inverse and both encodings on every patch and sampling layout/raster checks every 100 patches. This verifies plumbing and metamorphic properties, not foreign correctness. Measured hostile-input budgets still keep Gate B open, and Gates C through G remain incomplete: browser/Taffy differential generation, shaped text, HTML/CSS correspondence, the Masonry GUI shell, collaboration engines and an independent implementation are research work.
+The repository now has a typed canonical model, structural validator, anchored atomic operations with stale-base rejection and replay/inversion, canonical text and deterministic CBOR codecs, responsive profile-0 layout, deterministic CPU rasterization, a seeded trial/ddmin/report library, an executable conformance package, a multi-command CLI and a headless editor accessibility driver with complete mutation-log replay. The Gate B long run passes 10,000 generated patches (160,000 operations), checking replay, inverse and both encodings on every patch and sampling layout/raster checks every 100 patches. The hostile-input run measures byte, syntax-depth, semantic-cardinality, elapsed-time and allocator boundaries, records its platform, and rejects every one-over case. Gate B is complete. This verifies reference plumbing, metamorphic properties and its measured safety envelope, not foreign correctness. Gates C through G remain incomplete: browser/Taffy differential generation, shaped text, HTML/CSS correspondence, the Masonry GUI shell, collaboration engines and an independent implementation are research work.

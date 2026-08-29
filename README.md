@@ -112,7 +112,7 @@ Testing is designed for automated trial loops: generate or load a document, appl
 
 ## Status
 
-Phase 1 (canonical model) is active. The workspace now executes structural validation, anchored atomic operations, replay/inversion, canonical text and deterministic CBOR, responsive profile-0 layout, solid-color CPU rasterization, seeded trial reports and a headless editor driver. Browser/Taffy differential layout, shaped text, HTML/CSS synchronization, the Masonry GUI shell, collaboration profiles and an independent implementation remain incomplete. Specifications are drafts; no conformance profile is published. `research/AUDIT.md` records the accuracy review, evidence limits, quantified gates and stop conditions.
+Gate B (canonical model, operations and encodings) is complete. The workspace now executes structural validation, anchored atomic operations, replay/inversion, canonical text and deterministic CBOR, measured hostile-input limits, responsive profile-0 layout, solid-color CPU rasterization, seeded trial reports and a headless editor driver. Gate C browser/Taffy differential layout, shaped text, HTML/CSS synchronization, the Masonry GUI shell, collaboration profiles and an independent implementation remain incomplete. Specifications are drafts; no conformance profile is published. `research/AUDIT.md` records the accuracy review, evidence limits, quantified gates and stop conditions.
 
 Run the automated baseline:
 
@@ -120,13 +120,14 @@ Run the automated baseline:
 cargo xtask all
 cargo xtask trial 24301 100
 cargo xtask gate-b # 10,000 patches; raster sample every 100 patches
+cargo xtask hostile-inputs # boundary/one-over time and allocator report
 cargo run --locked -p nuif-cli -- fixture v0-responsive-card /tmp/v0.nuif
 cargo run --locked -p nuif-editor -- --headless \
   --script conformance/fixtures/v0-responsive-card/editor-trial.jsonl \
   --document /tmp/v0.nuif --output /tmp/edited.nuif
 ```
 
-`cargo xtask all` bootstraps the pinned Python research-validator environment under ignored `target/`, then runs research validation, Rust verification, the short full-raster trial, the 10,000-patch Gate B trial and the headless editor replay.
+`cargo xtask all` bootstraps the pinned Python research-validator environment under ignored `target/`, then runs research validation, Rust verification, the short full-raster trial, the 10,000-patch Gate B trial, the release-mode hostile-input allocation/time trial and the headless editor replay. The hostile-input run writes `target/hostile-input-report.json`.
 
 ## Contributing
 
