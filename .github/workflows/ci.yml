@@ -45,38 +45,26 @@ jobs:
         with:
           toolchain: 1.98.0
           components: rustfmt, clippy
-      - name: Format
-        run: cargo fmt --all -- --check
-      - name: Check
-        run: cargo check --workspace --all-targets --locked
-      - name: Test
-        run: cargo test --workspace --locked
-      - name: Clippy
-        run: cargo clippy --workspace --all-targets --locked -- -D warnings
-      - name: Seeded conformance trial
-        run: cargo run --locked -p nuif-cli -- trial 24301 100
-      - name: Gate B high-volume replay and codec trial
-        run: cargo run --locked -p nuif-cli -- trial 24301 10000 100
-      - name: Hostile-input resource trial
-        run: cargo xtask hostile-inputs
+      - name: Complete automated research and conformance loop
+        run: cargo xtask all
+      - name: Upload Gate B trial report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: gate-b-report
+          path: target/gate-b-report.json
       - name: Upload hostile-input measurements
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: hostile-input-report
           path: target/hostile-input-report.json
-      - name: Install pinned browser oracle
-        run: cargo xtask browser-install
-      - name: Gate C browser and Taffy differential trial
-        run: cargo xtask gate-c
       - name: Upload layout differential report
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: layout-differential-report
           path: target/layout-differential-report.json
-      - name: Gate D text and render profile trials
-        run: cargo xtask gate-d
       - name: Upload text pinning report
         if: always()
         uses: actions/upload-artifact@v4
@@ -89,8 +77,6 @@ jobs:
         with:
           name: render-profile-report
           path: target/render-profile-report.json
-      - name: Headless editor edit and full-authoring parity trials
-        run: cargo xtask editor-trial
       - name: Upload editor authoring report and snapshot
         if: always()
         uses: actions/upload-artifact@v4
@@ -99,8 +85,6 @@ jobs:
           path: |
             target/editor-authoring-report.json
             target/editor-authoring-snapshot
-      - name: Gate F retentive HTML and CSS synchronization
-        run: cargo xtask gate-f
       - name: Upload HTML and CSS synchronization evidence
         if: always()
         uses: actions/upload-artifact@v4
@@ -109,6 +93,12 @@ jobs:
           path: |
             target/html-sync-report.json
             target/html-sync-output.html
+      - name: Upload verification artifact index
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: verification-manifest
+          path: target/verification-manifest.json
 
   msrv:
     runs-on: ubuntu-latest
