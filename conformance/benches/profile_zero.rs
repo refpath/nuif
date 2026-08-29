@@ -78,6 +78,96 @@ fn benchmark_protocol(criterion: &mut Criterion) {
     group.finish();
 }
 
+fn benchmark_session_transactions(criterion: &mut Criterion) {
+    let mut session_group = criterion.benchmark_group("api/apply_local_transaction");
+    for &entities in MODEL_SIZES {
+        let document = performance_fixture(entities, false);
+        let target = EntityId::new(entities as u128 + 1);
+        session_group.throughput(Throughput::Elements(entities as u64));
+        session_group.bench_function(BenchmarkId::from_parameter(entities), |bencher| {
+            bencher.iter_batched(
+                || Session::new(document.clone()),
+                |mut session| {
+                    session
+                        .apply_transaction(
+                            1,
+                            vec![Operation::Rename {
+                                entity: target,
+                                name: Some("benchmark edit".to_owned()),
+                            }],
+                        )
+                        .unwrap()
+                },
+                BatchSize::LargeInput,
+            );
+        });
+        let mut warmed = Session::new(document.clone());
+        warmed
+            .apply_transaction(
+                0,
+                vec![Operation::Rename {
+                    entity: target,
+                    name: Some("warm session".to_owned()),
+                }],
+            )
+            .unwrap();
+        session_group.bench_function(BenchmarkId::new("warm", entities), |bencher| {
+            bencher.iter_batched(
+                || warmed.clone(),
+                |mut session| {
+                    session
+                        .apply_transaction(
+                            1,
+                            vec![Operation::Rename {
+                                entity: target,
+                                name: Some("benchmark edit".to_owned()),
+                            }],
+                        )
+                        .unwrap()
+                },
+                BatchSize::LargeInput,
+            );
+        });
+    }
+    session_group.finish();
+}
+
+fn benchmark_session_history(criterion: &mut Criterion) {
+    let mut history_group = criterion.benchmark_group("api/session_history");
+    for &entities in MODEL_SIZES {
+        let document = performance_fixture(entities, false);
+        let target = EntityId::new(entities as u128 + 1);
+        let mut undo_ready = Session::new(document);
+        undo_ready
+            .apply_transaction(
+                1,
+                vec![Operation::Rename {
+                    entity: target,
+                    name: Some("history edit".to_owned()),
+                }],
+            )
+            .unwrap();
+        let mut redo_ready = undo_ready.clone();
+        redo_ready.undo().unwrap();
+        history_group.throughput(Throughput::Elements(entities as u64));
+        history_group.bench_function(BenchmarkId::new("undo", entities), |bencher| {
+            bencher.iter_batched(
+                || undo_ready.clone(),
+                |mut session| session.undo().unwrap(),
+                BatchSize::LargeInput,
+            );
+        });
+        history_group.bench_function(BenchmarkId::new("redo", entities), |bencher| {
+            bencher.iter_batched(
+                || redo_ready.clone(),
+                |mut session| session.redo().unwrap(),
+                BatchSize::LargeInput,
+            );
+        });
+    }
+    history_group.finish();
+}
+
 fn benchmark_layout_and_scene(criterion: &mut Criterion) {
     let context = profile_zero_context(1_440.0, 900.0);
     let mut layout_group = criterion.benchmark_group("layout/evaluate");
@@ -157,6 +247,8 @@ criterion_group! {
     targets = benchmark_validation,
         benchmark_codecs,
         benchmark_protocol,
+        benchmark_session_transactions,
+        benchmark_session_history,
         benchmark_layout_and_scene,
         benchmark_raster_and_snapshot
 }

@@ -3,7 +3,7 @@
 use nuif_codec::{CodecError, canonical_hash};
 use nuif_core::{Diagnostic, Document, EntityId, Severity, validate};
 use nuif_layout::{EvaluationContext, LayoutSnapshot, evaluate};
-use nuif_protocol::{ApplyError, Patch, apply_patch_with_inverse};
+use nuif_protocol::{ApplyError, Operation, Patch, Transaction, apply_patch_with_inverse};
 use nuif_render::{RasterImage, RenderError, RenderScene, RenderTarget, build_scene, render_cpu};
 use nuif_text::PINNED_FONT_SHA256;
 use serde::{Deserialize, Serialize};
@@ -214,6 +214,7 @@ fn validate_context(context: &EvaluationContext) -> Result<(), EngineError> {
 pub struct Session {
     engine: ReferenceEngine,
     document: Document,
+    revision: Option<String>,
     selection: Vec<EntityId>,
     undo: Vec<Patch>,
     redo: Vec<Patch>,
@@ -225,6 +226,7 @@ impl Session {
         Self {
             engine: ReferenceEngine,
             document,
+            revision: None,
             selection: Vec::new(),
             undo: Vec::new(),
             redo: Vec::new(),
@@ -265,9 +267,42 @@ impl Session {
     /// Returns a typed engine error if the patch cannot be applied atomically.
     pub fn apply(&mut self, patch: &Patch) -> Result<(), EngineError> {
         let inverse = apply_patch_with_inverse(&mut self.document, patch)?;
+        self.revision.clone_from(&inverse.base_revision);
         self.undo.push(inverse);
         self.redo.clear();
         Ok(())
+    }
+
+    /// Authors and applies a transaction against the session-owned document.
+    ///
+    /// The returned patch includes the canonical pre-edit revision and is
+    /// suitable for replay or transport. Because the session exclusively owns
+    /// the document, the protocol application does not recompute that same
+    /// revision as an external stale-base check.
+    ///
+    /// # Errors
+    ///
+    /// Returns a typed engine error if the current revision cannot be computed
+    /// or the transaction cannot be applied atomically.
+    pub fn apply_transaction(
+        &mut self,
+        transaction: u128,
+        operations: Vec<Operation>,
+    ) -> Result<Patch, EngineError> {
+        let base_revision = self.document_revision()?;
+        let mut patch = Patch {
+            base_revision: None,
+            transactions: vec![Transaction {
+                id: transaction,
+                operations,
+            }],
+        };
+        let inverse = apply_patch_with_inverse(&mut self.document, &patch)?;
+        self.revision.clone_from(&inverse.base_revision);
+        self.undo.push(inverse);
+        self.redo.clear();
+        patch.base_revision = Some(base_revision);
+        Ok(patch)
     }
 
     /// Undoes the last session patch and returns the semantic patch that was
@@ -277,10 +312,17 @@ impl Session {
     ///
     /// Returns [`EngineError::HistoryEmpty`] when no undo entry exists.
     pub fn undo(&mut self) -> Result<Patch, EngineError> {
-        let inverse = self.undo.pop().ok_or(EngineError::HistoryEmpty)?;
-        let redo = apply_patch_with_inverse(&mut self.document, &inverse)?;
-        self.redo.push(redo);
-        Ok(inverse)
+        let mut inverse = self.undo.pop().ok_or(EngineError::HistoryEmpty)?;
+        match self.apply_history_patch(&mut inverse) {
+            Ok(redo) => {
+                self.redo.push(redo);
+                Ok(inverse)
+            }
+            Err(error) => {
+                self.undo.push(inverse);
+                Err(error)
+            }
+        }
     }
 
     /// Redoes the last undone session patch and returns the semantic patch that
@@ -290,10 +332,17 @@ impl Session {
     ///
     /// Returns [`EngineError::HistoryEmpty`] when no redo entry exists.
     pub fn redo(&mut self) -> Result<Patch, EngineError> {
-        let patch = self.redo.pop().ok_or(EngineError::HistoryEmpty)?;
-        let inverse = apply_patch_with_inverse(&mut self.document, &patch)?;
-        self.undo.push(inverse);
-        Ok(patch)
+        let mut patch = self.redo.pop().ok_or(EngineError::HistoryEmpty)?;
+        match self.apply_history_patch(&mut patch) {
+            Ok(inverse) => {
+                self.undo.push(inverse);
+                Ok(patch)
+            }
+            Err(error) => {
+                self.redo.push(patch);
+                Err(error)
+            }
+        }
     }
 
     /// Produces canonical, layout, scene and CPU raster artifacts in one frame.
@@ -313,11 +362,44 @@ impl Session {
         };
         let raster = render_cpu(&scene, target)?;
         Ok(Snapshot {
-            canonical_hash: canonical_hash(&self.document)?,
+            canonical_hash: self.document_revision()?,
             layout,
             scene,
             raster,
         })
+    }
+
+    fn document_revision(&self) -> Result<String, EngineError> {
+        self.revision
+            .clone()
+            .map_or_else(|| canonical_hash(&self.document).map_err(Into::into), Ok)
+    }
+
+    fn apply_history_patch(&mut self, patch: &mut Patch) -> Result<Patch, EngineError> {
+        let expected = patch.base_revision.take();
+        let precondition = match &expected {
+            Some(expected) => self.document_revision().and_then(|actual| {
+                if expected == &actual {
+                    Ok(())
+                } else {
+                    Err(ApplyError::BaseRevisionMismatch {
+                        expected: expected.clone(),
+                        actual,
+                    }
+                    .into())
+                }
+            }),
+            None => Ok(()),
+        };
+        if let Err(error) = precondition {
+            patch.base_revision = expected;
+            return Err(error);
+        }
+        let result = apply_patch_with_inverse(&mut self.document, patch);
+        patch.base_revision = expected;
+        let inverse = result?;
+        self.revision.clone_from(&inverse.base_revision);
+        Ok(inverse)
     }
 }
 
@@ -381,6 +463,85 @@ mod tests {
             session.document.entities[&EntityId::new(2)].name.as_deref(),
             Some("card")
         );
+    }
+
+    #[test]
+    fn local_transaction_returns_a_replayable_preconditioned_patch() {
+        let base = document();
+        let base_revision = canonical_hash(&base).unwrap();
+        let mut session = Session::new(base.clone());
+        let patch = session
+            .apply_transaction(
+                7,
+                vec![Operation::Rename {
+                    entity: EntityId::new(2),
+                    name: Some("locally authored".to_owned()),
+                }],
+            )
+            .unwrap();
+
+        assert_eq!(patch.base_revision.as_deref(), Some(base_revision.as_str()));
+        let mut replayed = base;
+        nuif_protocol::apply_patch(&mut replayed, &patch).unwrap();
+        assert_eq!(&replayed, session.document());
+        session.undo().unwrap();
+        assert_eq!(session.document.entities[&EntityId::new(2)].name, None);
+    }
+
+    #[test]
+    fn consecutive_local_transactions_use_the_exact_session_revision() {
+        let mut session = Session::new(document());
+        session
+            .apply_transaction(
+                1,
+                vec![Operation::Rename {
+                    entity: EntityId::new(2),
+                    name: Some("first".to_owned()),
+                }],
+            )
+            .unwrap();
+        let expected = canonical_hash(session.document()).unwrap();
+        let second = session
+            .apply_transaction(
+                2,
+                vec![Operation::Rename {
+                    entity: EntityId::new(2),
+                    name: Some("second".to_owned()),
+                }],
+            )
+            .unwrap();
+
+        assert_eq!(second.base_revision.as_deref(), Some(expected.as_str()));
+        assert_eq!(
+            session
+                .snapshot(&EvaluationContext::viewport(10.0, 10.0))
+                .unwrap()
+                .canonical_hash,
+            canonical_hash(session.document()).unwrap()
+        );
+    }
+
+    #[test]
+    fn failed_history_precondition_is_atomic_and_retains_the_entry() {
+        let mut session = Session::new(document());
+        session
+            .apply_transaction(
+                1,
+                vec![Operation::Rename {
+                    entity: EntityId::new(2),
+                    name: Some("edited".to_owned()),
+                }],
+            )
+            .unwrap();
+        session.undo.last_mut().unwrap().base_revision = Some("stale".to_owned());
+        let before = session.document().clone();
+
+        assert!(matches!(
+            session.undo(),
+            Err(EngineError::Apply(ApplyError::BaseRevisionMismatch { .. }))
+        ));
+        assert_eq!(session.document(), &before);
+        assert!(session.can_undo());
     }
 
     #[test]

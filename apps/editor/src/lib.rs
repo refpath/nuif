@@ -3,13 +3,13 @@
 pub mod gui;
 
 use nuif_api::{EngineError, Session, profile_zero_context};
-use nuif_codec::{CanonicalText, Encoder, canonical_hash};
+use nuif_codec::{CanonicalText, Encoder};
 use nuif_core::{
     Color, Document, Entity, EntityId, EntityKind, ExtensionDeclarations, LayoutStyle, Point,
     SizeIntent, TextContent, Token,
 };
 use nuif_layout::{EvaluationContext, LayoutSnapshot};
-use nuif_protocol::{Anchor, Axis, Operation, Patch, Transaction};
+use nuif_protocol::{Anchor, Axis, Operation, Patch};
 use nuif_render::RenderScene;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
@@ -598,15 +598,7 @@ impl EditorDriver {
 
     fn apply_operations(&mut self, operations: Vec<Operation>) -> Result<EditorEvent, EditorError> {
         let transaction = self.next_transaction;
-        let base_revision = canonical_hash(self.session.document()).map_err(EngineError::from)?;
-        let patch = Patch {
-            base_revision: Some(base_revision),
-            transactions: vec![Transaction {
-                id: transaction,
-                operations,
-            }],
-        };
-        self.session.apply(&patch)?;
+        let patch = self.session.apply_transaction(transaction, operations)?;
         self.next_transaction += 1;
         self.operation_log.push(patch);
         Ok(EditorEvent::PatchApplied { transaction })
@@ -724,7 +716,7 @@ fn size_label(intent: &SizeIntent) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use nuif_codec::Decoder;
+    use nuif_codec::{Decoder, canonical_hash};
     use nuif_protocol::apply_patch;
     use nuif_testing::responsive_card_fixture;
 

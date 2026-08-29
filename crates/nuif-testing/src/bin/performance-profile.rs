@@ -82,6 +82,16 @@ fn main() {
             }],
         }],
     };
+    let mut warmed_session = Session::new(large.clone());
+    warmed_session
+        .apply_transaction(
+            0,
+            vec![Operation::Rename {
+                entity: EntityId::new(1_025),
+                name: Some("warm session".to_owned()),
+            }],
+        )
+        .unwrap_or_else(|error| fail(&error.to_string()));
 
     let mut cases = vec![
         measure("validate", 1_024, 3, 500_000_000, || {
@@ -107,6 +117,32 @@ fn main() {
             let mut candidate = black_box(large.clone());
             apply_patch(&mut candidate, black_box(&patch)).unwrap();
             candidate.entities.len() as u64
+        }),
+        measure("session_transaction_cold", 1_024, 1, 1_000_000_000, || {
+            let mut session = Session::new(black_box(large.clone()));
+            let applied = session
+                .apply_transaction(
+                    1,
+                    vec![Operation::Rename {
+                        entity: EntityId::new(1_025),
+                        name: Some("performance edit".to_owned()),
+                    }],
+                )
+                .unwrap();
+            session.document().entities.len() as u64 ^ applied.transactions.len() as u64
+        }),
+        measure("session_transaction_warm", 1_024, 1, 1_000_000_000, || {
+            let mut session = black_box(warmed_session.clone());
+            let applied = session
+                .apply_transaction(
+                    2,
+                    vec![Operation::Rename {
+                        entity: EntityId::new(1_025),
+                        name: Some("performance edit".to_owned()),
+                    }],
+                )
+                .unwrap();
+            session.document().entities.len() as u64 ^ applied.transactions.len() as u64
         }),
         measure("layout", 1_024, 5, 500_000_000, || {
             black_box(evaluate(black_box(&large), black_box(&context)))

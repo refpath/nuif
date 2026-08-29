@@ -13,7 +13,7 @@ not treated as comparable baselines.
 | --- | --- | --- |
 | Model validation | 8, 128, 1,024, 4,096 entities | Complete profile-zero structural and resource validation |
 | Canonical text and deterministic CBOR | 8, 128, 1,024 entities | Encode and decode independently |
-| Protocol | 8, 128, 1,024, 4,096 entities | Clone a document and apply one rename transaction |
+| Protocol/session | 8, 128, 1,024, 4,096 entities | Clone a document and apply one rename transaction; local sessions cover cold and revision-cached edits plus undo/redo |
 | Layout | 8, 128, 1,024, 4,096 entities | Evaluate a flat mixed shape/text document |
 | Scene lowering | 8, 128, 1,024 entities | Lower evaluated entities to deterministic render commands |
 | CPU raster and API snapshot | 360x640, 768x640, 1,440x900 | Raster an interactive card fixture; snapshot includes hash, layout, scene and raster |
