@@ -28,6 +28,6 @@ NUIF conformance is split into independently testable profiles.
 
 A test result must include implementation version, capability profile, fixture ID and evaluation context. Foreign-reference results additionally include exact oracle versions, generator source revision, raw per-engine observations, a fixture-local measured bound and typed classifications for every divergence.
 
-The implemented adapter suite covers `nuif-html-css-0`, the separately declared `nuif-html-css-v0` responsive-card profile and `nuif-svg-0` with exact export/import, byte-local synchronization and property-attributed rejection. Arbitrary web or SVG source and other adapter targets remain non-conformant until separately declared profiles pass.
+The implemented adapter suite covers `nuif-html-css-0`, the separately declared `nuif-html-css-v0` responsive-card profile, `nuif-svg-0` and `nuif-dtcg-scalar-0` with exact export/import, byte-local synchronization and property-attributed rejection. Arbitrary web or SVG source, non-scalar DTCG and other adapter targets remain non-conformant until separately declared profiles pass.
 
 The implemented independent-reproduction suite covers the complete v0 fixture in canonical text and the declared profile-0 layout/render subset. The Python standard-library implementation computes its own boxes and pixels, and the harness compares decoded RGBA so PNG encoder behavior is not mistaken for render divergence. This is an in-repository mechanical reproduction, not evidence of external implementation provenance or standards adoption.

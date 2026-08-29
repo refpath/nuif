@@ -5,6 +5,10 @@ use nuif_codec::{
     read_bounded as read_bounded_stream,
 };
 use nuif_core::{Document, EntityId, EntityKind, PROFILE0_RESOURCE_LIMITS, Severity, validate};
+use nuif_dtcg::{
+    AdapterError as DtcgAdapterError, export_document as export_dtcg_document,
+    import_source as import_dtcg_source, synchronize as synchronize_dtcg,
+};
 use nuif_html::{
     AdapterError as HtmlAdapterError, export_document as export_html_document,
     export_v0_document as export_html_v0_document, import_source as import_html_source,
@@ -377,6 +381,12 @@ fn import(args: &[String]) -> Result<(), CliError> {
     {
         return import_svg(args);
     }
+    if args
+        .first()
+        .is_some_and(|argument| matches!(argument.as_str(), "dtcg-scalar-0" | "nuif-dtcg-scalar-0"))
+    {
+        return import_dtcg(args);
+    }
     let input = required(args, 0, "input document")?;
     let output = args.get(1).map_or("-", String::as_str);
     let document = load_document(input)?;
@@ -427,6 +437,15 @@ fn export(args: &[String]) -> Result<(), CliError> {
             let exported = match export_svg_document(&document) {
                 Ok(exported) => exported,
                 Err(error) => return svg_adapter_failure(&error, report_path),
+            };
+            write_output(output, exported.source.as_bytes())?;
+            emit_adapter_report(&exported.report, report_path)
+        }
+        "dtcg-scalar-0" | "nuif-dtcg-scalar-0" => {
+            let report_path = args.get(3).map(String::as_str);
+            let exported = match export_dtcg_document(&document) {
+                Ok(exported) => exported,
+                Err(error) => return dtcg_adapter_failure(&error, report_path),
             };
             write_output(output, exported.source.as_bytes())?;
             emit_adapter_report(&exported.report, report_path)
@@ -484,11 +503,35 @@ fn import_svg(args: &[String]) -> Result<(), CliError> {
     emit_adapter_report(&imported.retentive.report, report_path)
 }
 
+fn import_dtcg(args: &[String]) -> Result<(), CliError> {
+    let input = required(args, 1, "DTCG input")?;
+    let output = args.get(2).map_or("-", String::as_str);
+    let report_path = args.get(3).map(String::as_str);
+    let source = String::from_utf8(read_input(input)?)
+        .map_err(|error| CliError::new(1, "DTCG_UTF8_INVALID", error.to_string()))?;
+    let imported = match import_dtcg_source(&source) {
+        Ok(imported) => imported,
+        Err(error) => return dtcg_adapter_failure(&error, report_path),
+    };
+    write_output(
+        output,
+        &CanonicalText
+            .encode(&imported.document)
+            .map_err(codec_error)?,
+    )?;
+    emit_adapter_report(&imported.retentive.report, report_path)
+}
+
 fn sync(args: &[String]) -> Result<(), CliError> {
     let target = required(args, 0, "synchronization target")?;
     if !matches!(
         target,
-        "html-css-0" | "html-css-v0" | "svg-0" | "nuif-svg-0"
+        "html-css-0"
+            | "html-css-v0"
+            | "svg-0"
+            | "nuif-svg-0"
+            | "dtcg-scalar-0"
+            | "nuif-dtcg-scalar-0"
     ) {
         return Err(CliError::new(
             3,
@@ -534,6 +577,16 @@ fn sync(args: &[String]) -> Result<(), CliError> {
                 Err(error) => return svg_adapter_failure(&error, report_path),
             }
         }
+        "dtcg-scalar-0" | "nuif-dtcg-scalar-0" => {
+            let imported = match import_dtcg_source(&source) {
+                Ok(imported) => imported,
+                Err(error) => return dtcg_adapter_failure(&error, report_path),
+            };
+            match synchronize_dtcg(&imported.retentive, &edited) {
+                Ok(synchronized) => synchronized,
+                Err(error) => return dtcg_adapter_failure(&error, report_path),
+            }
+        }
         _ => unreachable!("synchronization target was checked above"),
     };
     write_output(output, synchronized.source.as_bytes())?;
@@ -564,6 +617,21 @@ fn svg_adapter_failure<T>(
     let report = match error {
         SvgAdapterError::UnsupportedProfile { report, .. }
         | SvgAdapterError::UnmappedChanges { report, .. } => Some(report.as_ref()),
+        _ => None,
+    };
+    if let Some(report) = report {
+        emit_adapter_report(report, report_path)?;
+    }
+    Err(CliError::new(1, "ADAPTER_FAILED", error.to_string()))
+}
+
+fn dtcg_adapter_failure<T>(
+    error: &DtcgAdapterError,
+    report_path: Option<&str>,
+) -> Result<T, CliError> {
+    let report = match error {
+        DtcgAdapterError::UnsupportedProfile { report, .. }
+        | DtcgAdapterError::UnmappedChanges { report, .. } => Some(report.as_ref()),
         _ => None,
     };
     if let Some(report) = report {
@@ -627,6 +695,7 @@ fn fixture(args: &[String]) -> Result<(), CliError> {
         "v0-responsive-card" | "v0" => nuif_testing::responsive_card_fixture(),
         "html-css-profile" => nuif_html::profile_fixture(),
         "svg-profile" => nuif_svg::profile_fixture(),
+        "dtcg-profile" => nuif_dtcg::profile_fixture(),
         _ => {
             return Err(CliError::new(
                 2,
@@ -647,7 +716,7 @@ fn print_capabilities() -> Result<(), CliError> {
         "protocol": "0.0.1",
         "status": "executable",
         "commands": COMMANDS,
-        "adapters": ["html-css-0", "html-css-v0", "svg-0"],
+        "adapters": ["html-css-0", "html-css-v0", "svg-0", "dtcg-scalar-0"],
         "engine": engine.capabilities(),
         "resource_limits": {
             "input_bytes": MAX_INPUT_BYTES,

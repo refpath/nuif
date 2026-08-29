@@ -12,10 +12,12 @@ UTF-8 spans for identity, geometry, paint and accessibility scalars, preserves
 unmarked XML byte-for-byte during edits and rejects unsupported geometry,
 paint and structure with typed fidelity.
 
-The [`nuif-dtcg-scalar-0`](dtcg/PROFILE.md) crate maps flat DTCG 2025.10
+The [`nuif-dtcg-scalar-0`](dtcg/PROFILE.md) profile maps flat DTCG 2025.10
 boolean, string and number tokens while preserving NUIF integer/real identity
-through namespaced metadata. Its deliberately narrow boundary precedes the
-token-model RFC required for groups, aliases and composite types.
+through namespaced metadata. It retains unknown extension bytes through the
+same CLI synchronization contract as the source adapters. Its deliberately
+narrow boundary precedes the token-model RFC required for groups, aliases and
+composite types.
 
 Further research adapters include broader HTML/CSS and SVG, DTCG tokens,
 Svelte, React, Penpot, Figma, Flutter, SwiftUI and Jetpack Compose. Each adapter

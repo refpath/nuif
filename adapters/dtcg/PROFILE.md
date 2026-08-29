@@ -1,8 +1,8 @@
 # Retentive DTCG flat scalar-token profile zero
 
-Status: executable crate profile (`nuif-dtcg-scalar-0`). CLI, `xtask` and CI
-integration remain required before the repository status matrix lists the
-profile as an integrated adapter.
+Status: executable integrated profile (`nuif-dtcg-scalar-0`). The library,
+public CLI, blocking `xtask` gate and CI artifact path exercise the same
+profile boundary.
 
 ## Model projection
 
@@ -48,7 +48,7 @@ unknown extension values remain retentive.
 
 ## Resource and parser contract
 
-Input is UTF-8 and limited to 1 MiB, 8,192 tokens and the `serde_json` default
+Input is UTF-8 and limited to 1 MiB, 4,096 tokens and the `serde_json` default
 recursion limit of 128. Duplicate root and token members fail parsing. Token
 identities must be unique. Non-finite values are not valid JSON and do not
 enter the model. The crate tests cover all four mapped NUIF scalar variants,
@@ -56,3 +56,16 @@ exact export/import, deterministic multi-property synchronization, root and
 token extension retention, complete unchanged-byte locality, structural and
 unsupported edits, stale source, aliases, duplicate members, excessive depth
 and the source byte limit.
+
+The command surface is:
+
+- `nuif export <input.nuif> dtcg-scalar-0 <output.tokens.json> [report.json]`;
+- `nuif import dtcg-scalar-0 <input.tokens.json> <output.nuif> [report.json]`;
+- `nuif sync dtcg-scalar-0 <retained.tokens.json> <edited.nuif> <output.tokens.json> [report.json]`.
+
+`nuif-dtcg-scalar-0` is accepted as an explicit alias. `cargo xtask
+gate-dtcg` adds an eight-edit model trial, one-over token-count case and
+public-CLI export/sync/import bridge. It writes `target/dtcg-sync-report.json`,
+`target/dtcg-sync-output.tokens.json`, `target/dtcg-sync-edited.nuif`,
+`target/dtcg-sync-cli-report.json` and
+`target/dtcg-sync-cli-output.tokens.json`.

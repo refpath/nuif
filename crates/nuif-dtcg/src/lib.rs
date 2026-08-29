@@ -20,7 +20,7 @@ pub use sync::synchronize;
 pub const PROFILE_NAME: &str = "nuif-dtcg-scalar-0";
 pub const NUIF_EXTENSION: &str = "org.nuif";
 pub const MAX_SOURCE_BYTES: usize = 1024 * 1024;
-pub const MAX_TOKENS: usize = 8_192;
+pub const MAX_TOKENS: usize = 4_096;
 pub const MAX_JSON_DEPTH: usize = 128;
 
 #[derive(Clone, Debug, Error)]

@@ -21,6 +21,7 @@ const ALL_STEPS: &[Step] = &[
     ("gate-f", gate_f),
     ("gate-f-v0", gate_f_v0),
     ("gate-svg", gate_svg),
+    ("gate-dtcg", gate_dtcg),
     ("gate-g", gate_g),
     ("gate-h", gate_h),
 ];
@@ -46,6 +47,11 @@ const VERIFICATION_ARTIFACTS: &[&str] = &[
     "target/svg-sync-edited.nuif",
     "target/svg-sync-cli-report.json",
     "target/svg-sync-cli-output.svg",
+    "target/dtcg-sync-report.json",
+    "target/dtcg-sync-output.tokens.json",
+    "target/dtcg-sync-edited.nuif",
+    "target/dtcg-sync-cli-report.json",
+    "target/dtcg-sync-cli-output.tokens.json",
     "target/gate-g-report.json",
     "target/gate-g-independent",
     "target/collaboration-report.json",
@@ -91,6 +97,7 @@ fn run() -> Result<(), String> {
         Some("gate-f") => gate_f(),
         Some("gate-f-v0") => gate_f_v0(),
         Some("gate-svg") => gate_svg(),
+        Some("gate-dtcg") => gate_dtcg(),
         Some("gate-g") => gate_g(),
         Some("gate-h") => gate_h(),
         Some("browser-install") => browser_install(),
@@ -104,7 +111,7 @@ fn run() -> Result<(), String> {
         Some("manifest") => standalone_manifest(),
         Some("all") => all(),
         _ => Err(
-            "usage: cargo xtask <research|verify|trial [seed iterations snapshot-interval report-path]|gate-b|gate-c|gate-d|gate-d-text|gate-d-render|gate-f|gate-f-v0|gate-svg|gate-g|gate-h|browser-install|hostile-inputs|performance|editor-trial|editor-gui-trial|editor-package|editor-launch|manifest|all>"
+            "usage: cargo xtask <research|verify|trial [seed iterations snapshot-interval report-path]|gate-b|gate-c|gate-d|gate-d-text|gate-d-render|gate-f|gate-f-v0|gate-svg|gate-dtcg|gate-g|gate-h|browser-install|hostile-inputs|performance|editor-trial|editor-gui-trial|editor-package|editor-launch|manifest|all>"
                 .to_owned(),
         ),
     }
@@ -471,6 +478,96 @@ fn gate_svg_cli_bridge() -> Result<(), String> {
     let report = read_json(sync_report)?;
     if report["status"] != "passed" || report["edits"].as_array().map(Vec::len) != Some(7) {
         return Err("CLI SVG bridge did not produce the expected seven source edits".to_owned());
+    }
+    fs::remove_dir_all(&directory).map_err(|error| {
+        format!(
+            "trial passed but temporary directory {} could not be removed: {error}",
+            directory.display()
+        )
+    })
+}
+
+fn gate_dtcg() -> Result<(), String> {
+    cargo(&[
+        "run",
+        "--locked",
+        "-p",
+        "nuif-dtcg",
+        "--bin",
+        "dtcg-sync-profile",
+        "--",
+        "--output",
+        "target/dtcg-sync-report.json",
+        "--source-output",
+        "target/dtcg-sync-output.tokens.json",
+        "--edited-output",
+        "target/dtcg-sync-edited.nuif",
+    ])?;
+    gate_dtcg_cli_bridge()
+}
+
+fn gate_dtcg_cli_bridge() -> Result<(), String> {
+    let directory = env::temp_dir().join(format!("nuif-dtcg-trial-{}", std::process::id()));
+    if directory.exists() {
+        return Err(format!(
+            "temporary path already exists: {}",
+            directory.display()
+        ));
+    }
+    fs::create_dir(&directory).map_err(|error| error.to_string())?;
+    let input = directory.join("input.nuif");
+    let exported = directory.join("exported.tokens.json");
+    let export_report = directory.join("export-report.json");
+    let imported = directory.join("imported.nuif");
+    let import_report = directory.join("import-report.json");
+    let reimported = directory.join("reimported.nuif");
+    let reimport_report = directory.join("reimport-report.json");
+    let synchronized = Path::new("target/dtcg-sync-cli-output.tokens.json");
+    let sync_report = Path::new("target/dtcg-sync-cli-report.json");
+    let edited = Path::new("target/dtcg-sync-edited.nuif");
+    nuif(&["fixture", "dtcg-profile", path(&input)?])?;
+    nuif(&[
+        "export",
+        path(&input)?,
+        "dtcg-scalar-0",
+        path(&exported)?,
+        path(&export_report)?,
+    ])?;
+    nuif(&[
+        "import",
+        "dtcg-scalar-0",
+        path(&exported)?,
+        path(&imported)?,
+        path(&import_report)?,
+    ])?;
+    if fs::read(&input).map_err(|error| error.to_string())?
+        != fs::read(&imported).map_err(|error| error.to_string())?
+    {
+        return Err("CLI DTCG export/import changed canonical NUIF bytes".to_owned());
+    }
+    nuif(&[
+        "sync",
+        "dtcg-scalar-0",
+        path(&exported)?,
+        path(edited)?,
+        path(synchronized)?,
+        path(sync_report)?,
+    ])?;
+    nuif(&[
+        "import",
+        "dtcg-scalar-0",
+        path(synchronized)?,
+        path(&reimported)?,
+        path(&reimport_report)?,
+    ])?;
+    if fs::read(edited).map_err(|error| error.to_string())?
+        != fs::read(&reimported).map_err(|error| error.to_string())?
+    {
+        return Err("CLI DTCG synchronization changed edited canonical NUIF bytes".to_owned());
+    }
+    let report = read_json(sync_report)?;
+    if report["status"] != "passed" || report["edits"].as_array().map(Vec::len) != Some(8) {
+        return Err("CLI DTCG bridge did not produce the expected eight source edits".to_owned());
     }
     fs::remove_dir_all(&directory).map_err(|error| {
         format!(

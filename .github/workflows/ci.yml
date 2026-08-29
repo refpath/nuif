@@ -120,6 +120,17 @@ jobs:
             target/svg-sync-edited.nuif
             target/svg-sync-cli-report.json
             target/svg-sync-cli-output.svg
+      - name: Upload DTCG synchronization evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: dtcg-sync-report
+          path: |
+            target/dtcg-sync-report.json
+            target/dtcg-sync-output.tokens.json
+            target/dtcg-sync-edited.nuif
+            target/dtcg-sync-cli-report.json
+            target/dtcg-sync-cli-output.tokens.json
       - name: Upload independent implementation evidence
         if: always()
         uses: actions/upload-artifact@v4

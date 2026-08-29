@@ -250,6 +250,24 @@ experiments:
       - reject unsupported paint structural changes stale spans inconsistent ellipse geometry DTD one-over XML nodes and one-over source bytes
       - synchronize the edited fixture through the CLI and require exact canonical re-import
       - write and archive model and CLI reports plus synchronized SVG sources
+  - id: nuif:experiment:dtcg-scalar-retentive-sync
+    status: completed
+    evidence: [nuif:research:dtcg, nuif:research:retentive-lenses, nuif:research:symmetric-lenses, nuif:research:resource-bounded-serde-and-ciborium]
+    implementation: [crates/nuif-dtcg/src/lib.rs, crates/nuif-dtcg/src/bin/dtcg-sync-profile.rs, crates/nuif-cli/src/main.rs, adapters/dtcg/PROFILE.md, xtask/src/main.rs]
+    oracle: metamorphic
+    acceptance:
+      - the declared flat DTCG 2025.10 scalar subset exports and imports exactly
+      - names explicit types values identities and integer-real discriminators have retained byte spans
+      - unknown root and token extension data remains byte-identical outside the edit set
+      - unsupported standard semantics and hostile JSON return typed atomic failures
+      - public CLI export synchronization and import reproduce edited canonical NUIF bytes
+    tests:
+      - repeat eight-span cross-scalar synchronization and compare source and edit lists exactly
+      - prove every byte outside edited spans is unchanged and preserve injected root and token extensions
+      - reject duplicate members aliases descriptions excessive depth one-over token count and one-over source bytes
+      - reject unsupported values token inventory changes and stale correspondence spans
+      - synchronize the edited fixture through the CLI and require exact canonical re-import
+      - write and archive model and CLI reports plus synchronized token files
   - id: nuif:experiment:independent-profile-zero
     status: completed
     evidence: [nuif:research:differential-testing, nuif:research:metamorphic-testing-graphics, nuif:research:text-rendering-reproducibility]

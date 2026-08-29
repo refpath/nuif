@@ -1,6 +1,6 @@
 # Conformance
 
-The profile-0 baseline is executable through the `nuif-conformance` package and xtask gates. It covers structural validation, canonicalization, parser/serializer round trips, unknown-extension preservation, operations/replay/inversion, responsive stack/flex layout, pinned shaping and hard-line text, deterministic solid rectangle/ellipse CPU rendering, measured codec/model resource limits, pinned browser/Taffy differential layout, editor-driver parity, three bounded retentive adapter profiles and machine reports. Grid track/placement semantics, paths/images/instances, expanded geometry/paint profiles, broader adapters and perceptual tiers remain planned and are not claimed as implemented.
+The profile-0 baseline is executable through the `nuif-conformance` package and xtask gates. It covers structural validation, canonicalization, parser/serializer round trips, unknown-extension preservation, operations/replay/inversion, responsive stack/flex layout, pinned shaping and hard-line text, deterministic solid rectangle/ellipse CPU rendering, measured codec/model resource limits, pinned browser/Taffy differential layout, editor-driver parity, four bounded retentive adapter profiles and machine reports. Grid track/placement semantics, paths/images/instances, expanded geometry/paint profiles, broader adapters and perceptual tiers remain planned and are not claimed as implemented.
 
 Install the locked Chrome for Testing build once with `cargo xtask browser-install`, then run `cargo xtask gate-c`. The report at `target/layout-differential-report.json` contains the raw NUIF, Taffy and browser boxes, engine versions, source revision, fixture-local calibration and every classified divergence. Schema-loss entries are visible passing evidence, not a Grid-conformance claim; unclassified or evaluator differences fail the command.
 
@@ -16,3 +16,10 @@ complete unchanged-byte complement, typed hostile cases and a public-CLI
 export/sync/import bridge. The machine report and synchronized sources are
 written under `target/svg-sync-*`; the declared subset and its exclusions are
 specified in `adapters/svg/PROFILE.md`.
+
+Run `cargo xtask gate-dtcg` for the bounded `nuif-dtcg-scalar-0` adapter. It
+checks exact scalar-token round trips, integer/real discrimination, eight
+byte-local edits, root and token extension preservation, duplicate/depth/count
+and source limits, and a public-CLI bridge. Reports and retained sources are
+written under `target/dtcg-sync-*`; groups, aliases and composite types remain
+outside the declared profile.

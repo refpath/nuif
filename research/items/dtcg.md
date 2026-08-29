@@ -18,7 +18,7 @@ links:
   adr: []
   rfc: []
   code: [adapters/STATUS.md, adapters/dtcg/PROFILE.md, crates/nuif-dtcg/src/lib.rs]
-  experiments: []
+  experiments: [nuif:experiment:dtcg-scalar-retentive-sync]
 ---
 # Summary
 
