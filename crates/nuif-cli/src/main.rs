@@ -1,4 +1,16 @@
+use nuif_api::{Engine, ReferenceEngine, Session};
+use nuif_codec::{
+    CanonicalText, Canonicalizer, Decoder, DeterministicCbor, Encoder, canonical_hash,
+};
+use nuif_core::{Document, EntityId, EntityKind, Severity, validate};
+use nuif_layout::EvaluationContext;
+use nuif_protocol::{Patch, apply_patch};
+use nuif_testing::{TrialConfig, run_trials};
 use std::env;
+use std::fs;
+use std::io::{self, Read, Write};
+use std::path::{Path, PathBuf};
+use std::str::FromStr;
 
 const COMMANDS: &[&str] = &[
     "version",
@@ -16,35 +28,517 @@ const COMMANDS: &[&str] = &[
     "migrate",
     "import",
     "export",
+    "fixture",
+    "trial",
 ];
 
 fn main() {
-    let mut args = env::args().skip(1);
-    match args.next().as_deref() {
-        Some("version") => println!("nuif 0.0.1"),
-        Some("capabilities") => print_capabilities(),
-        Some(command) if COMMANDS.contains(&command) => {
-            eprintln!(
-                "{{\"error\":\"not_implemented\",\"command\":\"{command}\",\"status\":\"prototype\"}}"
-            );
-            std::process::exit(3);
-        }
-        Some(command) => {
-            eprintln!("nuif: unknown command `{command}`");
-            std::process::exit(2);
-        }
-        None => {
-            eprintln!("usage: nuif <{}>", COMMANDS.join("|"));
-            std::process::exit(2);
+    match run() {
+        Ok(()) => {}
+        Err(error) => {
+            if !error.reported {
+                eprintln!(
+                    "{}",
+                    serde_json::to_string(&serde_json::json!({
+                        "status": "failed",
+                        "code": error.code,
+                        "message": error.message
+                    }))
+                    .expect("error objects serialize")
+                );
+            }
+            std::process::exit(error.exit_status);
         }
     }
 }
 
-fn print_capabilities() {
-    let commands = COMMANDS
+fn run() -> Result<(), CliError> {
+    let mut args = env::args().skip(1);
+    let command = args.next().ok_or_else(usage)?;
+    let rest = args.collect::<Vec<_>>();
+    match command.as_str() {
+        "version" => print_json(&serde_json::json!({
+            "name": "nuif",
+            "version": env!("CARGO_PKG_VERSION"),
+            "protocol": "0.0.1"
+        })),
+        "capabilities" => print_capabilities(),
+        "inspect" => inspect(&rest),
+        "query" => query(&rest),
+        "validate" => validate_command(&rest),
+        "canonicalize" => canonicalize(&rest),
+        "diff" => diff(&rest),
+        "patch" | "replay" => replay(&rest),
+        "layout" => layout(&rest),
+        "render" => render(&rest),
+        "snapshot" => snapshot(&rest),
+        "migrate" => migrate(&rest),
+        "import" => import(&rest),
+        "export" => export(&rest),
+        "fixture" => fixture(&rest),
+        "trial" => trial(&rest),
+        _ => Err(usage()),
+    }
+}
+
+fn inspect(args: &[String]) -> Result<(), CliError> {
+    let document = load_document(required(args, 0, "input document")?)?;
+    let errors = validate(&document)
         .iter()
-        .map(|command| format!("\"{command}\""))
-        .collect::<Vec<_>>()
-        .join(",");
-    println!("{{\"protocol\":\"0.0.1\",\"status\":\"prototype\",\"commands\":[{commands}]}}");
+        .filter(|item| item.severity == Severity::Error)
+        .count();
+    print_json(&serde_json::json!({
+        "status": if errors == 0 { "passed" } else { "failed" },
+        "document": document.id,
+        "schema_version": document.schema_version,
+        "canonical_hash": canonical_hash(&document).ok(),
+        "entities": document.entities.len(),
+        "roots": document.roots,
+        "tokens": document.tokens.len(),
+        "relations": document.relations.len(),
+        "extensions_used": document.extension_declarations.used,
+        "errors": errors
+    }))
+}
+
+fn query(args: &[String]) -> Result<(), CliError> {
+    let document = load_document(required(args, 0, "input document")?)?;
+    let selector = args.get(1).map_or("all", String::as_str);
+    if !matches!(selector, "all" | "name" | "id" | "kind") {
+        return Err(CliError::new(
+            2,
+            "QUERY_SELECTOR_INVALID",
+            format!("unknown selector {selector}; expected all, name, id, or kind"),
+        ));
+    }
+    let needle = (selector != "all")
+        .then(|| required(args, 2, "selector value"))
+        .transpose()?;
+    let selected_id = if selector == "id" {
+        Some(
+            EntityId::from_str(needle.expect("id selector has a value"))
+                .map_err(|error| CliError::new(2, "QUERY_ID_INVALID", error.to_string()))?,
+        )
+    } else {
+        None
+    };
+    let entities = document
+        .entities
+        .values()
+        .filter(|entity| match selector {
+            "all" => true,
+            "name" => entity.name.as_deref() == needle,
+            "id" => selected_id == Some(entity.id),
+            "kind" => needle.is_some_and(|value| kind_name(&entity.kind) == value),
+            _ => unreachable!("selector was validated above"),
+        })
+        .map(|entity| {
+            serde_json::json!({
+                "id": entity.id,
+                "name": entity.name,
+                "kind": format!("{:?}", entity.kind),
+                "children": entity.children
+            })
+        })
+        .collect::<Vec<_>>();
+    print_json(&serde_json::json!({"status": "passed", "entities": entities}))
+}
+
+fn kind_name(kind: &EntityKind) -> &'static str {
+    match kind {
+        EntityKind::Surface => "surface",
+        EntityKind::Container => "container",
+        EntityKind::Shape(_) => "shape",
+        EntityKind::Text => "text",
+        EntityKind::Image => "image",
+        EntityKind::Component => "component",
+        EntityKind::Instance { .. } => "instance",
+        EntityKind::Unknown(_) => "unknown",
+    }
+}
+
+fn validate_command(args: &[String]) -> Result<(), CliError> {
+    let path = required(args, 0, "input document")?;
+    let bytes = read_input(path)?;
+    let document = if Path::new(path)
+        .extension()
+        .is_some_and(|extension| extension.eq_ignore_ascii_case("cbor"))
+    {
+        DeterministicCbor
+            .decode_for_validation(&bytes)
+            .map_err(codec_error)?
+    } else {
+        CanonicalText
+            .decode_for_validation(&bytes)
+            .map_err(codec_error)?
+    };
+    let diagnostics = validate(&document);
+    let errors = diagnostics
+        .iter()
+        .filter(|item| item.severity == Severity::Error)
+        .count();
+    print_json(&serde_json::json!({
+        "status": if errors == 0 { "passed" } else { "failed" },
+        "issues": {
+            "errors": errors,
+            "messages": diagnostics
+        }
+    }))?;
+    if errors == 0 {
+        Ok(())
+    } else {
+        Err(CliError::reported(
+            1,
+            "VALIDATION_FAILED",
+            "document validation failed",
+        ))
+    }
+}
+
+fn canonicalize(args: &[String]) -> Result<(), CliError> {
+    let input = read_input(required(args, 0, "input document")?)?;
+    let output = args.get(1).map_or("-", String::as_str);
+    let cbor = args.iter().any(|argument| argument == "--cbor");
+    let bytes = if cbor {
+        DeterministicCbor
+            .canonicalize(&input)
+            .or_else(|_| {
+                CanonicalText
+                    .decode(&input)
+                    .and_then(|document| DeterministicCbor.encode(&document))
+            })
+            .map_err(codec_error)?
+    } else {
+        CanonicalText.canonicalize(&input).map_err(codec_error)?
+    };
+    write_output(output, &bytes)
+}
+
+fn diff(args: &[String]) -> Result<(), CliError> {
+    let left = load_document(required(args, 0, "left document")?)?;
+    let right = load_document(required(args, 1, "right document")?)?;
+    let ids = left
+        .entities
+        .keys()
+        .chain(right.entities.keys())
+        .copied()
+        .collect::<std::collections::BTreeSet<_>>();
+    let changes = ids
+        .into_iter()
+        .filter_map(
+            |id| match (left.entities.get(&id), right.entities.get(&id)) {
+                (None, Some(_)) => Some(serde_json::json!({"entity": id, "change": "inserted"})),
+                (Some(_), None) => Some(serde_json::json!({"entity": id, "change": "removed"})),
+                (Some(before), Some(after)) if before != after => {
+                    Some(serde_json::json!({"entity": id, "change": "modified"}))
+                }
+                _ => None,
+            },
+        )
+        .collect::<Vec<_>>();
+    print_json(&serde_json::json!({
+        "status": "passed",
+        "equal": changes.is_empty(),
+        "left_hash": canonical_hash(&left).map_err(codec_error)?,
+        "right_hash": canonical_hash(&right).map_err(codec_error)?,
+        "changes": changes
+    }))
+}
+
+fn replay(args: &[String]) -> Result<(), CliError> {
+    let mut document = load_document(required(args, 0, "input document")?)?;
+    let patch_bytes = read_input(required(args, 1, "patch JSON")?)?;
+    let patch: Patch = serde_json::from_slice(&patch_bytes)
+        .map_err(|error| CliError::new(1, "PATCH_MALFORMED", error.to_string()))?;
+    apply_patch(&mut document, &patch)
+        .map_err(|error| CliError::new(1, "PATCH_APPLY_FAILED", error.to_string()))?;
+    let output = args.get(2).map_or("-", String::as_str);
+    let bytes = CanonicalText.encode(&document).map_err(codec_error)?;
+    write_output(output, &bytes)
+}
+
+fn layout(args: &[String]) -> Result<(), CliError> {
+    let document = load_document(required(args, 0, "input document")?)?;
+    let width = number(args, 1, 360.0)?;
+    let height = number(args, 2, 640.0)?;
+    let snapshot = ReferenceEngine
+        .layout(&document, &EvaluationContext::viewport(width, height))
+        .map_err(|error| CliError::new(1, "LAYOUT_FAILED", error.to_string()))?;
+    print_json(&serde_json::json!({"status": "passed", "layout": snapshot}))
+}
+
+fn render(args: &[String]) -> Result<(), CliError> {
+    let document = load_document(required(args, 0, "input document")?)?;
+    let output = required(args, 1, "output PNG")?;
+    if output == "-" {
+        return Err(CliError::new(
+            2,
+            "BINARY_OUTPUT_PATH_REQUIRED",
+            "render requires a file path so machine-readable JSON remains on stdout",
+        ));
+    }
+    let width = number(args, 2, 360.0)?;
+    let height = number(args, 3, 640.0)?;
+    let session = Session::new(document);
+    let snapshot = session
+        .snapshot(&EvaluationContext::viewport(width, height))
+        .map_err(|error| CliError::new(1, "RENDER_FAILED", error.to_string()))?;
+    let png = snapshot
+        .raster
+        .to_png()
+        .map_err(|error| CliError::new(1, "PNG_FAILED", error.to_string()))?;
+    write_output(output, &png)?;
+    print_json(&serde_json::json!({
+        "status": "passed",
+        "canonical_hash": snapshot.canonical_hash,
+        "width": width,
+        "height": height,
+        "bytes": png.len(),
+        "fidelity": snapshot.scene.fidelity
+    }))
+}
+
+fn snapshot(args: &[String]) -> Result<(), CliError> {
+    let document = load_document(required(args, 0, "input document")?)?;
+    let directory = PathBuf::from(required(args, 1, "output directory")?);
+    let width = number(args, 2, 360.0)?;
+    let height = number(args, 3, 640.0)?;
+    fs::create_dir_all(&directory)
+        .map_err(|error| CliError::new(1, "WRITE_FAILED", error.to_string()))?;
+    let session = Session::new(document.clone());
+    let snapshot = session
+        .snapshot(&EvaluationContext::viewport(width, height))
+        .map_err(|error| CliError::new(1, "SNAPSHOT_FAILED", error.to_string()))?;
+    write_file(
+        &directory.join("input.nuif"),
+        &CanonicalText.encode(&document).map_err(codec_error)?,
+    )?;
+    write_file(
+        &directory.join("expected.layout.json"),
+        &serde_json::to_vec_pretty(&snapshot.layout).expect("layout serializes"),
+    )?;
+    write_file(
+        &directory.join("expected.scene.json"),
+        &serde_json::to_vec_pretty(&snapshot.scene).expect("scene serializes"),
+    )?;
+    write_file(
+        &directory.join("expected.png"),
+        &snapshot
+            .raster
+            .to_png()
+            .map_err(|error| CliError::new(1, "PNG_FAILED", error.to_string()))?,
+    )?;
+    let report = serde_json::json!({
+        "status": "passed",
+        "canonical_hash": snapshot.canonical_hash,
+        "context": {"viewport": [width, height], "scale": 1.0},
+        "artifacts": ["input.nuif", "expected.layout.json", "expected.scene.json", "expected.png"]
+    });
+    write_file(
+        &directory.join("expected.report.json"),
+        &serde_json::to_vec_pretty(&report).expect("report serializes"),
+    )?;
+    print_json(&report)
+}
+
+fn migrate(args: &[String]) -> Result<(), CliError> {
+    let document = load_document(required(args, 0, "input document")?)?;
+    let output = args.get(1).map_or("-", String::as_str);
+    write_output(
+        output,
+        &CanonicalText.encode(&document).map_err(codec_error)?,
+    )
+}
+
+fn import(args: &[String]) -> Result<(), CliError> {
+    let input = required(args, 0, "input document")?;
+    let output = args.get(1).map_or("-", String::as_str);
+    let document = load_document(input)?;
+    write_output(
+        output,
+        &CanonicalText.encode(&document).map_err(codec_error)?,
+    )?;
+    eprintln!(
+        "{}",
+        serde_json::json!({"status":"passed","fidelity":[{"class":"lossless","reason":"native NUIF import"}]})
+    );
+    Ok(())
+}
+
+fn export(args: &[String]) -> Result<(), CliError> {
+    let document = load_document(required(args, 0, "input document")?)?;
+    let target = args.get(1).map_or("nuif-text-0", String::as_str);
+    let output = args.get(2).map_or("-", String::as_str);
+    match target {
+        "nuif-text-0" => write_output(
+            output,
+            &CanonicalText.encode(&document).map_err(codec_error)?,
+        ),
+        "nuif-cbor-0" => write_output(
+            output,
+            &DeterministicCbor.encode(&document).map_err(codec_error)?,
+        ),
+        _ => Err(CliError::new(
+            3,
+            "EXPORT_TARGET_UNSUPPORTED",
+            format!("target {target} is unsupported; no data was written"),
+        )),
+    }
+}
+
+fn trial(args: &[String]) -> Result<(), CliError> {
+    let seed = args.first().map_or(Ok(1), |value| {
+        value
+            .parse::<u64>()
+            .map_err(|error| CliError::new(2, "ARGUMENT_INVALID", error.to_string()))
+    })?;
+    let iterations = args.get(1).map_or(Ok(100), |value| {
+        value
+            .parse::<u32>()
+            .map_err(|error| CliError::new(2, "ARGUMENT_INVALID", error.to_string()))
+    })?;
+    let snapshot_interval = args.get(2).map_or(Ok(1), |value| {
+        value
+            .parse::<u32>()
+            .map_err(|error| CliError::new(2, "ARGUMENT_INVALID", error.to_string()))
+    })?;
+    let report = run_trials(&TrialConfig {
+        seed,
+        iterations,
+        snapshot_interval: snapshot_interval.max(1),
+        ..TrialConfig::default()
+    });
+    print_json(&report)?;
+    if report.passed() {
+        Ok(())
+    } else {
+        Err(CliError::reported(1, "TRIAL_FAILED", "seeded trial failed"))
+    }
+}
+
+fn fixture(args: &[String]) -> Result<(), CliError> {
+    let fixture = args.first().map_or("v0-responsive-card", String::as_str);
+    if fixture != "v0-responsive-card" && fixture != "v0" {
+        return Err(CliError::new(
+            2,
+            "FIXTURE_UNKNOWN",
+            format!("unknown fixture {fixture}"),
+        ));
+    }
+    let output = args.get(1).map_or("-", String::as_str);
+    write_output(
+        output,
+        &CanonicalText
+            .encode(&nuif_testing::responsive_card_fixture())
+            .map_err(codec_error)?,
+    )
+}
+
+fn print_capabilities() -> Result<(), CliError> {
+    let engine = ReferenceEngine;
+    print_json(&serde_json::json!({
+        "protocol": "0.0.1",
+        "status": "executable",
+        "commands": COMMANDS,
+        "engine": engine.capabilities()
+    }))
+}
+
+fn load_document(path: &str) -> Result<Document, CliError> {
+    let bytes = read_input(path)?;
+    if Path::new(path)
+        .extension()
+        .is_some_and(|extension| extension.eq_ignore_ascii_case("cbor"))
+    {
+        DeterministicCbor.decode(&bytes).map_err(codec_error)
+    } else {
+        CanonicalText.decode(&bytes).map_err(codec_error)
+    }
+}
+
+fn read_input(path: &str) -> Result<Vec<u8>, CliError> {
+    if path == "-" {
+        let mut bytes = Vec::new();
+        io::stdin()
+            .read_to_end(&mut bytes)
+            .map_err(|error| CliError::new(1, "READ_FAILED", error.to_string()))?;
+        Ok(bytes)
+    } else {
+        fs::read(path).map_err(|error| CliError::new(1, "READ_FAILED", error.to_string()))
+    }
+}
+
+fn write_output(path: &str, bytes: &[u8]) -> Result<(), CliError> {
+    if path == "-" {
+        io::stdout()
+            .write_all(bytes)
+            .map_err(|error| CliError::new(1, "WRITE_FAILED", error.to_string()))
+    } else {
+        write_file(Path::new(path), bytes)
+    }
+}
+
+fn write_file(path: &Path, bytes: &[u8]) -> Result<(), CliError> {
+    fs::write(path, bytes).map_err(|error| CliError::new(1, "WRITE_FAILED", error.to_string()))
+}
+
+fn print_json(value: &impl serde::Serialize) -> Result<(), CliError> {
+    println!(
+        "{}",
+        serde_json::to_string_pretty(value).map_err(|error| CliError::new(
+            1,
+            "JSON_FAILED",
+            error.to_string()
+        ))?
+    );
+    Ok(())
+}
+
+fn required<'a>(args: &'a [String], index: usize, label: &str) -> Result<&'a str, CliError> {
+    args.get(index)
+        .map(String::as_str)
+        .ok_or_else(|| CliError::new(2, "ARGUMENT_MISSING", format!("missing {label}")))
+}
+
+fn number(args: &[String], index: usize, default: f64) -> Result<f64, CliError> {
+    args.get(index).map_or(Ok(default), |value| {
+        value
+            .parse::<f64>()
+            .map_err(|error| CliError::new(2, "ARGUMENT_INVALID", error.to_string()))
+    })
+}
+
+fn codec_error(error: impl std::fmt::Display) -> CliError {
+    CliError::new(1, "CODEC_FAILED", error.to_string())
+}
+
+fn usage() -> CliError {
+    CliError::new(2, "USAGE", format!("usage: nuif <{}>", COMMANDS.join("|")))
+}
+
+struct CliError {
+    exit_status: i32,
+    code: String,
+    message: String,
+    reported: bool,
+}
+
+impl CliError {
+    fn new(exit_status: i32, code: &str, message: impl Into<String>) -> Self {
+        Self {
+            exit_status,
+            code: code.to_owned(),
+            message: message.into(),
+            reported: false,
+        }
+    }
+
+    fn reported(exit_status: i32, code: &str, message: impl Into<String>) -> Self {
+        Self {
+            exit_status,
+            code: code.to_owned(),
+            message: message.into(),
+            reported: true,
+        }
+    }
 }

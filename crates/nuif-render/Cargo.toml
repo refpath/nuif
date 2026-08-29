@@ -8,6 +8,9 @@ repository.workspace = true
 [dependencies]
 nuif-core = { path = "../nuif-core" }
 nuif-layout = { path = "../nuif-layout" }
+png.workspace = true
+serde.workspace = true
+thiserror.workspace = true
 
 [lints]
 workspace = true

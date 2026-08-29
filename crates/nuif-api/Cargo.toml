@@ -10,6 +10,10 @@ nuif-core = { path = "../nuif-core" }
 nuif-protocol = { path = "../nuif-protocol" }
 nuif-layout = { path = "../nuif-layout" }
 nuif-render = { path = "../nuif-render" }
+nuif-codec = { path = "../nuif-codec" }
+nuif-query = { path = "../nuif-query" }
+serde.workspace = true
+thiserror.workspace = true
 
 [lints]
 workspace = true

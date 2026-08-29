@@ -6,7 +6,10 @@ license.workspace = true
 repository.workspace = true
 
 [dependencies]
+nuif-codec = { path = "../nuif-codec" }
 nuif-core = { path = "../nuif-core" }
+serde.workspace = true
+thiserror.workspace = true
 
 [lints]
 workspace = true

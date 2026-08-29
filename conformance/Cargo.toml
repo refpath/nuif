@@ -1,0 +1,19 @@
+[package]
+name = "nuif-conformance"
+version = "0.0.1"
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+nuif-api = { path = "../crates/nuif-api" }
+nuif-codec = { path = "../crates/nuif-codec" }
+nuif-core = { path = "../crates/nuif-core" }
+nuif-layout = { path = "../crates/nuif-layout" }
+nuif-protocol = { path = "../crates/nuif-protocol" }
+nuif-render = { path = "../crates/nuif-render" }
+nuif-testing = { path = "../crates/nuif-testing" }
+serde_json.workspace = true
+
+[lints]
+workspace = true

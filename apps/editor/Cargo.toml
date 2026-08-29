@@ -1,0 +1,30 @@
+[package]
+name = "nuif-editor"
+version = "0.0.1"
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[lib]
+name = "nuif_editor"
+path = "src/lib.rs"
+
+[[bin]]
+name = "nuif-editor"
+path = "src/main.rs"
+
+[dependencies]
+nuif-api = { path = "../../crates/nuif-api" }
+nuif-codec = { path = "../../crates/nuif-codec" }
+nuif-core = { path = "../../crates/nuif-core" }
+nuif-layout = { path = "../../crates/nuif-layout" }
+nuif-protocol = { path = "../../crates/nuif-protocol" }
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+
+[dev-dependencies]
+nuif-testing = { path = "../../crates/nuif-testing" }
+
+[lints]
+workspace = true

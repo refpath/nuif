@@ -1,19 +1,36 @@
-#![doc = "Semantic operations and transaction primitives for NUIF."]
+#![doc = "Semantic operations, atomic patches, replay and inversion for NUIF."]
 
-use nuif_core::{Entity, EntityId};
+use nuif_codec::canonical_hash;
+use nuif_core::{
+    Document, Entity, EntityId, Extensions, LayoutStyle, OpaquePayload, PropertyValue, Relation,
+    Severity, SizeIntent, validate,
+};
+use serde::{Deserialize, Serialize};
+use std::collections::{BTreeMap, BTreeSet};
+use thiserror::Error;
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case", tag = "type", content = "entity")]
+pub enum Anchor {
+    Start,
+    After(EntityId),
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct Transaction {
     pub id: u128,
+    #[serde(default)]
     pub operations: Vec<Operation>,
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case", tag = "op")]
 pub enum Operation {
     Insert {
         parent: Option<EntityId>,
-        index: usize,
-        entity: Entity,
+        anchor: Anchor,
+        entity: Box<Entity>,
     },
     Remove {
         entity: EntityId,
@@ -21,21 +38,702 @@ pub enum Operation {
     Move {
         entity: EntityId,
         new_parent: Option<EntityId>,
-        new_index: usize,
+        anchor: Anchor,
     },
     Rename {
         entity: EntityId,
         name: Option<String>,
     },
+    SetSize {
+        entity: EntityId,
+        axis: Axis,
+        value: SizeIntent,
+    },
+    SetLayout {
+        entity: EntityId,
+        value: LayoutStyle,
+    },
+    SetValue {
+        entity: EntityId,
+        key: String,
+        value: PropertyValue,
+    },
+    RemoveValue {
+        entity: EntityId,
+        key: String,
+    },
     SetExtension {
         entity: EntityId,
         namespace: String,
-        payload: Vec<u8>,
+        payload: OpaquePayload,
+    },
+    RemoveExtension {
+        entity: EntityId,
+        namespace: String,
+    },
+    SetUnknownPayload {
+        entity: EntityId,
+        payload: OpaquePayload,
+    },
+    #[serde(rename = "_restore_subtree")]
+    RestoreSubtree {
+        parent: Option<EntityId>,
+        anchor: Anchor,
+        root: EntityId,
+        entities: Vec<Entity>,
+        relations: Vec<Relation>,
     },
 }
 
-#[derive(Clone, Debug, PartialEq)]
+impl Operation {
+    fn inserted_entity(&self) -> Option<EntityId> {
+        match self {
+            Self::Insert { entity, .. } => Some(entity.id),
+            Self::Move { entity, .. } => Some(*entity),
+            Self::RestoreSubtree { root, .. } => Some(*root),
+            _ => None,
+        }
+    }
+
+    fn requested_position(&self) -> Option<(Option<EntityId>, Anchor)> {
+        match self {
+            Self::Insert { parent, anchor, .. } | Self::RestoreSubtree { parent, anchor, .. } => {
+                Some((*parent, *anchor))
+            }
+            Self::Move {
+                new_parent, anchor, ..
+            } => Some((*new_parent, *anchor)),
+            _ => None,
+        }
+    }
+
+    fn with_anchor(&self, anchor: Anchor) -> Self {
+        let mut operation = self.clone();
+        match &mut operation {
+            Self::Insert {
+                anchor: current, ..
+            }
+            | Self::Move {
+                anchor: current, ..
+            }
+            | Self::RestoreSubtree {
+                anchor: current, ..
+            } => *current = anchor,
+            _ => {}
+        }
+        operation
+    }
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum Axis {
+    Horizontal,
+    Vertical,
+}
+
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct Patch {
     pub base_revision: Option<String>,
+    #[serde(default)]
     pub transactions: Vec<Transaction>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Error, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case", tag = "code")]
+pub enum ApplyError {
+    #[error("patch base revision {expected} does not match document revision {actual}")]
+    BaseRevisionMismatch { expected: String, actual: String },
+    #[error("document revision cannot be computed: {reason}")]
+    BaseRevisionUnavailable { reason: String },
+    #[error("entity {entity} does not exist")]
+    EntityMissing { entity: EntityId },
+    #[error("entity {entity} already exists")]
+    EntityExists { entity: EntityId },
+    #[error("parent {parent} does not exist")]
+    ParentMissing { parent: EntityId },
+    #[error("anchor {anchor:?} does not exist under parent {parent:?}")]
+    AnchorMissing {
+        parent: Option<EntityId>,
+        anchor: Anchor,
+    },
+    #[error("moving {entity} under {new_parent} would create a containment cycle")]
+    CycleRejected {
+        entity: EntityId,
+        new_parent: EntityId,
+    },
+    #[error("entity {entity} is still referenced outside its removed subtree")]
+    ReferencedEntity { entity: EntityId },
+    #[error("operation requires unknown entity {entity}")]
+    NotUnknown { entity: EntityId },
+    #[error("patch produced an invalid document: {codes:?}")]
+    InvalidResult { codes: Vec<String> },
+}
+
+/// Applies the complete patch atomically. A failure leaves `document` unchanged.
+///
+/// # Errors
+///
+/// Returns a typed conflict when an entity, anchor, or precondition is invalid,
+/// or when the resulting canonical document fails structural validation.
+pub fn apply_patch(document: &mut Document, patch: &Patch) -> Result<(), ApplyError> {
+    apply_patch_with_inverse(document, patch).map(|_| ())
+}
+
+/// Applies a patch and returns the inverse patch in undo order.
+///
+/// # Errors
+///
+/// Has the same failure conditions and atomicity as [`apply_patch`].
+pub fn apply_patch_with_inverse(
+    document: &mut Document,
+    patch: &Patch,
+) -> Result<Patch, ApplyError> {
+    if let Some(expected) = &patch.base_revision {
+        let actual =
+            canonical_hash(document).map_err(|error| ApplyError::BaseRevisionUnavailable {
+                reason: error.to_string(),
+            })?;
+        if expected != &actual {
+            return Err(ApplyError::BaseRevisionMismatch {
+                expected: expected.clone(),
+                actual,
+            });
+        }
+    }
+    let mut candidate = document.clone();
+    let mut inverse_transactions = Vec::with_capacity(patch.transactions.len());
+    let mut same_anchor_cursor: BTreeMap<(Option<EntityId>, Anchor), EntityId> = BTreeMap::new();
+
+    for transaction in &patch.transactions {
+        let mut inverses = Vec::with_capacity(transaction.operations.len());
+        for operation in &transaction.operations {
+            let requested = operation.requested_position();
+            let effective = requested
+                .and_then(|position| same_anchor_cursor.get(&position).copied())
+                .map_or_else(
+                    || operation.clone(),
+                    |prior| operation.with_anchor(Anchor::After(prior)),
+                );
+            let inverse = apply_operation(&mut candidate, &effective)?;
+            if let (Some(position), Some(inserted)) = (requested, operation.inserted_entity()) {
+                same_anchor_cursor.insert(position, inserted);
+            }
+            inverses.push(inverse);
+        }
+        inverses.reverse();
+        inverse_transactions.push(Transaction {
+            id: transaction.id,
+            operations: inverses,
+        });
+    }
+
+    let errors = validate(&candidate)
+        .into_iter()
+        .filter(|diagnostic| diagnostic.severity == Severity::Error)
+        .map(|diagnostic| diagnostic.code)
+        .collect::<Vec<_>>();
+    if !errors.is_empty() {
+        return Err(ApplyError::InvalidResult { codes: errors });
+    }
+
+    let inverse_base =
+        canonical_hash(&candidate).map_err(|error| ApplyError::BaseRevisionUnavailable {
+            reason: error.to_string(),
+        })?;
+    *document = candidate;
+    inverse_transactions.reverse();
+    Ok(Patch {
+        base_revision: Some(inverse_base),
+        transactions: inverse_transactions,
+    })
+}
+
+#[expect(
+    clippy::too_many_lines,
+    reason = "operation cases stay together to make inverse coverage auditable"
+)]
+fn apply_operation(
+    document: &mut Document,
+    operation: &Operation,
+) -> Result<Operation, ApplyError> {
+    match operation {
+        Operation::Insert {
+            parent,
+            anchor,
+            entity,
+        } => {
+            if document.entities.contains_key(&entity.id) {
+                return Err(ApplyError::EntityExists { entity: entity.id });
+            }
+            for child in &entity.children {
+                if !document.entities.contains_key(child) {
+                    return Err(ApplyError::EntityMissing { entity: *child });
+                }
+                if document.parent_of(*child).is_some() || document.roots.contains(child) {
+                    return Err(ApplyError::ReferencedEntity { entity: *child });
+                }
+            }
+            insert_at(document, *parent, *anchor, entity.id)?;
+            document.entities.insert(entity.id, entity.as_ref().clone());
+            Ok(Operation::Remove { entity: entity.id })
+        }
+        Operation::Remove { entity } => remove_subtree(document, *entity),
+        Operation::Move {
+            entity,
+            new_parent,
+            anchor,
+        } => {
+            if !document.entities.contains_key(entity) {
+                return Err(ApplyError::EntityMissing { entity: *entity });
+            }
+            if let Some(parent) = new_parent
+                && (*parent == *entity || document.contains_descendant(*entity, *parent))
+            {
+                return Err(ApplyError::CycleRejected {
+                    entity: *entity,
+                    new_parent: *parent,
+                });
+            }
+            if matches!(anchor, Anchor::After(anchor_id) if anchor_id == entity) {
+                return Err(ApplyError::AnchorMissing {
+                    parent: *new_parent,
+                    anchor: *anchor,
+                });
+            }
+            let old_parent = document.parent_of(*entity);
+            let old_anchor = anchor_of(document, old_parent, *entity)?;
+            detach(document, old_parent, *entity)?;
+            if let Err(error) = insert_at(document, *new_parent, *anchor, *entity) {
+                insert_at(document, old_parent, old_anchor, *entity)
+                    .expect("the original position was validated before detaching");
+                return Err(error);
+            }
+            Ok(Operation::Move {
+                entity: *entity,
+                new_parent: old_parent,
+                anchor: old_anchor,
+            })
+        }
+        Operation::Rename { entity, name } => {
+            let item = document
+                .entities
+                .get_mut(entity)
+                .ok_or(ApplyError::EntityMissing { entity: *entity })?;
+            let previous = std::mem::replace(&mut item.name, name.clone());
+            Ok(Operation::Rename {
+                entity: *entity,
+                name: previous,
+            })
+        }
+        Operation::SetSize {
+            entity,
+            axis,
+            value,
+        } => {
+            let item = document
+                .entities
+                .get_mut(entity)
+                .ok_or(ApplyError::EntityMissing { entity: *entity })?;
+            let slot = match axis {
+                Axis::Horizontal => &mut item.authored.width,
+                Axis::Vertical => &mut item.authored.height,
+            };
+            let previous = std::mem::replace(slot, value.clone());
+            Ok(Operation::SetSize {
+                entity: *entity,
+                axis: *axis,
+                value: previous,
+            })
+        }
+        Operation::SetLayout { entity, value } => {
+            let item = document
+                .entities
+                .get_mut(entity)
+                .ok_or(ApplyError::EntityMissing { entity: *entity })?;
+            let previous = std::mem::replace(&mut item.authored.layout, value.clone());
+            Ok(Operation::SetLayout {
+                entity: *entity,
+                value: previous,
+            })
+        }
+        Operation::SetValue { entity, key, value } => {
+            let item = document
+                .entities
+                .get_mut(entity)
+                .ok_or(ApplyError::EntityMissing { entity: *entity })?;
+            Ok(item
+                .authored
+                .values
+                .insert(key.clone(), value.clone())
+                .map_or(
+                    Operation::RemoveValue {
+                        entity: *entity,
+                        key: key.clone(),
+                    },
+                    |previous| Operation::SetValue {
+                        entity: *entity,
+                        key: key.clone(),
+                        value: previous,
+                    },
+                ))
+        }
+        Operation::RemoveValue { entity, key } => {
+            let item = document
+                .entities
+                .get_mut(entity)
+                .ok_or(ApplyError::EntityMissing { entity: *entity })?;
+            Ok(item.authored.values.remove(key).map_or(
+                Operation::RemoveValue {
+                    entity: *entity,
+                    key: key.clone(),
+                },
+                |previous| Operation::SetValue {
+                    entity: *entity,
+                    key: key.clone(),
+                    value: previous,
+                },
+            ))
+        }
+        Operation::SetExtension {
+            entity,
+            namespace,
+            payload,
+        } => {
+            let item = document
+                .entities
+                .get_mut(entity)
+                .ok_or(ApplyError::EntityMissing { entity: *entity })?;
+            Ok(item
+                .extensions
+                .0
+                .insert(namespace.clone(), payload.clone())
+                .map_or(
+                    Operation::RemoveExtension {
+                        entity: *entity,
+                        namespace: namespace.clone(),
+                    },
+                    |previous| Operation::SetExtension {
+                        entity: *entity,
+                        namespace: namespace.clone(),
+                        payload: previous,
+                    },
+                ))
+        }
+        Operation::RemoveExtension { entity, namespace } => {
+            let item = document
+                .entities
+                .get_mut(entity)
+                .ok_or(ApplyError::EntityMissing { entity: *entity })?;
+            Ok(item.extensions.0.remove(namespace).map_or(
+                Operation::RemoveExtension {
+                    entity: *entity,
+                    namespace: namespace.clone(),
+                },
+                |previous| Operation::SetExtension {
+                    entity: *entity,
+                    namespace: namespace.clone(),
+                    payload: previous,
+                },
+            ))
+        }
+        Operation::SetUnknownPayload { entity, payload } => {
+            let item = document
+                .entities
+                .get_mut(entity)
+                .ok_or(ApplyError::EntityMissing { entity: *entity })?;
+            let nuif_core::EntityKind::Unknown(unknown) = &mut item.kind else {
+                return Err(ApplyError::NotUnknown { entity: *entity });
+            };
+            let previous = std::mem::replace(&mut unknown.payload, payload.clone());
+            Ok(Operation::SetUnknownPayload {
+                entity: *entity,
+                payload: previous,
+            })
+        }
+        Operation::RestoreSubtree {
+            parent,
+            anchor,
+            root,
+            entities,
+            relations,
+        } => {
+            for entity in entities {
+                if document.entities.contains_key(&entity.id) {
+                    return Err(ApplyError::EntityExists { entity: entity.id });
+                }
+            }
+            insert_at(document, *parent, *anchor, *root)?;
+            for entity in entities {
+                document.entities.insert(entity.id, entity.clone());
+            }
+            document.relations.extend(relations.iter().cloned());
+            Ok(Operation::Remove { entity: *root })
+        }
+    }
+}
+
+fn remove_subtree(document: &mut Document, root: EntityId) -> Result<Operation, ApplyError> {
+    if !document.entities.contains_key(&root) {
+        return Err(ApplyError::EntityMissing { entity: root });
+    }
+    let parent = document.parent_of(root);
+    let anchor = anchor_of(document, parent, root)?;
+    let mut pending = vec![root];
+    let mut ids = BTreeSet::new();
+    while let Some(id) = pending.pop() {
+        ids.insert(id);
+        if let Some(entity) = document.entities.get(&id) {
+            pending.extend(entity.children.iter().copied());
+        }
+    }
+    for entity in document.entities.values() {
+        if !ids.contains(&entity.id)
+            && matches!(entity.kind, nuif_core::EntityKind::Instance { component } if ids.contains(&component))
+        {
+            return Err(ApplyError::ReferencedEntity { entity: root });
+        }
+    }
+    detach(document, parent, root)?;
+    let entities = ids
+        .iter()
+        .filter_map(|id| document.entities.remove(id))
+        .collect::<Vec<_>>();
+    let mut removed_relations = Vec::new();
+    document.relations.retain(|relation| {
+        if ids.contains(&relation.source) || ids.contains(&relation.target) {
+            removed_relations.push(relation.clone());
+            false
+        } else {
+            true
+        }
+    });
+    Ok(Operation::RestoreSubtree {
+        parent,
+        anchor,
+        root,
+        entities,
+        relations: removed_relations,
+    })
+}
+
+fn siblings(document: &Document, parent: Option<EntityId>) -> Result<&[EntityId], ApplyError> {
+    parent.map_or(Ok(document.roots.as_slice()), |id| {
+        document
+            .entities
+            .get(&id)
+            .map(|entity| entity.children.as_slice())
+            .ok_or(ApplyError::ParentMissing { parent: id })
+    })
+}
+
+fn siblings_mut(
+    document: &mut Document,
+    parent: Option<EntityId>,
+) -> Result<&mut Vec<EntityId>, ApplyError> {
+    parent.map_or(Ok(&mut document.roots), |id| {
+        document
+            .entities
+            .get_mut(&id)
+            .map(|entity| &mut entity.children)
+            .ok_or(ApplyError::ParentMissing { parent: id })
+    })
+}
+
+fn insert_at(
+    document: &mut Document,
+    parent: Option<EntityId>,
+    anchor: Anchor,
+    entity: EntityId,
+) -> Result<(), ApplyError> {
+    let siblings = siblings_mut(document, parent)?;
+    let index = match anchor {
+        Anchor::Start => 0,
+        Anchor::After(id) => siblings
+            .iter()
+            .position(|candidate| *candidate == id)
+            .map(|index| index + 1)
+            .ok_or(ApplyError::AnchorMissing { parent, anchor })?,
+    };
+    siblings.insert(index, entity);
+    Ok(())
+}
+
+fn detach(
+    document: &mut Document,
+    parent: Option<EntityId>,
+    entity: EntityId,
+) -> Result<(), ApplyError> {
+    let siblings = siblings_mut(document, parent)?;
+    let index = siblings
+        .iter()
+        .position(|candidate| *candidate == entity)
+        .ok_or(ApplyError::EntityMissing { entity })?;
+    siblings.remove(index);
+    Ok(())
+}
+
+fn anchor_of(
+    document: &Document,
+    parent: Option<EntityId>,
+    entity: EntityId,
+) -> Result<Anchor, ApplyError> {
+    let siblings = siblings(document, parent)?;
+    let index = siblings
+        .iter()
+        .position(|candidate| *candidate == entity)
+        .ok_or(ApplyError::EntityMissing { entity })?;
+    Ok(if index == 0 {
+        Anchor::Start
+    } else {
+        Anchor::After(siblings[index - 1])
+    })
+}
+
+#[must_use]
+pub fn empty_extensions() -> Extensions {
+    Extensions::default()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use nuif_core::EntityKind;
+
+    fn base() -> Document {
+        let mut document = Document::empty(EntityId::new(1));
+        let root = Entity::new(EntityId::new(2), EntityKind::Container);
+        document.roots.push(root.id);
+        document.entities.insert(root.id, root);
+        document
+    }
+
+    #[test]
+    fn same_anchor_inserts_keep_patch_order() {
+        let mut document = base();
+        let first = Entity::new(EntityId::new(3), EntityKind::Container);
+        let second = Entity::new(EntityId::new(4), EntityKind::Container);
+        let patch = Patch {
+            base_revision: None,
+            transactions: vec![Transaction {
+                id: 1,
+                operations: vec![
+                    Operation::Insert {
+                        parent: Some(EntityId::new(2)),
+                        anchor: Anchor::Start,
+                        entity: Box::new(first),
+                    },
+                    Operation::Insert {
+                        parent: Some(EntityId::new(2)),
+                        anchor: Anchor::Start,
+                        entity: Box::new(second),
+                    },
+                ],
+            }],
+        };
+        apply_patch(&mut document, &patch).unwrap();
+        assert_eq!(
+            document.entities[&EntityId::new(2)].children,
+            [EntityId::new(3), EntityId::new(4)]
+        );
+    }
+
+    #[test]
+    fn same_anchor_order_spans_transactions_in_one_patch() {
+        let mut document = base();
+        let transactions = [EntityId::new(3), EntityId::new(4)]
+            .into_iter()
+            .enumerate()
+            .map(|(index, id)| Transaction {
+                id: u128::try_from(index).expect("fixture index fits u128"),
+                operations: vec![Operation::Insert {
+                    parent: Some(EntityId::new(2)),
+                    anchor: Anchor::Start,
+                    entity: Box::new(Entity::new(id, EntityKind::Container)),
+                }],
+            })
+            .collect();
+        let patch = Patch {
+            base_revision: None,
+            transactions,
+        };
+
+        apply_patch(&mut document, &patch).unwrap();
+        assert_eq!(
+            document.entities[&EntityId::new(2)].children,
+            [EntityId::new(3), EntityId::new(4)]
+        );
+    }
+
+    #[test]
+    fn inverse_restores_exact_document() {
+        let mut document = base();
+        let original = document.clone();
+        let patch = Patch {
+            base_revision: None,
+            transactions: vec![Transaction {
+                id: 7,
+                operations: vec![Operation::Rename {
+                    entity: EntityId::new(2),
+                    name: Some("renamed".to_owned()),
+                }],
+            }],
+        };
+        let inverse = apply_patch_with_inverse(&mut document, &patch).unwrap();
+        apply_patch(&mut document, &inverse).unwrap();
+        assert_eq!(document, original);
+    }
+
+    #[test]
+    fn cycle_is_rejected_atomically() {
+        let mut document = base();
+        let child = Entity::new(EntityId::new(3), EntityKind::Container);
+        document
+            .entities
+            .get_mut(&EntityId::new(2))
+            .unwrap()
+            .children
+            .push(child.id);
+        document.entities.insert(child.id, child);
+        let original = document.clone();
+        let patch = Patch {
+            base_revision: None,
+            transactions: vec![Transaction {
+                id: 2,
+                operations: vec![Operation::Move {
+                    entity: EntityId::new(2),
+                    new_parent: Some(EntityId::new(3)),
+                    anchor: Anchor::Start,
+                }],
+            }],
+        };
+        assert!(matches!(
+            apply_patch(&mut document, &patch),
+            Err(ApplyError::CycleRejected { .. })
+        ));
+        assert_eq!(document, original);
+    }
+
+    #[test]
+    fn stale_base_revision_is_rejected_atomically() {
+        let mut document = base();
+        let original = document.clone();
+        let patch = Patch {
+            base_revision: Some("nuif-cbor-0:sha256:stale".to_owned()),
+            transactions: vec![Transaction {
+                id: 3,
+                operations: vec![Operation::Rename {
+                    entity: EntityId::new(2),
+                    name: Some("must not apply".to_owned()),
+                }],
+            }],
+        };
+
+        assert!(matches!(
+            apply_patch(&mut document, &patch),
+            Err(ApplyError::BaseRevisionMismatch { .. })
+        ));
+        assert_eq!(document, original);
+    }
 }

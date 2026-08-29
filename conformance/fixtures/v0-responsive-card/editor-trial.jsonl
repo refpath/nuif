@@ -1,0 +1,7 @@
+# Commands and accessibility actions use author identity; no widget coordinates are used.
+{"action":"select","author_id":"00000000000000000000000000000020"}
+{"action":"set_value","author_id":"00000000000000000000000000000020","label":"name","value":"Card trial edit"}
+{"action":"set_value","author_id":"00000000000000000000000000000020","label":"width","value":"640"}
+{"command":"undo"}
+{"command":"redo"}
+{"command":"snapshot","width":768,"height":640}
