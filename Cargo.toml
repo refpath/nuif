@@ -13,6 +13,7 @@ members = [
   "crates/nuif-testing",
   "crates/nuif-adapter",
   "crates/nuif-html",
+  "crates/nuif-svg",
   "crates/nuif-collab",
   "apps/editor",
   "conformance",
@@ -32,6 +33,7 @@ font-test-data = "=0.7.0"
 harfrust = "=0.13.3"
 json5 = "0.4.1"
 png = "0.18.0"
+roxmltree = "=0.21.1"
 serde = { version = "1.0", features = ["derive"] }
 serde_bytes = "0.11"
 serde_json = "1.0"

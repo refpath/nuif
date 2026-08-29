@@ -2412,6 +2412,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "nuif-svg"
+version = "0.0.1"
+dependencies = [
+ "nuif-adapter",
+ "nuif-codec",
+ "nuif-core",
+ "nuif-text",
+ "roxmltree 0.21.1",
+ "thiserror 2.0.20",
+]
+
+[[package]]
 name = "nuif-testing"
 version = "0.0.1"
 dependencies = [

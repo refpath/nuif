@@ -17,7 +17,7 @@ links:
   spec: [spec/05-geometry-paint-text.md]
   adr: []
   rfc: []
-  code: [adapters/README.md, adapters/STATUS.md]
+  code: [adapters/README.md, adapters/STATUS.md, adapters/svg/PROFILE.md, crates/nuif-svg/src/lib.rs]
   experiments: []
 ---
 # Summary
