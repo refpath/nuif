@@ -352,6 +352,85 @@ pub fn responsive_card_fixture() -> Document {
     document
 }
 
+/// Builds a deterministic, valid, flat profile-zero document for throughput
+/// and scalability measurements.
+///
+/// The count includes the root surface. Every sixteenth child is pinned text
+/// when `mixed_text` is enabled; the remaining children are solid rectangles.
+/// The fixture deliberately avoids unsupported kinds so benchmarks measure
+/// executable work rather than fidelity-report construction.
+///
+/// # Panics
+///
+/// Panics when `entity_count` is outside the executable profile-zero range
+/// `1..=8192`.
+#[must_use]
+pub fn performance_fixture(entity_count: usize, mixed_text: bool) -> Document {
+    assert!(
+        (1..=nuif_core::PROFILE0_RESOURCE_LIMITS.entities).contains(&entity_count),
+        "performance fixture entity count must fit profile zero"
+    );
+    let mut document = Document::empty(EntityId::new(1));
+    let root_id = EntityId::new(2);
+    let mut root = Entity::new(root_id, EntityKind::Surface);
+    root.name = Some(format!("Performance fixture ({entity_count} entities)"));
+    root.authored.width = SizeIntent::Fill;
+    root.authored.height = SizeIntent::Fill;
+    root.authored.fill = Some(Color {
+        space: ColorSpace::Srgb,
+        red: 0.98,
+        green: 0.98,
+        blue: 0.99,
+        alpha: 1.0,
+    });
+
+    for index in 1..entity_count {
+        let id = EntityId::new(u128::try_from(index).expect("profile count fits u128") + 2);
+        let is_text = mixed_text && index % 16 == 0;
+        let mut entity = Entity::new(
+            id,
+            if is_text {
+                EntityKind::Text
+            } else {
+                EntityKind::Shape(ShapeKind::Rectangle)
+            },
+        );
+        entity.authored.position = nuif_core::Point {
+            x: f64::from(u32::try_from(index % 64).expect("bounded column")) * 22.0,
+            y: f64::from(u32::try_from(index / 64).expect("bounded row")) * 22.0,
+        };
+        entity.authored.width = SizeIntent::Fixed(if is_text { 160.0 } else { 20.0 });
+        entity.authored.height = SizeIntent::Fixed(20.0);
+        entity.authored.fill = Some(Color {
+            space: ColorSpace::Srgb,
+            red: 0.18,
+            green: 0.36,
+            blue: 0.82,
+            alpha: 1.0,
+        });
+        if is_text {
+            entity.authored.text = Some(TextContent {
+                content: format!("NUIF {index}"),
+                font: nuif_text::PINNED_FONT_NAME.to_owned(),
+                font_sha256: nuif_text::PINNED_FONT_SHA256.to_owned(),
+                size: 14.0,
+                line_height: 20.0,
+            });
+        }
+        root.children.push(id);
+        document.entities.insert(id, entity);
+    }
+    document.roots.push(root_id);
+    document.entities.insert(root_id, root);
+    debug_assert!(
+        validate(&document)
+            .iter()
+            .all(|diagnostic| diagnostic.severity != Severity::Error),
+        "performance fixture must remain valid"
+    );
+    document
+}
+
 #[must_use]
 pub fn run_trials(config: &TrialConfig) -> RunReport {
     let mut report = RunReport {
@@ -757,6 +836,20 @@ mod tests {
         let bytes = DeterministicCbor.encode(&document).unwrap();
         let decoded = DeterministicCbor.decode(&bytes).unwrap();
         assert_eq!(decoded, document);
+    }
+
+    #[test]
+    fn performance_fixtures_cover_supported_scales() {
+        for count in [1, 8, 128, 1_024, 8_192] {
+            let document = performance_fixture(count, true);
+            assert_eq!(document.entities.len(), count);
+            assert!(
+                validate(&document)
+                    .iter()
+                    .all(|diagnostic| diagnostic.severity != Severity::Error),
+                "{count}-entity performance fixture must be valid"
+            );
+        }
     }
 
     #[test]

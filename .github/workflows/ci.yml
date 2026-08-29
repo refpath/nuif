@@ -59,6 +59,12 @@ jobs:
         with:
           name: hostile-input-report
           path: target/hostile-input-report.json
+      - name: Upload profile-zero performance measurements
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: performance-profile-report
+          path: target/performance-profile-report.json
       - name: Upload layout differential report
         if: always()
         uses: actions/upload-artifact@v4

@@ -26,6 +26,7 @@ repository = "https://github.com/refpath/nuif"
 
 [workspace.dependencies]
 ciborium = "0.2.2"
+criterion = { version = "0.8.2", default-features = false }
 font-test-data = "=0.7.0"
 harfrust = "=0.13.3"
 json5 = "0.4.1"

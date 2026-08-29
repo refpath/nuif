@@ -17,5 +17,12 @@ nuif-render = { version = "0.0.0", path = "../crates/nuif-render" }
 nuif-testing = { version = "0.0.1", path = "../crates/nuif-testing" }
 serde_json.workspace = true
 
+[dev-dependencies]
+criterion.workspace = true
+
+[[bench]]
+name = "profile_zero"
+harness = false
+
 [lints]
 workspace = true

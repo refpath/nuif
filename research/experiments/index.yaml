@@ -79,6 +79,20 @@ experiments:
     tests:
       - canonical text vs deterministic CBOR vs schema-based candidates
       - size encode decode partial-load canonicalize and unknown-data preservation
+  - id: nuif:experiment:profile-zero-performance
+    status: automated
+    evidence: [nuif:research:rust-snapshot-property-fuzz-tooling, nuif:research:resource-bounded-serde-and-ciborium]
+    implementation: [crates/nuif-testing/src/lib.rs, crates/nuif-testing/src/bin/performance-profile.rs, conformance/benches/profile_zero.rs, xtask/src/main.rs]
+    oracle: measured-benchmark
+    acceptance:
+      - release report records hardware toolchain warmup sample protocol latency distributions allocations and workload scale
+      - catastrophic-regression budgets pass on supported CI hosts
+      - stable Criterion suite compiles and measures scaling from 8 through 4096 entities
+    tests:
+      - validate canonical text deterministic CBOR protocol layout and scene work at 1024 entities
+      - measure CPU raster and end-to-end snapshot latency at representative viewport sizes
+      - retain statistical baselines under target for controlled before-and-after comparisons
+      - write and archive target/performance-profile-report.json
   - id: nuif:experiment:crdt-checkpoint
     status: completed
     evidence: [nuif:research:automerge-yjs, nuif:research:crdt-tree-move-operation, nuif:research:operational-transformation-vs-crdt]
