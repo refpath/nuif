@@ -197,6 +197,24 @@ experiments:
       - assert direct generation editor authoring and operation replay are byte-identical and share one canonical hash
       - assert the accessibility tree exposes entity identifiers for every bound widget
       - archive canonical document context layout scene CPU raster fidelity and machine report in CI
+  - id: nuif:experiment:editor-hostile-interactions
+    status: completed
+    evidence: [nuif:research:resource-bounded-serde-and-ciborium, nuif:research:accesskit-semantic-ui-testing, nuif:research:masonry-xilem-and-linebender-test-harness]
+    implementation: [apps/editor/src/lib.rs, apps/editor/src/main.rs, apps/editor/src/gui.rs, apps/editor/src/bin/editor-hostile-inputs.rs, xtask/src/main.rs]
+    oracle: metamorphic
+    acceptance:
+      - excessive snapshot dimensions fail before layout or raster allocation
+      - malformed and non-finite semantic values do not mutate document history or replay logs
+      - multi-operation failures and unavailable history operations are atomic
+      - successful undo redo and replacement edits replay to the exact final document
+    tests:
+      - reject zero one-over-edge and maximal snapshot dimensions and accept the exact edge boundary
+      - reject non-finite fixed percentage fit-content position spacing and text metric inputs
+      - reject malformed fill missing selections and missing semantic nodes without mutation
+      - fail a transaction after an earlier valid operation and retain the original document and empty history
+      - invalidate redo after a replacement edit and replay the complete patch log exactly
+      - enforce headless script byte line and command limits with malformed-line attribution
+      - write and archive target/editor-hostile-input-report.json
   - id: nuif:experiment:html-css-retentive-sync
     status: completed
     evidence: [nuif:research:tree-sitter, nuif:research:retentive-lenses, nuif:research:symmetric-lenses, nuif:research:bidirectional-evaluation-direct-manipulation]

@@ -65,6 +65,12 @@ jobs:
         with:
           name: hostile-input-report
           path: target/hostile-input-report.json
+      - name: Upload editor hostile-interaction evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: editor-hostile-input-report
+          path: target/editor-hostile-input-report.json
       - name: Upload profile-zero performance measurements
         if: always()
         uses: actions/upload-artifact@v4

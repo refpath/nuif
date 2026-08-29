@@ -22,8 +22,8 @@ relations:
 links:
   spec: [spec/11-security.md]
   rfc: [rfcs/0009-profile-zero-resource-budgets.md]
-  code: [crates/nuif-codec/src/lib.rs, crates/nuif-core/src/lib.rs, crates/nuif-testing/src/bin/hostile-inputs.rs, xtask/src/main.rs]
-  experiments: [nuif:experiment:hostile-input-budgets]
+  code: [crates/nuif-codec/src/lib.rs, crates/nuif-core/src/lib.rs, crates/nuif-testing/src/bin/hostile-inputs.rs, apps/editor/src/bin/editor-hostile-inputs.rs, xtask/src/main.rs]
+  experiments: [nuif:experiment:hostile-input-budgets, nuif:experiment:editor-hostile-interactions]
 ---
 
 # Summary

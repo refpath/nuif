@@ -8,6 +8,15 @@ Run `cargo run --locked -p nuif-editor` to open the native editor. The same bina
 
 `cargo xtask editor-gui-trial` drives the real AccessKit nodes of the native shell without pixel coordinates, renders the complete 1280×800 Masonry tree through the CPU harness twice, and requires identical shell and document raster hashes. It emits the screenshot, canonical output, semantic-node inventory and machine-readable report under `target/editor-gui-trial/`. The full shell is specified in `UI-SPEC.md`; a Svelte 5 shell over WASM remains a later browser demonstration.
 
+Snapshots reject zero dimensions, an edge above 4,096 pixels or more than
+16,777,216 pixels before layout or raster allocation. Accessibility and
+inspector numeric inputs reject non-finite values for fixed, percentage and
+fit-content sizes, positions, spacing and text metrics. `cargo xtask
+editor-hostile-inputs` checks those boundaries together with missing semantic
+nodes, atomic multi-operation failure, empty history, redo invalidation and
+complete operation-log replay; it writes
+`target/editor-hostile-input-report.json`.
+
 The draft `UI-SPEC.md` is broader than executable profile zero. Multi-selection, drag reparenting/reordering, direct manipulation handles, snapping/guides, token editing, component authoring, advanced paint/effects, adapter import dialogs and non-PNG export remain gated on corresponding model, protocol, layout or renderer profiles. The shell does not present inert controls for those features.
 
 Use `cargo xtask editor-package` to build and verify the native package for the host platform, or `cargo xtask editor-launch` to package and open it. macOS produces `NUIF Editor.app`, Windows produces a GUI-subsystem executable, and Linux produces a relocatable desktop application directory. See `PACKAGING.md` for exact paths and unsigned-development-build limitations.

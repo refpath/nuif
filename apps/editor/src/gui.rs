@@ -1827,15 +1827,21 @@ fn parse_size_intent(value: &str) -> Result<SizeIntent, String> {
         "max-content" => Ok(SizeIntent::MaxContent),
         _ if value.ends_with('%') => value
             .strip_suffix('%')
-            .and_then(|value| value.parse::<f64>().ok())
+            .map_or_else(
+                || Err(format!("invalid percentage {value:?}")),
+                parse_number,
+            )
             .map(SizeIntent::Percentage)
-            .ok_or_else(|| format!("invalid percentage {value:?}")),
+            .map_err(|_| format!("invalid percentage {value:?}")),
         _ if value.starts_with("fit-content(") && value.ends_with(')') => value
             .strip_prefix("fit-content(")
             .and_then(|value| value.strip_suffix(')'))
-            .and_then(|value| value.parse::<f64>().ok())
+            .map_or_else(
+                || Err(format!("invalid fit-content value {value:?}")),
+                parse_number,
+            )
             .map(SizeIntent::FitContent)
-            .ok_or_else(|| format!("invalid fit-content value {value:?}")),
+            .map_err(|_| format!("invalid fit-content value {value:?}")),
         _ => parse_number(value).map(SizeIntent::Fixed),
     }
 }
@@ -2106,5 +2112,20 @@ mod tests {
         );
         assert_eq!(driver.editor.document().entities.len(), 5);
         assert_eq!(driver.editor.operation_log().len(), 3);
+    }
+
+    #[test]
+    fn inspector_rejects_nonfinite_size_forms() {
+        for value in ["NaN", "inf", "NaN%", "fit-content(inf)"] {
+            assert!(parse_size_intent(value).is_err(), "accepted {value}");
+        }
+        assert_eq!(
+            parse_size_intent("25%").unwrap(),
+            SizeIntent::Percentage(25.0)
+        );
+        assert_eq!(
+            parse_size_intent("fit-content(320)").unwrap(),
+            SizeIntent::FitContent(320.0)
+        );
     }
 }

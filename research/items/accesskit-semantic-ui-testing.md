@@ -34,7 +34,7 @@ links:
   adr: [adrs/0001-rust-reference-core.md]
   rfc: []
   code: [apps/editor/QA.md, apps/editor/ARCHITECTURE.md, crates/nuif-core, crates/nuif-query]
-  experiments: []
+  experiments: [nuif:experiment:editor-harness-parity, nuif:experiment:editor-hostile-interactions]
 ---
 
 # Summary

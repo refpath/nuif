@@ -8,6 +8,11 @@ Run `cargo xtask gate-d` for both text and paint. It writes `target/text-pinning
 
 Automated and conventional QA run the same headless tests. GUI automation is supplementary; semantic API operations are the primary test interface. `HARNESS.md` specifies the workspace layout, fixture format, determinism controls, oracles, trial loop, reducer and report schema.
 
+Run `cargo xtask editor-hostile-inputs` for the release-mode semantic editor
+boundary. It rejects excessive snapshot allocations before rendering, checks
+finite parsing across every accessibility numeric family, and proves failed
+transactions and history boundaries preserve the document and replay log.
+
 Run `cargo xtask performance` for the portable release-mode smoke profile. It measures validation, both codecs, protocol apply, layout, scene lowering, CPU rasterization and end-to-end snapshots at a representative 1,024-entity scale; records median/p95 latency and warmed allocation counts; enforces deliberately broad catastrophic-regression budgets; writes `target/performance-profile-report.json`; and compiles the statistical suite. Run `cargo bench -p nuif-conformance --bench profile_zero -- --noplot` on controlled hardware for Criterion scaling comparisons from 8 through 4,096 entities. Shared CI timing is evidence, not a fine-grained cross-machine baseline. See [PERFORMANCE.md](PERFORMANCE.md) for the workload contract, comparison workflow and interpretation rules.
 
 Run `cargo xtask gate-svg` for the bounded `nuif-svg-0` adapter. It checks

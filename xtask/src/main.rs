@@ -14,6 +14,7 @@ const ALL_STEPS: &[Step] = &[
     ("verify", verify),
     ("gate-b", gate_b),
     ("hostile-inputs", hostile_inputs),
+    ("editor-hostile-inputs", editor_hostile_inputs),
     ("performance", performance),
     ("browser-install", browser_install),
     ("gate-c", gate_c),
@@ -32,6 +33,7 @@ const VERIFICATION_ARTIFACTS: &[&str] = &[
     "target/adapter-coverage-report.json",
     "target/gate-b-report.json",
     "target/hostile-input-report.json",
+    "target/editor-hostile-input-report.json",
     "target/performance-profile-report.json",
     "target/layout-differential-report.json",
     "target/text-pinning-report.json",
@@ -105,6 +107,7 @@ fn run() -> Result<(), String> {
         Some("gate-h") => gate_h(),
         Some("browser-install") => browser_install(),
         Some("hostile-inputs") => hostile_inputs(),
+        Some("editor-hostile-inputs") => editor_hostile_inputs(),
         Some("performance") => performance(),
         Some("research") => research(),
         Some("adapter-audit") => adapter_audit(),
@@ -115,7 +118,7 @@ fn run() -> Result<(), String> {
         Some("manifest") => standalone_manifest(),
         Some("all") => all(),
         _ => Err(
-            "usage: cargo xtask <research|adapter-audit|verify|trial [seed iterations snapshot-interval report-path]|gate-b|gate-c|gate-d|gate-d-text|gate-d-render|gate-f|gate-f-v0|gate-svg|gate-dtcg|gate-g|gate-h|browser-install|hostile-inputs|performance|editor-trial|editor-gui-trial|editor-package|editor-launch|manifest|all>"
+            "usage: cargo xtask <research|adapter-audit|verify|trial [seed iterations snapshot-interval report-path]|gate-b|gate-c|gate-d|gate-d-text|gate-d-render|gate-f|gate-f-v0|gate-svg|gate-dtcg|gate-g|gate-h|browser-install|hostile-inputs|editor-hostile-inputs|performance|editor-trial|editor-gui-trial|editor-package|editor-launch|manifest|all>"
                 .to_owned(),
         ),
     }
@@ -188,6 +191,21 @@ fn hostile_inputs() -> Result<(), String> {
         "--",
         "--output",
         "target/hostile-input-report.json",
+    ])
+}
+
+fn editor_hostile_inputs() -> Result<(), String> {
+    cargo(&[
+        "run",
+        "--release",
+        "--locked",
+        "-p",
+        "nuif-editor",
+        "--bin",
+        "editor-hostile-inputs",
+        "--",
+        "--output",
+        "target/editor-hostile-input-report.json",
     ])
 }
 

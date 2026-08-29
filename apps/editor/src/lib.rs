@@ -15,6 +15,9 @@ use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use thiserror::Error;
 
+pub const MAX_SNAPSHOT_EDGE: u32 = 4_096;
+pub const MAX_SNAPSHOT_PIXELS: u64 = 16_777_216;
+
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum AccessibilityRole {
@@ -158,6 +161,10 @@ pub enum EditorError {
     EntityMissing(EntityId),
     #[error("snapshot PNG encoding failed: {0}")]
     Snapshot(String),
+    #[error(
+        "snapshot dimensions {width}x{height} exceed the non-zero {MAX_SNAPSHOT_EDGE}-edge and {MAX_SNAPSHOT_PIXELS}-pixel limits"
+    )]
+    SnapshotDimensions { width: u32, height: u32 },
     #[error("accessibility node {label:?} for entity {entity} does not exist")]
     AccessibilityNodeMissing { entity: EntityId, label: String },
     #[error("accessibility value {value:?} is invalid for {label:?}")]
@@ -384,36 +391,7 @@ impl EditorDriver {
                 self.operation_log.push(patch);
                 Ok(EditorEvent::HistoryChanged)
             }
-            EditorCommand::Snapshot { width, height } => {
-                let context = profile_zero_context(f64::from(width), f64::from(height));
-                let snapshot = self.session.snapshot(&context)?;
-                let canonical_document = String::from_utf8(
-                    CanonicalText
-                        .encode(self.session.document())
-                        .map_err(EngineError::from)?,
-                )
-                .map_err(|error| EditorError::Snapshot(error.to_string()))?;
-                let png = snapshot
-                    .raster
-                    .to_png()
-                    .map_err(|error| EditorError::Snapshot(error.to_string()))?;
-                Ok(EditorEvent::Snapshot {
-                    snapshot: Box::new(EditorSnapshot {
-                        canonical_hash: snapshot.canonical_hash,
-                        canonical_document,
-                        context,
-                        layout: snapshot.layout,
-                        scene: snapshot.scene,
-                        raster: SnapshotRaster {
-                            width: snapshot.raster.width,
-                            height: snapshot.raster.height,
-                            rgba_sha256: format!("{:x}", Sha256::digest(&snapshot.raster.rgba)),
-                            rgba: snapshot.raster.rgba,
-                            png,
-                        },
-                    }),
-                })
-            }
+            EditorCommand::Snapshot { width, height } => self.snapshot(width, height),
         }
     }
 
@@ -478,12 +456,7 @@ impl EditorDriver {
                         })
                     }
                     "x" | "y" => {
-                        let number = value.parse::<f64>().map_err(|_| {
-                            EditorError::AccessibilityValueInvalid {
-                                label: label.clone(),
-                                value: value.clone(),
-                            }
-                        })?;
+                        let number = parse_finite_number(&label, &value)?;
                         let mut position = self
                             .session
                             .document()
@@ -603,6 +576,46 @@ impl EditorDriver {
         self.operation_log.push(patch);
         Ok(EditorEvent::PatchApplied { transaction })
     }
+
+    fn snapshot(&self, width: u32, height: u32) -> Result<EditorEvent, EditorError> {
+        let pixels = u64::from(width) * u64::from(height);
+        if width == 0
+            || height == 0
+            || width > MAX_SNAPSHOT_EDGE
+            || height > MAX_SNAPSHOT_EDGE
+            || pixels > MAX_SNAPSHOT_PIXELS
+        {
+            return Err(EditorError::SnapshotDimensions { width, height });
+        }
+        let context = profile_zero_context(f64::from(width), f64::from(height));
+        let snapshot = self.session.snapshot(&context)?;
+        let canonical_document = String::from_utf8(
+            CanonicalText
+                .encode(self.session.document())
+                .map_err(EngineError::from)?,
+        )
+        .map_err(|error| EditorError::Snapshot(error.to_string()))?;
+        let png = snapshot
+            .raster
+            .to_png()
+            .map_err(|error| EditorError::Snapshot(error.to_string()))?;
+        Ok(EditorEvent::Snapshot {
+            snapshot: Box::new(EditorSnapshot {
+                canonical_hash: snapshot.canonical_hash,
+                canonical_document,
+                context,
+                layout: snapshot.layout,
+                scene: snapshot.scene,
+                raster: SnapshotRaster {
+                    width: snapshot.raster.width,
+                    height: snapshot.raster.height,
+                    rgba_sha256: format!("{:x}", Sha256::digest(&snapshot.raster.rgba)),
+                    rgba: snapshot.raster.rgba,
+                    png,
+                },
+            }),
+        })
+    }
 }
 
 fn parse_size_intent(value: &str) -> Option<SizeIntent> {
@@ -617,14 +630,20 @@ fn parse_size_intent(value: &str) -> Option<SizeIntent> {
             .strip_suffix('%')?
             .parse::<f64>()
             .ok()
+            .filter(|value| value.is_finite())
             .map(SizeIntent::Percentage),
         _ if value.starts_with("fit-content(") && value.ends_with(')') => value
             .strip_prefix("fit-content(")?
             .strip_suffix(')')?
             .parse::<f64>()
             .ok()
+            .filter(|value| value.is_finite())
             .map(SizeIntent::FitContent),
-        _ => value.parse::<f64>().ok().map(SizeIntent::Fixed),
+        _ => value
+            .parse::<f64>()
+            .ok()
+            .filter(|value| value.is_finite())
+            .map(SizeIntent::Fixed),
     }
 }
 
@@ -867,5 +886,110 @@ mod tests {
         assert_eq!((snapshot.raster.width, snapshot.raster.height), (768, 640));
         assert_eq!(snapshot.raster.rgba_sha256.len(), 64);
         assert!(snapshot.raster.png.starts_with(b"\x89PNG\r\n\x1a\n"));
+    }
+
+    #[test]
+    fn hostile_accessibility_values_fail_without_mutation() {
+        let base = responsive_card_fixture();
+        let mut driver = EditorDriver::new(base.clone());
+        let card = EntityId::new(0x20);
+        let copy = EntityId::new(0x22);
+        for (entity, label, value) in [
+            (card, "width", "NaN"),
+            (card, "width", "NaN%"),
+            (card, "height", "fit-content(inf)"),
+            (card, "x", "-inf"),
+            (card, "gap", "NaN"),
+            (card, "padding_left", "1e999"),
+            (card, "fill", "#12345g"),
+            (copy, "font_size", "NaN"),
+            (copy, "line_height", "inf"),
+        ] {
+            let error = driver
+                .dispatch_accessibility_action(AccessibilityAction::SetValue {
+                    author_id: entity,
+                    label: label.to_owned(),
+                    value: value.to_owned(),
+                })
+                .unwrap_err();
+            assert!(matches!(
+                error,
+                EditorError::AccessibilityValueInvalid { .. }
+            ));
+            assert_eq!(driver.document(), &base);
+            assert!(driver.operation_log().is_empty());
+            assert!(!driver.can_undo());
+        }
+    }
+
+    #[test]
+    fn snapshot_budget_rejects_before_rendering() {
+        let base = responsive_card_fixture();
+        let mut driver = EditorDriver::new(base.clone());
+        for (width, height) in [
+            (0, 100),
+            (100, 0),
+            (MAX_SNAPSHOT_EDGE + 1, 1),
+            (1, MAX_SNAPSHOT_EDGE + 1),
+            (u32::MAX, u32::MAX),
+        ] {
+            assert!(matches!(
+                driver.execute(EditorCommand::Snapshot { width, height }),
+                Err(EditorError::SnapshotDimensions { .. })
+            ));
+            assert_eq!(driver.document(), &base);
+            assert!(driver.operation_log().is_empty());
+        }
+    }
+
+    #[test]
+    fn failed_transactions_and_history_boundaries_are_atomic_and_replayable() {
+        let base = responsive_card_fixture();
+        let mut driver = EditorDriver::new(base.clone());
+        let card = EntityId::new(0x20);
+        let missing = EntityId::new(u128::MAX);
+        assert!(
+            driver
+                .execute(EditorCommand::Apply {
+                    operations: vec![
+                        Operation::Rename {
+                            entity: card,
+                            name: Some("must not commit".to_owned()),
+                        },
+                        Operation::SetPosition {
+                            entity: missing,
+                            value: Point { x: 1.0, y: 2.0 },
+                        },
+                    ],
+                })
+                .is_err()
+        );
+        assert_eq!(driver.document(), &base);
+        assert!(driver.operation_log().is_empty());
+        assert!(!driver.can_undo());
+
+        driver
+            .execute(EditorCommand::Rename {
+                entity: card,
+                name: "first".to_owned(),
+            })
+            .unwrap();
+        driver.execute(EditorCommand::Undo).unwrap();
+        assert!(driver.can_redo());
+        driver.execute(EditorCommand::Redo).unwrap();
+        driver.execute(EditorCommand::Undo).unwrap();
+        driver
+            .execute(EditorCommand::Rename {
+                entity: card,
+                name: "replacement".to_owned(),
+            })
+            .unwrap();
+        assert!(!driver.can_redo());
+
+        let mut replayed = base;
+        for patch in driver.operation_log() {
+            apply_patch(&mut replayed, patch).unwrap();
+        }
+        assert_eq!(&replayed, driver.document());
     }
 }

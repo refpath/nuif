@@ -289,20 +289,29 @@ fn write_json(path: &Path, value: &impl Serialize) -> Result<(), String> {
 }
 
 fn execute_script(driver: &mut EditorDriver, commands: &str) -> Result<Vec<EditorEvent>, String> {
+    execute_script_with_limits(driver, commands, MAX_SCRIPT_LINE_BYTES, MAX_SCRIPT_COMMANDS)
+}
+
+fn execute_script_with_limits(
+    driver: &mut EditorDriver,
+    commands: &str,
+    max_line_bytes: usize,
+    max_commands: usize,
+) -> Result<Vec<EditorEvent>, String> {
     let mut events = Vec::new();
     for (index, line) in commands.lines().enumerate() {
         if line.trim().is_empty() || line.trim_start().starts_with('#') {
             continue;
         }
-        if line.len() > MAX_SCRIPT_LINE_BYTES {
+        if line.len() > max_line_bytes {
             return Err(format!(
-                "script line {} exceeds the {MAX_SCRIPT_LINE_BYTES}-byte limit",
+                "script line {} exceeds the {max_line_bytes}-byte limit",
                 index + 1
             ));
         }
-        if events.len() >= MAX_SCRIPT_COMMANDS {
+        if events.len() >= max_commands {
             return Err(format!(
-                "editor script exceeds the {MAX_SCRIPT_COMMANDS}-command limit"
+                "editor script exceeds the {max_commands}-command limit"
             ));
         }
         let input: EditorInput = serde_json::from_str(line)
@@ -336,5 +345,38 @@ mod tests {
             read_bounded(&mut Cursor::new([0_u8; 2]), 2, "probe").unwrap(),
             [0_u8; 2]
         );
+    }
+
+    #[test]
+    fn script_limits_reject_the_first_excess_without_semantic_mutation() {
+        let base = Document::empty(EntityId::new(1));
+        let mut driver = EditorDriver::new(base.clone());
+        let line_error =
+            execute_script_with_limits(&mut driver, "{\"command\":\"clear_selection\"}", 8, 10)
+                .unwrap_err();
+        assert_eq!(line_error, "script line 1 exceeds the 8-byte limit");
+        assert_eq!(driver.document(), &base);
+        assert!(driver.operation_log().is_empty());
+
+        let command_error = execute_script_with_limits(
+            &mut driver,
+            "# comment\n{\"command\":\"clear_selection\"}\n{\"command\":\"clear_selection\"}\n",
+            64,
+            1,
+        )
+        .unwrap_err();
+        assert_eq!(command_error, "editor script exceeds the 1-command limit");
+        assert_eq!(driver.document(), &base);
+        assert!(driver.operation_log().is_empty());
+    }
+
+    #[test]
+    fn malformed_script_reports_line_and_preserves_document() {
+        let base = Document::empty(EntityId::new(1));
+        let mut driver = EditorDriver::new(base.clone());
+        let error = execute_script(&mut driver, "# ignored\n{not-json}\n").unwrap_err();
+        assert!(error.starts_with("script line 2:"));
+        assert_eq!(driver.document(), &base);
+        assert!(driver.operation_log().is_empty());
     }
 }
