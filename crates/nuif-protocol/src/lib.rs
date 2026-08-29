@@ -2,8 +2,8 @@
 
 use nuif_codec::canonical_hash;
 use nuif_core::{
-    Document, Entity, EntityId, Extensions, LayoutStyle, OpaquePayload, PropertyValue, Relation,
-    Severity, SizeIntent, validate,
+    Document, Entity, EntityId, ExtensionDeclarations, Extensions, LayoutStyle, OpaquePayload,
+    PropertyValue, Relation, Severity, SizeIntent, Token, validate,
 };
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet};
@@ -52,6 +52,15 @@ pub enum Operation {
     SetLayout {
         entity: EntityId,
         value: LayoutStyle,
+    },
+    SetToken {
+        token: Token,
+    },
+    RemoveToken {
+        token: EntityId,
+    },
+    SetExtensionDeclarations {
+        value: ExtensionDeclarations,
     },
     SetValue {
         entity: EntityId,
@@ -358,6 +367,22 @@ fn apply_operation(
                 value: previous,
             })
         }
+        Operation::SetToken { token } => Ok(document
+            .tokens
+            .insert(token.id, token.clone())
+            .map_or(Operation::RemoveToken { token: token.id }, |previous| {
+                Operation::SetToken { token: previous }
+            })),
+        Operation::RemoveToken { token } => Ok(document
+            .tokens
+            .remove(token)
+            .map_or(Operation::RemoveToken { token: *token }, |previous| {
+                Operation::SetToken { token: previous }
+            })),
+        Operation::SetExtensionDeclarations { value } => {
+            let previous = std::mem::replace(&mut document.extension_declarations, value.clone());
+            Ok(Operation::SetExtensionDeclarations { value: previous })
+        }
         Operation::SetValue { entity, key, value } => {
             let item = document
                 .entities
@@ -599,7 +624,7 @@ pub fn empty_extensions() -> Extensions {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use nuif_core::EntityKind;
+    use nuif_core::{EntityKind, PropertyValue};
 
     fn base() -> Document {
         let mut document = Document::empty(EntityId::new(1));
@@ -681,6 +706,48 @@ mod tests {
             }],
         };
         let inverse = apply_patch_with_inverse(&mut document, &patch).unwrap();
+        apply_patch(&mut document, &inverse).unwrap();
+        assert_eq!(document, original);
+    }
+
+    #[test]
+    fn document_level_token_and_declaration_operations_are_invertible() {
+        let mut document = base();
+        let original = document.clone();
+        let token_id = EntityId::new(10);
+        let patch = Patch {
+            base_revision: None,
+            transactions: vec![Transaction {
+                id: 8,
+                operations: vec![
+                    Operation::SetExtensionDeclarations {
+                        value: ExtensionDeclarations {
+                            used: BTreeSet::from(["vendor.probe".to_owned()]),
+                            required: BTreeSet::new(),
+                            fallback_kind: BTreeMap::from([(
+                                "vendor.probe".to_owned(),
+                                "container".to_owned(),
+                            )]),
+                        },
+                    },
+                    Operation::SetToken {
+                        token: Token {
+                            id: token_id,
+                            name: "space.probe".to_owned(),
+                            value: PropertyValue::Real(8.0),
+                        },
+                    },
+                ],
+            }],
+        };
+        let inverse = apply_patch_with_inverse(&mut document, &patch).unwrap();
+        assert!(document.tokens.contains_key(&token_id));
+        assert!(
+            document
+                .extension_declarations
+                .used
+                .contains("vendor.probe")
+        );
         apply_patch(&mut document, &inverse).unwrap();
         assert_eq!(document, original);
     }
