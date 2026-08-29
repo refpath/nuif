@@ -329,9 +329,9 @@ fn execute_action(
             value,
         } => {
             let semantic_label = match label.as_str() {
-                "name" => "name",
-                "width" => "width",
-                "height" => "height",
+                "name" | "width" | "height" | "x" | "y" | "gap" | "padding_top"
+                | "padding_right" | "padding_bottom" | "padding_left" | "fill" | "text"
+                | "font_size" | "line_height" => label.as_str(),
                 _ => return Err(format!("unsupported native control label {label:?}")),
             };
             let widget_id = driver

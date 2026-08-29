@@ -642,8 +642,8 @@ fn editor_gui_trial() -> Result<(), String> {
     }
     if first["status"] != "passed"
         || first["window"] != serde_json::json!([1280, 800])
-        || first["semantic_nodes"] != 11
-        || first["operations"] != 4
+        || first["semantic_nodes"] != 19
+        || first["operations"] != 7
     {
         return Err("native editor trial report failed its evidence assertions".to_owned());
     }

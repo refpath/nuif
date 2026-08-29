@@ -22,6 +22,24 @@
       "value": "Card GUI trial"
     },
     {
+      "action": "set_value",
+      "author_id": "00000000000000000000000000000020",
+      "label": "x",
+      "value": "24"
+    },
+    {
+      "action": "set_value",
+      "author_id": "00000000000000000000000000000020",
+      "label": "gap",
+      "value": "20"
+    },
+    {
+      "action": "set_value",
+      "author_id": "00000000000000000000000000000020",
+      "label": "fill",
+      "value": "#F4F6FFFF"
+    },
+    {
       "action": "undo"
     },
     {
@@ -33,7 +51,7 @@
       "00000000000000000000000000000020"
     ],
     "entity_count": 8,
-    "operation_count": 4,
+    "operation_count": 7,
     "values": [
       {
         "author_id": "00000000000000000000000000000020",
@@ -44,6 +62,21 @@
         "author_id": "00000000000000000000000000000020",
         "label": "name",
         "value": "Card GUI trial"
+      },
+      {
+        "author_id": "00000000000000000000000000000020",
+        "label": "x",
+        "value": "24"
+      },
+      {
+        "author_id": "00000000000000000000000000000020",
+        "label": "gap",
+        "value": "20"
+      },
+      {
+        "author_id": "00000000000000000000000000000020",
+        "label": "fill",
+        "value": "#F4F6FFFF"
       }
     ]
   }
