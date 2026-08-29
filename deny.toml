@@ -8,7 +8,6 @@ allow = [
   "Apache-2.0",
   "Apache-2.0 WITH LLVM-exception",
   "BSD-2-Clause",
-  "BSD-2-Clause-Patent",
   "BSD-3-Clause",
   "ISC",
   "Zlib",
@@ -23,6 +22,12 @@ confidence-threshold = 0.9
 [bans]
 multiple-versions = "warn"
 wildcards = "deny"
+skip-tree = [
+  { crate = "masonry@0.4.0", reason = "pinned native GUI stack owns its transitive versions" },
+  { crate = "masonry_testing@0.4.0", reason = "pinned GUI test stack owns its transitive versions" },
+  { crate = "masonry_winit@0.4.0", reason = "pinned native window stack owns its platform versions" },
+  { crate = "rfd@0.17.2", reason = "cross-platform file dialogs own their platform versions" },
+]
 
 [advisories]
 yanked = "deny"

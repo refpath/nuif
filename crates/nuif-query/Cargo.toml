@@ -6,7 +6,7 @@ license.workspace = true
 repository.workspace = true
 
 [dependencies]
-nuif-core = { path = "../nuif-core" }
+nuif-core = { version = "0.0.1", path = "../nuif-core" }
 
 [lints]
 workspace = true

@@ -6,8 +6,8 @@ license.workspace = true
 repository.workspace = true
 
 [dependencies]
-nuif-codec = { path = "../nuif-codec" }
-nuif-core = { path = "../nuif-core" }
+nuif-codec = { version = "0.0.0", path = "../nuif-codec" }
+nuif-core = { version = "0.0.1", path = "../nuif-core" }
 serde.workspace = true
 thiserror.workspace = true
 

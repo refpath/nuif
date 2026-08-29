@@ -85,6 +85,12 @@ jobs:
           path: |
             target/editor-authoring-report.json
             target/editor-authoring-snapshot
+      - name: Upload native editor semantic and visual trial
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: editor-gui-trial
+          path: target/editor-gui-trial
       - name: Upload HTML and CSS synchronization evidence
         if: always()
         uses: actions/upload-artifact@v4
@@ -117,6 +123,53 @@ jobs:
         with:
           name: verification-manifest
           path: target/verification-manifest.json
+
+  native-editor:
+    name: native-editor (${{ matrix.platform }})
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: linux-x86_64
+            runner: ubuntu-latest
+          - platform: windows-x86_64
+            runner: windows-latest
+          - platform: macos
+            runner: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: 1.98.0
+          components: clippy
+      - name: Install Linux native dependencies
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y libfontconfig1-dev
+      - name: Check native editor targets
+        run: cargo check -p nuif-editor --all-targets --all-features --locked
+      - name: Test native editor and automation
+        run: cargo test -p nuif-editor --all-targets --all-features --locked
+      - name: Run semantic and visual editor trial
+        run: cargo xtask editor-gui-trial
+      - name: Build and verify native package
+        run: cargo xtask editor-package
+      - name: Validate macOS bundle metadata
+        if: runner.os == 'macOS'
+        run: plutil -lint target/dist/nuif-editor-macos-*/NUIF\ Editor.app/Contents/Info.plist
+      - name: Upload native package and editor evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: native-editor-${{ matrix.platform }}
+          if-no-files-found: error
+          path: |
+            target/dist/editor-package-manifest.json
+            target/dist/*.tar.gz
+            target/dist/*.zip
+            target/editor-gui-trial/report.json
+            target/editor-gui-trial/editor-shell.png
+            target/editor-gui-trial/semantics.json
 
   msrv:
     runs-on: ubuntu-latest

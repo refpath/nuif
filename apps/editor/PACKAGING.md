@@ -13,3 +13,5 @@
 Packages contain the Apache-2.0 and MIT license files, a scope notice and a package-local manifest. Archives preserve the executable layout and are the CI artifacts. Current development packages are unsigned. Code signing, notarization and installer-store publication require platform credentials and are deliberately separate release operations; the manifest records the unsigned status instead of implying trust that is not present.
 
 The Linux package expects a graphical Wayland or X11 session and a graphics driver supported by wgpu. It is a relocatable application directory, not a distribution-specific system package. The Windows application wrapper uses the GUI subsystem so a console window is not opened; the separate `nuif-editor` binary retains its headless/JSONL interface.
+
+The `native-editor` CI matrix runs the editor check, tests, semantic/visual trial and packaging command on GitHub-hosted macOS, Windows and Linux systems. Each job uploads its archive, package manifest, semantic-node inventory and shell screenshot. This is native-host evidence; a successful cross-compilation alone is not treated as platform verification.

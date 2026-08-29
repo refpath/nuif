@@ -6,15 +6,15 @@ license.workspace = true
 repository.workspace = true
 
 [dependencies]
-nuif-api = { path = "../crates/nuif-api" }
-nuif-codec = { path = "../crates/nuif-codec" }
-nuif-collab = { path = "../crates/nuif-collab" }
-nuif-core = { path = "../crates/nuif-core" }
-nuif-html = { path = "../crates/nuif-html" }
-nuif-layout = { path = "../crates/nuif-layout" }
-nuif-protocol = { path = "../crates/nuif-protocol" }
-nuif-render = { path = "../crates/nuif-render" }
-nuif-testing = { path = "../crates/nuif-testing" }
+nuif-api = { version = "0.0.0", path = "../crates/nuif-api" }
+nuif-codec = { version = "0.0.0", path = "../crates/nuif-codec" }
+nuif-collab = { version = "0.0.1", path = "../crates/nuif-collab" }
+nuif-core = { version = "0.0.1", path = "../crates/nuif-core" }
+nuif-html = { version = "0.0.1", path = "../crates/nuif-html" }
+nuif-layout = { version = "0.0.0", path = "../crates/nuif-layout" }
+nuif-protocol = { version = "0.0.1", path = "../crates/nuif-protocol" }
+nuif-render = { version = "0.0.0", path = "../crates/nuif-render" }
+nuif-testing = { version = "0.0.1", path = "../crates/nuif-testing" }
 serde_json.workspace = true
 
 [lints]

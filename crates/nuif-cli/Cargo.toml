@@ -10,14 +10,14 @@ name = "nuif"
 path = "src/main.rs"
 
 [dependencies]
-nuif-api = { path = "../nuif-api" }
-nuif-codec = { path = "../nuif-codec" }
-nuif-core = { path = "../nuif-core" }
-nuif-html = { path = "../nuif-html" }
-nuif-layout = { path = "../nuif-layout" }
-nuif-protocol = { path = "../nuif-protocol" }
-nuif-render = { path = "../nuif-render" }
-nuif-testing = { path = "../nuif-testing" }
+nuif-api = { version = "0.0.0", path = "../nuif-api" }
+nuif-codec = { version = "0.0.0", path = "../nuif-codec" }
+nuif-core = { version = "0.0.1", path = "../nuif-core" }
+nuif-html = { version = "0.0.1", path = "../nuif-html" }
+nuif-layout = { version = "0.0.0", path = "../nuif-layout" }
+nuif-protocol = { version = "0.0.1", path = "../nuif-protocol" }
+nuif-render = { version = "0.0.0", path = "../nuif-render" }
+nuif-testing = { version = "0.0.1", path = "../nuif-testing" }
 serde.workspace = true
 serde_json.workspace = true
 

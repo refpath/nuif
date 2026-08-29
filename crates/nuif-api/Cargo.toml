@@ -6,13 +6,13 @@ license.workspace = true
 repository.workspace = true
 
 [dependencies]
-nuif-core = { path = "../nuif-core" }
-nuif-protocol = { path = "../nuif-protocol" }
-nuif-layout = { path = "../nuif-layout" }
-nuif-render = { path = "../nuif-render" }
-nuif-text = { path = "../nuif-text" }
-nuif-codec = { path = "../nuif-codec" }
-nuif-query = { path = "../nuif-query" }
+nuif-core = { version = "0.0.1", path = "../nuif-core" }
+nuif-protocol = { version = "0.0.1", path = "../nuif-protocol" }
+nuif-layout = { version = "0.0.0", path = "../nuif-layout" }
+nuif-render = { version = "0.0.0", path = "../nuif-render" }
+nuif-text = { version = "0.0.1", path = "../nuif-text" }
+nuif-codec = { version = "0.0.0", path = "../nuif-codec" }
+nuif-query = { version = "0.0.0", path = "../nuif-query" }
 serde.workspace = true
 thiserror.workspace = true
 

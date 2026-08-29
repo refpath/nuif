@@ -28,16 +28,16 @@ path = "src/bin/editor-automation.rs"
 required-features = ["editor-automation"]
 
 [dependencies]
-masonry = { git = "https://github.com/linebender/xilem.git", rev = "b81d8d7a631849def6eeab282561439b963862e5" }
-masonry_testing = { git = "https://github.com/linebender/xilem.git", rev = "b81d8d7a631849def6eeab282561439b963862e5", optional = true }
-masonry_winit = { git = "https://github.com/linebender/xilem.git", rev = "b81d8d7a631849def6eeab282561439b963862e5" }
-nuif-api = { path = "../../crates/nuif-api" }
-nuif-codec = { path = "../../crates/nuif-codec" }
-nuif-core = { path = "../../crates/nuif-core" }
-nuif-layout = { path = "../../crates/nuif-layout" }
-nuif-protocol = { path = "../../crates/nuif-protocol" }
-nuif-render = { path = "../../crates/nuif-render" }
-nuif-text = { path = "../../crates/nuif-text" }
+masonry = { version = "0.4.0", git = "https://github.com/linebender/xilem.git", rev = "b81d8d7a631849def6eeab282561439b963862e5" }
+masonry_testing = { version = "0.4.0", git = "https://github.com/linebender/xilem.git", rev = "b81d8d7a631849def6eeab282561439b963862e5", optional = true }
+masonry_winit = { version = "0.4.0", git = "https://github.com/linebender/xilem.git", rev = "b81d8d7a631849def6eeab282561439b963862e5" }
+nuif-api = { version = "0.0.0", path = "../../crates/nuif-api" }
+nuif-codec = { version = "0.0.0", path = "../../crates/nuif-codec" }
+nuif-core = { version = "0.0.1", path = "../../crates/nuif-core" }
+nuif-layout = { version = "0.0.0", path = "../../crates/nuif-layout" }
+nuif-protocol = { version = "0.0.1", path = "../../crates/nuif-protocol" }
+nuif-render = { version = "0.0.0", path = "../../crates/nuif-render" }
+nuif-text = { version = "0.0.1", path = "../../crates/nuif-text" }
 rfd = "0.17.2"
 serde.workspace = true
 serde_json.workspace = true
@@ -46,8 +46,8 @@ thiserror.workspace = true
 tracing = "0.1"
 
 [dev-dependencies]
-masonry_testing = { git = "https://github.com/linebender/xilem.git", rev = "b81d8d7a631849def6eeab282561439b963862e5" }
-nuif-testing = { path = "../../crates/nuif-testing" }
+masonry_testing = { version = "0.4.0", git = "https://github.com/linebender/xilem.git", rev = "b81d8d7a631849def6eeab282561439b963862e5" }
+nuif-testing = { version = "0.0.1", path = "../../crates/nuif-testing" }
 
 [lints]
 workspace = true

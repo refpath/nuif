@@ -6,14 +6,14 @@ license.workspace = true
 repository.workspace = true
 
 [dependencies]
-nuif-codec = { path = "../nuif-codec" }
-nuif-core = { path = "../nuif-core" }
-nuif-protocol = { path = "../nuif-protocol" }
+nuif-codec = { version = "0.0.0", path = "../nuif-codec" }
+nuif-core = { version = "0.0.1", path = "../nuif-core" }
+nuif-protocol = { version = "0.0.1", path = "../nuif-protocol" }
 serde.workspace = true
 thiserror.workspace = true
 
 [dev-dependencies]
-nuif-testing = { path = "../nuif-testing" }
+nuif-testing = { version = "0.0.1", path = "../nuif-testing" }
 
 [lints]
 workspace = true
