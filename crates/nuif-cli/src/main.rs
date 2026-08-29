@@ -6,11 +6,17 @@ use nuif_codec::{
 };
 use nuif_core::{Document, EntityId, EntityKind, PROFILE0_RESOURCE_LIMITS, Severity, validate};
 use nuif_html::{
-    AdapterError, export_document, export_v0_document, import_source, import_v0_source,
-    synchronize, synchronize_v0,
+    AdapterError as HtmlAdapterError, export_document as export_html_document,
+    export_v0_document as export_html_v0_document, import_source as import_html_source,
+    import_v0_source as import_html_v0_source, synchronize as synchronize_html,
+    synchronize_v0 as synchronize_html_v0,
 };
 use nuif_layout::EvaluationContext;
 use nuif_protocol::{Patch, apply_patch};
+use nuif_svg::{
+    AdapterError as SvgAdapterError, export_document as export_svg_document,
+    import_source as import_svg_source, synchronize as synchronize_svg,
+};
 use nuif_testing::{TrialConfig, run_trials};
 use std::env;
 use std::fs;
@@ -365,6 +371,12 @@ fn import(args: &[String]) -> Result<(), CliError> {
     {
         return import_html(args);
     }
+    if args
+        .first()
+        .is_some_and(|argument| matches!(argument.as_str(), "svg-0" | "nuif-svg-0"))
+    {
+        return import_svg(args);
+    }
     let input = required(args, 0, "input document")?;
     let output = args.get(1).map_or("-", String::as_str);
     let document = load_document(input)?;
@@ -394,7 +406,7 @@ fn export(args: &[String]) -> Result<(), CliError> {
         ),
         "html-css-0" => {
             let report_path = args.get(3).map(String::as_str);
-            let exported = match export_document(&document) {
+            let exported = match export_html_document(&document) {
                 Ok(exported) => exported,
                 Err(error) => return adapter_failure(&error, report_path),
             };
@@ -403,9 +415,18 @@ fn export(args: &[String]) -> Result<(), CliError> {
         }
         "html-css-v0" => {
             let report_path = args.get(3).map(String::as_str);
-            let exported = match export_v0_document(&document) {
+            let exported = match export_html_v0_document(&document) {
                 Ok(exported) => exported,
                 Err(error) => return adapter_failure(&error, report_path),
+            };
+            write_output(output, exported.source.as_bytes())?;
+            emit_adapter_report(&exported.report, report_path)
+        }
+        "svg-0" | "nuif-svg-0" => {
+            let report_path = args.get(3).map(String::as_str);
+            let exported = match export_svg_document(&document) {
+                Ok(exported) => exported,
+                Err(error) => return svg_adapter_failure(&error, report_path),
             };
             write_output(output, exported.source.as_bytes())?;
             emit_adapter_report(&exported.report, report_path)
@@ -427,8 +448,8 @@ fn import_html(args: &[String]) -> Result<(), CliError> {
     let source = String::from_utf8(bytes)
         .map_err(|error| CliError::new(1, "HTML_UTF8_INVALID", error.to_string()))?;
     let imported = match target {
-        "html-css-0" => import_source(&source),
-        "html-css-v0" => import_v0_source(&source),
+        "html-css-0" => import_html_source(&source),
+        "html-css-v0" => import_html_v0_source(&source),
         _ => unreachable!("HTML target was checked by import"),
     };
     let imported = match imported {
@@ -444,39 +465,76 @@ fn import_html(args: &[String]) -> Result<(), CliError> {
     emit_adapter_report(&imported.retentive.report, report_path)
 }
 
+fn import_svg(args: &[String]) -> Result<(), CliError> {
+    let input = required(args, 1, "SVG input")?;
+    let output = args.get(2).map_or("-", String::as_str);
+    let report_path = args.get(3).map(String::as_str);
+    let source = String::from_utf8(read_input(input)?)
+        .map_err(|error| CliError::new(1, "SVG_UTF8_INVALID", error.to_string()))?;
+    let imported = match import_svg_source(&source) {
+        Ok(imported) => imported,
+        Err(error) => return svg_adapter_failure(&error, report_path),
+    };
+    write_output(
+        output,
+        &CanonicalText
+            .encode(&imported.document)
+            .map_err(codec_error)?,
+    )?;
+    emit_adapter_report(&imported.retentive.report, report_path)
+}
+
 fn sync(args: &[String]) -> Result<(), CliError> {
     let target = required(args, 0, "synchronization target")?;
-    if !matches!(target, "html-css-0" | "html-css-v0") {
+    if !matches!(
+        target,
+        "html-css-0" | "html-css-v0" | "svg-0" | "nuif-svg-0"
+    ) {
         return Err(CliError::new(
             3,
             "SYNC_TARGET_UNSUPPORTED",
             format!("target {target} is unsupported"),
         ));
     }
-    let source_path = required(args, 1, "retentive HTML source")?;
+    let source_path = required(args, 1, "retentive foreign source")?;
     let edited_path = required(args, 2, "edited NUIF document")?;
-    let output = required(args, 3, "synchronized HTML output")?;
+    let output = required(args, 3, "synchronized foreign output")?;
     let report_path = args.get(4).map(String::as_str);
-    let source = String::from_utf8(read_input(source_path)?)
-        .map_err(|error| CliError::new(1, "HTML_UTF8_INVALID", error.to_string()))?;
-    let imported = match target {
-        "html-css-0" => import_source(&source),
-        "html-css-v0" => import_v0_source(&source),
-        _ => unreachable!("synchronization target was checked above"),
-    };
-    let imported = match imported {
-        Ok(imported) => imported,
-        Err(error) => return adapter_failure(&error, report_path),
-    };
     let edited = load_document(edited_path)?;
+    let source = String::from_utf8(read_input(source_path)?)
+        .map_err(|error| CliError::new(1, "ADAPTER_UTF8_INVALID", error.to_string()))?;
     let synchronized = match target {
-        "html-css-0" => synchronize(&imported.retentive, &edited),
-        "html-css-v0" => synchronize_v0(&imported.retentive, &edited),
+        "html-css-0" | "html-css-v0" => {
+            let imported = match target {
+                "html-css-0" => import_html_source(&source),
+                "html-css-v0" => import_html_v0_source(&source),
+                _ => unreachable!("HTML synchronization target was checked above"),
+            };
+            let imported = match imported {
+                Ok(imported) => imported,
+                Err(error) => return adapter_failure(&error, report_path),
+            };
+            let synchronized = match target {
+                "html-css-0" => synchronize_html(&imported.retentive, &edited),
+                "html-css-v0" => synchronize_html_v0(&imported.retentive, &edited),
+                _ => unreachable!("HTML synchronization target was checked above"),
+            };
+            match synchronized {
+                Ok(synchronized) => synchronized,
+                Err(error) => return adapter_failure(&error, report_path),
+            }
+        }
+        "svg-0" | "nuif-svg-0" => {
+            let imported = match import_svg_source(&source) {
+                Ok(imported) => imported,
+                Err(error) => return svg_adapter_failure(&error, report_path),
+            };
+            match synchronize_svg(&imported.retentive, &edited) {
+                Ok(synchronized) => synchronized,
+                Err(error) => return svg_adapter_failure(&error, report_path),
+            }
+        }
         _ => unreachable!("synchronization target was checked above"),
-    };
-    let synchronized = match synchronized {
-        Ok(synchronized) => synchronized,
-        Err(error) => return adapter_failure(&error, report_path),
     };
     write_output(output, synchronized.source.as_bytes())?;
     let report = serde_json::json!({
@@ -487,10 +545,25 @@ fn sync(args: &[String]) -> Result<(), CliError> {
     emit_adapter_report(&report, report_path)
 }
 
-fn adapter_failure<T>(error: &AdapterError, report_path: Option<&str>) -> Result<T, CliError> {
+fn adapter_failure<T>(error: &HtmlAdapterError, report_path: Option<&str>) -> Result<T, CliError> {
     let report = match &error {
-        AdapterError::UnsupportedProfile { report, .. }
-        | AdapterError::UnmappedChanges { report, .. } => Some(report.as_ref()),
+        HtmlAdapterError::UnsupportedProfile { report, .. }
+        | HtmlAdapterError::UnmappedChanges { report, .. } => Some(report.as_ref()),
+        _ => None,
+    };
+    if let Some(report) = report {
+        emit_adapter_report(report, report_path)?;
+    }
+    Err(CliError::new(1, "ADAPTER_FAILED", error.to_string()))
+}
+
+fn svg_adapter_failure<T>(
+    error: &SvgAdapterError,
+    report_path: Option<&str>,
+) -> Result<T, CliError> {
+    let report = match error {
+        SvgAdapterError::UnsupportedProfile { report, .. }
+        | SvgAdapterError::UnmappedChanges { report, .. } => Some(report.as_ref()),
         _ => None,
     };
     if let Some(report) = report {
@@ -553,6 +626,7 @@ fn fixture(args: &[String]) -> Result<(), CliError> {
     let document = match fixture {
         "v0-responsive-card" | "v0" => nuif_testing::responsive_card_fixture(),
         "html-css-profile" => nuif_html::profile_fixture(),
+        "svg-profile" => nuif_svg::profile_fixture(),
         _ => {
             return Err(CliError::new(
                 2,
@@ -573,6 +647,7 @@ fn print_capabilities() -> Result<(), CliError> {
         "protocol": "0.0.1",
         "status": "executable",
         "commands": COMMANDS,
+        "adapters": ["html-css-0", "html-css-v0", "svg-0"],
         "engine": engine.capabilities(),
         "resource_limits": {
             "input_bytes": MAX_INPUT_BYTES,

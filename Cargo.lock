@@ -2278,6 +2278,7 @@ dependencies = [
  "nuif-layout",
  "nuif-protocol",
  "nuif-render",
+ "nuif-svg",
  "nuif-testing",
  "serde",
  "serde_json",
@@ -2420,6 +2421,8 @@ dependencies = [
  "nuif-core",
  "nuif-text",
  "roxmltree 0.21.1",
+ "serde_json",
+ "sha2",
  "thiserror 2.0.20",
 ]
 

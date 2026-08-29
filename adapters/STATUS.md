@@ -7,7 +7,7 @@ Research coverage does not imply an implemented conformance profile.
 | Target | Primary integration surface | Executable status | Next bounded profile | Boundary |
 | --- | --- | --- | --- | --- |
 | HTML/CSS | DOM and CSS source | `nuif-html-css-0` and `nuif-html-css-v0` | Extend only with separately tested CSS/layout features | Arbitrary cascade, script and unmarked DOM are not imported |
-| SVG | SVG 2 XML | Research complete; implementation pending | `nuif-svg-0`: `svg`, `g`, `rect`, `ellipse`, literal `text`, sRGB fill and retained scalar spans | Paths, transforms, CSS cascade, paint servers, effects, animation, scripts and external resources are excluded |
+| SVG | SVG 2 XML | `nuif-svg-0` | Add paths or transforms only under separately declared geometry laws | Paths, transforms, CSS cascade, paint servers, effects, animation, scripts and external resources are excluded |
 | DTCG tokens | Design Tokens Format Module 2025.10 JSON | Research complete; model RFC pending for full coverage | Scalar boolean/string/number tokens with NUIF identity metadata | Core tokens lack declared type, groups, aliases, descriptions, deprecation and token-local extensions |
 | React | JSX source and React DOM properties | Research complete; no implementation | Static intrinsic JSX with literals and retained AST spans | Components, hooks, spreads, control flow and runtime expressions require execution |
 | Svelte | `.svelte` source and compiler AST | Research complete; no implementation | Static regular elements, literal text/attributes and profile-owned CSS spans | Runes, scripts, blocks, directives, preprocessors and dynamic components require execution |
@@ -19,12 +19,11 @@ Research coverage does not imply an implemented conformance profile.
 
 ## Implementation order
 
-The next adapter is SVG because its bounded basic-shape subset maps directly to
-current profile-zero entities and can run in the existing Rust conformance
-harness without credentials or a platform SDK. DTCG scalar tokens follow after
-the SVG trial; full DTCG coverage requires a token-model RFC. Penpot is the next
-package adapter after ZIP resource limits and unknown-member retention have a
-shared test contract.
+The SVG basic-shape profile is implemented because its bounded subset maps
+directly to current profile-zero entities and runs without credentials or a
+platform SDK. DTCG scalar tokens follow; full DTCG coverage requires a
+token-model RFC. Penpot is the next package adapter after ZIP resource limits
+and unknown-member retention have a shared test contract.
 
 React and Svelte require a common retentive source-edit layer rather than whole
 file generation. Native declarative UI targets begin as one-way lowerings with

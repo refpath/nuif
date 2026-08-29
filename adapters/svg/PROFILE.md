@@ -1,8 +1,7 @@
 # Retentive SVG basic-shape profile zero
 
-Status: executable crate profile (`nuif-svg-0`). CLI, `xtask` and CI integration
-remain required before the repository status matrix lists the profile as an
-integrated adapter.
+Status: executable integrated profile (`nuif-svg-0`). The library, public CLI,
+blocking `xtask` gate and CI artifact path exercise the same profile boundary.
 
 ## Model projection
 
@@ -59,6 +58,20 @@ elements. Duplicate identities, inconsistent kind/tag pairs, non-canonical
 numbers, non-canonical colors and inconsistent derived ellipse geometry fail
 import.
 
-The crate tests cover exact export/import, deterministic multi-property
-synchronization, escaped text, unmarked-source locality, stale spans,
-structural rejection, path fidelity, DTD rejection and the source byte limit.
+The crate tests and `cargo xtask gate-svg` cover exact export/import,
+deterministic seven-span synchronization, escaped text, unmarked-source
+locality, stale spans, structural rejection, property-attributed unsupported
+paint, inconsistent derived geometry, DTD rejection, the XML-node limit and
+the source byte limit. The gate also performs export, edited synchronization
+and exact canonical re-import through the public CLI.
+
+The command surface is:
+
+- `nuif export <input.nuif> svg-0 <output.svg> [report.json]`;
+- `nuif import svg-0 <input.svg> <output.nuif> [report.json]`;
+- `nuif sync svg-0 <retained.svg> <edited.nuif> <output.svg> [report.json]`.
+
+`nuif-svg-0` is accepted as an explicit alias. The gate writes
+`target/svg-sync-report.json`, `target/svg-sync-output.svg`,
+`target/svg-sync-edited.nuif`, `target/svg-sync-cli-report.json` and
+`target/svg-sync-cli-output.svg`.

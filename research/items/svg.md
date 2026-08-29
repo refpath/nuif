@@ -18,7 +18,7 @@ links:
   adr: []
   rfc: []
   code: [adapters/README.md, adapters/STATUS.md, adapters/svg/PROFILE.md, crates/nuif-svg/src/lib.rs]
-  experiments: []
+  experiments: [nuif:experiment:svg-retentive-sync]
 ---
 # Summary
 

@@ -20,6 +20,7 @@ const ALL_STEPS: &[Step] = &[
     ("editor-gui-trial", editor_gui_trial),
     ("gate-f", gate_f),
     ("gate-f-v0", gate_f_v0),
+    ("gate-svg", gate_svg),
     ("gate-g", gate_g),
     ("gate-h", gate_h),
 ];
@@ -40,6 +41,11 @@ const VERIFICATION_ARTIFACTS: &[&str] = &[
     "target/html-sync-v0-output.html",
     "target/html-sync-v0-editor-report.json",
     "target/html-sync-v0-editor-output.html",
+    "target/svg-sync-report.json",
+    "target/svg-sync-output.svg",
+    "target/svg-sync-edited.nuif",
+    "target/svg-sync-cli-report.json",
+    "target/svg-sync-cli-output.svg",
     "target/gate-g-report.json",
     "target/gate-g-independent",
     "target/collaboration-report.json",
@@ -84,6 +90,7 @@ fn run() -> Result<(), String> {
         Some("gate-d-render") => gate_d_render(),
         Some("gate-f") => gate_f(),
         Some("gate-f-v0") => gate_f_v0(),
+        Some("gate-svg") => gate_svg(),
         Some("gate-g") => gate_g(),
         Some("gate-h") => gate_h(),
         Some("browser-install") => browser_install(),
@@ -97,7 +104,7 @@ fn run() -> Result<(), String> {
         Some("manifest") => standalone_manifest(),
         Some("all") => all(),
         _ => Err(
-            "usage: cargo xtask <research|verify|trial [seed iterations snapshot-interval report-path]|gate-b|gate-c|gate-d|gate-d-text|gate-d-render|gate-f|gate-f-v0|gate-g|gate-h|browser-install|hostile-inputs|performance|editor-trial|editor-gui-trial|editor-package|editor-launch|manifest|all>"
+            "usage: cargo xtask <research|verify|trial [seed iterations snapshot-interval report-path]|gate-b|gate-c|gate-d|gate-d-text|gate-d-render|gate-f|gate-f-v0|gate-svg|gate-g|gate-h|browser-install|hostile-inputs|performance|editor-trial|editor-gui-trial|editor-package|editor-launch|manifest|all>"
                 .to_owned(),
         ),
     }
@@ -381,6 +388,102 @@ fn gate_f_v0_editor_bridge() -> Result<(), String> {
             directory.display()
         )
     })
+}
+
+fn gate_svg() -> Result<(), String> {
+    cargo(&[
+        "run",
+        "--locked",
+        "-p",
+        "nuif-svg",
+        "--bin",
+        "svg-sync-profile",
+        "--",
+        "--output",
+        "target/svg-sync-report.json",
+        "--source-output",
+        "target/svg-sync-output.svg",
+        "--edited-output",
+        "target/svg-sync-edited.nuif",
+    ])?;
+    gate_svg_cli_bridge()
+}
+
+fn gate_svg_cli_bridge() -> Result<(), String> {
+    let directory = env::temp_dir().join(format!("nuif-svg-trial-{}", std::process::id()));
+    if directory.exists() {
+        return Err(format!(
+            "temporary path already exists: {}",
+            directory.display()
+        ));
+    }
+    fs::create_dir(&directory).map_err(|error| error.to_string())?;
+    let input = directory.join("input.nuif");
+    let exported = directory.join("exported.svg");
+    let export_report = directory.join("export-report.json");
+    let imported = directory.join("imported.nuif");
+    let import_report = directory.join("import-report.json");
+    let reimported = directory.join("reimported.nuif");
+    let reimport_report = directory.join("reimport-report.json");
+    let synchronized = Path::new("target/svg-sync-cli-output.svg");
+    let sync_report = Path::new("target/svg-sync-cli-report.json");
+    let edited = Path::new("target/svg-sync-edited.nuif");
+    nuif(&["fixture", "svg-profile", path(&input)?])?;
+    nuif(&[
+        "export",
+        path(&input)?,
+        "svg-0",
+        path(&exported)?,
+        path(&export_report)?,
+    ])?;
+    nuif(&[
+        "import",
+        "svg-0",
+        path(&exported)?,
+        path(&imported)?,
+        path(&import_report)?,
+    ])?;
+    if fs::read(&input).map_err(|error| error.to_string())?
+        != fs::read(&imported).map_err(|error| error.to_string())?
+    {
+        return Err("CLI SVG export/import changed canonical NUIF bytes".to_owned());
+    }
+    nuif(&[
+        "sync",
+        "svg-0",
+        path(&exported)?,
+        path(edited)?,
+        path(synchronized)?,
+        path(sync_report)?,
+    ])?;
+    nuif(&[
+        "import",
+        "svg-0",
+        path(synchronized)?,
+        path(&reimported)?,
+        path(&reimport_report)?,
+    ])?;
+    if fs::read(edited).map_err(|error| error.to_string())?
+        != fs::read(&reimported).map_err(|error| error.to_string())?
+    {
+        return Err("CLI SVG synchronization changed edited canonical NUIF bytes".to_owned());
+    }
+    let report = read_json(sync_report)?;
+    if report["status"] != "passed" || report["edits"].as_array().map(Vec::len) != Some(7) {
+        return Err("CLI SVG bridge did not produce the expected seven source edits".to_owned());
+    }
+    fs::remove_dir_all(&directory).map_err(|error| {
+        format!(
+            "trial passed but temporary directory {} could not be removed: {error}",
+            directory.display()
+        )
+    })
+}
+
+fn nuif(arguments: &[&str]) -> Result<(), String> {
+    let mut command = vec!["run", "--quiet", "--locked", "-p", "nuif-cli", "--"];
+    command.extend_from_slice(arguments);
+    cargo(&command)
 }
 
 fn read_json(path: &Path) -> Result<serde_json::Value, String> {

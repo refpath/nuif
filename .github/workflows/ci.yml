@@ -109,6 +109,17 @@ jobs:
             target/html-sync-v0-output.html
             target/html-sync-v0-editor-report.json
             target/html-sync-v0-editor-output.html
+      - name: Upload SVG synchronization evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: svg-sync-report
+          path: |
+            target/svg-sync-report.json
+            target/svg-sync-output.svg
+            target/svg-sync-edited.nuif
+            target/svg-sync-cli-report.json
+            target/svg-sync-cli-output.svg
       - name: Upload independent implementation evidence
         if: always()
         uses: actions/upload-artifact@v4
