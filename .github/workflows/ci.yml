@@ -99,6 +99,16 @@ jobs:
           path: |
             target/editor-authoring-report.json
             target/editor-authoring-snapshot
+      - name: Gate F retentive HTML and CSS synchronization
+        run: cargo xtask gate-f
+      - name: Upload HTML and CSS synchronization evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: html-css-sync-report
+          path: |
+            target/html-sync-report.json
+            target/html-sync-output.html
 
   msrv:
     runs-on: ubuntu-latest
