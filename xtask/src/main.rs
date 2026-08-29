@@ -31,6 +31,8 @@ fn run() -> Result<(), String> {
             ])
         }
         Some("gate-b") => gate_b(),
+        Some("gate-c") => gate_c(),
+        Some("browser-install") => browser_install(),
         Some("hostile-inputs") => hostile_inputs(),
         Some("research") => research(),
         Some("editor-trial") => editor_trial(),
@@ -39,10 +41,11 @@ fn run() -> Result<(), String> {
             verify()?;
             gate_b()?;
             hostile_inputs()?;
+            gate_c()?;
             editor_trial()
         }
         _ => Err(
-            "usage: cargo xtask <research|verify|trial [seed iterations snapshot-interval]|gate-b|hostile-inputs|editor-trial|all>"
+            "usage: cargo xtask <research|verify|trial [seed iterations snapshot-interval]|gate-b|gate-c|browser-install|hostile-inputs|editor-trial|all>"
                 .to_owned(),
         ),
     }
@@ -66,6 +69,24 @@ fn hostile_inputs() -> Result<(), String> {
         "--",
         "--output",
         "target/hostile-input-report.json",
+    ])
+}
+
+fn browser_install() -> Result<(), String> {
+    command("sh", &["tools/browser/install-chrome-for-testing.sh"])
+}
+
+fn gate_c() -> Result<(), String> {
+    cargo(&[
+        "run",
+        "--locked",
+        "-p",
+        "nuif-testing",
+        "--bin",
+        "layout-differential",
+        "--",
+        "--output",
+        "target/layout-differential-report.json",
     ])
 }
 

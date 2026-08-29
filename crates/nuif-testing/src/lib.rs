@@ -1,5 +1,7 @@
 #![doc = "Seeded conformance trials, fixtures, reports and failure reduction."]
 
+pub mod layout_differential;
+
 use nuif_api::{Session, Snapshot};
 use nuif_codec::{
     CanonicalText, Canonicalizer, Decoder, DeterministicCbor, Encoder, canonical_hash,

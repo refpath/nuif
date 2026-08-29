@@ -1,0 +1,13 @@
+{
+  "schema_version": 1,
+  "channel_at_selection": "Stable",
+  "version": "152.0.7977.64",
+  "revision": "1669021",
+  "selected_at": "2026-08-29T09:17:42.343Z",
+  "source": "https://googlechromelabs.github.io/chrome-for-testing/last-known-good-versions-with-downloads.json",
+  "downloads": {
+    "linux64": "https://storage.googleapis.com/chrome-for-testing-public/152.0.7977.64/linux64/chrome-linux64.zip",
+    "mac-arm64": "https://storage.googleapis.com/chrome-for-testing-public/152.0.7977.64/mac-arm64/chrome-mac-arm64.zip",
+    "mac-x64": "https://storage.googleapis.com/chrome-for-testing-public/152.0.7977.64/mac-x64/chrome-mac-x64.zip"
+  }
+}
