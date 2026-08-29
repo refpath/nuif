@@ -50,21 +50,21 @@
         "width": 360,
         "height": 640,
         "direction": "left_to_right",
-        "scene_sha256": "dd28ac1734189c8d5c60864adbb740d1923cc631a1bf64adbcf2ce914d407585",
+        "scene_sha256": "e06001466700c1f68cdef6b26e2bbd0e8312603f882b009e95f3c53d1915c285",
         "png_sha256": "2f57ba958b77d6d2a283741a9968bbb7c68f001bbb34ce0559526c0eb7f93e03"
       },
       {
         "width": 768,
         "height": 768,
         "direction": "left_to_right",
-        "scene_sha256": "73398a3c0ee39a7b443e6456f0d5c4e43b8dd1003d0455d53f7ed535def5de57",
+        "scene_sha256": "6833a18701aaa996c4fbc74874e524d91ebe50c65df3eeb7714699259c811075",
         "png_sha256": "d9d292cef2ed6ef2b27dc2a2169f640ca2715a17402feb11494df4e5e243b6b7"
       },
       {
         "width": 1440,
         "height": 900,
         "direction": "right_to_left",
-        "scene_sha256": "d5ec3a3cad4af18996cb8aa90897fe7a3abf5c589b316bbdeaf948b8f6fbb2eb",
+        "scene_sha256": "f73db4f7390f5cad16db47a8b0906f142ae070524a68152a49c12724989c6329",
         "png_sha256": "357553c4b8f9a4781a12bb7be575390bcc365e8856e5d8d2a4a66879c8692f2b"
       }
     ]

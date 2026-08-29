@@ -302,7 +302,7 @@ fn raster_trials(cases: &[RasterCase]) -> Result<(Vec<Value>, bool), String> {
             })
             .collect::<Vec<_>>();
         let lossless_text = first.scene.fidelity.iter().any(|item| {
-            item.entity == EntityId::new(0x22) && matches!(item.status, Fidelity::Lossless)
+            item.entity == Some(EntityId::new(0x22)) && matches!(item.status, Fidelity::Lossless)
         });
         let scene_sha256 =
             sha256_hex(&serde_json::to_vec(&first.scene).map_err(|error| error.to_string())?);
@@ -375,7 +375,7 @@ fn text_semantic_trials() -> Result<(Vec<Value>, bool), String> {
         .scene
         .fidelity
         .iter()
-        .any(|item| item.entity == text_id && matches!(item.status, Fidelity::Lossless));
+        .any(|item| item.entity == Some(text_id) && matches!(item.status, Fidelity::Lossless));
 
     Ok((
         vec![

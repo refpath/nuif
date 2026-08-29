@@ -70,7 +70,8 @@ pub struct RenderScene {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct RenderFidelity {
-    pub entity: EntityId,
+    pub entity: Option<EntityId>,
+    pub pointer: String,
     pub status: Fidelity,
 }
 
@@ -174,10 +175,28 @@ pub fn build_scene(
     context: &EvaluationContext,
 ) -> Result<RenderScene, RenderError> {
     let mut scene = RenderScene::default();
+    for namespace in document.extensions.0.keys() {
+        scene.fidelity.push(RenderFidelity {
+            entity: None,
+            pointer: format!("/extensions/{namespace}"),
+            status: Fidelity::PreservedUnrenderable {
+                namespace: namespace.clone(),
+            },
+        });
+    }
     for (id, entity) in &document.entities {
         let Some(rect) = layout.boxes.get(id).copied() else {
             continue;
         };
+        for namespace in entity.extensions.0.keys() {
+            scene.fidelity.push(RenderFidelity {
+                entity: Some(*id),
+                pointer: format!("/entities/{id}/extensions/{namespace}"),
+                status: Fidelity::PreservedUnrenderable {
+                    namespace: namespace.clone(),
+                },
+            });
+        }
         lower_entity_visual(&mut scene, *id, &entity.kind, rect, entity.authored.fill);
         if let Some(text) = &entity.authored.text {
             lower_text(&mut scene, *id, rect, text, context)?;
@@ -195,27 +214,31 @@ fn lower_entity_visual(
 ) {
     match kind {
         EntityKind::Unknown(unknown) => scene.fidelity.push(RenderFidelity {
-            entity: id,
+            entity: Some(id),
+            pointer: format!("/entities/{id}/kind"),
             status: Fidelity::PreservedUnrenderable {
                 namespace: unknown.namespace.clone(),
             },
         }),
         EntityKind::Shape(ShapeKind::Path) => {
             scene.fidelity.push(RenderFidelity {
-                entity: id,
+                entity: Some(id),
+                pointer: format!("/entities/{id}/kind"),
                 status: Fidelity::Unsupported {
                     reason: "profile 0 has no authored path-geometry field".to_owned(),
                 },
             });
         }
         EntityKind::Image => scene.fidelity.push(RenderFidelity {
-            entity: id,
+            entity: Some(id),
+            pointer: format!("/entities/{id}/kind"),
             status: Fidelity::Unsupported {
                 reason: "profile 0 has no authored image-asset field".to_owned(),
             },
         }),
         EntityKind::Instance { .. } => scene.fidelity.push(RenderFidelity {
-            entity: id,
+            entity: Some(id),
+            pointer: format!("/entities/{id}/kind"),
             status: Fidelity::Unsupported {
                 reason: "profile 0 does not materialize component instances".to_owned(),
             },
@@ -268,7 +291,8 @@ fn lower_text(
     })
     .map_err(|source| RenderError::Text { entity: id, source })?;
     scene.fidelity.push(RenderFidelity {
-        entity: id,
+        entity: Some(id),
+        pointer: format!("/entities/{id}/authored/text"),
         status: Fidelity::Lossless,
     });
     for (line_index, run) in runs.into_iter().enumerate() {
@@ -730,7 +754,8 @@ mod tests {
         assert_eq!(
             scene.fidelity,
             vec![RenderFidelity {
-                entity: EntityId::new(2),
+                entity: Some(EntityId::new(2)),
+                pointer: "/entities/00000000000000000000000000000002/authored/text".to_owned(),
                 status: Fidelity::Lossless,
             }]
         );

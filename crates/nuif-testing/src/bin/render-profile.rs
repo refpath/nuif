@@ -175,8 +175,23 @@ fn raster_trials(cases: &[GoldenCase]) -> Result<(Vec<Value>, bool), String> {
 
 fn fidelity_trials() -> Result<(Vec<Value>, bool), String> {
     let mut document = Document::empty(EntityId::new(1));
+    document.extensions.0.insert(
+        "vendor.global".to_owned(),
+        OpaquePayload {
+            encoding: OpaqueEncoding::Octets,
+            bytes: vec![1],
+        },
+    );
+    let mut path = Entity::new(EntityId::new(2), EntityKind::Shape(ShapeKind::Path));
+    path.extensions.0.insert(
+        "vendor.effect".to_owned(),
+        OpaquePayload {
+            encoding: OpaqueEncoding::Octets,
+            bytes: vec![2],
+        },
+    );
     let entities = [
-        Entity::new(EntityId::new(2), EntityKind::Shape(ShapeKind::Path)),
+        path,
         Entity::new(EntityId::new(3), EntityKind::Image),
         Entity::new(
             EntityId::new(4),
@@ -219,25 +234,35 @@ fn fidelity_trials() -> Result<(Vec<Value>, bool), String> {
         .fidelity
         .iter()
         .map(|entry| {
-            let passed = if [2_u128, 3, 4]
-                .into_iter()
-                .map(EntityId::new)
-                .any(|entity| entity == entry.entity)
-            {
-                matches!(entry.status, Fidelity::Unsupported { .. })
-            } else if entry.entity == EntityId::new(5) {
-                matches!(entry.status, Fidelity::PreservedUnrenderable { .. })
-            } else {
-                false
+            let passed = match entry.pointer.as_str() {
+                "/extensions/vendor.global" => {
+                    entry.entity.is_none()
+                        && matches!(entry.status, Fidelity::PreservedUnrenderable { .. })
+                }
+                "/entities/00000000000000000000000000000002/extensions/vendor.effect" => {
+                    entry.entity == Some(EntityId::new(2))
+                        && matches!(entry.status, Fidelity::PreservedUnrenderable { .. })
+                }
+                "/entities/00000000000000000000000000000002/kind"
+                | "/entities/00000000000000000000000000000003/kind"
+                | "/entities/00000000000000000000000000000004/kind" => {
+                    matches!(entry.status, Fidelity::Unsupported { .. })
+                }
+                "/entities/00000000000000000000000000000005/kind" => {
+                    entry.entity == Some(EntityId::new(5))
+                        && matches!(entry.status, Fidelity::PreservedUnrenderable { .. })
+                }
+                _ => false,
             };
             json!({
                 "entity": entry.entity,
+                "pointer": entry.pointer,
                 "status": entry.status,
                 "passed": passed,
             })
         })
         .collect::<Vec<_>>();
-    let passed = reports.len() == 4 && reports.iter().all(|report| report["passed"] == true);
+    let passed = reports.len() == 6 && reports.iter().all(|report| report["passed"] == true);
     Ok((reports, passed))
 }
 

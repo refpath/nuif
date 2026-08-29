@@ -101,7 +101,8 @@ pub struct ContextReport {
 #[serde(deny_unknown_fields)]
 pub struct FidelityReport {
     pub context: (u32, u32),
-    pub entity: EntityId,
+    pub entity: Option<EntityId>,
+    pub pointer: String,
     pub status: Fidelity,
 }
 
@@ -419,6 +420,7 @@ pub fn run_trials(config: &TrialConfig) -> RunReport {
                     .extend(snapshot.scene.fidelity.iter().map(|entry| FidelityReport {
                         context: (width, height),
                         entity: entry.entity,
+                        pointer: entry.pointer.clone(),
                         status: entry.status.clone(),
                     }));
                 report
