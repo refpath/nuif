@@ -49,6 +49,7 @@ fn run() -> Result<(), String> {
         "repeat_edits_exact": repeated.edits == synchronized.edits,
         "mapped_edit_count_exact": synchronized.edits.len() == 8,
         "mapped_edit_pointers_exact": observed_pointers == expected_pointers(),
+        "correspondence_count_exact": synchronized.report.correspondences.len() == 181,
         "unmapped_bytes_exact": unchanged_outside_edits(&retained_source, &synchronized.source, &synchronized.edits),
         "css_comment_preserved": synchronized.source.contains("/* user CSS comment stays byte-exact */"),
         "unmapped_css_rule_preserved": synchronized.source.contains("body { margin: 0; }") ,

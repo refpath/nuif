@@ -153,6 +153,7 @@ pub fn import_v0_source(source: &str) -> Result<ImportedSource, AdapterError> {
             report: Box::new(v0_report(&document, issues, correspondences, false)?),
         });
     }
+    validate_marker_inventory(&document, &style.value)?;
     validate_derived_css(&document, &style, &mut correspondences)?;
     let mut fidelity = correspondences
         .iter()
@@ -597,26 +598,24 @@ fn element_text(
         end: end_tag.start_byte(),
     };
     let raw = &source[span.start..span.end];
-    let direct_text = if raw.contains("data-nuif-id=") {
-        ""
-    } else {
-        raw
-    };
-    if direct_text.contains('<') {
+    if raw.contains("data-nuif-id=") {
+        return Ok(Attribute {
+            value: String::new(),
+            span: SourceSpan {
+                start: span.start,
+                end: span.start,
+            },
+        });
+    }
+    if raw.contains('<') {
         return Err(AdapterError::InvalidValue {
             pointer: "/entities/*/authored/text/content".to_owned(),
             reason: "mapped text cannot contain nested markup".to_owned(),
         });
     }
-    let leading = direct_text.len() - direct_text.trim_start_matches('\n').len();
-    let trailing = direct_text.trim_end_matches(['\n', ' ']).len();
-    let adjusted = SourceSpan {
-        start: span.start + leading,
-        end: span.start + trailing.max(leading),
-    };
     Ok(Attribute {
-        value: unescape_html(&source[adjusted.start..adjusted.end]),
-        span: adjusted,
+        value: unescape_html(raw),
+        span,
     })
 }
 
@@ -941,6 +940,32 @@ fn validate_derived_css(
     Ok(())
 }
 
+fn validate_marker_inventory(document: &Document, source: &str) -> Result<(), AdapterError> {
+    let entities = document.entities.len();
+    let responsive = document
+        .entities
+        .values()
+        .map(|entity| entity.authored.responsive.len())
+        .sum::<usize>();
+    for (marker, expected) in [
+        ("/* nuif-entity-begin:", entities),
+        ("/* nuif-entity-end:", entities),
+        ("/* nuif-responsive-begin:", responsive),
+        ("/* nuif-responsive-end:", responsive),
+    ] {
+        let observed = source.matches(marker).count();
+        if observed != expected {
+            return invalid(
+                "/",
+                &format!(
+                    "reserved CSS marker {marker} occurs {observed} times; expected {expected}"
+                ),
+            );
+        }
+    }
+    Ok(())
+}
+
 fn render_responsive_css(id: EntityId, index: usize, rule: &ResponsiveOverride) -> String {
     format!(
         "    /* nuif-responsive-begin:{id}:{index} */{}    /* nuif-responsive-end:{id}:{index} */\n",
@@ -1221,6 +1246,13 @@ fn v0_profile_issues(document: &Document) -> Vec<FidelityEntry> {
         }
     }
     for entity in document.entities.values() {
+        if entity.authored.text.is_some() && !entity.children.is_empty() {
+            issues.push(unsupported(
+                CorrespondenceTarget::Entity { id: entity.id },
+                entity_pointer(entity.id, "/authored/text"),
+                "v0 HTML text-bearing entities cannot also contain mapped child entities",
+            ));
+        }
         if entity
             .authored
             .fill
@@ -1673,7 +1705,14 @@ mod tests {
 
     #[test]
     fn declared_v0_subset_exports_and_imports_exactly() {
-        let document = profile_fixture();
+        let mut document = profile_fixture();
+        document
+            .entities
+            .values_mut()
+            .find_map(|entity| entity.authored.text.as_mut())
+            .unwrap()
+            .content
+            .push_str(" \n");
         let exported = export_v0_document(&document).unwrap();
         let imported = import_v0_source(&exported.source).unwrap();
         assert_eq!(imported.document, document);
@@ -1697,5 +1736,18 @@ mod tests {
             entry.pointer.ends_with("/value")
                 && matches!(entry.status, Fidelity::Unsupported { .. })
         }));
+    }
+
+    #[test]
+    fn orphaned_reserved_css_marker_is_rejected() {
+        let exported = export_v0_document(&profile_fixture()).unwrap();
+        let source = exported.source.replace(
+            "  </style>",
+            "    /* nuif-entity-begin:ffffffffffffffffffffffffffffffff */\n  </style>",
+        );
+        assert!(matches!(
+            import_v0_source(&source),
+            Err(AdapterError::InvalidValue { .. })
+        ));
     }
 }
