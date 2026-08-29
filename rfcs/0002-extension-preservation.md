@@ -1,6 +1,6 @@
 # RFC 0002 — Opaque extension preservation
 
-Status: proposed
+Status: proposed; representation and severities specified by RFC 0007
 
 Unknown extension data remains attached to its owning entity/property and MUST survive load/save/edit cycles unless the owner is deleted or the user explicitly removes it.
 
