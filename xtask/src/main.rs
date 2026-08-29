@@ -11,6 +11,7 @@ type Step = (&'static str, fn() -> Result<(), String>);
 const ALL_STEPS: &[Step] = &[
     ("research", research),
     ("adapter-audit", adapter_audit),
+    ("dependency-audit", dependency_audit),
     ("verify", verify),
     ("gate-b", gate_b),
     ("hostile-inputs", hostile_inputs),
@@ -31,6 +32,7 @@ const ALL_STEPS: &[Step] = &[
 
 const VERIFICATION_ARTIFACTS: &[&str] = &[
     "target/adapter-coverage-report.json",
+    "target/dependency-audit-report.json",
     "target/gate-b-report.json",
     "target/hostile-input-report.json",
     "target/editor-hostile-input-report.json",
@@ -111,6 +113,7 @@ fn run() -> Result<(), String> {
         Some("performance") => performance(),
         Some("research") => research(),
         Some("adapter-audit") => adapter_audit(),
+        Some("dependency-audit") => dependency_audit(),
         Some("editor-trial") => editor_trial(),
         Some("editor-gui-trial") => editor_gui_trial(),
         Some("editor-package") => editor_package(),
@@ -119,7 +122,7 @@ fn run() -> Result<(), String> {
         Some("manifest") => standalone_manifest(),
         Some("all") => all(),
         _ => Err(
-            "usage: cargo xtask <research|adapter-audit|verify|trial [seed iterations snapshot-interval report-path]|gate-b|gate-c|gate-d|gate-d-text|gate-d-render|gate-f|gate-f-v0|gate-svg|gate-dtcg|gate-g|gate-h|browser-install|hostile-inputs|editor-hostile-inputs|performance|editor-trial|editor-gui-trial|editor-package|editor-launch|release-check <tag>|manifest|all>"
+            "usage: cargo xtask <research|adapter-audit|dependency-audit|verify|trial [seed iterations snapshot-interval report-path]|gate-b|gate-c|gate-d|gate-d-text|gate-d-render|gate-f|gate-f-v0|gate-svg|gate-dtcg|gate-g|gate-h|browser-install|hostile-inputs|editor-hostile-inputs|performance|editor-trial|editor-gui-trial|editor-package|editor-launch|release-check <tag>|manifest|all>"
                 .to_owned(),
         ),
     }
@@ -782,6 +785,159 @@ fn adapter_audit() -> Result<(), String> {
         Ok(())
     } else {
         Err("adapter coverage audit failed; inspect target/adapter-coverage-report.json".to_owned())
+    }
+}
+
+#[expect(
+    clippy::too_many_lines,
+    reason = "the dependency register and observed Cargo graph stay together in one audit path"
+)]
+fn dependency_audit() -> Result<(), String> {
+    let index = read_json(Path::new("dependencies/index.json"))?;
+    let registered = index["dependencies"]
+        .as_array()
+        .ok_or("dependencies/index.json dependencies must be an array")?;
+    let mut failures = Vec::new();
+    let mut registered_names = BTreeSet::new();
+    for dependency in registered {
+        let Some(name) = required_json_string(dependency, "name", "dependency", &mut failures)
+        else {
+            continue;
+        };
+        if !registered_names.insert(name) {
+            failures.push(format!("duplicate dependency registration: {name}"));
+        }
+        for field in ["role", "decision", "rationale"] {
+            required_json_string(dependency, field, name, &mut failures);
+        }
+        if !matches!(
+            dependency["decision"].as_str(),
+            Some("retain" | "fork" | "watch" | "replace")
+        ) {
+            failures.push(format!("{name}: decision is not declared"));
+        }
+        for field in ["alternatives", "evidence"] {
+            let Some(values) = dependency[field].as_array() else {
+                failures.push(format!("{name}: {field} must be an array"));
+                continue;
+            };
+            if values.is_empty()
+                || values
+                    .iter()
+                    .any(|value| value.as_str().is_none_or(str::is_empty))
+            {
+                failures.push(format!("{name}: {field} must contain non-empty strings"));
+            }
+            if field == "evidence" {
+                for evidence in values.iter().filter_map(serde_json::Value::as_str) {
+                    if !Path::new(evidence).is_file() {
+                        failures.push(format!("{name}: evidence file is absent: {evidence}"));
+                    }
+                }
+            }
+        }
+    }
+
+    let output = Command::new("cargo")
+        .args(["metadata", "--locked", "--format-version", "1"])
+        .output()
+        .map_err(|error| error.to_string())?;
+    check_status(
+        output.status,
+        "cargo",
+        &["metadata", "--locked", "--format-version", "1"],
+    )?;
+    let metadata: serde_json::Value =
+        serde_json::from_slice(&output.stdout).map_err(|error| error.to_string())?;
+    let workspace_members = metadata["workspace_members"]
+        .as_array()
+        .ok_or("cargo metadata omitted workspace_members")?
+        .iter()
+        .filter_map(serde_json::Value::as_str)
+        .collect::<BTreeSet<_>>();
+    let packages = metadata["packages"]
+        .as_array()
+        .ok_or("cargo metadata omitted packages")?;
+    let mut observed_names = BTreeSet::new();
+    let mut resolved_versions = std::collections::BTreeMap::<String, BTreeSet<String>>::new();
+    for package in packages {
+        let Some(name) = package["name"].as_str() else {
+            continue;
+        };
+        if package["source"].is_string()
+            && let Some(version) = package["version"].as_str()
+        {
+            resolved_versions
+                .entry(name.to_owned())
+                .or_default()
+                .insert(version.to_owned());
+        }
+        if !package["id"]
+            .as_str()
+            .is_some_and(|id| workspace_members.contains(id))
+        {
+            continue;
+        }
+        for dependency in package["dependencies"].as_array().into_iter().flatten() {
+            if dependency["path"].is_null()
+                && let Some(name) = dependency["name"].as_str()
+            {
+                observed_names.insert(name);
+            }
+        }
+    }
+    let missing = observed_names
+        .difference(&registered_names)
+        .copied()
+        .collect::<Vec<_>>();
+    let stale = registered_names
+        .difference(&observed_names)
+        .copied()
+        .collect::<Vec<_>>();
+    if !missing.is_empty() {
+        failures.push(format!(
+            "unregistered direct dependencies: {}",
+            missing.join(", ")
+        ));
+    }
+    if !stale.is_empty() {
+        failures.push(format!(
+            "registered dependencies are not direct dependencies: {}",
+            stale.join(", ")
+        ));
+    }
+    let resolved_versions = resolved_versions
+        .into_iter()
+        .filter(|(name, _)| registered_names.contains(name.as_str()))
+        .map(|(name, versions)| (name, versions.into_iter().collect::<Vec<_>>()))
+        .collect::<std::collections::BTreeMap<_, _>>();
+    let report = serde_json::json!({
+        "schema_version": 1,
+        "status": if failures.is_empty() { "passed" } else { "failed" },
+        "source": {
+            "revision": command_text("git", &["rev-parse", "HEAD"]),
+            "dirty": command_text("git", &["status", "--porcelain"]).map(|value| !value.is_empty()),
+        },
+        "summary": {
+            "registered_direct_dependencies": registered_names.len(),
+            "observed_direct_dependencies": observed_names.len(),
+            "blocking_failures": failures.len(),
+        },
+        "observed": observed_names,
+        "resolved_versions": resolved_versions,
+        "dependencies": registered,
+        "failures": failures,
+    });
+    fs::create_dir_all("target").map_err(|error| error.to_string())?;
+    fs::write(
+        "target/dependency-audit-report.json",
+        serde_json::to_vec_pretty(&report).map_err(|error| error.to_string())?,
+    )
+    .map_err(|error| error.to_string())?;
+    if report["status"] == "passed" {
+        Ok(())
+    } else {
+        Err("dependency audit failed; inspect target/dependency-audit-report.json".to_owned())
     }
 }
 

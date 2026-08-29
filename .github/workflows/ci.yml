@@ -59,6 +59,12 @@ jobs:
         with:
           name: adapter-coverage-report
           path: target/adapter-coverage-report.json
+      - name: Upload direct dependency audit
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: dependency-audit-report
+          path: target/dependency-audit-report.json
       - name: Upload hostile-input measurements
         if: always()
         uses: actions/upload-artifact@v4

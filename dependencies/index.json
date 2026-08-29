@@ -1,0 +1,197 @@
+{
+  "schema_version": 1,
+  "dependencies": [
+    {
+      "name": "ciborium",
+      "role": "deterministic CBOR value encoding and decoding",
+      "decision": "retain",
+      "alternatives": ["minicbor", "cbor4ii"],
+      "rationale": "Its serde data-model bridge supports the profile's bounded generic value validation; canonical ordering remains NUIF-owned.",
+      "evidence": ["research/items/deterministic-cbor-profiles-and-numeric-canonicalization.md", "research/items/resource-bounded-serde-and-ciborium.md"]
+    },
+    {
+      "name": "criterion",
+      "role": "controlled-hardware statistical benchmarks",
+      "decision": "retain",
+      "alternatives": ["divan", "iai-callgrind"],
+      "rationale": "Criterion provides saved-baseline comparison and throughput statistics while the portable smoke profile supplies cross-platform allocation evidence.",
+      "evidence": ["research/items/rust-snapshot-property-fuzz-tooling.md"]
+    },
+    {
+      "name": "font-test-data",
+      "role": "pinned Ahem conformance font bytes",
+      "decision": "retain",
+      "alternatives": ["repository-vendored font fixture", "system font discovery"],
+      "rationale": "A version-pinned upstream fixture is reproducible and avoids host font substitution; system discovery is intentionally excluded from normative output.",
+      "evidence": ["research/items/text-rendering-reproducibility.md"]
+    },
+    {
+      "name": "harfrust",
+      "role": "OpenType shaping",
+      "decision": "retain",
+      "alternatives": ["HarfBuzz FFI", "rustybuzz"],
+      "rationale": "Harfrust is the maintained HarfBuzz-project Rust shaper and keeps the reference path memory-safe and cross-platform.",
+      "evidence": ["research/items/harfbuzz-unicode.md", "research/items/text-rendering-reproducibility.md"]
+    },
+    {
+      "name": "json5",
+      "role": "human-authored NUIF text parsing",
+      "decision": "retain",
+      "alternatives": ["jsonc-parser", "strict serde_json"],
+      "rationale": "The authored syntax deliberately permits JSON5 while canonical emission is NUIF-owned; replacing it would change accepted source syntax.",
+      "evidence": ["research/items/encoding.md", "research/items/resource-bounded-serde-and-ciborium.md"]
+    },
+    {
+      "name": "masonry",
+      "role": "native retained widget toolkit",
+      "decision": "fork",
+      "alternatives": ["egui", "iced", "Slint", "Floem"],
+      "rationale": "Masonry best matches the retained semantic test harness, but NUIF pins a reviewed refpath branch for the wgpu and font-stack corrections.",
+      "evidence": ["research/items/masonry-editor-stack-decision.md", "research/items/macos-metal-block-future-incompatibility.md"]
+    },
+    {
+      "name": "masonry_testing",
+      "role": "native editor semantic and visual harness",
+      "decision": "fork",
+      "alternatives": ["egui_kittest", "iced_test", "Slint testing API"],
+      "rationale": "It drives the same widget tree and exposes accessibility plus deterministic CPU-render evidence; it is revision-locked with Masonry.",
+      "evidence": ["research/items/masonry-xilem-and-linebender-test-harness.md", "research/items/egui-and-egui-kittest.md"]
+    },
+    {
+      "name": "masonry_winit",
+      "role": "native window and GPU event-loop backend",
+      "decision": "fork",
+      "alternatives": ["direct winit integration", "tao"],
+      "rationale": "The backend keeps widget, accessibility, window, and renderer versions coherent; the pinned branch removes obsolete Metal and font dependencies.",
+      "evidence": ["research/items/masonry-editor-stack-decision.md", "research/items/macos-metal-block-future-incompatibility.md"]
+    },
+    {
+      "name": "png",
+      "role": "deterministic PNG artifact encoding",
+      "decision": "retain",
+      "alternatives": ["image", "zune-png"],
+      "rationale": "The focused encoder avoids a broad image dependency and keeps decoded RGBA, rather than encoder bytes, as the render conformance boundary.",
+      "evidence": ["research/items/renderers.md", "research/items/metamorphic-testing-graphics.md"]
+    },
+    {
+      "name": "rfd",
+      "role": "native open and save dialogs",
+      "decision": "watch",
+      "alternatives": ["per-platform native APIs", "ashpd on Linux"],
+      "rationale": "It supplies one small cross-platform dialog boundary; the editor keeps all parsing and writes outside the dialog crate and can replace it independently.",
+      "evidence": ["research/items/dependency-and-subsystem-audit.md"]
+    },
+    {
+      "name": "roxmltree",
+      "role": "bounded SVG XML tree parsing with source ranges",
+      "decision": "retain",
+      "alternatives": ["quick-xml", "usvg"],
+      "rationale": "The retentive SVG profile needs read-only nodes and byte correspondence; normalizing SVG engines lose authored source and streaming parsers complicate span ownership.",
+      "evidence": ["research/items/svg.md", "research/items/dependency-and-subsystem-audit.md"]
+    },
+    {
+      "name": "serde",
+      "role": "typed model serialization boundary",
+      "decision": "retain",
+      "alternatives": ["manual format implementations", "rkyv"],
+      "rationale": "Serde separates the typed model from the independently constrained text and CBOR encoders without imposing a wire format.",
+      "evidence": ["research/items/encoding.md", "research/items/dependency-and-subsystem-audit.md"]
+    },
+    {
+      "name": "serde_bytes",
+      "role": "explicit byte-string representation",
+      "decision": "retain",
+      "alternatives": ["Vec of numeric values", "format-specific byte wrappers"],
+      "rationale": "It preserves the distinction between binary payloads and numeric arrays across serde-backed formats.",
+      "evidence": ["research/items/encoding.md"]
+    },
+    {
+      "name": "serde_json",
+      "role": "strict JSON artifacts, reports, and raw extension retention",
+      "decision": "retain",
+      "alternatives": ["simd-json", "sonic-rs"],
+      "rationale": "Raw-value support is more important than parser peak throughput for reports and opaque JSON retention; hostile inputs are bounded before parsing.",
+      "evidence": ["research/items/unknown-schema-preservation-strategies.md", "research/items/resource-bounded-serde-and-ciborium.md"]
+    },
+    {
+      "name": "sha2",
+      "role": "portable canonical and artifact hashes",
+      "decision": "retain",
+      "alternatives": ["blake3", "ring digest"],
+      "rationale": "SHA-256 is interoperable with release tooling, web standards, and independent implementations; hashing is not a measured bottleneck.",
+      "evidence": ["research/items/content-addressed-versioning.md"]
+    },
+    {
+      "name": "skrifa",
+      "role": "safe OpenType metadata, outlines, and variations",
+      "decision": "retain",
+      "alternatives": ["FreeType", "ttf-parser"],
+      "rationale": "Skrifa is the maintained fontations parser and shares the Google Fonts stack used by Harfrust.",
+      "evidence": ["research/items/harfbuzz-unicode.md", "research/items/text-rendering-reproducibility.md"]
+    },
+    {
+      "name": "stats_alloc",
+      "role": "portable allocation smoke measurements",
+      "decision": "retain",
+      "alternatives": ["dhat", "heaptrack"],
+      "rationale": "It provides stable in-process allocation counts on every supported CI platform; deeper profilers remain diagnostic tools.",
+      "evidence": ["research/items/rust-snapshot-property-fuzz-tooling.md"]
+    },
+    {
+      "name": "taffy",
+      "role": "independent layout differential oracle",
+      "decision": "retain",
+      "alternatives": ["Yoga", "browser CSS engines"],
+      "rationale": "Taffy is intentionally test-only so the NUIF layout implementation does not validate itself; browser and Taffy results are classified rather than blindly copied.",
+      "evidence": ["research/items/taffy-and-yoga-browser-generated-tests.md", "research/items/yoga.md"]
+    },
+    {
+      "name": "thiserror",
+      "role": "typed library error definitions",
+      "decision": "retain",
+      "alternatives": ["manual Error implementations", "anyhow"],
+      "rationale": "Typed public errors are part of adapter and conformance behavior; an opaque application error stack would weaken machine classification.",
+      "evidence": ["research/items/dependency-and-subsystem-audit.md"]
+    },
+    {
+      "name": "tracing",
+      "role": "structured native editor diagnostics",
+      "decision": "retain",
+      "alternatives": ["log", "slog"],
+      "rationale": "It matches the Masonry stack and keeps diagnostics structured without affecting canonical output.",
+      "evidence": ["research/items/dependency-and-subsystem-audit.md"]
+    },
+    {
+      "name": "tree-sitter",
+      "role": "error-tolerant concrete syntax trees with byte ranges",
+      "decision": "retain",
+      "alternatives": ["html5ever plus lightningcss", "SWC parser stack"],
+      "rationale": "Retentive synchronization needs concrete byte ranges and partial-tree recovery rather than a normalized DOM alone.",
+      "evidence": ["research/items/tree-sitter.md", "research/items/dependency-and-subsystem-audit.md"]
+    },
+    {
+      "name": "tree-sitter-css",
+      "role": "CSS concrete syntax grammar",
+      "decision": "retain",
+      "alternatives": ["lightningcss", "cssparser"],
+      "rationale": "The grammar shares Tree-sitter's byte-range model, allowing CSS edits to use the same correspondence contract as HTML.",
+      "evidence": ["research/items/tree-sitter.md", "research/items/css-formatting.md"]
+    },
+    {
+      "name": "tree-sitter-html",
+      "role": "HTML concrete syntax grammar",
+      "decision": "retain",
+      "alternatives": ["html5ever", "lol_html"],
+      "rationale": "The declared profile owns simple static source and byte-local edits; full HTML error correction is explicitly outside that profile.",
+      "evidence": ["research/items/tree-sitter.md", "research/items/dependency-and-subsystem-audit.md"]
+    },
+    {
+      "name": "zeno",
+      "role": "deterministic CPU glyph mask rasterization",
+      "decision": "retain",
+      "alternatives": ["tiny-skia", "Vello CPU"],
+      "rationale": "The reference renderer needs a small exact CPU mask path; Vello remains the interactive renderer and is not the normative raster oracle.",
+      "evidence": ["research/items/renderers.md", "research/items/vello.md"]
+    }
+  ]
+}
