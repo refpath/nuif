@@ -33,6 +33,7 @@ pub struct AccessibilityNode {
 #[serde(rename_all = "snake_case", tag = "command")]
 pub enum EditorCommand {
     Select { entity: EntityId },
+    ClearSelection,
     Rename { entity: EntityId, name: String },
     SetWidth { entity: EntityId, value: f64 },
     SetHeight { entity: EntityId, value: f64 },
@@ -98,6 +99,8 @@ pub struct SnapshotRaster {
     pub width: u32,
     pub height: u32,
     pub rgba_sha256: String,
+    #[serde(skip)]
+    pub rgba: Vec<u8>,
     pub png: Vec<u8>,
 }
 
@@ -142,6 +145,21 @@ impl EditorDriver {
     #[must_use]
     pub fn operation_log(&self) -> &[Patch] {
         &self.operation_log
+    }
+
+    #[must_use]
+    pub fn selection(&self) -> &[EntityId] {
+        self.session.selection()
+    }
+
+    #[must_use]
+    pub fn can_undo(&self) -> bool {
+        self.session.can_undo()
+    }
+
+    #[must_use]
+    pub fn can_redo(&self) -> bool {
+        self.session.can_redo()
     }
 
     #[must_use]
@@ -207,6 +225,12 @@ impl EditorDriver {
                     entities: vec![entity],
                 })
             }
+            EditorCommand::ClearSelection => {
+                self.session.select(Vec::new());
+                Ok(EditorEvent::SelectionChanged {
+                    entities: Vec::new(),
+                })
+            }
             EditorCommand::Rename { entity, name } => self.apply(Operation::Rename {
                 entity,
                 name: Some(name),
@@ -255,6 +279,7 @@ impl EditorDriver {
                             width: snapshot.raster.width,
                             height: snapshot.raster.height,
                             rgba_sha256: format!("{:x}", Sha256::digest(&snapshot.raster.rgba)),
+                            rgba: snapshot.raster.rgba,
                             png,
                         },
                     }),

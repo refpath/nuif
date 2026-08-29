@@ -248,6 +248,16 @@ impl Session {
             .collect();
     }
 
+    #[must_use]
+    pub fn can_undo(&self) -> bool {
+        !self.undo.is_empty()
+    }
+
+    #[must_use]
+    pub fn can_redo(&self) -> bool {
+        !self.redo.is_empty()
+    }
+
     /// Applies a transaction through the protocol and records its inverse.
     ///
     /// # Errors

@@ -1,0 +1,328 @@
+use masonry::accesskit::{Node, Role};
+use masonry::core::{
+    AccessCtx, AccessEvent, ChildrenIds, EventCtx, LayoutCtx, MeasureCtx, NewWidget, PaintCtx,
+    PointerButton, PointerEvent, PropertiesMut, PropertiesRef, RegisterCtx, TextEvent, Widget,
+    WidgetId, WidgetPod,
+};
+use masonry::imaging::Painter;
+use masonry::kurbo::{Affine, Axis, Point, Rect, Size, Stroke, Vec2};
+use masonry::layout::{LayoutSize, LenReq, Length, SizeDef};
+use masonry::peniko::{Color, ImageAlphaType, ImageBrush, ImageData, ImageFormat};
+use nuif_core::EntityId;
+use nuif_layout::Rect as LayoutRect;
+use tracing::{Span, trace_span};
+
+const CANVAS_BACKGROUND: Color = Color::from_rgb8(0x2C, 0x2C, 0x2C);
+const CANVAS_GRID: Color = Color::from_rgba8(0xFF, 0xFF, 0xFF, 0x12);
+const PAGE_BORDER: Color = Color::from_rgba8(0x00, 0x00, 0x00, 0x55);
+const SELECTION: Color = Color::from_rgb8(0x55, 0x8D, 0xFF);
+
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum CanvasAction {
+    Activate {
+        entity: Option<EntityId>,
+        document_position: Option<(f64, f64)>,
+    },
+}
+
+pub struct DocumentCanvas {
+    image: ImageBrush,
+    image_size: Size,
+    boxes: Vec<(EntityId, LayoutRect)>,
+    selection: Option<EntityId>,
+    size: Size,
+}
+
+impl DocumentCanvas {
+    pub fn new(
+        width: u32,
+        height: u32,
+        rgba: Vec<u8>,
+        boxes: Vec<(EntityId, LayoutRect)>,
+        selection: Option<EntityId>,
+    ) -> Self {
+        Self {
+            image: ImageBrush::new(ImageData {
+                data: rgba.into(),
+                format: ImageFormat::Rgba8,
+                alpha_type: ImageAlphaType::Alpha,
+                width,
+                height,
+            }),
+            image_size: Size::new(f64::from(width), f64::from(height)),
+            boxes,
+            selection,
+            size: Size::ZERO,
+        }
+    }
+
+    fn page_transform(&self) -> (f64, Vec2) {
+        let available_width = (self.size.width - 96.0).max(1.0);
+        let available_height = (self.size.height - 96.0).max(1.0);
+        let scale = (available_width / self.image_size.width)
+            .min(available_height / self.image_size.height)
+            .clamp(0.05, 2.0);
+        let offset = Vec2::new(
+            (self.size.width - self.image_size.width * scale) * 0.5,
+            (self.size.height - self.image_size.height * scale) * 0.5,
+        );
+        (scale, offset)
+    }
+
+    fn page_rect(&self) -> Rect {
+        let (scale, offset) = self.page_transform();
+        Rect::from_origin_size(
+            offset.to_point(),
+            (
+                self.image_size.width * scale,
+                self.image_size.height * scale,
+            ),
+        )
+    }
+
+    fn entity_at(&self, point: Point) -> Option<EntityId> {
+        let (scale, offset) = self.page_transform();
+        let document_point = Point::new((point.x - offset.x) / scale, (point.y - offset.y) / scale);
+        self.boxes
+            .iter()
+            .filter(|(_, rect)| {
+                document_point.x >= rect.x
+                    && document_point.x <= rect.x + rect.width
+                    && document_point.y >= rect.y
+                    && document_point.y <= rect.y + rect.height
+            })
+            .min_by(|(_, left), (_, right)| {
+                (left.width * left.height)
+                    .partial_cmp(&(right.width * right.height))
+                    .unwrap_or(std::cmp::Ordering::Equal)
+            })
+            .map(|(entity, _)| *entity)
+    }
+
+    fn document_position(&self, point: Point) -> Option<(f64, f64)> {
+        let (scale, offset) = self.page_transform();
+        let x = (point.x - offset.x) / scale;
+        let y = (point.y - offset.y) / scale;
+        (x >= 0.0 && x <= self.image_size.width && y >= 0.0 && y <= self.image_size.height)
+            .then_some((x, y))
+    }
+}
+
+impl Widget for DocumentCanvas {
+    type Action = CanvasAction;
+
+    fn on_pointer_event(
+        &mut self,
+        ctx: &mut EventCtx<'_>,
+        _props: &mut PropertiesMut<'_>,
+        event: &PointerEvent,
+    ) {
+        let PointerEvent::Down(event) = event else {
+            return;
+        };
+        if !matches!(event.button, None | Some(PointerButton::Primary)) {
+            return;
+        }
+        ctx.request_focus();
+        let point = ctx.local_position(event.state.position);
+        let action = CanvasAction::Activate {
+            entity: self.entity_at(point),
+            document_position: self.document_position(point),
+        };
+        ctx.submit_action::<Self::Action>(action);
+    }
+
+    fn on_text_event(
+        &mut self,
+        _ctx: &mut EventCtx<'_>,
+        _props: &mut PropertiesMut<'_>,
+        _event: &TextEvent,
+    ) {
+    }
+
+    fn on_access_event(
+        &mut self,
+        ctx: &mut EventCtx<'_>,
+        _props: &mut PropertiesMut<'_>,
+        event: &AccessEvent,
+    ) {
+        if event.action == masonry::accesskit::Action::Click {
+            ctx.submit_action::<Self::Action>(CanvasAction::Activate {
+                entity: None,
+                document_position: None,
+            });
+        }
+    }
+
+    fn register_children(&mut self, _ctx: &mut RegisterCtx<'_>) {}
+
+    fn measure(
+        &mut self,
+        _ctx: &mut MeasureCtx<'_>,
+        _props: &PropertiesRef<'_>,
+        _axis: Axis,
+        len_req: LenReq,
+        _cross_length: Option<Length>,
+    ) -> Length {
+        match len_req {
+            LenReq::FitContent(space) => space,
+            LenReq::MinContent | LenReq::MaxContent => Length::const_px(320.0),
+        }
+    }
+
+    fn layout(&mut self, ctx: &mut LayoutCtx<'_>, _props: &PropertiesRef<'_>, size: Size) {
+        self.size = size;
+        ctx.set_clip_path(size.to_rect());
+    }
+
+    fn paint(
+        &mut self,
+        ctx: &mut PaintCtx<'_>,
+        _props: &PropertiesRef<'_>,
+        painter: &mut Painter<'_>,
+    ) {
+        let content = ctx.content_box();
+        painter.fill(content, CANVAS_BACKGROUND).draw();
+
+        let mut x = 0.0;
+        while x < content.width() {
+            let mut y = 0.0;
+            while y < content.height() {
+                painter
+                    .fill(Rect::new(x, y, x + 1.0, y + 1.0), CANVAS_GRID)
+                    .draw();
+                y += 32.0;
+            }
+            x += 32.0;
+        }
+
+        let page = self.page_rect();
+        painter.fill(page.inflate(1.0, 1.0), PAGE_BORDER).draw();
+        let (scale, offset) = self.page_transform();
+        let transform = Affine::translate(offset) * Affine::scale(scale);
+        painter.draw_image(&self.image, transform);
+
+        if let Some(selection) = self.selection
+            && let Some((_, rect)) = self.boxes.iter().find(|(entity, _)| *entity == selection)
+        {
+            let selected = Rect::new(
+                offset.x + rect.x * scale,
+                offset.y + rect.y * scale,
+                offset.x + (rect.x + rect.width) * scale,
+                offset.y + (rect.y + rect.height) * scale,
+            );
+            painter
+                .stroke(selected, &Stroke::new(2.0), SELECTION)
+                .draw();
+        }
+    }
+
+    fn accessibility_role(&self) -> Role {
+        Role::Canvas
+    }
+
+    fn accessibility(
+        &mut self,
+        _ctx: &mut AccessCtx<'_>,
+        _props: &PropertiesRef<'_>,
+        node: &mut Node,
+    ) {
+        node.set_label("Document canvas");
+        node.set_description("Rendered NUIF profile-zero document");
+        node.add_action(masonry::accesskit::Action::Click);
+    }
+
+    fn children_ids(&self) -> ChildrenIds {
+        ChildrenIds::new()
+    }
+
+    fn accepts_focus(&self) -> bool {
+        true
+    }
+
+    fn make_trace_span(&self, id: WidgetId) -> Span {
+        trace_span!("DocumentCanvas", id = id.trace())
+    }
+}
+
+pub struct AuthorContainer {
+    child: WidgetPod<dyn Widget>,
+    author_id: String,
+    label: String,
+}
+
+impl AuthorContainer {
+    pub fn new(
+        child: NewWidget<impl Widget + ?Sized>,
+        entity: EntityId,
+        label: impl Into<String>,
+    ) -> Self {
+        Self {
+            child: child.erased().to_pod(),
+            author_id: entity.to_string(),
+            label: label.into(),
+        }
+    }
+}
+
+impl Widget for AuthorContainer {
+    type Action = masonry::core::NoAction;
+
+    fn register_children(&mut self, ctx: &mut RegisterCtx<'_>) {
+        ctx.register_child(&mut self.child);
+    }
+
+    fn measure(
+        &mut self,
+        ctx: &mut MeasureCtx<'_>,
+        _props: &PropertiesRef<'_>,
+        axis: Axis,
+        len_req: LenReq,
+        cross_length: Option<Length>,
+    ) -> Length {
+        ctx.compute_length(
+            &mut self.child,
+            len_req.into(),
+            LayoutSize::maybe(axis.cross(), cross_length),
+            axis,
+            cross_length,
+        )
+    }
+
+    fn layout(&mut self, ctx: &mut LayoutCtx<'_>, _props: &PropertiesRef<'_>, size: Size) {
+        let child_size = ctx.compute_size(&mut self.child, SizeDef::fit(size), size.into());
+        ctx.run_layout(&mut self.child, child_size);
+        ctx.place_child(&mut self.child, Point::ORIGIN);
+        ctx.derive_baselines(&self.child);
+    }
+
+    fn paint(
+        &mut self,
+        _ctx: &mut PaintCtx<'_>,
+        _props: &PropertiesRef<'_>,
+        _painter: &mut Painter<'_>,
+    ) {
+    }
+
+    fn accessibility_role(&self) -> Role {
+        Role::GenericContainer
+    }
+
+    fn accessibility(
+        &mut self,
+        _ctx: &mut AccessCtx<'_>,
+        _props: &PropertiesRef<'_>,
+        node: &mut Node,
+    ) {
+        node.set_author_id(self.author_id.as_str());
+        node.set_label(self.label.as_str());
+    }
+
+    fn children_ids(&self) -> ChildrenIds {
+        ChildrenIds::from_slice(&[self.child.id()])
+    }
+
+    fn make_trace_span(&self, id: WidgetId) -> Span {
+        trace_span!("AuthorContainer", id = id.trace())
+    }
+}
