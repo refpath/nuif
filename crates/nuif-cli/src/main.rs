@@ -5,6 +5,7 @@ use nuif_codec::{
     read_bounded as read_bounded_stream,
 };
 use nuif_core::{Document, EntityId, EntityKind, PROFILE0_RESOURCE_LIMITS, Severity, validate};
+use nuif_html::{AdapterError, export_document, import_source, synchronize};
 use nuif_layout::EvaluationContext;
 use nuif_protocol::{Patch, apply_patch};
 use nuif_testing::{TrialConfig, run_trials};
@@ -26,6 +27,7 @@ const COMMANDS: &[&str] = &[
     "layout",
     "render",
     "snapshot",
+    "sync",
     "replay",
     "migrate",
     "import",
@@ -74,6 +76,7 @@ fn run() -> Result<(), CliError> {
         "layout" => layout(&rest),
         "render" => render(&rest),
         "snapshot" => snapshot(&rest),
+        "sync" => sync(&rest),
         "migrate" => migrate(&rest),
         "import" => import(&rest),
         "export" => export(&rest),
@@ -353,6 +356,12 @@ fn migrate(args: &[String]) -> Result<(), CliError> {
 }
 
 fn import(args: &[String]) -> Result<(), CliError> {
+    if args
+        .first()
+        .is_some_and(|argument| argument == "html-css-0")
+    {
+        return import_html(args);
+    }
     let input = required(args, 0, "input document")?;
     let output = args.get(1).map_or("-", String::as_str);
     let document = load_document(input)?;
@@ -380,11 +389,96 @@ fn export(args: &[String]) -> Result<(), CliError> {
             output,
             &DeterministicCbor.encode(&document).map_err(codec_error)?,
         ),
+        "html-css-0" => {
+            let report_path = args.get(3).map(String::as_str);
+            let exported = match export_document(&document) {
+                Ok(exported) => exported,
+                Err(error) => return adapter_failure(&error, report_path),
+            };
+            write_output(output, exported.source.as_bytes())?;
+            emit_adapter_report(&exported.report, report_path)
+        }
         _ => Err(CliError::new(
             3,
             "EXPORT_TARGET_UNSUPPORTED",
             format!("target {target} is unsupported; no data was written"),
         )),
+    }
+}
+
+fn import_html(args: &[String]) -> Result<(), CliError> {
+    let input = required(args, 1, "HTML input")?;
+    let output = args.get(2).map_or("-", String::as_str);
+    let report_path = args.get(3).map(String::as_str);
+    let bytes = read_input(input)?;
+    let source = String::from_utf8(bytes)
+        .map_err(|error| CliError::new(1, "HTML_UTF8_INVALID", error.to_string()))?;
+    let imported = match import_source(&source) {
+        Ok(imported) => imported,
+        Err(error) => return adapter_failure(&error, report_path),
+    };
+    write_output(
+        output,
+        &CanonicalText
+            .encode(&imported.document)
+            .map_err(codec_error)?,
+    )?;
+    emit_adapter_report(&imported.retentive.report, report_path)
+}
+
+fn sync(args: &[String]) -> Result<(), CliError> {
+    let target = required(args, 0, "synchronization target")?;
+    if target != "html-css-0" {
+        return Err(CliError::new(
+            3,
+            "SYNC_TARGET_UNSUPPORTED",
+            format!("target {target} is unsupported"),
+        ));
+    }
+    let source_path = required(args, 1, "retentive HTML source")?;
+    let edited_path = required(args, 2, "edited NUIF document")?;
+    let output = required(args, 3, "synchronized HTML output")?;
+    let report_path = args.get(4).map(String::as_str);
+    let source = String::from_utf8(read_input(source_path)?)
+        .map_err(|error| CliError::new(1, "HTML_UTF8_INVALID", error.to_string()))?;
+    let imported = match import_source(&source) {
+        Ok(imported) => imported,
+        Err(error) => return adapter_failure(&error, report_path),
+    };
+    let edited = load_document(edited_path)?;
+    let synchronized = match synchronize(&imported.retentive, &edited) {
+        Ok(synchronized) => synchronized,
+        Err(error) => return adapter_failure(&error, report_path),
+    };
+    write_output(output, synchronized.source.as_bytes())?;
+    let report = serde_json::json!({
+        "status": "passed",
+        "adapter": synchronized.report,
+        "edits": synchronized.edits
+    });
+    emit_adapter_report(&report, report_path)
+}
+
+fn adapter_failure<T>(error: &AdapterError, report_path: Option<&str>) -> Result<T, CliError> {
+    let report = match &error {
+        AdapterError::UnsupportedProfile { report, .. }
+        | AdapterError::UnmappedChanges { report, .. } => Some(report.as_ref()),
+        _ => None,
+    };
+    if let Some(report) = report {
+        emit_adapter_report(report, report_path)?;
+    }
+    Err(CliError::new(1, "ADAPTER_FAILED", error.to_string()))
+}
+
+fn emit_adapter_report(report: &impl serde::Serialize, path: Option<&str>) -> Result<(), CliError> {
+    let bytes = serde_json::to_vec_pretty(report)
+        .map_err(|error| CliError::new(1, "JSON_FAILED", error.to_string()))?;
+    if let Some(path) = path {
+        write_output(path, &bytes)
+    } else {
+        eprintln!("{}", String::from_utf8_lossy(&bytes));
+        Ok(())
     }
 }
 
@@ -420,18 +514,22 @@ fn trial(args: &[String]) -> Result<(), CliError> {
 
 fn fixture(args: &[String]) -> Result<(), CliError> {
     let fixture = args.first().map_or("v0-responsive-card", String::as_str);
-    if fixture != "v0-responsive-card" && fixture != "v0" {
-        return Err(CliError::new(
-            2,
-            "FIXTURE_UNKNOWN",
-            format!("unknown fixture {fixture}"),
-        ));
-    }
     let output = args.get(1).map_or("-", String::as_str);
+    let document = match fixture {
+        "v0-responsive-card" | "v0" => nuif_testing::responsive_card_fixture(),
+        "html-css-profile" => nuif_html::profile_fixture(),
+        _ => {
+            return Err(CliError::new(
+                2,
+                "FIXTURE_UNKNOWN",
+                format!("unknown fixture {fixture}"),
+            ));
+        }
+    };
     write_output(
         output,
         &CanonicalText
-            .encode(&nuif_testing::responsive_card_fixture())
+            .encode(&document)
             .map_err(codec_error)?,
     )
 }

@@ -13,6 +13,7 @@ path = "src/main.rs"
 nuif-api = { path = "../nuif-api" }
 nuif-codec = { path = "../nuif-codec" }
 nuif-core = { path = "../nuif-core" }
+nuif-html = { path = "../nuif-html" }
 nuif-layout = { path = "../nuif-layout" }
 nuif-protocol = { path = "../nuif-protocol" }
 nuif-render = { path = "../nuif-render" }

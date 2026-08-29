@@ -316,6 +316,7 @@ dependencies = [
  "nuif-api",
  "nuif-codec",
  "nuif-core",
+ "nuif-html",
  "nuif-layout",
  "nuif-protocol",
  "nuif-render",
