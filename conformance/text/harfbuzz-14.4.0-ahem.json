@@ -4,7 +4,9 @@
     "implementation": "HarfBuzz",
     "version": "14.4.0",
     "serialization": "hb-shape --no-glyph-names",
-    "capture_command": "hb-shape ahem.ttf TEXT --direction=DIRECTION --language=en --no-glyph-names"
+    "capture_command": "hb-shape ahem.ttf TEXT --direction=DIRECTION --language=en --no-glyph-names",
+    "outline_serialization": "hb-vector --glyphs --font-size=upem --margin=0 --ink --precision=6 --draw --background=none",
+    "outline_normalization": "coordinates multiplied by 64; redundant explicit line to contour start removed before close"
   },
   "font": {
     "family": "Ahem",
@@ -12,6 +14,28 @@
     "sha256": "f0a92cd0cc45735591c9b5b1fa8aecd5194e8dc518895ca22af94a46c23550dc",
     "byte_length": 22572
   },
+  "outlines": [
+    {
+      "glyph_id": 3,
+      "expected": ""
+    },
+    {
+      "glyph_id": 35,
+      "expected": "M0,51200L64000,51200L64000,-12800L0,-12800Z"
+    },
+    {
+      "glyph_id": 82,
+      "expected": "M0,0L64000,0L64000,-12800L0,-12800Z"
+    },
+    {
+      "glyph_id": 100,
+      "expected": "M0,51200L64000,51200L64000,0L0,0Z"
+    },
+    {
+      "glyph_id": 275,
+      "expected": "M0,38400L64000,38400L64000,25600L0,25600Z"
+    }
+  ],
   "cases": [
     {
       "name": "ascii-ltr",

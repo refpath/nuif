@@ -12,6 +12,7 @@ nuif-text = { path = "../nuif-text" }
 png.workspace = true
 serde.workspace = true
 thiserror.workspace = true
+zeno.workspace = true
 
 [lints]
 workspace = true

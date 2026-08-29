@@ -10,6 +10,7 @@ font-test-data.workspace = true
 harfrust.workspace = true
 serde.workspace = true
 sha2.workspace = true
+skrifa.workspace = true
 thiserror.workspace = true
 
 [lints]

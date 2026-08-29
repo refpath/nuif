@@ -3,8 +3,10 @@ use nuif_core::{EntityId, Fidelity};
 use nuif_layout::{EvaluationContext, WritingDirection};
 use nuif_render::DrawCommand;
 use nuif_text::{
-    PINNED_FONT_SHA256, SHAPER_NAME, SHAPER_VERSION, ShapeRequest, TextDirection, UNICODE_VERSION,
-    pinned_font_hash_is_valid, pinned_font_identity, shape,
+    OUTLINE_COORDINATE_DENOMINATOR, OUTLINE_EXTRACTOR_NAME, OUTLINE_EXTRACTOR_VERSION,
+    PINNED_FONT_ASCENDER, PINNED_FONT_SHA256, SHAPER_NAME, SHAPER_VERSION, ShapeRequest,
+    TextDirection, UNICODE_VERSION, outline_glyph, pinned_font_hash_is_valid, pinned_font_identity,
+    shape,
 };
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
@@ -22,6 +24,7 @@ struct GoldenFile {
     schema_version: u32,
     oracle: Oracle,
     font: GoldenFont,
+    outlines: Vec<GoldenOutline>,
     cases: Vec<GoldenCase>,
 }
 
@@ -32,6 +35,8 @@ struct Oracle {
     version: String,
     serialization: String,
     capture_command: String,
+    outline_serialization: String,
+    outline_normalization: String,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -50,6 +55,13 @@ struct GoldenCase {
     text: String,
     direction: TextDirection,
     language: String,
+    expected: String,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct GoldenOutline {
+    glyph_id: u32,
     expected: String,
 }
 
@@ -74,40 +86,12 @@ fn run() -> Result<(), String> {
         && golden.oracle.version == "14.4.0"
         && pinned_font_hash_is_valid();
 
-    let mut case_reports = Vec::new();
-    let mut shaping_passed = pin_consistent;
-    for case in &golden.cases {
-        let request = ShapeRequest {
-            text: &case.text,
-            font_sha256: PINNED_FONT_SHA256,
-            font_size: 18.0,
-            direction: case.direction,
-            language: &case.language,
-        };
-        let first = shape(&request).map_err(|error| error.to_string())?;
-        let second = shape(&request).map_err(|error| error.to_string())?;
-        let golden_match = first.serialized_glyphs == case.expected;
-        let repeatable = first == second;
-        let passed = golden_match && repeatable;
-        shaping_passed &= passed;
-        case_reports.push(json!({
-            "name": case.name,
-            "text": case.text,
-            "direction": case.direction,
-            "language": case.language,
-            "expected": case.expected,
-            "observed": first.serialized_glyphs,
-            "glyph_count": first.glyphs.len(),
-            "x_advance_font_units": first.x_advance_font_units,
-            "golden_match": golden_match,
-            "repeatable": repeatable,
-            "passed": passed
-        }));
-    }
+    let (case_reports, shaping_passed) = shaping_trials(&golden.cases, pin_consistent)?;
+    let (outline_reports, outlines_passed) = outline_trials(&golden.outlines, pin_consistent)?;
 
     let (raster_reports, raster_passed) = raster_trials()?;
     let (negative_reports, negative_passed) = negative_trials();
-    let passed = shaping_passed && raster_passed && negative_passed;
+    let passed = shaping_passed && outlines_passed && raster_passed && negative_passed;
     let report = json!({
         "schema_version": 1,
         "experiment": "nuif:experiment:text-pinning",
@@ -125,22 +109,37 @@ fn run() -> Result<(), String> {
             "shaper": SHAPER_NAME,
             "shaper_version": SHAPER_VERSION,
             "unicode_version": UNICODE_VERSION,
+            "outline_extractor": OUTLINE_EXTRACTOR_NAME,
+            "outline_extractor_version": OUTLINE_EXTRACTOR_VERSION,
+            "outline_coordinate_denominator": OUTLINE_COORDINATE_DENOMINATOR,
+            "rasterizer": "Zeno",
+            "rasterizer_version": "0.3.3",
+            "hinting": "none",
+            "coverage": "8_bit_grayscale_alpha",
+            "fill_rule": "nonzero",
+            "blend_space": "encoded_srgb_channels",
+            "baseline_font_units": PINNED_FONT_ASCENDER,
             "independent_oracle": golden.oracle,
             "pin_consistent": pin_consistent
         },
         "classification": {
             "shaping": "exact_cross_implementation_golden",
-            "raster": "approximated_deterministic_glyph_id_proxy",
-            "normative_outline_rasterization": false
+            "outlines": "exact_cross_implementation_normalized_golden",
+            "raster": "pinned_unhinted_outline_grayscale_candidate",
+            "text_semantics": "approximated_missing_line_breaking",
+            "cross_platform_raster_verified": false
         },
         "summary": {
             "golden_cases": case_reports.len(),
             "golden_cases_passed": case_reports.iter().filter(|case| case["passed"] == true).count(),
+            "outline_goldens": outline_reports.len(),
+            "outline_goldens_passed": outline_reports.iter().filter(|case| case["passed"] == true).count(),
             "raster_contexts": raster_reports.len(),
             "negative_cases": negative_reports.len(),
             "blocking_failures": u8::from(!passed)
         },
         "golden_cases": case_reports,
+        "outline_goldens": outline_reports,
         "raster_trials": raster_reports,
         "negative_trials": negative_reports
     });
@@ -152,8 +151,9 @@ fn run() -> Result<(), String> {
     }
     fs::write(&output, &encoded).map_err(|error| error.to_string())?;
     println!(
-        "text pinning: {} golden cases, {} raster contexts, status {}",
+        "text pinning: {} shaping goldens, {} outline goldens, {} raster contexts, status {}",
         golden.cases.len(),
+        golden.outlines.len(),
         raster_reports.len(),
         if passed { "passed" } else { "failed" }
     );
@@ -162,6 +162,69 @@ fn run() -> Result<(), String> {
     } else {
         Err(format!("report failed; inspect {}", output.display()))
     }
+}
+
+fn shaping_trials(
+    cases: &[GoldenCase],
+    pin_consistent: bool,
+) -> Result<(Vec<Value>, bool), String> {
+    let mut reports = Vec::new();
+    let mut all_passed = pin_consistent;
+    for case in cases {
+        let request = ShapeRequest {
+            text: &case.text,
+            font_sha256: PINNED_FONT_SHA256,
+            font_size: 18.0,
+            direction: case.direction,
+            language: &case.language,
+        };
+        let first = shape(&request).map_err(|error| error.to_string())?;
+        let second = shape(&request).map_err(|error| error.to_string())?;
+        let golden_match = first.serialized_glyphs == case.expected;
+        let repeatable = first == second;
+        let passed = golden_match && repeatable;
+        all_passed &= passed;
+        reports.push(json!({
+            "name": case.name,
+            "text": case.text,
+            "direction": case.direction,
+            "language": case.language,
+            "expected": case.expected,
+            "observed": first.serialized_glyphs,
+            "glyph_count": first.glyphs.len(),
+            "x_advance_font_units": first.x_advance_font_units,
+            "golden_match": golden_match,
+            "repeatable": repeatable,
+            "passed": passed
+        }));
+    }
+    Ok((reports, all_passed))
+}
+
+fn outline_trials(
+    outlines: &[GoldenOutline],
+    pin_consistent: bool,
+) -> Result<(Vec<Value>, bool), String> {
+    let mut reports = Vec::new();
+    let mut all_passed = pin_consistent;
+    for expected in outlines {
+        let first = outline_glyph(expected.glyph_id).map_err(|error| error.to_string())?;
+        let second = outline_glyph(expected.glyph_id).map_err(|error| error.to_string())?;
+        let golden_match = first.serialized_path == expected.expected;
+        let repeatable = first == second;
+        let passed = golden_match && repeatable;
+        all_passed &= passed;
+        reports.push(json!({
+            "glyph_id": expected.glyph_id,
+            "expected": expected.expected,
+            "observed": first.serialized_path,
+            "command_count": first.commands.len(),
+            "golden_match": golden_match,
+            "repeatable": repeatable,
+            "passed": passed
+        }));
+    }
+    Ok((reports, all_passed))
 }
 
 fn raster_trials() -> Result<(Vec<Value>, bool), String> {
@@ -210,7 +273,8 @@ fn raster_trials() -> Result<(Vec<Value>, bool), String> {
             "png_bytes": first_png.len(),
             "glyph_runs": glyph_runs,
             "repeatable": repeatable,
-            "text_raster_fidelity": "approximated",
+            "raster_pipeline": "pinned_unhinted_outline_grayscale",
+            "text_semantic_fidelity": "approximated_missing_line_breaking",
             "passed": passed
         }));
     }

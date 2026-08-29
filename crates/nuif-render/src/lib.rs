@@ -3,11 +3,15 @@
 use nuif_core::{Color as ModelColor, Document, EntityId, EntityKind, Fidelity, ShapeKind};
 use nuif_layout::{EvaluationContext, LayoutSnapshot, Rect, WritingDirection};
 use nuif_text::{
-    CLUSTER_UNIT, MAX_SHAPING_CODEPOINTS, ShapeRequest, ShapedRun, TextDirection, TextError, shape,
+    CLUSTER_UNIT, GlyphOutline, MAX_SHAPING_CODEPOINTS, OUTLINE_COORDINATE_DENOMINATOR,
+    OUTLINE_EXTRACTOR_NAME, OUTLINE_EXTRACTOR_VERSION, OutlineCommand, OutlinePoint,
+    PINNED_FONT_ASCENDER, ShapeRequest, ShapedRun, TextDirection, TextError, outline_glyph, shape,
 };
 use serde::{Deserialize, Serialize};
+use std::collections::BTreeMap;
 use std::io::Cursor;
 use thiserror::Error;
+use zeno::{Command as ZenoCommand, Fill, Format, Mask, Point as ZenoPoint};
 
 #[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -41,6 +45,7 @@ pub enum DrawCommand {
         entity: EntityId,
         rect: Rect,
         run: Box<ShapedRun>,
+        outlines: Box<BTreeMap<u32, GlyphOutline>>,
         color: Color,
     },
 }
@@ -212,16 +217,30 @@ pub fn build_scene(
                 entity: *id,
                 source,
             })?;
+            let mut outlines = BTreeMap::new();
+            for glyph in &run.glyphs {
+                if let std::collections::btree_map::Entry::Vacant(entry) =
+                    outlines.entry(glyph.glyph_id)
+                {
+                    entry.insert(outline_glyph(glyph.glyph_id).map_err(|source| {
+                        RenderError::Text {
+                            entity: *id,
+                            source,
+                        }
+                    })?);
+                }
+            }
             scene.fidelity.push(RenderFidelity {
                 entity: *id,
                 status: Fidelity::Approximated {
-                    reason: "profile 0 shapes pinned glyph runs exactly but rasterizes glyph IDs with a deterministic bitmap proxy instead of normative outlines".to_owned(),
+                    reason: "profile 0 shapes and rasterizes pinned unhinted outlines, but line breaking and wrapping are not implemented".to_owned(),
                 },
             });
             scene.commands.push(DrawCommand::Text {
                 entity: *id,
                 rect,
                 run: Box::new(run),
+                outlines: Box::new(outlines),
                 color: Color {
                     red: 0.0,
                     green: 0.0,
@@ -261,7 +280,13 @@ pub fn render_cpu(scene: &RenderScene, target: RenderTarget) -> Result<RasterIma
                 rect,
                 color,
                 run,
-            } => (*entity, *rect, *color, shaped_run_is_valid(run)),
+                outlines,
+            } => (
+                *entity,
+                *rect,
+                *color,
+                shaped_run_is_valid(run, outlines, f64::from(target.scale_factor)),
+            ),
         };
         if !rect_is_valid(rect)
             || !rect_is_valid(scale_rect(rect, f64::from(target.scale_factor)))
@@ -284,11 +309,16 @@ pub fn render_cpu(scene: &RenderScene, target: RenderTarget) -> Result<RasterIma
                 *fill,
             ),
             DrawCommand::Text {
-                rect, run, color, ..
-            } => draw_shaped_text_proxy(
+                rect,
+                run,
+                outlines,
+                color,
+                ..
+            } => draw_shaped_text_outlines(
                 &mut image,
                 scale_rect(*rect, f64::from(target.scale_factor)),
                 run,
+                outlines,
                 f64::from(target.scale_factor),
                 *color,
             ),
@@ -320,17 +350,33 @@ fn color_is_finite(color: Color) -> bool {
         .all(f32::is_finite)
 }
 
-fn shaped_run_is_valid(run: &ShapedRun) -> bool {
+fn shaped_run_is_valid(
+    run: &ShapedRun,
+    outlines: &BTreeMap<u32, GlyphOutline>,
+    target_scale: f64,
+) -> bool {
     let codepoints = run.text.chars().count();
     run.font_size.is_finite()
         && run.font_size > 0.0
+        && run.font_size * target_scale <= f64::from(u32::MAX)
         && run.units_per_em > 0
         && run.cluster_unit == CLUSTER_UNIT
         && codepoints <= MAX_SHAPING_CODEPOINTS
-        && run
-            .glyphs
-            .iter()
-            .all(|glyph| usize::try_from(glyph.cluster).is_ok_and(|cluster| cluster < codepoints))
+        && outlines.len() <= run.glyphs.len()
+        && run.glyphs.iter().all(|glyph| {
+            usize::try_from(glyph.cluster).is_ok_and(|cluster| cluster < codepoints)
+                && outlines
+                    .get(&glyph.glyph_id)
+                    .is_some_and(|outline| outline_is_valid(glyph.glyph_id, outline))
+        })
+}
+
+fn outline_is_valid(glyph_id: u32, outline: &GlyphOutline) -> bool {
+    outline.glyph_id == glyph_id
+        && outline.extractor == OUTLINE_EXTRACTOR_NAME
+        && outline.extractor_version == OUTLINE_EXTRACTOR_VERSION
+        && outline.coordinate_denominator == OUTLINE_COORDINATE_DENOMINATOR
+        && outline.commands.len() <= 4096
 }
 
 fn fill_rect(image: &mut RasterImage, rect: Rect, color: Color) {
@@ -351,10 +397,11 @@ fn fill_rect(image: &mut RasterImage, rect: Rect, color: Color) {
     }
 }
 
-fn draw_shaped_text_proxy(
+fn draw_shaped_text_outlines(
     image: &mut RasterImage,
     rect: Rect,
     run: &ShapedRun,
+    outlines: &BTreeMap<u32, GlyphOutline>,
     target_scale: f64,
     color: Color,
 ) {
@@ -364,45 +411,101 @@ fn draw_shaped_text_proxy(
         channel(color.blue),
         channel(color.alpha),
     ];
+    let base_x = floor_coordinate(rect.x, image.width);
+    let base_y = floor_coordinate(rect.y, image.height);
+    let x1 = ceil_coordinate(rect.x + rect.width, image.width);
+    let y1 = ceil_coordinate(rect.y + rect.height, image.height);
+    let mask_width = x1.saturating_sub(base_x);
+    let mask_height = y1.saturating_sub(base_y);
+    if mask_width == 0 || mask_height == 0 {
+        return;
+    }
     let font_unit_scale = run.font_size * target_scale / f64::from(run.units_per_em);
-    let codepoints = run.text.chars().collect::<Vec<_>>();
+    let baseline = rect.y - f64::from(base_y) + f64::from(PINNED_FONT_ASCENDER) * font_unit_scale;
     let mut pen_x = rect.x;
-    let mut pen_y = rect.y;
+    let mut commands = Vec::new();
     for glyph in &run.glyphs {
-        let glyph_x = floor_coordinate(
-            pen_x + f64::from(glyph.x_offset) * font_unit_scale,
-            image.width,
-        );
-        let glyph_y = floor_coordinate(
-            pen_y - f64::from(glyph.y_offset) * font_unit_scale,
-            image.height,
-        );
-        let is_space = usize::try_from(glyph.cluster)
-            .ok()
-            .and_then(|cluster| codepoints.get(cluster))
-            .copied()
-            .is_some_and(char::is_whitespace);
-        let glyph_bits = glyph.glyph_id.to_le_bytes();
-        for row in 0..7_u32 {
-            for column in 0..5_u32 {
-                let bit = (row * 5 + column) % 8;
-                let byte = glyph_bits[usize::try_from((row + column) % 4).unwrap_or(0)];
-                if !is_space && (byte >> bit) & 1 == 1 {
-                    let x = glyph_x + column;
-                    let y = glyph_y + row;
-                    if x < image.width
-                        && y < image.height
-                        && f64::from(x) < rect.x + rect.width
-                        && f64::from(y) < rect.y + rect.height
-                    {
-                        blend_pixel(image, x, y, source);
-                    }
-                }
-            }
+        let Some(outline) = outlines.get(&glyph.glyph_id) else {
+            continue;
+        };
+        let origin_x = pen_x - f64::from(base_x) + f64::from(glyph.x_offset) * font_unit_scale;
+        let origin_y = baseline - f64::from(glyph.y_offset) * font_unit_scale;
+        for command in &outline.commands {
+            commands.push(to_zeno_command(
+                *command,
+                origin_x,
+                origin_y,
+                font_unit_scale,
+            ));
         }
         pen_x += f64::from(glyph.x_advance) * font_unit_scale;
-        pen_y += f64::from(glyph.y_advance) * font_unit_scale;
     }
+    if commands.is_empty() {
+        return;
+    }
+    let mask_len = usize::try_from(u64::from(mask_width) * u64::from(mask_height))
+        .expect("the validated raster target fits usize");
+    let mut coverage = vec![0_u8; mask_len];
+    Mask::new(&commands)
+        .style(Fill::NonZero)
+        .format(Format::Alpha)
+        .size(mask_width, mask_height)
+        .render_into(&mut coverage, None);
+    for y in 0..mask_height {
+        for x in 0..mask_width {
+            let mask_index = y as usize * mask_width as usize + x as usize;
+            let alpha = coverage[mask_index];
+            if alpha == 0 {
+                continue;
+            }
+            let mut covered = source;
+            covered[3] = u8::try_from((u16::from(source[3]) * u16::from(alpha) + 127) / 255)
+                .expect("the product of two alpha channels remains u8 after division");
+            blend_pixel(image, base_x + x, base_y + y, covered);
+        }
+    }
+}
+
+fn to_zeno_command(
+    command: OutlineCommand,
+    origin_x: f64,
+    origin_y: f64,
+    scale: f64,
+) -> ZenoCommand {
+    match command {
+        OutlineCommand::MoveTo { to } => {
+            ZenoCommand::MoveTo(to_zeno_point(to, origin_x, origin_y, scale))
+        }
+        OutlineCommand::LineTo { to } => {
+            ZenoCommand::LineTo(to_zeno_point(to, origin_x, origin_y, scale))
+        }
+        OutlineCommand::QuadTo { control, to } => ZenoCommand::QuadTo(
+            to_zeno_point(control, origin_x, origin_y, scale),
+            to_zeno_point(to, origin_x, origin_y, scale),
+        ),
+        OutlineCommand::CurveTo {
+            control_0,
+            control_1,
+            to,
+        } => ZenoCommand::CurveTo(
+            to_zeno_point(control_0, origin_x, origin_y, scale),
+            to_zeno_point(control_1, origin_x, origin_y, scale),
+            to_zeno_point(to, origin_x, origin_y, scale),
+        ),
+        OutlineCommand::Close => ZenoCommand::Close,
+    }
+}
+
+#[expect(
+    clippy::cast_possible_truncation,
+    reason = "validated target and font geometry are finite and bounded before this f32 raster boundary"
+)]
+fn to_zeno_point(point: OutlinePoint, origin_x: f64, origin_y: f64, scale: f64) -> ZenoPoint {
+    let denominator = f64::from(OUTLINE_COORDINATE_DENOMINATOR);
+    ZenoPoint::new(
+        (origin_x + f64::from(point.x) / denominator * scale) as f32,
+        (origin_y - f64::from(point.y) / denominator * scale) as f32,
+    )
 }
 
 #[expect(
@@ -488,6 +591,20 @@ mod tests {
             panic!("text entity must lower to a text command");
         };
         assert_eq!(run.serialized_glyphs, "[35=0+1000|3=1+1000|36=2+1000]");
+
+        let image = render_cpu(
+            &scene,
+            RenderTarget {
+                width: 100,
+                height: 20,
+                scale_factor: 1.0,
+            },
+        )
+        .unwrap();
+        let pixel = |x: usize, y: usize| &image.rgba[(y * 100 + x) * 4..][..4];
+        assert_eq!(pixel(5, 5), [0, 0, 0, 255]);
+        assert_eq!(pixel(25, 5), [255, 255, 255, 255]);
+        assert_eq!(pixel(40, 5), [0, 0, 0, 255]);
     }
 
     #[test]
