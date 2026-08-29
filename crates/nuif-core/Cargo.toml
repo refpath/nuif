@@ -1,0 +1,9 @@
+[package]
+name = "nuif-core"
+version = "0.0.1"
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[lints]
+workspace = true

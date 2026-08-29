@@ -1,0 +1,55 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://nuif.dev/schema/research-item.schema.json",
+  "title": "NUIF Research Item",
+  "type": "object",
+  "required": ["id", "kind", "title", "status", "retrieved_at", "tags", "relations"],
+  "properties": {
+    "id": {"type": "string", "pattern": "^nuif:research:[a-z0-9][a-z0-9._:-]*$"},
+    "kind": {"enum": ["paper", "standard", "repository", "implementation", "article", "dataset", "synthesis"]},
+    "title": {"type": "string", "minLength": 1},
+    "status": {"enum": ["seed", "reviewed", "verified", "superseded", "rejected"]},
+    "source": {
+      "type": "object",
+      "properties": {
+        "url": {"type": "string", "format": "uri"},
+        "doi": {"type": "string"},
+        "repository": {"type": "string"},
+        "authors": {"type": "array", "items": {"type": "string"}},
+        "published_at": {"type": "string"},
+        "license": {"type": "string"}
+      },
+      "additionalProperties": false
+    },
+    "retrieved_at": {"type": "string", "format": "date"},
+    "tags": {"type": "array", "items": {"type": "string"}, "uniqueItems": true},
+    "summary": {"type": "string"},
+    "confidence": {"type": "number", "minimum": 0, "maximum": 1},
+    "claims": {"type": "array", "items": {"type": "string"}},
+    "relations": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["type", "target"],
+        "properties": {
+          "type": {"enum": ["supports", "contradicts", "extends", "implements", "inspired_by", "compares_to", "supersedes", "depends_on", "related_to"]},
+          "target": {"type": "string"},
+          "note": {"type": "string"}
+        },
+        "additionalProperties": false
+      }
+    },
+    "links": {
+      "type": "object",
+      "properties": {
+        "spec": {"type": "array", "items": {"type": "string"}},
+        "adr": {"type": "array", "items": {"type": "string"}},
+        "rfc": {"type": "array", "items": {"type": "string"}},
+        "code": {"type": "array", "items": {"type": "string"}},
+        "experiments": {"type": "array", "items": {"type": "string"}}
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": true
+}
