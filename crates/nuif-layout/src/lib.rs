@@ -488,8 +488,9 @@ fn layout_flow(
             child_resolved.width
         };
         let available_cross = if is_row { bounds.height } else { bounds.width };
-        let cross = if matches!(entity.authored.layout.align, Align::Stretch)
-            || matches!(cross_intent, SizeIntentRef::Fill)
+        let cross = if matches!(cross_intent, SizeIntentRef::Fill)
+            || (matches!(entity.authored.layout.align, Align::Stretch)
+                && matches!(cross_intent, SizeIntentRef::Auto))
         {
             available_cross
         } else {
@@ -589,6 +590,30 @@ mod tests {
         let wide = evaluate(&document, &EvaluationContext::viewport(768.0, 100.0));
         assert!(narrow.boxes[&EntityId::new(4)].y > narrow.boxes[&EntityId::new(3)].y);
         assert!(wide.boxes[&EntityId::new(4)].x > wide.boxes[&EntityId::new(3)].x);
+    }
+
+    #[test]
+    fn stretch_preserves_a_definite_cross_size() {
+        let mut document = Document::empty(EntityId::new(1));
+        let mut root = Entity::new(EntityId::new(2), EntityKind::Container);
+        root.authored.width = SizeIntent::Fill;
+        root.authored.height = SizeIntent::Fixed(100.0);
+        root.authored.layout = LayoutStyle {
+            family: LayoutFamily::Stack,
+            direction: FlowDirection::Column,
+            align: Align::Stretch,
+            ..LayoutStyle::default()
+        };
+        let mut child = Entity::new(EntityId::new(3), EntityKind::Container);
+        child.authored.width = SizeIntent::Fixed(40.0);
+        child.authored.height = SizeIntent::Fixed(20.0);
+        root.children.push(child.id);
+        document.roots.push(root.id);
+        document.entities.insert(root.id, root);
+        document.entities.insert(child.id, child);
+
+        let snapshot = evaluate(&document, &EvaluationContext::viewport(200.0, 100.0));
+        assert!((snapshot.boxes[&EntityId::new(3)].width - 40.0).abs() < f64::EPSILON);
     }
 
     #[test]
