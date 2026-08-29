@@ -73,7 +73,7 @@ impl Tool {
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 enum UiAction {
     New,
-    Open,
+    ImportNative,
     Save,
     SaveAs,
     Undo,
@@ -98,6 +98,9 @@ enum UiAction {
     ToggleRightPanel,
     ToggleUi,
     TogglePalette,
+    ToggleFileMenu,
+    ToggleGrid,
+    ToggleRulers,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -144,6 +147,9 @@ struct Driver {
     show_right_panel: bool,
     hide_ui: bool,
     show_palette: bool,
+    show_file_menu: bool,
+    show_grid: bool,
+    show_rulers: bool,
     actions: HashMap<WidgetId, UiAction>,
     entity_widgets: HashMap<EntityId, WidgetId>,
     control_widgets: HashMap<(EntityId, &'static str), WidgetId>,
@@ -159,7 +165,7 @@ impl Driver {
             editor: EditorDriver::new(document),
             document_path,
             dirty: false,
-            status: "Ready · profile 0 · 768 × 640".to_owned(),
+            status: "Ready · profile 0 · px · 768 × 640".to_owned(),
             tool: Tool::Move,
             left_panel: LeftPanel::Layers,
             viewport_width: VIEWPORT_WIDTH,
@@ -168,6 +174,9 @@ impl Driver {
             show_right_panel: true,
             hide_ui: false,
             show_palette: false,
+            show_file_menu: false,
+            show_grid: true,
+            show_rulers: true,
             actions: HashMap::new(),
             entity_widgets: HashMap::new(),
             control_widgets: HashMap::new(),
@@ -214,16 +223,11 @@ impl Driver {
                 )
             },
         );
-        let canvas = DocumentCanvas::new(
-            self.viewport_width,
-            VIEWPORT_HEIGHT,
-            rgba,
-            boxes,
-            selection,
-            self.zoom,
-        )
-        .prepare()
-        .with_props(Dimensions::STRETCH);
+        let canvas =
+            DocumentCanvas::new(self.viewport_width, VIEWPORT_HEIGHT, rgba, boxes, selection)
+                .with_view_options(self.zoom, self.show_grid, self.show_rulers)
+                .prepare()
+                .with_props(Dimensions::STRETCH);
         let mut canvas_stack = ZStack::new().with(canvas, UnitPoint::CENTER);
         if !self.hide_ui {
             canvas_stack = canvas_stack.with(self.build_toolbar(), UnitPoint::BOTTOM);
@@ -247,7 +251,19 @@ impl Driver {
             root = root.with_fixed(self.build_top_bar());
         }
         root = root.with(body.prepare(), 1.0).with_fixed(status);
-        NewWidget::new(root).with_props(Gap::ZERO).erased()
+        let shell = NewWidget::new(root)
+            .with_props((Gap::ZERO, Dimensions::STRETCH))
+            .erased();
+        if self.show_file_menu && !self.hide_ui {
+            ZStack::new()
+                .with(shell, UnitPoint::CENTER)
+                .with(self.build_file_menu_anchor(), UnitPoint::TOP_LEFT)
+                .prepare()
+                .with_props(Dimensions::STRETCH)
+                .erased()
+        } else {
+            shell
+        }
     }
 
     fn build_top_bar(&mut self) -> NewWidget<dyn Widget> {
@@ -258,20 +274,13 @@ impl Driver {
             .and_then(|name| name.to_str())
             .unwrap_or("Untitled.nuif")
             .to_owned();
-        let mut row = Flex::row()
+        let row = Flex::row()
             .with_fixed(label("NUIF", 14.0, TEXT, true))
-            .with_fixed_spacer(12.px());
-        for (caption, action) in [
-            ("New", UiAction::New),
-            ("Open", UiAction::Open),
-            ("Save", UiAction::Save),
-            ("Undo", UiAction::Undo),
-            ("Redo", UiAction::Redo),
-        ] {
-            row = row.with_fixed(self.button(caption, action, false));
-        }
-        row = row
-            .with_fixed_spacer(12.px())
+            .with_fixed_spacer(10.px())
+            .with_fixed(self.button("File", UiAction::ToggleFileMenu, self.show_file_menu))
+            .with_fixed(self.button("Undo", UiAction::Undo, false))
+            .with_fixed(self.button("Redo", UiAction::Redo, false))
+            .with_fixed_spacer(10.px())
             .with(label(&title, 12.0, TEXT, true), 1.0)
             .with_fixed(self.button(
                 "360",
@@ -297,10 +306,13 @@ impl Driver {
                 false,
             ))
             .with_fixed(self.button("+", UiAction::ZoomIn, false))
+            .with_fixed(label("px", 11.0, MUTED, true))
+            .with_fixed(self.button("Grid", UiAction::ToggleGrid, self.show_grid))
+            .with_fixed(self.button("Rulers", UiAction::ToggleRulers, self.show_rulers))
             .with_fixed(self.button("Layers", UiAction::ToggleLeftPanel, self.show_left_panel))
             .with_fixed(self.button("Design", UiAction::ToggleRightPanel, self.show_right_panel))
             .with_fixed(self.button("Commands", UiAction::TogglePalette, self.show_palette))
-            .with_fixed(self.button("Export", UiAction::ExportSnapshot, true));
+            .with_fixed(self.button("Export PNG", UiAction::ExportSnapshot, true));
         NewWidget::new(SizedBox::new(row.prepare()).height(TOP_BAR_HEIGHT))
             .with_props((
                 Background::Color(PANEL),
@@ -309,6 +321,39 @@ impl Driver {
                 Padding::from_vh(7.px(), 10.px()),
             ))
             .erased()
+    }
+
+    fn build_file_menu_anchor(&mut self) -> NewWidget<dyn Widget> {
+        let mut menu = Flex::column()
+            .with_fixed(label("FILE", 10.0, MUTED, true))
+            .with_fixed_spacer(8.px());
+        for (caption, action) in [
+            ("New document", UiAction::New),
+            ("Import NUIF…", UiAction::ImportNative),
+            ("Save", UiAction::Save),
+            ("Save as…", UiAction::SaveAs),
+            ("Export PNG…", UiAction::ExportSnapshot),
+            ("Close menu", UiAction::ToggleFileMenu),
+        ] {
+            menu = menu
+                .with_fixed(self.button(caption, action, false))
+                .with_fixed_spacer(4.px());
+        }
+        let menu = NewWidget::new(SizedBox::new(menu.prepare()).width(Length::const_px(220.0)))
+            .with_props((
+                Background::Color(PANEL),
+                BorderColor::new(ACCENT),
+                BorderWidth::all(1.px()),
+                CornerRadius::all(10.px()),
+                Padding::from_vh(12.px(), 12.px()),
+            ));
+        let anchored = Flex::column().with_fixed_spacer(52.px()).with_fixed(
+            Flex::row()
+                .with_fixed_spacer(10.px())
+                .with_fixed(menu)
+                .prepare(),
+        );
+        NewWidget::new(anchored).erased()
     }
 
     #[expect(
@@ -465,14 +510,14 @@ impl Driver {
                 .with_fixed_spacer(18.px())
                 .with_fixed(label("POSITION", 10.0, MUTED, true))
                 .with_fixed_spacer(7.px())
-                .with_fixed(label("X", 11.0, TEXT, false))
+                .with_fixed(label("X · px", 11.0, TEXT, false))
                 .with_fixed(self.inspector_input(
                     InspectorField::X(entity_id),
                     &entity.authored.position.x.to_string(),
                     "X",
                 ))
                 .with_fixed_spacer(5.px())
-                .with_fixed(label("Y", 11.0, TEXT, false))
+                .with_fixed(label("Y · px", 11.0, TEXT, false))
                 .with_fixed(self.inspector_input(
                     InspectorField::Y(entity_id),
                     &entity.authored.position.y.to_string(),
@@ -481,7 +526,7 @@ impl Driver {
                 .with_fixed_spacer(14.px())
                 .with_fixed(label("SIZING", 10.0, MUTED, true))
                 .with_fixed_spacer(7.px())
-                .with_fixed(label("Width · number, fill, auto or %", 11.0, TEXT, false))
+                .with_fixed(label("Width · px, fill, auto or %", 11.0, TEXT, false))
                 .with_fixed_spacer(5.px())
                 .with_fixed(self.inspector_input(
                     InspectorField::Width(entity_id),
@@ -489,7 +534,7 @@ impl Driver {
                     "Width",
                 ))
                 .with_fixed_spacer(8.px())
-                .with_fixed(label("Height", 11.0, TEXT, false))
+                .with_fixed(label("Height · px", 11.0, TEXT, false))
                 .with_fixed_spacer(5.px())
                 .with_fixed(self.inspector_input(
                     InspectorField::Height(entity_id),
@@ -534,14 +579,14 @@ impl Driver {
                 content = content
                     .with_fixed(directions.prepare())
                     .with_fixed_spacer(7.px())
-                    .with_fixed(label("Gap", 11.0, TEXT, false))
+                    .with_fixed(label("Gap · px", 11.0, TEXT, false))
                     .with_fixed(self.inspector_input(
                         InspectorField::Gap(entity_id),
                         &entity.authored.layout.gap.to_string(),
                         "Gap",
                     ))
                     .with_fixed_spacer(7.px())
-                    .with_fixed(label("Padding T / R / B / L", 11.0, TEXT, false))
+                    .with_fixed(label("Padding T / R / B / L · px", 11.0, TEXT, false))
                     .with_fixed(self.inspector_input(
                         InspectorField::PaddingTop(entity_id),
                         &entity.authored.layout.padding.top.to_string(),
@@ -603,14 +648,14 @@ impl Driver {
                         "Text",
                     ))
                     .with_fixed_spacer(7.px())
-                    .with_fixed(label("Font size", 11.0, TEXT, false))
+                    .with_fixed(label("Font size · px", 11.0, TEXT, false))
                     .with_fixed(self.inspector_input(
                         InspectorField::FontSize(entity_id),
                         &text.size.to_string(),
                         "Size",
                     ))
                     .with_fixed_spacer(7.px())
-                    .with_fixed(label("Line height", 11.0, TEXT, false))
+                    .with_fixed(label("Line height · px", 11.0, TEXT, false))
                     .with_fixed(self.inspector_input(
                         InspectorField::LineHeight(entity_id),
                         &text.line_height.to_string(),
@@ -694,7 +739,7 @@ impl Driver {
             .with_fixed_spacer(8.px());
         for (caption, action) in [
             ("New document", UiAction::New),
-            ("Open document…", UiAction::Open),
+            ("Import NUIF document…", UiAction::ImportNative),
             ("Save", UiAction::Save),
             ("Save as…", UiAction::SaveAs),
             ("Undo", UiAction::Undo),
@@ -723,9 +768,11 @@ impl Driver {
 
     fn build_status(&self) -> NewWidget<dyn Widget> {
         let history = format!(
-            "{}{}",
+            "px · Grid {} · Rulers {}{}{}",
+            if self.show_grid { "on" } else { "off" },
+            if self.show_rulers { "on" } else { "off" },
             if self.editor.can_undo() {
-                "Undo available"
+                " · Undo available"
             } else {
                 ""
             },
@@ -895,7 +942,7 @@ impl Driver {
                 self.drafts.clear();
                 "Created a new profile-zero document".clone_into(&mut self.status);
             }
-            UiAction::Open => {
+            UiAction::ImportNative => {
                 let Some(path) = rfd::FileDialog::new()
                     .add_filter("NUIF document", &["nuif"])
                     .pick_file()
@@ -903,7 +950,7 @@ impl Driver {
                     return false;
                 };
                 if let Err(error) = self.open_path(&path) {
-                    self.status = format!("Open failed: {error}");
+                    self.status = format!("Import failed: {error}");
                 }
             }
             UiAction::Save => {
@@ -974,7 +1021,7 @@ impl Driver {
             UiAction::SetViewport(width) => {
                 self.viewport_width = width;
                 self.zoom = 1.0;
-                self.status = format!("Evaluation viewport set to {width} × {VIEWPORT_HEIGHT}");
+                self.status = format!("Evaluation viewport set to {width} × {VIEWPORT_HEIGHT} px");
             }
             UiAction::ZoomIn => {
                 self.zoom = (self.zoom * 1.25).min(4.0);
@@ -990,8 +1037,39 @@ impl Driver {
             UiAction::ToggleUi => {
                 self.hide_ui = !self.hide_ui;
                 self.show_palette = false;
+                self.show_file_menu = false;
             }
-            UiAction::TogglePalette => self.show_palette = !self.show_palette,
+            UiAction::TogglePalette => {
+                self.show_palette = !self.show_palette;
+                self.show_file_menu = false;
+            }
+            UiAction::ToggleFileMenu => {
+                self.show_file_menu = !self.show_file_menu;
+                self.show_palette = false;
+            }
+            UiAction::ToggleGrid => {
+                self.show_grid = !self.show_grid;
+                self.status = format!(
+                    "Canvas grid {} · spacing follows the px ruler",
+                    if self.show_grid { "shown" } else { "hidden" }
+                );
+            }
+            UiAction::ToggleRulers => {
+                self.show_rulers = !self.show_rulers;
+                self.status = format!(
+                    "Pixel rulers {}",
+                    if self.show_rulers { "shown" } else { "hidden" }
+                );
+            }
+        }
+        if !matches!(
+            action,
+            UiAction::ToggleFileMenu
+                | UiAction::TogglePalette
+                | UiAction::ToggleGrid
+                | UiAction::ToggleRulers
+        ) {
+            self.show_file_menu = false;
         }
         true
     }
@@ -1064,6 +1142,8 @@ impl Driver {
             CanvasShortcut::ZoomFit => Some(UiAction::ZoomFit),
             CanvasShortcut::ZoomActual => Some(UiAction::ZoomActual),
             CanvasShortcut::ToggleUi => Some(UiAction::ToggleUi),
+            CanvasShortcut::ToggleGrid => Some(UiAction::ToggleGrid),
+            CanvasShortcut::ToggleRulers => Some(UiAction::ToggleRulers),
         };
         if let Some(action) = action {
             self.handle_ui_action(action);
@@ -1999,6 +2079,46 @@ mod tests {
             harness
                 .access_node(surface_widget)
                 .is_some_and(|node| node.author_id() == Some(surface.as_str()))
+        );
+    }
+
+    #[test]
+    fn shell_defaults_to_pixel_grid_and_rulers() {
+        let (_, mut driver) = harness();
+        assert!(driver.show_grid);
+        assert!(driver.show_rulers);
+        assert!(driver.status.contains("px"));
+
+        assert!(driver.handle_ui_action(UiAction::ToggleGrid));
+        assert!(driver.handle_ui_action(UiAction::ToggleRulers));
+        assert!(!driver.show_grid);
+        assert!(!driver.show_rulers);
+    }
+
+    #[test]
+    fn file_menu_exposes_native_import_and_png_export() {
+        let (_, mut driver) = harness();
+        assert!(driver.handle_ui_action(UiAction::ToggleFileMenu));
+        let _ = driver.build_view();
+
+        assert!(driver.show_file_menu);
+        assert!(
+            driver
+                .actions
+                .values()
+                .any(|action| matches!(action, UiAction::ImportNative))
+        );
+        assert!(
+            driver
+                .actions
+                .values()
+                .any(|action| matches!(action, UiAction::ExportSnapshot))
+        );
+        assert!(
+            driver
+                .actions
+                .values()
+                .any(|action| matches!(action, UiAction::SaveAs))
         );
     }
 

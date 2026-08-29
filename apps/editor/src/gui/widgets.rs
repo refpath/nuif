@@ -14,9 +14,13 @@ use nuif_layout::Rect as LayoutRect;
 use tracing::{Span, trace_span};
 
 const CANVAS_BACKGROUND: Color = Color::from_rgb8(0x2C, 0x2C, 0x2C);
-const CANVAS_GRID: Color = Color::from_rgba8(0xFF, 0xFF, 0xFF, 0x12);
+const CANVAS_GRID: Color = Color::from_rgba8(0xFF, 0xFF, 0xFF, 0x10);
+const RULER_BACKGROUND: Color = Color::from_rgba8(0x1F, 0x1F, 0x1F, 0xF5);
+const RULER_TICK: Color = Color::from_rgba8(0xEE, 0xEE, 0xEE, 0x78);
+const RULER_BORDER: Color = Color::from_rgba8(0x00, 0x00, 0x00, 0x70);
 const PAGE_BORDER: Color = Color::from_rgba8(0x00, 0x00, 0x00, 0x55);
 const SELECTION: Color = Color::from_rgb8(0x55, 0x8D, 0xFF);
+const RULER_SIZE: f64 = 24.0;
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum CanvasAction {
@@ -42,6 +46,8 @@ pub enum CanvasShortcut {
     ZoomFit,
     ZoomActual,
     ToggleUi,
+    ToggleGrid,
+    ToggleRulers,
 }
 
 pub struct DocumentCanvas {
@@ -50,6 +56,8 @@ pub struct DocumentCanvas {
     boxes: Vec<(EntityId, LayoutRect)>,
     selection: Option<EntityId>,
     zoom: f64,
+    show_grid: bool,
+    show_rulers: bool,
     size: Size,
 }
 
@@ -60,7 +68,6 @@ impl DocumentCanvas {
         rgba: Vec<u8>,
         boxes: Vec<(EntityId, LayoutRect)>,
         selection: Option<EntityId>,
-        zoom: f64,
     ) -> Self {
         Self {
             image: ImageBrush::new(ImageData {
@@ -73,9 +80,18 @@ impl DocumentCanvas {
             image_size: Size::new(f64::from(width), f64::from(height)),
             boxes,
             selection,
-            zoom,
+            zoom: 1.0,
+            show_grid: true,
+            show_rulers: true,
             size: Size::ZERO,
         }
+    }
+
+    pub fn with_view_options(mut self, zoom: f64, show_grid: bool, show_rulers: bool) -> Self {
+        self.zoom = zoom;
+        self.show_grid = show_grid;
+        self.show_rulers = show_rulers;
+        self
     }
 
     fn page_transform(&self) -> (f64, Vec2) {
@@ -129,6 +145,113 @@ impl DocumentCanvas {
         let y = (point.y - offset.y) / scale;
         (x >= 0.0 && x <= self.image_size.width && y >= 0.0 && y <= self.image_size.height)
             .then_some((x, y))
+    }
+}
+
+fn visible_grid_step(scale: f64) -> f64 {
+    let mut step = 8.0;
+    while step * scale < 24.0 && step < 4096.0 {
+        step *= 2.0;
+    }
+    step
+}
+
+fn paint_grid(painter: &mut Painter<'_>, content: Rect, scale: f64, offset: Vec2) {
+    let spacing = visible_grid_step(scale) * scale;
+    let mut x = offset.x.rem_euclid(spacing);
+    while x < content.width() {
+        painter
+            .fill(Rect::new(x, 0.0, x + 1.0, content.height()), CANVAS_GRID)
+            .draw();
+        x += spacing;
+    }
+    let mut y = offset.y.rem_euclid(spacing);
+    while y < content.height() {
+        painter
+            .fill(Rect::new(0.0, y, content.width(), y + 1.0), CANVAS_GRID)
+            .draw();
+        y += spacing;
+    }
+}
+
+fn paint_rulers(painter: &mut Painter<'_>, content: Rect, scale: f64, offset: Vec2) {
+    painter
+        .fill(
+            Rect::new(0.0, 0.0, content.width(), RULER_SIZE),
+            RULER_BACKGROUND,
+        )
+        .draw();
+    painter
+        .fill(
+            Rect::new(0.0, 0.0, RULER_SIZE, content.height()),
+            RULER_BACKGROUND,
+        )
+        .draw();
+    painter
+        .fill(
+            Rect::new(0.0, RULER_SIZE - 1.0, content.width(), RULER_SIZE),
+            RULER_BORDER,
+        )
+        .draw();
+    painter
+        .fill(
+            Rect::new(RULER_SIZE - 1.0, 0.0, RULER_SIZE, content.height()),
+            RULER_BORDER,
+        )
+        .draw();
+
+    let step = visible_grid_step(scale);
+    let screen_step = step * scale;
+    let major_step = step * 4.0;
+    let mut document_x = ((-offset.x / scale) / step).floor() * step;
+    let mut screen_x = offset.x + document_x * scale;
+    while screen_x < content.width() {
+        if screen_x >= RULER_SIZE {
+            let major = (document_x / major_step).fract().abs() < f64::EPSILON;
+            let height = if major { 11.0 } else { 6.0 };
+            painter
+                .fill(
+                    Rect::new(screen_x, RULER_SIZE - height, screen_x + 1.0, RULER_SIZE),
+                    RULER_TICK,
+                )
+                .draw();
+        }
+        document_x += step;
+        screen_x += screen_step;
+    }
+
+    let mut document_y = ((-offset.y / scale) / step).floor() * step;
+    let mut screen_y = offset.y + document_y * scale;
+    while screen_y < content.height() {
+        if screen_y >= RULER_SIZE {
+            let major = (document_y / major_step).fract().abs() < f64::EPSILON;
+            let width = if major { 11.0 } else { 6.0 };
+            painter
+                .fill(
+                    Rect::new(RULER_SIZE - width, screen_y, RULER_SIZE, screen_y + 1.0),
+                    RULER_TICK,
+                )
+                .draw();
+        }
+        document_y += step;
+        screen_y += screen_step;
+    }
+
+    if (RULER_SIZE..content.width()).contains(&offset.x) {
+        painter
+            .fill(
+                Rect::new(offset.x, 0.0, offset.x + 1.0, RULER_SIZE),
+                SELECTION,
+            )
+            .draw();
+    }
+    if (RULER_SIZE..content.height()).contains(&offset.y) {
+        painter
+            .fill(
+                Rect::new(0.0, offset.y, RULER_SIZE, offset.y + 1.0),
+                SELECTION,
+            )
+            .draw();
     }
 }
 
@@ -208,6 +331,10 @@ impl Widget for DocumentCanvas {
             Key::Character(value) if event.modifiers.shift() && value == "0" => {
                 Some(CanvasShortcut::ZoomActual)
             }
+            Key::Character(value) if event.modifiers.shift() && value.eq_ignore_ascii_case("r") => {
+                Some(CanvasShortcut::ToggleRulers)
+            }
+            Key::Character(value) if command && value == "'" => Some(CanvasShortcut::ToggleGrid),
             Key::Character(value) if command && value == "\\" => Some(CanvasShortcut::ToggleUi),
             Key::Character(value)
                 if !command && !event.modifiers.alt() && value.chars().count() == 1 =>
@@ -266,22 +393,13 @@ impl Widget for DocumentCanvas {
     ) {
         let content = ctx.content_box();
         painter.fill(content, CANVAS_BACKGROUND).draw();
-
-        let mut x = 0.0;
-        while x < content.width() {
-            let mut y = 0.0;
-            while y < content.height() {
-                painter
-                    .fill(Rect::new(x, y, x + 1.0, y + 1.0), CANVAS_GRID)
-                    .draw();
-                y += 32.0;
-            }
-            x += 32.0;
+        let (scale, offset) = self.page_transform();
+        if self.show_grid {
+            paint_grid(painter, content, scale, offset);
         }
 
         let page = self.page_rect();
         painter.fill(page.inflate(1.0, 1.0), PAGE_BORDER).draw();
-        let (scale, offset) = self.page_transform();
         let transform = Affine::translate(offset) * Affine::scale(scale);
         painter.draw_image(&self.image, transform);
 
@@ -298,6 +416,9 @@ impl Widget for DocumentCanvas {
                 .stroke(selected, &Stroke::new(2.0), SELECTION)
                 .draw();
         }
+        if self.show_rulers {
+            paint_rulers(painter, content, scale, offset);
+        }
     }
 
     fn accessibility_role(&self) -> Role {
@@ -311,7 +432,11 @@ impl Widget for DocumentCanvas {
         node: &mut Node,
     ) {
         node.set_label("Document canvas");
-        node.set_description("Rendered NUIF profile-zero document");
+        node.set_description(format!(
+            "Rendered NUIF profile-zero document in pixels; background grid {}; rulers {}",
+            if self.show_grid { "shown" } else { "hidden" },
+            if self.show_rulers { "shown" } else { "hidden" }
+        ));
         node.add_action(masonry::accesskit::Action::Click);
     }
 
