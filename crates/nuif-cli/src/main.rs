@@ -528,9 +528,7 @@ fn fixture(args: &[String]) -> Result<(), CliError> {
     };
     write_output(
         output,
-        &CanonicalText
-            .encode(&document)
-            .map_err(codec_error)?,
+        &CanonicalText.encode(&document).map_err(codec_error)?,
     )
 }
 

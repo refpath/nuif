@@ -5,6 +5,7 @@ mod tests {
     use nuif_api::{Session, profile_zero_context};
     use nuif_codec::{Decoder, DeterministicCbor, Encoder, canonical_hash};
     use nuif_core::{EntityId, EntityKind, FlowDirection, OpaquePayload};
+    use nuif_html::{export_document, import_source, profile_fixture};
     use nuif_protocol::{Operation, Patch, Transaction, apply_patch};
     use nuif_testing::{TrialConfig, responsive_card_fixture, run_trials};
 
@@ -86,6 +87,20 @@ mod tests {
         assert_eq!(
             card.authored.responsive[0].direction,
             Some(FlowDirection::Row)
+        );
+    }
+
+    #[test]
+    fn html_css_profile_roundtrip_is_exact_and_lossless() {
+        let document = profile_fixture();
+        let exported = export_document(&document).unwrap();
+        let imported = import_source(&exported.source).unwrap();
+        assert_eq!(imported.document, document);
+        assert!(exported.report.is_lossless());
+        assert!(exported.report.unmapped_source_preserved);
+        assert_eq!(
+            exported.report.correspondences.len(),
+            exported.report.fidelity.len()
         );
     }
 }
