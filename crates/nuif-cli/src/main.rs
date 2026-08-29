@@ -46,7 +46,5 @@ fn print_capabilities() {
         .map(|command| format!("\"{command}\""))
         .collect::<Vec<_>>()
         .join(",");
-    println!(
-        "{{\"protocol\":\"0.0.1\",\"status\":\"prototype\",\"commands\":[{commands}]}}"
-    );
+    println!("{{\"protocol\":\"0.0.1\",\"status\":\"prototype\",\"commands\":[{commands}]}}");
 }
