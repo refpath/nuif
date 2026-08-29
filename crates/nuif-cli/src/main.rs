@@ -5,7 +5,10 @@ use nuif_codec::{
     read_bounded as read_bounded_stream,
 };
 use nuif_core::{Document, EntityId, EntityKind, PROFILE0_RESOURCE_LIMITS, Severity, validate};
-use nuif_html::{AdapterError, export_document, import_source, synchronize};
+use nuif_html::{
+    AdapterError, export_document, export_v0_document, import_source, import_v0_source,
+    synchronize, synchronize_v0,
+};
 use nuif_layout::EvaluationContext;
 use nuif_protocol::{Patch, apply_patch};
 use nuif_testing::{TrialConfig, run_trials};
@@ -358,7 +361,7 @@ fn migrate(args: &[String]) -> Result<(), CliError> {
 fn import(args: &[String]) -> Result<(), CliError> {
     if args
         .first()
-        .is_some_and(|argument| argument == "html-css-0")
+        .is_some_and(|argument| matches!(argument.as_str(), "html-css-0" | "html-css-v0"))
     {
         return import_html(args);
     }
@@ -398,6 +401,15 @@ fn export(args: &[String]) -> Result<(), CliError> {
             write_output(output, exported.source.as_bytes())?;
             emit_adapter_report(&exported.report, report_path)
         }
+        "html-css-v0" => {
+            let report_path = args.get(3).map(String::as_str);
+            let exported = match export_v0_document(&document) {
+                Ok(exported) => exported,
+                Err(error) => return adapter_failure(&error, report_path),
+            };
+            write_output(output, exported.source.as_bytes())?;
+            emit_adapter_report(&exported.report, report_path)
+        }
         _ => Err(CliError::new(
             3,
             "EXPORT_TARGET_UNSUPPORTED",
@@ -407,13 +419,19 @@ fn export(args: &[String]) -> Result<(), CliError> {
 }
 
 fn import_html(args: &[String]) -> Result<(), CliError> {
+    let target = required(args, 0, "HTML target")?;
     let input = required(args, 1, "HTML input")?;
     let output = args.get(2).map_or("-", String::as_str);
     let report_path = args.get(3).map(String::as_str);
     let bytes = read_input(input)?;
     let source = String::from_utf8(bytes)
         .map_err(|error| CliError::new(1, "HTML_UTF8_INVALID", error.to_string()))?;
-    let imported = match import_source(&source) {
+    let imported = match target {
+        "html-css-0" => import_source(&source),
+        "html-css-v0" => import_v0_source(&source),
+        _ => unreachable!("HTML target was checked by import"),
+    };
+    let imported = match imported {
         Ok(imported) => imported,
         Err(error) => return adapter_failure(&error, report_path),
     };
@@ -428,7 +446,7 @@ fn import_html(args: &[String]) -> Result<(), CliError> {
 
 fn sync(args: &[String]) -> Result<(), CliError> {
     let target = required(args, 0, "synchronization target")?;
-    if target != "html-css-0" {
+    if !matches!(target, "html-css-0" | "html-css-v0") {
         return Err(CliError::new(
             3,
             "SYNC_TARGET_UNSUPPORTED",
@@ -441,12 +459,22 @@ fn sync(args: &[String]) -> Result<(), CliError> {
     let report_path = args.get(4).map(String::as_str);
     let source = String::from_utf8(read_input(source_path)?)
         .map_err(|error| CliError::new(1, "HTML_UTF8_INVALID", error.to_string()))?;
-    let imported = match import_source(&source) {
+    let imported = match target {
+        "html-css-0" => import_source(&source),
+        "html-css-v0" => import_v0_source(&source),
+        _ => unreachable!("synchronization target was checked above"),
+    };
+    let imported = match imported {
         Ok(imported) => imported,
         Err(error) => return adapter_failure(&error, report_path),
     };
     let edited = load_document(edited_path)?;
-    let synchronized = match synchronize(&imported.retentive, &edited) {
+    let synchronized = match target {
+        "html-css-0" => synchronize(&imported.retentive, &edited),
+        "html-css-v0" => synchronize_v0(&imported.retentive, &edited),
+        _ => unreachable!("synchronization target was checked above"),
+    };
+    let synchronized = match synchronized {
         Ok(synchronized) => synchronized,
         Err(error) => return adapter_failure(&error, report_path),
     };
