@@ -4,6 +4,7 @@ version = "0.0.1"
 edition.workspace = true
 license.workspace = true
 repository.workspace = true
+default-run = "nuif-editor"
 
 [lib]
 name = "nuif_editor"
@@ -16,6 +17,10 @@ editor-automation = ["dep:masonry_testing"]
 [[bin]]
 name = "nuif-editor"
 path = "src/main.rs"
+
+[[bin]]
+name = "nuif-editor-app"
+path = "src/bin/editor-app.rs"
 
 [[bin]]
 name = "nuif-editor-automation"

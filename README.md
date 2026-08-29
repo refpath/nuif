@@ -126,6 +126,8 @@ cargo xtask gate-c # NUIF/Taffy/pinned-Chrome layout report
 cargo xtask gate-d-text # HarfBuzz golden shaping + separate raster report
 cargo xtask editor-trial # author the v0 fixture and emit editor evidence
 cargo xtask editor-gui-trial # exercise AccessKit and reproduce shell pixels
+cargo xtask editor-package # build, smoke-test and archive the host application
+cargo xtask editor-launch # package and open the native application
 cargo xtask gate-f # retentive HTML/CSS subset synchronization
 cargo xtask gate-f-v0 # full-v0 model sync plus editor/CLI source bridge
 cargo xtask gate-g # independent Python v0 parse/write/layout/render

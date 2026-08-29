@@ -3,6 +3,8 @@ use std::fs;
 use std::path::Path;
 use std::process::{Command, ExitStatus};
 
+use sha2::{Digest, Sha256};
+
 type Step = (&'static str, fn() -> Result<(), String>);
 
 const ALL_STEPS: &[Step] = &[
@@ -87,10 +89,12 @@ fn run() -> Result<(), String> {
         Some("research") => research(),
         Some("editor-trial") => editor_trial(),
         Some("editor-gui-trial") => editor_gui_trial(),
+        Some("editor-package") => editor_package(),
+        Some("editor-launch") => editor_launch(),
         Some("manifest") => standalone_manifest(),
         Some("all") => all(),
         _ => Err(
-            "usage: cargo xtask <research|verify|trial [seed iterations snapshot-interval report-path]|gate-b|gate-c|gate-d|gate-d-text|gate-d-render|gate-f|gate-f-v0|gate-g|gate-h|browser-install|hostile-inputs|editor-trial|editor-gui-trial|manifest|all>"
+            "usage: cargo xtask <research|verify|trial [seed iterations snapshot-interval report-path]|gate-b|gate-c|gate-d|gate-d-text|gate-d-render|gate-f|gate-f-v0|gate-g|gate-h|browser-install|hostile-inputs|editor-trial|editor-gui-trial|editor-package|editor-launch|manifest|all>"
                 .to_owned(),
         ),
     }
@@ -670,6 +674,311 @@ fn run_editor_gui_automation(input: &Path, artifacts: &Path) -> Result<(), Strin
         "--artifact-dir",
         path(artifacts)?,
     ])
+}
+
+#[derive(Debug)]
+struct EditorPackage {
+    package_root: std::path::PathBuf,
+    binary: std::path::PathBuf,
+    app_bundle: Option<std::path::PathBuf>,
+    archive: std::path::PathBuf,
+}
+
+fn editor_package() -> Result<(), String> {
+    let package = build_editor_package()?;
+    println!("packaged native editor: {}", package.package_root.display());
+    Ok(())
+}
+
+fn build_editor_package() -> Result<EditorPackage, String> {
+    cargo(&[
+        "build",
+        "--release",
+        "--locked",
+        "-p",
+        "nuif-editor",
+        "--bin",
+        "nuif-editor-app",
+    ])?;
+    let target_root = env::var_os("CARGO_TARGET_DIR").map_or_else(
+        || std::path::PathBuf::from("target"),
+        std::path::PathBuf::from,
+    );
+    let executable_suffix = if cfg!(windows) { ".exe" } else { "" };
+    let source_binary = target_root
+        .join("release")
+        .join(format!("nuif-editor-app{executable_suffix}"));
+    if !source_binary.is_file() {
+        return Err(format!(
+            "release editor binary is absent: {}",
+            source_binary.display()
+        ));
+    }
+    let package_name = format!("nuif-editor-{}-{}", env::consts::OS, env::consts::ARCH);
+    let dist = target_root.join("dist");
+    let package_root = dist.join(&package_name);
+    if package_root.exists() {
+        fs::remove_dir_all(&package_root).map_err(|error| error.to_string())?;
+    }
+    fs::create_dir_all(&package_root).map_err(|error| error.to_string())?;
+    let version = editor_version()?;
+
+    let (binary, app_bundle, launch) = match env::consts::OS {
+        "macos" => package_macos(&source_binary, &package_root, &version)?,
+        "windows" => package_windows(&source_binary, &package_root)?,
+        "linux" => package_linux(&source_binary, &package_root)?,
+        platform => {
+            return Err(format!(
+                "native editor packaging is unsupported on {platform}"
+            ));
+        }
+    };
+    for license in ["LICENSE-APACHE", "LICENSE-MIT"] {
+        fs::copy(license, package_root.join(license)).map_err(|error| error.to_string())?;
+    }
+    write_package_readme(&package_root.join("README.txt"), &version)?;
+    let archive = verify_editor_package(
+        &binary,
+        &package_root,
+        &dist,
+        &package_name,
+        &version,
+        &launch,
+    )?;
+    Ok(EditorPackage {
+        package_root,
+        binary,
+        app_bundle,
+        archive,
+    })
+}
+
+fn verify_editor_package(
+    binary: &Path,
+    package_root: &Path,
+    dist: &Path,
+    package_name: &str,
+    version: &str,
+    launch: &[String],
+) -> Result<std::path::PathBuf, String> {
+    let smoke = Command::new(binary)
+        .arg("--help")
+        .output()
+        .map_err(|error| format!("could not execute packaged editor: {error}"))?;
+    check_status(smoke.status, path(binary)?, &["--help"])?;
+    #[cfg(not(windows))]
+    if !String::from_utf8_lossy(&smoke.stdout).contains("usage: nuif-editor") {
+        return Err("packaged editor help smoke test returned unexpected output".to_owned());
+    }
+
+    let bytes = fs::read(binary).map_err(|error| error.to_string())?;
+    let smoke_command = [binary.as_os_str(), std::ffi::OsStr::new("--help")]
+        .iter()
+        .map(|value| value.to_string_lossy())
+        .collect::<Vec<_>>();
+    let mut manifest = serde_json::json!({
+        "schema_version": 1,
+        "status": "passed",
+        "name": "NUIF Editor",
+        "version": version,
+        "platform": env::consts::OS,
+        "architecture": env::consts::ARCH,
+        "package_root": package_root,
+        "binary": binary,
+        "binary_bytes": bytes.len(),
+        "binary_sha256": format!("{:x}", Sha256::digest(&bytes)),
+        "source_revision": command_text("git", &["rev-parse", "HEAD"]),
+        "source_dirty": command_text("git", &["status", "--porcelain"])
+            .map(|value| !value.is_empty()),
+        "launch": launch,
+        "smoke_test": {
+            "command": smoke_command,
+            "status": "passed"
+        },
+        "signing": {
+            "status": "unsigned",
+            "note": "development package; release signing requires platform credentials"
+        }
+    });
+    let manifest_bytes = serde_json::to_vec_pretty(&manifest).map_err(|error| error.to_string())?;
+    fs::write(package_root.join("manifest.json"), &manifest_bytes)
+        .map_err(|error| error.to_string())?;
+    fs::create_dir_all(dist).map_err(|error| error.to_string())?;
+    let archive = create_editor_archive(dist, package_root, package_name)?;
+    let archive_bytes = fs::read(&archive).map_err(|error| error.to_string())?;
+    manifest["archive"] = serde_json::json!({
+        "path": archive,
+        "bytes": archive_bytes.len(),
+        "sha256": format!("{:x}", Sha256::digest(&archive_bytes))
+    });
+    fs::write(
+        dist.join("editor-package-manifest.json"),
+        serde_json::to_vec_pretty(&manifest).map_err(|error| error.to_string())?,
+    )
+    .map_err(|error| error.to_string())?;
+    Ok(archive)
+}
+
+fn create_editor_archive(
+    dist: &Path,
+    package_root: &Path,
+    package_name: &str,
+) -> Result<std::path::PathBuf, String> {
+    let extension = if cfg!(windows) { "zip" } else { "tar.gz" };
+    let archive = dist.join(format!("{package_name}.{extension}"));
+    if archive.exists() {
+        fs::remove_file(&archive).map_err(|error| error.to_string())?;
+    }
+    let archive_path = path(&archive)?;
+    let dist_path = path(dist)?;
+    if cfg!(windows) {
+        command(
+            "tar",
+            &[
+                "-a",
+                "-c",
+                "-f",
+                archive_path,
+                "-C",
+                dist_path,
+                package_name,
+            ],
+        )?;
+    } else {
+        command(
+            "tar",
+            &[
+                "-c",
+                "-z",
+                "-f",
+                archive_path,
+                "-C",
+                dist_path,
+                package_name,
+            ],
+        )?;
+    }
+    if !archive.is_file()
+        || fs::metadata(&archive)
+            .map_err(|error| error.to_string())?
+            .len()
+            == 0
+    {
+        return Err(format!(
+            "native editor archive is absent or empty: {}",
+            archive.display()
+        ));
+    }
+    debug_assert_eq!(
+        package_root.file_name().and_then(|name| name.to_str()),
+        Some(package_name)
+    );
+    Ok(archive)
+}
+
+fn package_macos(
+    source_binary: &Path,
+    package_root: &Path,
+    version: &str,
+) -> Result<(std::path::PathBuf, Option<std::path::PathBuf>, Vec<String>), String> {
+    let app = package_root.join("NUIF Editor.app");
+    let contents = app.join("Contents");
+    let macos = contents.join("MacOS");
+    let resources = contents.join("Resources");
+    fs::create_dir_all(&macos).map_err(|error| error.to_string())?;
+    fs::create_dir_all(&resources).map_err(|error| error.to_string())?;
+    let binary = macos.join("NUIF Editor");
+    fs::copy(source_binary, &binary).map_err(|error| error.to_string())?;
+    let plist = fs::read_to_string("apps/editor/packaging/macos/Info.plist.in")
+        .map_err(|error| error.to_string())?
+        .replace("@VERSION@", version);
+    fs::write(contents.join("Info.plist"), plist).map_err(|error| error.to_string())?;
+    write_package_readme(&resources.join("README.txt"), version)?;
+    Ok((
+        binary,
+        Some(app.clone()),
+        vec!["open".to_owned(), app.display().to_string()],
+    ))
+}
+
+fn package_windows(
+    source_binary: &Path,
+    package_root: &Path,
+) -> Result<(std::path::PathBuf, Option<std::path::PathBuf>, Vec<String>), String> {
+    let binary = package_root.join("NUIF Editor.exe");
+    fs::copy(source_binary, &binary).map_err(|error| error.to_string())?;
+    Ok((binary.clone(), None, vec![binary.display().to_string()]))
+}
+
+fn package_linux(
+    source_binary: &Path,
+    package_root: &Path,
+) -> Result<(std::path::PathBuf, Option<std::path::PathBuf>, Vec<String>), String> {
+    let binary_directory = package_root.join("bin");
+    let applications = package_root.join("share/applications");
+    let icons = package_root.join("share/icons/hicolor/scalable/apps");
+    for directory in [&binary_directory, &applications, &icons] {
+        fs::create_dir_all(directory).map_err(|error| error.to_string())?;
+    }
+    let binary = binary_directory.join("nuif-editor");
+    fs::copy(source_binary, &binary).map_err(|error| error.to_string())?;
+    fs::copy(
+        "apps/editor/packaging/linux/org.nuif.Editor.desktop",
+        applications.join("org.nuif.Editor.desktop"),
+    )
+    .map_err(|error| error.to_string())?;
+    fs::copy(
+        "apps/editor/packaging/linux/nuif-editor.svg",
+        icons.join("nuif-editor.svg"),
+    )
+    .map_err(|error| error.to_string())?;
+    Ok((binary.clone(), None, vec![binary.display().to_string()]))
+}
+
+fn editor_version() -> Result<String, String> {
+    let output = Command::new("cargo")
+        .args(["metadata", "--format-version", "1", "--no-deps"])
+        .output()
+        .map_err(|error| error.to_string())?;
+    check_status(
+        output.status,
+        "cargo",
+        &["metadata", "--format-version", "1", "--no-deps"],
+    )?;
+    let metadata: serde_json::Value =
+        serde_json::from_slice(&output.stdout).map_err(|error| error.to_string())?;
+    metadata["packages"]
+        .as_array()
+        .and_then(|packages| {
+            packages
+                .iter()
+                .find(|package| package["name"] == "nuif-editor")
+        })
+        .and_then(|package| package["version"].as_str())
+        .map(str::to_owned)
+        .ok_or_else(|| "cargo metadata did not contain the nuif-editor version".to_owned())
+}
+
+fn write_package_readme(destination: &Path, version: &str) -> Result<(), String> {
+    let readme = fs::read_to_string("apps/editor/packaging/README.txt")
+        .map_err(|error| error.to_string())?
+        .replace("@VERSION@", version);
+    fs::write(destination, readme).map_err(|error| error.to_string())
+}
+
+fn editor_launch() -> Result<(), String> {
+    let package = build_editor_package()?;
+    println!(
+        "launching package archive source: {}",
+        package.archive.display()
+    );
+    if let Some(app) = package.app_bundle {
+        return command("open", &["-n", path(&app)?]);
+    }
+    Command::new(&package.binary)
+        .spawn()
+        .map_err(|error| format!("could not launch {}: {error}", package.binary.display()))?;
+    Ok(())
 }
 
 fn verification_manifest(

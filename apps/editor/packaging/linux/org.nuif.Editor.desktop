@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=NUIF Editor
+Comment=Native reference editor for NUIF documents
+Exec=nuif-editor %f
+Icon=nuif-editor
+Terminal=false
+Categories=Graphics;Development;
+MimeType=application/octet-stream;
