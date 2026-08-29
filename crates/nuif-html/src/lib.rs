@@ -5,6 +5,7 @@ mod parse;
 mod profile;
 mod sync;
 mod syntax;
+mod v0;
 
 use nuif_core::{Document, EntityId, Fidelity};
 use serde::{Deserialize, Serialize};
@@ -14,6 +15,7 @@ pub use export::export_document;
 pub use parse::import_source;
 pub use profile::{PROFILE_NAME, profile_fixture};
 pub use sync::synchronize;
+pub use v0::{V0_PROFILE_NAME, export_v0_document, import_v0_source, synchronize_v0};
 
 pub const MAX_SOURCE_BYTES: usize = 1024 * 1024;
 
