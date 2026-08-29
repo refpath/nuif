@@ -19,9 +19,10 @@ same CLI synchronization contract as the source adapters. Its deliberately
 narrow boundary precedes the token-model RFC required for groups, aliases and
 composite types.
 
-Further research adapters include broader HTML/CSS and SVG, DTCG tokens,
-Svelte, React, Penpot, Figma, Flutter, SwiftUI and Jetpack Compose. Each adapter
-must emit structured fidelity diagnostics and record provenance/correspondence
+The remaining researched targets are Svelte, React, Penpot, Figma, Flutter,
+SwiftUI and Jetpack Compose. Broader HTML/CSS, SVG and DTCG profiles remain
+separate future work beyond the four executable profiles. Each adapter must
+emit structured fidelity diagnostics and record provenance/correspondence
 sufficient for later synchronization and minimal source patches where feasible.
 
 [`STATUS.md`](STATUS.md) records the current primary integration surface,

@@ -21,6 +21,19 @@
 - fuzzing/resource budgets for all untrusted inputs;
 - early independent implementation and adapter experiments.
 
+## Current implementation risks
+
+- **The macOS graphics graph carries a compiler future-compatibility warning.**
+  The pinned editor resolves `metal 0.33.0 -> block 0.1.6`; Rust 1.98 still
+  compiles it, and current metal-rs master retains the same dependency. The
+  project tracks this as `nuif:research:macos-metal-block-future-incompatibility`,
+  rechecks it at toolchain and graphics-stack updates, and does not assume
+  ownership of the Objective-C blocks ABI through an unreviewed local fork.
+- **Release signing is credential-bound.** The editor packaging gate builds,
+  archives and smoke-tests an unsigned host package. Platform signing and
+  notarisation require release credentials and remain separate from source
+  conformance.
+
 ## Thesis falsifiers
 
 The project should rethink its architecture if ordinary source round trips require broad regeneration, if unknown extension preservation cannot survive routine edits, if the layout vocabulary becomes a vendor-property dump, or if a second implementation cannot reproduce v0 behavior from specification + fixtures alone.
