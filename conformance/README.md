@@ -1,5 +1,5 @@
 # Conformance
 
-Conformance is executable from the beginning. Planned suites cover canonicalization, parser/serializer round trips, unknown-extension preservation, operations/replay, layout, geometry, text, rendering, components, tokens, responsive behavior, diff/patch, adapters, security limits, and fidelity diagnostics.
+The profile-0 baseline is executable through the `nuif-conformance` package and `nuif trial`. It covers structural validation, canonicalization, parser/serializer round trips, unknown-extension preservation, operations/replay/inversion, responsive stack layout, deterministic solid-color CPU rendering, editor-driver parity and machine reports. Browser/Taffy differential layout, shaped text, full geometry/paint, adapters, calibrated security budgets and perceptual tiers remain planned and are not claimed as implemented.
 
 Automated and conventional QA run the same headless tests. GUI automation is supplementary; semantic API operations are the primary test interface. `HARNESS.md` specifies the workspace layout, fixture format, determinism controls, oracles, trial loop, reducer and report schema.

@@ -1,5 +1,7 @@
 # AI/headless QA contract
 
+Status: items 1–7 and 10 have a profile-0 implementation through `nuif-api`, `nuif-testing`, `nuif` and `nuif-editor`; adapter fidelity assertions and automatic failure-fixture writing remain partial.
+
 An automated QA client must be able to perform the following without synthetic mouse input:
 
 1. create/open/save/canonicalize documents;

@@ -98,7 +98,7 @@ Principles that the diagram encodes:
 | `research/` | Evidence records, claims, open questions, experiment registry, coverage contract, schema |
 | `spec/` | Draft normative modules (model, identity, components, layout, paint and text, operations, extensions, serialization, provenance, collaboration, security, automation, semantics) |
 | `rfcs/` · `adrs/` | Proposals for the specification · decisions for the reference implementation |
-| `crates/` | Rust workspace: `nuif-core`, `nuif-protocol`, `nuif-layout`, `nuif-render`, `nuif-codec`, `nuif-query`, `nuif-api`, `nuif-cli` |
+| `crates/` | Rust workspace: model, protocol, layout, render, codecs, query, API, CLI and shared seeded testing |
 | `apps/editor/` | Reference test editor: architecture, headless contract, UI specification |
 | `conformance/` | Suite plan, test-harness architecture, fixtures including the v0 falsification experiment |
 | `adapters/` · `bindings/` · `schemas/` | Adapter contracts, WASM bindings, interchange schemas |
@@ -112,7 +112,21 @@ Testing is designed for automated trial loops: generate or load a document, appl
 
 ## Status
 
-Phase 0 (foundation): research graph, architectural RFCs, compilable engine seams, CI and the v0 falsification fixture exist. Specifications are drafts. No conformance profile is published and no independent implementation exists. `docs/roadmap.md` lists the phase gates and the conditions under which the architecture is abandoned.
+Phase 1 (canonical model) is active. The workspace now executes structural validation, anchored atomic operations, replay/inversion, canonical text and deterministic CBOR, responsive profile-0 layout, solid-color CPU rasterization, seeded trial reports and a headless editor driver. Browser/Taffy differential layout, shaped text, HTML/CSS synchronization, the Masonry GUI shell, collaboration profiles and an independent implementation remain incomplete. Specifications are drafts; no conformance profile is published. `research/AUDIT.md` records the accuracy review, evidence limits, quantified gates and stop conditions.
+
+Run the automated baseline:
+
+```sh
+cargo xtask all
+cargo xtask trial 24301 100
+cargo xtask gate-b # 10,000 patches; raster sample every 100 patches
+cargo run --locked -p nuif-cli -- fixture v0-responsive-card /tmp/v0.nuif
+cargo run --locked -p nuif-editor -- --headless \
+  --script conformance/fixtures/v0-responsive-card/editor-trial.jsonl \
+  --document /tmp/v0.nuif --output /tmp/edited.nuif
+```
+
+`cargo xtask all` bootstraps the pinned Python research-validator environment under ignored `target/`, then runs research validation, Rust verification, the short full-raster trial, the 10,000-patch Gate B trial and the headless editor replay.
 
 ## Contributing
 

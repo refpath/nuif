@@ -6,11 +6,11 @@ This fixture is the first architecture falsification test.
 
 - component `Card` with nested `Button` component;
 - enum variant and boolean state;
-- DTCG-compatible color/spacing/radius token bindings;
+- color, spacing and radius token bindings in the profile-0 token model;
 - responsive layout changing from one-column to split layout;
 - intrinsic text and a vector icon;
 - hover/pressed state metadata;
-- one opaque `VENDOR_probe` extension unknown to an intermediate implementation.
+- one opaque `vendor.probe` extension unknown to an intermediate implementation.
 
 ## Round-trip path
 
@@ -28,3 +28,7 @@ Figma/Penpot adapters may be inserted as additional targets, but no vendor tool 
 - a padding/token/text edit patches only the corresponding source region plus unavoidable formatter changes;
 - canonical encoding is byte-stable after decode/encode;
 - replaying the same operation log from the same base yields the same canonical hash.
+
+## Automated baseline
+
+Generate the canonical fixture with `nuif fixture v0-responsive-card <output.nuif>`. Run `editor-trial.jsonl` through `nuif-editor --headless --script ... --document <output.nuif>` to exercise entity-bound selection, semantic edits, undo/redo, complete mutation-log replay and a deterministic snapshot. `nuif trial <seed> <iterations> [snapshot-interval]` drives replay, inversion and text/CBOR fixpoints on every patch, with responsive-layout/CPU-rerender checks at the requested interval. `cargo xtask gate-b` runs 10,000 patches with a raster interval of 100. The HTML/CSS synchronization segment remains the experiment's incomplete falsifier.

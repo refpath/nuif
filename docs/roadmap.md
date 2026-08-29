@@ -1,9 +1,11 @@
 # Research and implementation roadmap
 
-## Phase 0 — foundation
+The evidence gates and quantified acceptance criteria are normative for project planning in `research/AUDIT.md`; these phases describe implementation order only.
+
+## Phase 0 — foundation (complete)
 Exit: research graph schema, architectural RFCs, compilable core seams, CI and v0 falsification fixture exist.
 
-## Phase 1 — canonical model
+## Phase 1 — canonical model (active)
 Implement typed properties, relations, components, tokens, extensions, deterministic IDs, validation and operation replay. Exit: structural conformance suite and canonical hash stability.
 
 ## Phase 2 — layout
@@ -16,7 +18,7 @@ Implement vector scene lowering, color/paint basics and HarfBuzz-backed shaping 
 Canonical text + deterministic CBOR; package/assets; patch/diff/query CLI. Exit: byte-stable cycles and hostile-input limits.
 
 ## Phase 5 — editor
-Svelte 5 shell + Rust/WASM core + renderer backend. Exit: the entire fixture can be authored through UI while operation replay produces the same document.
+Headless `EditorDriver` and accessibility action contract first; Rust-native Masonry shell from ADR 0006 second; Svelte/WASM remains a later browser demonstration. Exit: the entire fixture can be authored through semantic UI actions while operation replay produces the same document.
 
 ## Phase 6 — adapters/sync
 SVG first, HTML/CSS second, Penpot/Figma research adapters after the canonical model is stable. Exit: minimal source patch and explicit fidelity accounting.
