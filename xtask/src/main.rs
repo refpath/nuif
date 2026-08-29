@@ -231,8 +231,7 @@ fn performance() -> Result<(), String> {
         "--locked",
         "-p",
         "nuif-conformance",
-        "--bench",
-        "profile_zero",
+        "--benches",
         "--no-run",
     ])
 }

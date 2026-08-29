@@ -2263,10 +2263,13 @@ dependencies = [
  "nuif-codec",
  "nuif-collab",
  "nuif-core",
+ "nuif-dtcg",
  "nuif-html",
  "nuif-layout",
  "nuif-protocol",
+ "nuif-query",
  "nuif-render",
+ "nuif-svg",
  "nuif-testing",
  "serde_json",
 ]

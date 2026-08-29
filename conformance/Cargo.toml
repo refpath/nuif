@@ -10,10 +10,13 @@ nuif-api = { version = "0.0.0", path = "../crates/nuif-api" }
 nuif-codec = { version = "0.0.0", path = "../crates/nuif-codec" }
 nuif-collab = { version = "0.0.1", path = "../crates/nuif-collab" }
 nuif-core = { version = "0.0.1", path = "../crates/nuif-core" }
+nuif-dtcg = { version = "0.0.1", path = "../crates/nuif-dtcg" }
 nuif-html = { version = "0.0.1", path = "../crates/nuif-html" }
 nuif-layout = { version = "0.0.0", path = "../crates/nuif-layout" }
 nuif-protocol = { version = "0.0.1", path = "../crates/nuif-protocol" }
+nuif-query = { version = "0.0.0", path = "../crates/nuif-query" }
 nuif-render = { version = "0.0.0", path = "../crates/nuif-render" }
+nuif-svg = { version = "0.0.1", path = "../crates/nuif-svg" }
 nuif-testing = { version = "0.0.1", path = "../crates/nuif-testing" }
 serde_json.workspace = true
 
@@ -22,6 +25,10 @@ criterion.workspace = true
 
 [[bench]]
 name = "profile_zero"
+harness = false
+
+[[bench]]
+name = "system_surfaces"
 harness = false
 
 [lints]

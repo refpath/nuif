@@ -17,6 +17,9 @@ not treated as comparable baselines.
 | Layout | 8, 128, 1,024, 4,096 entities | Evaluate a flat mixed shape/text document |
 | Scene lowering | 8, 128, 1,024 entities | Lower evaluated entities to deterministic render commands |
 | CPU raster and API snapshot | 360x640, 768x640, 1,440x900 | Raster an interactive card fixture; snapshot includes hash, layout, scene and raster |
+| Semantic query | 128, 1,024, 4,096, 8,192 entities | Stable-ID lookup and kind scan over the authored model |
+| Collaboration | 2, 32, 256, 1,024 concurrent register writers | Materialize identical conflict checkpoints through the operation-set and replica-log algorithms |
+| Integrated adapters | Declared HTML/CSS, SVG and DTCG fixtures | Export, import and byte-local synchronization measured separately |
 
 `nuif_testing::performance_fixture` is deterministic, valid, bounded by the
 profile-zero 8,192-entity resource limit and uses the repository-pinned font.
@@ -33,10 +36,11 @@ benchmark:
 cargo xtask performance
 ```
 
-Run the complete Criterion suite without plotting:
+Run the complete Criterion suites without plotting:
 
 ```sh
 cargo bench -p nuif-conformance --bench profile_zero -- --noplot
+cargo bench -p nuif-conformance --bench system_surfaces -- --noplot
 ```
 
 On an otherwise idle controlled machine, save a baseline before a change and
@@ -45,6 +49,8 @@ compare against it afterward:
 ```sh
 cargo bench -p nuif-conformance --bench profile_zero -- --save-baseline before --noplot
 cargo bench -p nuif-conformance --bench profile_zero -- --baseline before --noplot
+cargo bench -p nuif-conformance --bench system_surfaces -- --save-baseline before --noplot
+cargo bench -p nuif-conformance --bench system_surfaces -- --baseline before --noplot
 ```
 
 Criterion accepts a filter after `--`, such as `-- codec --noplot`. Use
