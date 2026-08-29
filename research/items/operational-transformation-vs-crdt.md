@@ -33,8 +33,8 @@ links:
   spec: [spec/10-collaboration-profile.md, spec/06-operations-and-patches.md]
   adr: [adrs/0005-collaboration-profile.md]
   rfc: []
-  code: [crates/nuif-protocol]
-  experiments: []
+  code: [crates/nuif-protocol, crates/nuif-collab]
+  experiments: [nuif:experiment:crdt-checkpoint]
 ---
 
 # Summary

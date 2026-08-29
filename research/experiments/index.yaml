@@ -80,14 +80,20 @@ experiments:
       - canonical text vs deterministic CBOR vs schema-based candidates
       - size encode decode partial-load canonicalize and unknown-data preservation
   - id: nuif:experiment:crdt-checkpoint
-    status: planned
+    status: completed
+    evidence: [nuif:research:automerge-yjs, nuif:research:crdt-tree-move-operation, nuif:research:operational-transformation-vs-crdt]
+    implementation: [crates/nuif-collab/src/lib.rs, conformance/src/bin/collaboration-registers.rs, crates/nuif-collab/README.md, xtask/src/main.rs]
     oracle: differential
     acceptance:
-      - two independent collaboration engines materialize the same canonical checkpoint
-      - semantic conflicts remain explicit after structural convergence
+      - operation-set and replica-log materializers compute the same metadata-free canonical register checkpoint
+      - semantic property conflicts remain explicit after operation-set convergence
     tests:
-      - concurrent semantic edits through two collaboration engines
-      - canonical checkpoint equality and explicit semantic conflicts
+      - exhaust all 5040 deliveries of seven causally related and concurrent changes through both materializers
+      - compare different three-way merge orders and duplicate delivery for commutative associative idempotent behavior
+      - require two property-attributed multi-value conflicts plus a deterministic selected candidate
+      - prove replica context and conflict metadata are absent from canonical NUIF text
+      - reject incomplete histories duplicate identifiers invalid clocks structural operations and semantic apply failures
+      - write and archive target/collaboration-report.json
   - id: nuif:experiment:accessibility-mapping
     status: planned
     oracle: foreign-reference

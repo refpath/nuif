@@ -29,8 +29,11 @@ The entire v0 fixture is authored from an empty document through identity-addres
 ## Phase 6b — full-v0 HTML/CSS sync (complete)
 `nuif-html-css-v0` carries the complete responsive-card model through 181 retained correspondences. The full trial applies eight local token/padding/text/responsive edits while preserving all other source bytes and opaque payloads; the editor bridge applies name and width edits through semantic actions and the public CLI, then re-imports to byte-identical canonical NUIF. Browser path rendering, instance materialization and unknown visuals remain explicit target limitations. SVG and Penpot/Figma research are later adapter profiles, not part of this completion.
 
-## Phase 7 — collaboration (next falsifier)
-Prototype Automerge/Yjs profiles over semantic operations. Exit: deterministic canonical checkpoint after concurrent edits and surfaced semantic conflicts.
+## Phase 7a — collaboration property registers (complete)
+`nuif-collab-registers-0` keeps causal metadata outside canonical documents and materializes concurrent register-like semantic operations through operation-set and replica-log algorithms. Every delivery of the three-replica trial converges, and distinct concurrent values remain explicit property conflicts.
+
+## Phase 7b — structural collaboration (next falsifier)
+Implement and verify tree move/deletion plus sibling-list semantics before enabling concurrent insert/remove/move. Exit: one-parent and acyclic invariants, explicit cycle/deletion conflicts, deterministic canonical checkpoint and reproduction through a foreign collaboration engine. Property-register convergence is not evidence for this phase.
 
 ## Phase 8a — mechanical independent reproduction (complete for v0 profile 0)
 The standard-library-only Python implementation reads, writes, lays out and rasterizes the v0 profile without importing, invoking or linking the Rust packages. Its differential trial is exact at 360, 768 and 1,440 pixels and stays in the unified CI loop.

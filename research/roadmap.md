@@ -18,14 +18,16 @@ Full-v0 source follow-on: `nuif-html-css-v0` retains 181 model correspondences f
 
 Gate G: bounded mechanically independent reproduction. The standard-library-only Python implementation has no Rust/NUIF package dependency and exactly reproduces v0 canonical text, opaque preservation, 24 boxes, three decoded RGBA buffers and five fidelity records. External authorship and a general-purpose second implementation remain standards-publication work.
 
+Gate H: bounded metadata-free collaboration checkpoint. Two algorithmically distinct in-repository materializers converge for every delivery of a conflict-bearing property-register history; conflicts remain explicit and canonical NUIF contains no replica state.
+
 ## Current falsifier
 
-`nuif:experiment:v0-responsive-card` is complete under its declared structural, layout, codec, opaque-preservation, editor and minimal-source-patch acceptance. The next architectural falsifier is the collaboration checkpoint: concurrent semantic operations must converge through at least two independently implemented collaboration engines to the same canonical checkpoint while preserving explicit semantic conflicts. This is not implied by single-user replay determinism.
+`nuif:experiment:v0-responsive-card` and the bounded collaboration property-register checkpoint are complete under their declared acceptance. The next collaboration falsifier is structural: concurrent insert/remove/move must preserve one-parent/acyclic invariants, sibling ordering and deletion intent through an explicit tree/list algorithm, then reproduce its checkpoint through a foreign engine. Register convergence does not imply any of those properties.
 
 ## Queue
 
-1. Keep Gates B through G green with `cargo xtask all`; commit minimized failures as fixtures and retain all machine reports as CI artifacts.
-2. Implement the declared collaboration checkpoint over semantic operations without putting replica metadata into canonical NUIF documents.
+1. Keep Gates B through H green with `cargo xtask all`; commit minimized failures as fixtures and retain all machine reports as CI artifacts.
+2. Extend collaboration from property registers to a proved tree move/list profile with explicit cycle, tombstone and sibling-order behavior; compare a foreign engine before broad claims.
 3. Design explicit Grid track and placement fields before replacing the classified profile-0 stack fallback; do not infer Grid support from the Gate C pass.
 4. Attach any Masonry shell to the already-tested editor driver boundary; keep shell behavior outside model/layout/render conformance.
 5. Treat soft wrapping, gradients, strokes, paths, images and instance materialization as a separately versioned expanded profile; do not weaken profile-0 exactness to add them.
