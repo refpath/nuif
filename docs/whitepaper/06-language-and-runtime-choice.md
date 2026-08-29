@@ -17,7 +17,7 @@ Rust is the strongest default for the reference implementation because the proje
 - Taffy: initial CSS-compatible evaluator behind NUIF types.
 - Vello/wgpu: interactive renderer experiment behind a NUIF renderer trait.
 - HarfBuzz-compatible shaping: text experiment with pinned font inputs.
-- Svelte 5 + TypeScript: reference editor shell and browser integration.
+- Masonry + AccessKit: reference editor shell (ADR 0006, accepted; toolchain 1.98.0, MSRV 1.96); Svelte 5 + TypeScript for the later browser demonstration over the WASM bindings.
 - Tree-sitter/language-native parsers: source adapters where concrete syntax retention is required.
 
 Adapters MAY be written in the ecosystem-native language; conformance is against behavior/protocol, not implementation language.
