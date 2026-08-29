@@ -1,5 +1,5 @@
 use nuif_api::{Session, profile_zero_context};
-use nuif_core::{EntityId, Fidelity};
+use nuif_core::{EntityId, Fidelity, SizeIntent};
 use nuif_layout::{EvaluationContext, WritingDirection};
 use nuif_render::DrawCommand;
 use nuif_text::{
@@ -100,6 +100,10 @@ fn main() {
     }
 }
 
+#[expect(
+    clippy::too_many_lines,
+    reason = "the machine report assembly is kept contiguous for auditability"
+)]
 fn run() -> Result<(), String> {
     let output = output_path()?;
     let golden: GoldenFile =
@@ -118,8 +122,13 @@ fn run() -> Result<(), String> {
     let (outline_reports, outlines_passed) = outline_trials(&golden.outlines, pin_consistent)?;
 
     let (raster_reports, raster_passed) = raster_trials(&golden.raster_baseline.cases)?;
+    let (text_semantic_reports, text_semantics_passed) = text_semantic_trials()?;
     let (negative_reports, negative_passed) = negative_trials();
-    let passed = shaping_passed && outlines_passed && raster_passed && negative_passed;
+    let passed = shaping_passed
+        && outlines_passed
+        && raster_passed
+        && text_semantics_passed
+        && negative_passed;
     let cross_platform_raster_verified = raster_passed
         && golden
             .raster_baseline
@@ -164,7 +173,7 @@ fn run() -> Result<(), String> {
             "shaping": "exact_cross_implementation_golden",
             "outlines": "exact_cross_implementation_normalized_golden",
             "raster": "exact_on_recorded_platform_matrix",
-            "text_semantics": "approximated_missing_line_breaking",
+            "text_semantics": "exact_hard_break_no_soft_wrap_profile",
             "cross_platform_raster_verified": cross_platform_raster_verified
         },
         "summary": {
@@ -173,12 +182,14 @@ fn run() -> Result<(), String> {
             "outline_goldens": outline_reports.len(),
             "outline_goldens_passed": outline_reports.iter().filter(|case| case["passed"] == true).count(),
             "raster_contexts": raster_reports.len(),
+            "text_semantic_cases": text_semantic_reports.len(),
             "negative_cases": negative_reports.len(),
             "blocking_failures": u8::from(!passed)
         },
         "golden_cases": case_reports,
         "outline_goldens": outline_reports,
         "raster_trials": raster_reports,
+        "text_semantic_trials": text_semantic_reports,
         "negative_trials": negative_reports
     });
     let encoded = serde_json::to_vec_pretty(&report).map_err(|error| error.to_string())?;
@@ -290,16 +301,15 @@ fn raster_trials(cases: &[RasterCase]) -> Result<(Vec<Value>, bool), String> {
                 DrawCommand::Rect { .. } => None,
             })
             .collect::<Vec<_>>();
-        let approximated_text = first.scene.fidelity.iter().any(|item| {
-            item.entity == EntityId::new(0x22)
-                && matches!(item.status, Fidelity::Approximated { .. })
+        let lossless_text = first.scene.fidelity.iter().any(|item| {
+            item.entity == EntityId::new(0x22) && matches!(item.status, Fidelity::Lossless)
         });
         let scene_sha256 =
             sha256_hex(&serde_json::to_vec(&first.scene).map_err(|error| error.to_string())?);
         let png_sha256 = sha256_hex(&first_png);
         let repeatable = first.scene == second.scene && first_png == second_png;
         let baseline_match = scene_sha256 == case.scene_sha256 && png_sha256 == case.png_sha256;
-        let passed = repeatable && baseline_match && !glyph_runs.is_empty() && approximated_text;
+        let passed = repeatable && baseline_match && !glyph_runs.is_empty() && lossless_text;
         all_passed &= passed;
         reports.push(json!({
             "context_fingerprint": context.fingerprint(),
@@ -314,11 +324,91 @@ fn raster_trials(cases: &[RasterCase]) -> Result<(Vec<Value>, bool), String> {
             "repeatable": repeatable,
             "baseline_match": baseline_match,
             "raster_pipeline": "pinned_unhinted_outline_grayscale",
-            "text_semantic_fidelity": "approximated_missing_line_breaking",
+            "text_semantic_fidelity": "lossless_hard_break_no_soft_wrap_profile",
             "passed": passed
         }));
     }
     Ok((reports, all_passed))
+}
+
+fn text_semantic_trials() -> Result<(Vec<Value>, bool), String> {
+    let text_id = EntityId::new(0x22);
+    let mut hard_break_document = nuif_testing::responsive_card_fixture();
+    let hard_break_text = hard_break_document
+        .entities
+        .get_mut(&text_id)
+        .and_then(|entity| entity.authored.text.as_mut())
+        .ok_or_else(|| "the text fixture is absent".to_owned())?;
+    hard_break_text.content.clear();
+    hard_break_text.content.push_str("A\r\nB");
+    let hard_break_snapshot = Session::new(hard_break_document)
+        .snapshot(&profile_zero_context(360.0, 640.0))
+        .map_err(|error| error.to_string())?;
+    let hard_break_runs = text_commands(&hard_break_snapshot.scene, text_id);
+    let hard_break_passed = hard_break_runs.len() == 2
+        && hard_break_runs[0].0 == "A"
+        && hard_break_runs[1].0 == "B"
+        && (hard_break_runs[1].1 - hard_break_runs[0].1 - 24.0).abs() < f64::EPSILON;
+
+    let mut no_wrap_document = nuif_testing::responsive_card_fixture();
+    let no_wrap_entity = no_wrap_document
+        .entities
+        .get_mut(&text_id)
+        .ok_or_else(|| "the text fixture is absent".to_owned())?;
+    no_wrap_entity.authored.width = SizeIntent::Fixed(18.0);
+    let no_wrap_content = &mut no_wrap_entity
+        .authored
+        .text
+        .as_mut()
+        .ok_or_else(|| "the text fixture has no text content".to_owned())?
+        .content;
+    no_wrap_content.clear();
+    no_wrap_content.push_str("A B");
+    let no_wrap_snapshot = Session::new(no_wrap_document)
+        .snapshot(&profile_zero_context(360.0, 640.0))
+        .map_err(|error| error.to_string())?;
+    let no_wrap_runs = text_commands(&no_wrap_snapshot.scene, text_id);
+    let no_wrap_passed = no_wrap_runs.len() == 1
+        && no_wrap_runs[0].0 == "A B"
+        && (no_wrap_runs[0].2 - 18.0).abs() < f64::EPSILON;
+    let lossless = no_wrap_snapshot
+        .scene
+        .fidelity
+        .iter()
+        .any(|item| item.entity == text_id && matches!(item.status, Fidelity::Lossless));
+
+    Ok((
+        vec![
+            json!({
+                "name": "mandatory-crlf-hard-break",
+                "runs": hard_break_runs,
+                "passed": hard_break_passed
+            }),
+            json!({
+                "name": "no-automatic-soft-wrap",
+                "runs": no_wrap_runs,
+                "lossless": lossless,
+                "passed": no_wrap_passed && lossless
+            }),
+        ],
+        hard_break_passed && no_wrap_passed && lossless,
+    ))
+}
+
+fn text_commands(scene: &nuif_render::RenderScene, entity: EntityId) -> Vec<(String, f64, f64)> {
+    scene
+        .commands
+        .iter()
+        .filter_map(|command| match command {
+            DrawCommand::Text {
+                entity: id,
+                rect,
+                run,
+                ..
+            } if *id == entity => Some((run.text.clone(), rect.y, rect.width)),
+            DrawCommand::Rect { .. } | DrawCommand::Text { .. } => None,
+        })
+        .collect()
 }
 
 fn negative_trials() -> (Vec<Value>, bool) {

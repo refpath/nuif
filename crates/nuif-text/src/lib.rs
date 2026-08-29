@@ -107,6 +107,71 @@ pub struct ShapedGlyph {
     pub y_offset: i32,
 }
 
+/// Splits text at the mandatory hard-break characters supported by profile 0.
+///
+/// CRLF is one delimiter. CR, LF, NEL, LINE SEPARATOR and PARAGRAPH SEPARATOR
+/// are individual delimiters. Delimiters are not included in the returned
+/// lines, and a trailing delimiter produces a final empty line.
+#[must_use]
+pub fn hard_lines(text: &str) -> Vec<&str> {
+    let mut lines = Vec::new();
+    let mut start = 0;
+    let mut characters = text.char_indices().peekable();
+    while let Some((index, character)) = characters.next() {
+        let delimiter_end = match character {
+            '\r' => {
+                if characters
+                    .peek()
+                    .is_some_and(|(_, next_character)| *next_character == '\n')
+                {
+                    characters.next().map_or(
+                        index + character.len_utf8(),
+                        |(next_index, next_character)| next_index + next_character.len_utf8(),
+                    )
+                } else {
+                    index + character.len_utf8()
+                }
+            }
+            '\n' | '\u{0085}' | '\u{2028}' | '\u{2029}' => index + character.len_utf8(),
+            _ => continue,
+        };
+        lines.push(&text[start..index]);
+        start = delimiter_end;
+    }
+    lines.push(&text[start..]);
+    lines
+}
+
+/// Shapes every profile-0 hard line independently.
+///
+/// The complete source remains subject to the per-text resource limit, so
+/// splitting cannot multiply the shaping budget.
+///
+/// # Errors
+///
+/// Returns the same typed failures as [`shape`].
+pub fn shape_hard_lines(request: &ShapeRequest<'_>) -> Result<Vec<ShapedRun>, TextError> {
+    let codepoints = request.text.chars().count();
+    if codepoints > MAX_SHAPING_CODEPOINTS {
+        return Err(TextError::TooManyCodepoints {
+            limit: MAX_SHAPING_CODEPOINTS,
+            observed: codepoints,
+        });
+    }
+    hard_lines(request.text)
+        .into_iter()
+        .map(|line| {
+            shape(&ShapeRequest {
+                text: line,
+                font_sha256: request.font_sha256,
+                font_size: request.font_size,
+                direction: request.direction,
+                language: request.language,
+            })
+        })
+        .collect()
+}
+
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct GlyphOutline {
@@ -447,5 +512,23 @@ mod tests {
             shape(&request(&text, TextDirection::LeftToRight)),
             Err(TextError::TooManyCodepoints { .. })
         ));
+    }
+
+    #[test]
+    fn hard_lines_preserve_empty_lines_and_coalesce_crlf() {
+        assert_eq!(hard_lines(""), vec![""]);
+        assert_eq!(
+            hard_lines("A\r\nB\rC\nD\u{0085}E\u{2028}F\u{2029}"),
+            vec!["A", "B", "C", "D", "E", "F", ""]
+        );
+        assert_eq!(hard_lines("A\n\nB"), vec!["A", "", "B"]);
+    }
+
+    #[test]
+    fn hard_lines_shape_as_independent_runs() {
+        let runs = shape_hard_lines(&request("A\r\nB", TextDirection::LeftToRight)).unwrap();
+        assert_eq!(runs.len(), 2);
+        assert_eq!(runs[0].serialized_glyphs, "[35=0+1000]");
+        assert_eq!(runs[1].serialized_glyphs, "[36=0+1000]");
     }
 }

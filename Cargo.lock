@@ -332,6 +332,7 @@ name = "nuif-layout"
 version = "0.0.0"
 dependencies = [
  "nuif-core",
+ "nuif-text",
  "serde",
 ]
 

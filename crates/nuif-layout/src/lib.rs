@@ -4,6 +4,7 @@ use nuif_core::{
     Align, Diagnostic, Document, Entity, EntityId, EntityKind, Fidelity, FlowDirection,
     LayoutFamily, Severity, SizeIntent, validate,
 };
+use nuif_text::{ShapeRequest, TextDirection, hard_lines, shape_hard_lines};
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet};
 use std::convert::Infallible;
@@ -155,7 +156,7 @@ fn layout_entity(
         return;
     };
     let resolved = resolved_authored(entity, context);
-    let intrinsic = intrinsic_size(entity);
+    let intrinsic = intrinsic_size(entity, context);
     let width = if is_root && matches!(resolved.width, SizeIntentRef::Auto | SizeIntentRef::Fill) {
         available.width
     } else {
@@ -326,23 +327,54 @@ fn resolve_axis(intent: &SizeIntentRef, available: f64, intrinsic: f64) -> f64 {
     }
 }
 
-fn intrinsic_size(entity: &Entity) -> Size {
+fn intrinsic_size(entity: &Entity, context: &EvaluationContext) -> Size {
     if let Some(text) = &entity.authored.text {
-        let lines =
-            f64::from(u32::try_from(text.content.lines().count().max(1)).unwrap_or(u32::MAX));
-        let longest = f64::from(
-            u32::try_from(
-                text.content
-                    .lines()
-                    .map(|line| line.chars().count())
-                    .max()
-                    .unwrap_or(0),
-            )
-            .unwrap_or(u32::MAX),
-        );
+        let line_count = hard_lines(&text.content).len();
+        let direction = match context.writing_direction {
+            WritingDirection::LeftToRight => TextDirection::LeftToRight,
+            WritingDirection::RightToLeft => TextDirection::RightToLeft,
+        };
+        let shaped_width = context
+            .font_hashes
+            .contains(&text.font_sha256)
+            .then(|| {
+                shape_hard_lines(&ShapeRequest {
+                    text: &text.content,
+                    font_sha256: &text.font_sha256,
+                    font_size: text.size,
+                    direction,
+                    language: &context.locale,
+                })
+            })
+            .transpose()
+            .ok()
+            .flatten()
+            .map(|runs| {
+                runs.into_iter().fold(0.0_f64, |maximum, run| {
+                    let advance = run
+                        .glyphs
+                        .iter()
+                        .map(|glyph| f64::from(glyph.x_advance))
+                        .sum::<f64>()
+                        .abs()
+                        * run.font_size
+                        / f64::from(run.units_per_em);
+                    maximum.max(advance)
+                })
+            });
+        let fallback_width = hard_lines(&text.content)
+            .into_iter()
+            .map(str::chars)
+            .map(Iterator::count)
+            .max()
+            .map_or(f64::from(u32::MAX), |count| {
+                f64::from(u32::try_from(count).unwrap_or(u32::MAX))
+            })
+            * text.size
+            * 0.6;
         return Size {
-            width: longest * text.size * 0.6,
-            height: lines * text.line_height,
+            width: shaped_width.unwrap_or(fallback_width),
+            height: f64::from(u32::try_from(line_count).unwrap_or(u32::MAX)) * text.line_height,
         };
     }
     Size::default()
@@ -441,7 +473,7 @@ fn layout_flow(
         if matches!(intent, SizeIntentRef::Fill) {
             fill_count += 1;
         } else {
-            let intrinsic = intrinsic_size(item);
+            let intrinsic = intrinsic_size(item, context);
             fixed_main += resolve_axis(
                 &intent,
                 available_main,
@@ -464,7 +496,7 @@ fn layout_flow(
             continue;
         };
         let child_resolved = resolved_authored(item, context);
-        let intrinsic = intrinsic_size(item);
+        let intrinsic = intrinsic_size(item, context);
         let main_intent = if is_row {
             child_resolved.width
         } else {
@@ -551,6 +583,7 @@ fn layout_entity_in_flow(
 mod tests {
     use super::*;
     use nuif_core::{Entity, LayoutStyle, OpaqueEncoding, OpaquePayload, TextContent, UnknownKind};
+    use nuif_text::{PINNED_FONT_NAME, PINNED_FONT_SHA256};
 
     #[test]
     fn fingerprint_includes_content_addressed_font_set() {
@@ -558,6 +591,27 @@ mod tests {
         let mut second = first.clone();
         second.font_hashes.insert("a".repeat(64));
         assert_ne!(first.fingerprint(), second.fingerprint());
+    }
+
+    #[test]
+    fn pinned_text_intrinsic_size_uses_shaped_hard_lines() {
+        let mut text = Entity::new(EntityId::new(2), EntityKind::Text);
+        text.authored.text = Some(TextContent {
+            content: "A B\nAB".to_owned(),
+            font: PINNED_FONT_NAME.to_owned(),
+            font_sha256: PINNED_FONT_SHA256.to_owned(),
+            size: 18.0,
+            line_height: 24.0,
+        });
+        let mut context = EvaluationContext::viewport(100.0, 100.0);
+        context.font_hashes.insert(PINNED_FONT_SHA256.to_owned());
+        assert_eq!(
+            intrinsic_size(&text, &context),
+            Size {
+                width: 54.0,
+                height: 48.0,
+            }
+        );
     }
 
     #[test]

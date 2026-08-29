@@ -5,7 +5,8 @@ use nuif_layout::{EvaluationContext, LayoutSnapshot, Rect, WritingDirection};
 use nuif_text::{
     CLUSTER_UNIT, GlyphOutline, MAX_SHAPING_CODEPOINTS, OUTLINE_COORDINATE_DENOMINATOR,
     OUTLINE_EXTRACTOR_NAME, OUTLINE_EXTRACTOR_VERSION, OutlineCommand, OutlinePoint,
-    PINNED_FONT_ASCENDER, ShapeRequest, ShapedRun, TextDirection, TextError, outline_glyph, shape,
+    PINNED_FONT_ASCENDER, ShapeRequest, ShapedRun, TextDirection, TextError, outline_glyph,
+    shape_hard_lines,
 };
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
@@ -203,7 +204,7 @@ pub fn build_scene(
                     },
                 });
             }
-            let run = shape(&ShapeRequest {
+            let runs = shape_hard_lines(&ShapeRequest {
                 text: &text.content,
                 font_sha256: &text.font_sha256,
                 font_size: text.size,
@@ -217,45 +218,54 @@ pub fn build_scene(
                 entity: *id,
                 source,
             })?;
-            let mut outlines = BTreeMap::new();
-            for glyph in &run.glyphs {
-                if let std::collections::btree_map::Entry::Vacant(entry) =
-                    outlines.entry(glyph.glyph_id)
-                {
-                    entry.insert(outline_glyph(glyph.glyph_id).map_err(|source| {
-                        RenderError::Text {
-                            entity: *id,
-                            source,
-                        }
-                    })?);
-                }
-            }
             scene.fidelity.push(RenderFidelity {
                 entity: *id,
-                status: Fidelity::Approximated {
-                    reason: "profile 0 shapes and rasterizes pinned unhinted outlines, but line breaking and wrapping are not implemented".to_owned(),
-                },
+                status: Fidelity::Lossless,
             });
-            scene.commands.push(DrawCommand::Text {
-                entity: *id,
-                rect,
-                run: Box::new(run),
-                outlines: Box::new(outlines),
-                color: Color {
-                    red: 0.0,
-                    green: 0.0,
-                    blue: 0.0,
-                    alpha: 1.0,
-                },
-            });
+            for (line_index, run) in runs.into_iter().enumerate() {
+                let mut outlines = BTreeMap::new();
+                for glyph in &run.glyphs {
+                    if let std::collections::btree_map::Entry::Vacant(entry) =
+                        outlines.entry(glyph.glyph_id)
+                    {
+                        entry.insert(outline_glyph(glyph.glyph_id).map_err(|source| {
+                            RenderError::Text {
+                                entity: *id,
+                                source,
+                            }
+                        })?);
+                    }
+                }
+                let line_offset =
+                    u32::try_from(line_index).map_or(f64::MAX, f64::from) * text.line_height;
+                let line_y = rect.y + line_offset;
+                let remaining_height = (rect.y + rect.height - line_y).max(0.0);
+                scene.commands.push(DrawCommand::Text {
+                    entity: *id,
+                    rect: Rect {
+                        x: rect.x,
+                        y: line_y,
+                        width: rect.width,
+                        height: remaining_height.min(text.line_height),
+                    },
+                    run: Box::new(run),
+                    outlines: Box::new(outlines),
+                    color: Color {
+                        red: 0.0,
+                        green: 0.0,
+                        blue: 0.0,
+                        alpha: 1.0,
+                    },
+                });
+            }
         }
     }
     Ok(scene)
 }
 
 /// Deterministic profile-0 rasterizer. It intentionally supports only solid
-/// rectangles and a fixed bitmap text proxy; unsupported semantics stay in the
-/// scene fidelity report rather than disappearing.
+/// rectangles and pinned unhinted text outlines; unsupported semantics stay in
+/// the scene fidelity report rather than disappearing.
 ///
 /// # Errors
 ///
@@ -422,7 +432,16 @@ fn draw_shaped_text_outlines(
     }
     let font_unit_scale = run.font_size * target_scale / f64::from(run.units_per_em);
     let baseline = rect.y - f64::from(base_y) + f64::from(PINNED_FONT_ASCENDER) * font_unit_scale;
-    let mut pen_x = rect.x;
+    let run_width = run
+        .glyphs
+        .iter()
+        .map(|glyph| f64::from(glyph.x_advance))
+        .sum::<f64>()
+        * font_unit_scale;
+    let mut pen_x = match run.direction {
+        TextDirection::LeftToRight => rect.x,
+        TextDirection::RightToLeft => rect.x + rect.width - run_width,
+    };
     let mut commands = Vec::new();
     for glyph in &run.glyphs {
         let Some(outline) = outlines.get(&glyph.glyph_id) else {
@@ -591,6 +610,13 @@ mod tests {
             panic!("text entity must lower to a text command");
         };
         assert_eq!(run.serialized_glyphs, "[35=0+1000|3=1+1000|36=2+1000]");
+        assert_eq!(
+            scene.fidelity,
+            vec![RenderFidelity {
+                entity: EntityId::new(2),
+                status: Fidelity::Lossless,
+            }]
+        );
 
         let image = render_cpu(
             &scene,
@@ -605,6 +631,59 @@ mod tests {
         assert_eq!(pixel(5, 5), [0, 0, 0, 255]);
         assert_eq!(pixel(25, 5), [255, 255, 255, 255]);
         assert_eq!(pixel(40, 5), [0, 0, 0, 255]);
+    }
+
+    #[test]
+    fn hard_lines_and_rtl_inline_start_are_rasterized_without_soft_wrap() {
+        let (mut document, _) = text_document_and_layout();
+        let text = document
+            .entities
+            .get_mut(&EntityId::new(2))
+            .expect("text fixture exists");
+        text.authored.height = SizeIntent::Fixed(40.0);
+        text.authored
+            .text
+            .as_mut()
+            .expect("text fixture has content")
+            .content = "A\nB".to_owned();
+        let mut context = EvaluationContext::viewport(100.0, 40.0);
+        context.font_hashes.insert(PINNED_FONT_SHA256.to_owned());
+        let layout = nuif_layout::evaluate(&document, &context);
+        let scene = build_scene(&document, &layout, &context).unwrap();
+        let text_commands = scene
+            .commands
+            .iter()
+            .filter_map(|command| match command {
+                DrawCommand::Text { rect, run, .. } => Some((*rect, run.text.as_str())),
+                DrawCommand::Rect { .. } => None,
+            })
+            .collect::<Vec<_>>();
+        assert_eq!(text_commands.len(), 2);
+        assert!(text_commands[0].0.y.abs() < f64::EPSILON);
+        assert!((text_commands[1].0.y - 20.0).abs() < f64::EPSILON);
+
+        let mut rtl_document = document;
+        rtl_document
+            .entities
+            .get_mut(&EntityId::new(2))
+            .and_then(|entity| entity.authored.text.as_mut())
+            .expect("text fixture has content")
+            .content = "A".to_owned();
+        context.writing_direction = WritingDirection::RightToLeft;
+        let rtl_layout = nuif_layout::evaluate(&rtl_document, &context);
+        let rtl_scene = build_scene(&rtl_document, &rtl_layout, &context).unwrap();
+        let image = render_cpu(
+            &rtl_scene,
+            RenderTarget {
+                width: 100,
+                height: 40,
+                scale_factor: 1.0,
+            },
+        )
+        .unwrap();
+        let pixel = |x: usize, y: usize| &image.rgba[(y * 100 + x) * 4..][..4];
+        assert_eq!(pixel(5, 5), [255, 255, 255, 255]);
+        assert_eq!(pixel(90, 5), [0, 0, 0, 255]);
     }
 
     #[test]
