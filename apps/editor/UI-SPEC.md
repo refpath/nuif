@@ -2,6 +2,8 @@
 
 Status: draft specification for the reference test editor. The editor replicates the spatial layout, tool set, property sections and keyboard bindings of the Figma design editor (UI3) as documented in `nuif:research:figma-ui3-editor-layout` and `nuif:research:figma-tools-and-keyboard-shortcuts`, without branding, icons, logos, typography or colour values taken from that product. The feature set is limited to what conformance testing, import and export require. Anything not listed here is out of scope; additions require an RFC.
 
+Implementation status: the native application implements the complete interactive surface for currently executable profile-zero properties: files and history; pages/layers/components browsing; canvas selection and insertion; subtree duplicate/delete; responsive evaluation-width presets; zoom and interface visibility; command routing; and atomic name, position, sizing-intent, stack/flex spacing/alignment, solid-fill and pinned-text inspection. Each of those controls lowers to an invertible protocol operation and is covered by the AccessKit/replay trial. Sections below whose data is not in profile zero remain specification targets, not inert or simulated controls—most notably multi-selection and direct manipulation, tree drag/reorder, Grid tracks, component authoring, token editing, advanced paints/effects, adapter import and non-PNG export.
+
 ## Purpose and constraints
 
 1. The editor is a client of `nuif-api`. Every gesture lowers to protocol operations before any document mutation (`apps/editor/ARCHITECTURE.md`).
