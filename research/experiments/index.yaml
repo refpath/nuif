@@ -177,3 +177,20 @@ experiments:
       - assert direct generation editor authoring and operation replay are byte-identical and share one canonical hash
       - assert the accessibility tree exposes entity identifiers for every bound widget
       - archive canonical document context layout scene CPU raster fidelity and machine report in CI
+  - id: nuif:experiment:html-css-retentive-sync
+    status: completed
+    evidence: [nuif:research:tree-sitter, nuif:research:retentive-lenses, nuif:research:symmetric-lenses, nuif:research:bidirectional-evaluation-direct-manipulation]
+    implementation: [crates/nuif-html/src/lib.rs, crates/nuif-html/src/bin/html-sync-profile.rs, adapters/html-css/PROFILE.md, xtask/src/main.rs]
+    oracle: metamorphic
+    acceptance:
+      - declared HTML CSS subset imports and exports to an exact canonical document
+      - text token and padding edits touch only mapped byte spans
+      - comments and unmapped regions survive byte-exactly
+      - unsupported differences carry target and property fidelity
+    tests:
+      - validate outer HTML and injected CSS with pinned Tree-sitter grammars
+      - re-import exports and synchronized source to exact document equality
+      - repeat synchronization and compare source and edit lists exactly
+      - prove every byte outside the six edited spans is unchanged
+      - reject stale spans unsupported properties and one-over source size
+      - write and archive target/html-sync-report.json and synchronized HTML

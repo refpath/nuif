@@ -26,3 +26,5 @@ NUIF conformance is split into independently testable profiles.
 - visual snapshots with perceptual thresholds only where exact pixels are not normative.
 
 A test result must include implementation version, capability profile, fixture ID and evaluation context. Foreign-reference results additionally include exact oracle versions, generator source revision, raw per-engine observations, a fixture-local measured bound and typed classifications for every divergence.
+
+The implemented adapter suite currently covers only `nuif-html-css-0`: one bounded HTML/CSS container/text/token subset with exact export/import, byte-local synchronization and property-attributed rejection. Complete v0, arbitrary web source and other adapter targets remain non-conformant until separately declared profiles pass.

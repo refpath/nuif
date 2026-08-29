@@ -1,6 +1,6 @@
 # Test-harness architecture
 
-Status: profile-0 baseline, Gate C browser/Taffy, Gate D text/render and Gate E complete editor authoring are implemented; fuzz packages, perceptual comparison and adapter trials remain planned. This document specifies how round-trip trials run unattended, fail reproducibly, minimize themselves and report in machine-readable form. Evidence is cited by research record identifier.
+Status: profile-0 baseline, Gate C browser/Taffy, Gate D text/render, Gate E complete editor authoring and Gate F bounded HTML/CSS synchronization are implemented; fuzz packages, perceptual comparison and broader adapter trials remain planned. This document specifies how round-trip trials run unattended, fail reproducibly, minimize themselves and report in machine-readable form. Evidence is cited by research record identifier.
 
 ## Goals
 
@@ -134,6 +134,8 @@ The layout-differential experiment writes `target/layout-differential-report.jso
 The text-pinning experiment writes `target/text-pinning-report.json`. It records the exact font, shaper, Unicode, outline extractor, rasterizer and independent HarfBuzz oracle pins; expected and observed glyph/outline strings; source/toolchain/platform identity; hard-break/no-soft-wrap semantic trials; repeatability and committed scene/PNG baselines at three evaluation contexts; and negative missing/malformed-font cases. `cargo xtask gate-d-text` fails on any pin, golden, semantic, baseline, repeatability or negative-case mismatch. The bounded text profile is lossless and its hashes agree on macOS/aarch64, Linux/aarch64 and Linux/x86_64.
 
 The render-profile experiment writes `target/render-profile-report.json`. It fixes every supported paint input by value, repeats rectangle and ellipse scenes/PNGs, rejects out-of-range sRGB channels, and requires entity/property pointers for unsupported path, image and instance kinds plus preserved document/entity extensions. `cargo xtask gate-d-render` fails on any baseline, repeatability, validation or fidelity-attribution mismatch; `cargo xtask gate-d` runs both Gate D reports.
+
+The HTML/CSS retentive experiment writes `target/html-sync-report.json` and `target/html-sync-output.html`. It pins Tree-sitter and both grammars, exactly re-imports the declared subset, repeats synchronization, checks the complete unchanged-byte complement of six text/token/padding edits, preserves injected comments/unmapped markup and requires typed stale-span, unsupported-property and one-over-size failures. `cargo xtask gate-f` is blocking; the bounded profile and its non-claims are specified in `adapters/html-css/PROFILE.md`.
 
 ## Editor participation
 

@@ -23,8 +23,11 @@ Canonical text + deterministic CBOR; package/assets; patch/diff/query CLI. Exit:
 ## Phase 5 — editor (complete for the headless profile-0 instrument)
 The entire v0 fixture is authored from an empty document through identity-addressed semantic actions. Direct generation, editor output and operation replay are byte-identical, and the editor writes canonical document, context, layout, scene, CPU raster and fidelity report artifacts. The Rust-native Masonry shell from ADR 0006 and the later Svelte/WASM demonstration are non-normative interface work and cannot redefine this headless result.
 
-## Phase 6 — adapters/sync
-SVG first, HTML/CSS second, Penpot/Figma research adapters after the canonical model is stable. Exit: minimal source patch and explicit fidelity accounting.
+## Phase 6a — first adapters/sync falsifier (complete for bounded HTML/CSS profile 0)
+`nuif-html-css-0` maps a declared container/text/finite-token subset through real DOM/CSS syntax with byte-span correspondence. Text, token and four-edge padding edits change only their six spans; comments and unmapped markup survive exactly; unsupported semantics have target/property fidelity. HTML/CSS was intentionally tested before SVG because Gate F and the architecture stop condition concern minimal source patches. The complete v0 responsive card, arbitrary HTML/CSS and SVG remain broader adapter work.
+
+## Phase 6b — broader adapters/sync
+Extend HTML/CSS to the v0 responsive card, then implement SVG and research Penpot/Figma adapters after the correspondence model survives that harder source path. Exit: full-v0 minimal patches with explicit fidelity, not whole-source regeneration or opaque sidecars.
 
 ## Phase 7 — collaboration
 Prototype Automerge/Yjs profiles over semantic operations. Exit: deterministic canonical checkpoint after concurrent edits and surfaced semantic conflicts.
