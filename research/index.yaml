@@ -1,0 +1,25 @@
+version: 1
+project: NUIF
+updated_at: 2026-08-29
+principles:
+  - id: nuif:claim:multi-level-ir
+    statement: A portable authored-interface standard requires multiple coordinated semantic levels rather than a single scene tree.
+  - id: nuif:claim:authored-resolved
+    statement: Authored intent and resolved evaluation state must both be representable.
+  - id: nuif:claim:sync-not-regenerate
+    statement: Round-trip portability should use correspondence, provenance, diff and patch rather than whole-project regeneration.
+  - id: nuif:claim:opaque-preservation
+    statement: Unknown vendor or dialect data should survive transit whenever structural preservation is possible.
+  - id: nuif:claim:collab-profile
+    statement: Collaboration state should be layered above the canonical document rather than defining the canonical document.
+  - id: nuif:claim:semantic-automation
+    statement: CLI and API semantics are normative test surfaces; GUI automation is supplementary.
+topics:
+  ir: [mlir, openusd, gltf]
+  design_models: [penpot, openpencil, figma]
+  layout: [taffy, yoga, swiftui-layout, cassowary]
+  rendering: [vello, wgpu, harfbuzz, unicode-text]
+  synchronization: [lenses, symmetric-lenses, retentive-lenses, structured-merge]
+  collaboration: [automerge, yjs]
+  encoding: [cbor, protobuf, kiwi]
+  ecosystem: [dtcg, wasm-component-model, step]
