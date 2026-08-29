@@ -8,6 +8,7 @@ members = [
   "crates/nuif-render",
   "crates/nuif-codec",
   "crates/nuif-query",
+  "crates/nuif-api",
 ]
 
 [workspace.package]

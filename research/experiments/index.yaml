@@ -1,0 +1,33 @@
+version: 1
+experiments:
+  - id: nuif:experiment:v0-responsive-card
+    status: planned
+    fixture: conformance/fixtures/v0-responsive-card
+    tests:
+      - semantic identity retention
+      - token binding retention
+      - responsive layout fidelity at 360 768 1440
+      - opaque extension preservation
+      - canonical encoding stability
+      - deterministic operation replay
+      - minimal source patch after design edit
+  - id: nuif:experiment:layout-differential
+    status: planned
+    tests:
+      - compare matching NUIF flex/grid fixtures with Taffy and browser output
+      - classify all divergences as schema loss evaluator bug or target semantic difference
+  - id: nuif:experiment:text-pinning
+    status: planned
+    tests:
+      - pin font hashes Unicode data shaping configuration locale and width
+      - measure cross-platform shaped-run and raster divergence
+  - id: nuif:experiment:codec-benchmark
+    status: planned
+    tests:
+      - canonical text vs deterministic CBOR vs schema-based candidates
+      - size encode decode partial-load canonicalize and unknown-data preservation
+  - id: nuif:experiment:crdt-checkpoint
+    status: planned
+    tests:
+      - concurrent semantic edits through two collaboration engines
+      - canonical checkpoint equality and explicit semantic conflicts

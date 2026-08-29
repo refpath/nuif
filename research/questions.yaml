@@ -1,0 +1,55 @@
+version: 1
+questions:
+  - id: nuif:question:typed-properties
+    topic: model
+    question: Which core properties require closed typed schema and which should use extensible typed values?
+    status: open
+    falsified_by: []
+  - id: nuif:question:composition-strength
+    topic: composition
+    question: What is the smallest deterministic opinion/layer ordering model sufficient for libraries, themes, variants and overrides?
+    status: open
+  - id: nuif:question:layout-families
+    topic: layout
+    question: Can stack/flex/grid/freeform/constraint families share sizing primitives without ambiguous evaluation semantics?
+    status: experiment-required
+  - id: nuif:question:text-reproducibility
+    topic: text
+    question: Which Unicode, shaping, font fallback and line breaking inputs must be pinned for normative text-layout fixtures?
+    status: experiment-required
+  - id: nuif:question:canonical-text
+    topic: serialization
+    question: What canonical text syntax best balances human review, deterministic hashing, unknown extension preservation and streaming?
+    status: open
+  - id: nuif:question:binary-profile
+    topic: serialization
+    question: Does deterministic CBOR outperform schema-generated encodings sufficiently for the authoring/wire workloads, or should NUIF ratify multiple binary profiles?
+    status: benchmark-required
+  - id: nuif:question:source-correspondence
+    topic: synchronization
+    question: What correspondence granularity is required for minimal Svelte/HTML/CSS patches while retaining formatting and comments?
+    status: experiment-required
+  - id: nuif:question:merge-semantics
+    topic: merge
+    question: Which semantic conflicts can converge automatically and which must always become explicit conflict objects?
+    status: experiment-required
+  - id: nuif:question:collab-profile
+    topic: collaboration
+    question: Can Automerge and Yjs both map cleanly onto the same NUIF operation semantics and checkpoint model?
+    status: experiment-required
+  - id: nuif:question:render-conformance
+    topic: renderer
+    question: Which visual properties require exact reference rasterization versus declared perceptual tolerances?
+    status: experiment-required
+  - id: nuif:question:extension-governance
+    topic: extensions
+    question: What evidence and independent implementation count is required to promote EXT namespaces into NUIF standard extensions?
+    status: governance
+  - id: nuif:question:accessibility-model
+    topic: semantics
+    question: What portable accessibility semantics can be normative without pretending platform accessibility APIs are identical?
+    status: research
+  - id: nuif:question:neutral-stewardship
+    topic: governance
+    question: Which standards/foundation home is appropriate after two independent implementations exist?
+    status: deferred

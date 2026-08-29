@@ -1,0 +1,15 @@
+[package]
+name = "nuif-api"
+version = "0.0.0"
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+nuif-core = { path = "../nuif-core" }
+nuif-protocol = { path = "../nuif-protocol" }
+nuif-layout = { path = "../nuif-layout" }
+nuif-render = { path = "../nuif-render" }
+
+[lints]
+workspace = true
