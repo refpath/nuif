@@ -93,6 +93,14 @@ jobs:
           path: |
             target/html-sync-report.json
             target/html-sync-output.html
+      - name: Upload independent implementation evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: gate-g-independent-profile
+          path: |
+            target/gate-g-report.json
+            target/gate-g-independent
       - name: Upload verification artifact index
         if: always()
         uses: actions/upload-artifact@v4
