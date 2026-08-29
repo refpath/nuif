@@ -19,8 +19,10 @@ nuif-codec = { path = "../../crates/nuif-codec" }
 nuif-core = { path = "../../crates/nuif-core" }
 nuif-layout = { path = "../../crates/nuif-layout" }
 nuif-protocol = { path = "../../crates/nuif-protocol" }
+nuif-render = { path = "../../crates/nuif-render" }
 serde.workspace = true
 serde_json.workspace = true
+sha2.workspace = true
 thiserror.workspace = true
 
 [dev-dependencies]

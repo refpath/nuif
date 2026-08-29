@@ -321,9 +321,11 @@ dependencies = [
  "nuif-core",
  "nuif-layout",
  "nuif-protocol",
+ "nuif-render",
  "nuif-testing",
  "serde",
  "serde_json",
+ "sha2",
  "thiserror",
 ]
 

@@ -1,10 +1,13 @@
 #![doc = "Headless-testable reference-editor session and accessibility action surface."]
 
 use nuif_api::{EngineError, Session, profile_zero_context};
-use nuif_codec::canonical_hash;
-use nuif_core::{Document, EntityId, EntityKind, SizeIntent};
-use nuif_protocol::{Axis, Operation, Patch, Transaction};
+use nuif_codec::{CanonicalText, Encoder, canonical_hash};
+use nuif_core::{Document, Entity, EntityId, EntityKind, ExtensionDeclarations, SizeIntent, Token};
+use nuif_layout::{EvaluationContext, LayoutSnapshot};
+use nuif_protocol::{Anchor, Axis, Operation, Patch, Transaction};
+use nuif_render::RenderScene;
 use serde::{Deserialize, Serialize};
+use sha2::{Digest, Sha256};
 use thiserror::Error;
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
@@ -49,6 +52,17 @@ pub enum AccessibilityAction {
         label: String,
         value: String,
     },
+    Insert {
+        parent: Option<EntityId>,
+        anchor: Anchor,
+        entity: Box<Entity>,
+    },
+    SetToken {
+        token: Token,
+    },
+    SetExtensionDeclarations {
+        value: ExtensionDeclarations,
+    },
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -61,19 +75,30 @@ pub enum EditorInput {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case", tag = "event")]
 pub enum EditorEvent {
-    SelectionChanged {
-        entities: Vec<EntityId>,
-    },
-    PatchApplied {
-        transaction: u128,
-    },
+    SelectionChanged { entities: Vec<EntityId> },
+    PatchApplied { transaction: u128 },
     HistoryChanged,
-    Snapshot {
-        canonical_hash: String,
-        layout_boxes: usize,
-        render_commands: usize,
-        png: Vec<u8>,
-    },
+    Snapshot { snapshot: Box<EditorSnapshot> },
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct EditorSnapshot {
+    pub canonical_hash: String,
+    pub canonical_document: String,
+    pub context: EvaluationContext,
+    pub layout: LayoutSnapshot,
+    pub scene: RenderScene,
+    pub raster: SnapshotRaster,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct SnapshotRaster {
+    pub width: u32,
+    pub height: u32,
+    pub rgba_sha256: String,
+    pub png: Vec<u8>,
 }
 
 #[derive(Debug, Error)]
@@ -207,17 +232,32 @@ impl EditorDriver {
                 Ok(EditorEvent::HistoryChanged)
             }
             EditorCommand::Snapshot { width, height } => {
-                let snapshot = self
-                    .session
-                    .snapshot(&profile_zero_context(f64::from(width), f64::from(height)))?;
+                let context = profile_zero_context(f64::from(width), f64::from(height));
+                let snapshot = self.session.snapshot(&context)?;
+                let canonical_document = String::from_utf8(
+                    CanonicalText
+                        .encode(self.session.document())
+                        .map_err(EngineError::from)?,
+                )
+                .map_err(|error| EditorError::Snapshot(error.to_string()))?;
+                let png = snapshot
+                    .raster
+                    .to_png()
+                    .map_err(|error| EditorError::Snapshot(error.to_string()))?;
                 Ok(EditorEvent::Snapshot {
-                    canonical_hash: snapshot.canonical_hash,
-                    layout_boxes: snapshot.layout.boxes.len(),
-                    render_commands: snapshot.scene.commands.len(),
-                    png: snapshot
-                        .raster
-                        .to_png()
-                        .map_err(|error| EditorError::Snapshot(error.to_string()))?,
+                    snapshot: Box::new(EditorSnapshot {
+                        canonical_hash: snapshot.canonical_hash,
+                        canonical_document,
+                        context,
+                        layout: snapshot.layout,
+                        scene: snapshot.scene,
+                        raster: SnapshotRaster {
+                            width: snapshot.raster.width,
+                            height: snapshot.raster.height,
+                            rgba_sha256: format!("{:x}", Sha256::digest(&snapshot.raster.rgba)),
+                            png,
+                        },
+                    }),
                 })
             }
         }
@@ -284,6 +324,19 @@ impl EditorDriver {
                     _ => Err(EditorError::AccessibilityActionUnsupported { label }),
                 }
             }
+            AccessibilityAction::Insert {
+                parent,
+                anchor,
+                entity,
+            } => self.apply(Operation::Insert {
+                parent,
+                anchor,
+                entity,
+            }),
+            AccessibilityAction::SetToken { token } => self.apply(Operation::SetToken { token }),
+            AccessibilityAction::SetExtensionDeclarations { value } => {
+                self.apply(Operation::SetExtensionDeclarations { value })
+            }
         }
     }
 
@@ -345,8 +398,27 @@ fn size_label(intent: &SizeIntent) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use nuif_codec::Decoder;
     use nuif_protocol::apply_patch;
     use nuif_testing::responsive_card_fixture;
+
+    fn insert_fixture_entity(
+        driver: &mut EditorDriver,
+        expected: &Document,
+        entity: EntityId,
+        parent: Option<EntityId>,
+        anchor: Anchor,
+    ) {
+        let mut value = expected.entities[&entity].clone();
+        value.children.clear();
+        driver
+            .dispatch_accessibility_action(AccessibilityAction::Insert {
+                parent,
+                anchor,
+                entity: Box::new(value),
+            })
+            .unwrap();
+    }
 
     #[test]
     fn accessibility_actions_and_replay_reach_the_same_hash() {
@@ -381,5 +453,101 @@ mod tests {
                 && node.label == "width"
                 && node.value.as_deref() == Some("640")
         }));
+    }
+
+    #[test]
+    fn semantic_actions_author_the_complete_v0_fixture_from_empty() {
+        let expected = responsive_card_fixture();
+        let mut driver = EditorDriver::new(Document::empty(expected.id));
+        driver
+            .dispatch_accessibility_action(AccessibilityAction::SetExtensionDeclarations {
+                value: expected.extension_declarations.clone(),
+            })
+            .unwrap();
+        for token in expected.tokens.values() {
+            driver
+                .dispatch_accessibility_action(AccessibilityAction::SetToken {
+                    token: token.clone(),
+                })
+                .unwrap();
+        }
+
+        let surface = EntityId::new(0x10);
+        let card = EntityId::new(0x20);
+        let media = EntityId::new(0x21);
+        let copy = EntityId::new(0x22);
+        let button = EntityId::new(0x23);
+        let instance = EntityId::new(0x24);
+        let opaque = EntityId::new(0x25);
+        let icon = EntityId::new(0x26);
+        insert_fixture_entity(&mut driver, &expected, surface, None, Anchor::Start);
+        insert_fixture_entity(&mut driver, &expected, card, Some(surface), Anchor::Start);
+        insert_fixture_entity(
+            &mut driver,
+            &expected,
+            button,
+            Some(surface),
+            Anchor::After(card),
+        );
+        insert_fixture_entity(&mut driver, &expected, media, Some(card), Anchor::Start);
+        insert_fixture_entity(
+            &mut driver,
+            &expected,
+            copy,
+            Some(card),
+            Anchor::After(media),
+        );
+        insert_fixture_entity(
+            &mut driver,
+            &expected,
+            instance,
+            Some(card),
+            Anchor::After(copy),
+        );
+        insert_fixture_entity(
+            &mut driver,
+            &expected,
+            opaque,
+            Some(card),
+            Anchor::After(instance),
+        );
+        insert_fixture_entity(&mut driver, &expected, icon, Some(button), Anchor::Start);
+
+        assert_eq!(driver.document(), &expected);
+        let nodes = driver.accessibility_tree();
+        for entity in expected.entities.keys() {
+            assert!(nodes.iter().any(|node| {
+                node.role == AccessibilityRole::TreeItem && node.author_id == Some(*entity)
+            }));
+        }
+
+        let mut replayed = Document::empty(expected.id);
+        for patch in driver.operation_log() {
+            apply_patch(&mut replayed, patch).unwrap();
+        }
+        assert_eq!(replayed, expected);
+
+        let event = driver
+            .execute(EditorCommand::Snapshot {
+                width: 768,
+                height: 640,
+            })
+            .unwrap();
+        let EditorEvent::Snapshot { snapshot } = event else {
+            panic!("snapshot command returned the wrong event");
+        };
+        assert_eq!(snapshot.canonical_hash, canonical_hash(&expected).unwrap());
+        assert_eq!(
+            CanonicalText
+                .decode(snapshot.canonical_document.as_bytes())
+                .unwrap(),
+            expected
+        );
+        assert!((snapshot.context.viewport.width - 768.0).abs() < f64::EPSILON);
+        assert_eq!(snapshot.layout.boxes.len(), expected.entities.len());
+        assert!(!snapshot.scene.commands.is_empty());
+        assert_eq!((snapshot.raster.width, snapshot.raster.height), (768, 640));
+        assert_eq!(snapshot.raster.rgba_sha256.len(), 64);
+        assert!(snapshot.raster.png.starts_with(b"\x89PNG\r\n\x1a\n"));
     }
 }
