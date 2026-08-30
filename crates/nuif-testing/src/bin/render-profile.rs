@@ -250,9 +250,12 @@ fn fidelity_trials() -> Result<(Vec<Value>, bool), String> {
                         && matches!(entry.status, Fidelity::PreservedUnrenderable { .. })
                 }
                 "/entities/00000000000000000000000000000002/kind"
-                | "/entities/00000000000000000000000000000003/kind"
                 | "/entities/00000000000000000000000000000004/kind" => {
                     matches!(entry.status, Fidelity::Unsupported { .. })
+                }
+                "/entities/00000000000000000000000000000003/authored/image" => {
+                    entry.entity == Some(EntityId::new(3))
+                        && matches!(entry.status, Fidelity::Unsupported { .. })
                 }
                 "/entities/00000000000000000000000000000005/kind" => {
                     entry.entity == Some(EntityId::new(5))

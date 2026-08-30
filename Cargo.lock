@@ -2491,6 +2491,7 @@ version = "0.0.0"
 dependencies = [
  "nuif-core",
  "nuif-layout",
+ "nuif-media",
  "nuif-text",
  "png",
  "serde",

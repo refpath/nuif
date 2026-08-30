@@ -1,9 +1,11 @@
 #![doc = "Renderer-independent scene lowering and deterministic CPU rasterization."]
 
 use nuif_core::{
-    Color as ModelColor, ColorSpace, Document, EntityId, EntityKind, Fidelity, ShapeKind,
+    AssetId, AssetKind, Color as ModelColor, ColorSpace, Document, EntityId, EntityKind, Fidelity,
+    ImageCrop, ImageFit, ImagePaint, ImageSampling, ResourceDigest, ShapeKind,
 };
 use nuif_layout::{EvaluationContext, LayoutSnapshot, Rect, WritingDirection};
+use nuif_media::{MediaError, PNG_RGBA8_PROFILE, Rgba8Image, decode_png_rgba8};
 use nuif_text::{
     CLUSTER_UNIT, GlyphOutline, MAX_SHAPING_CODEPOINTS, OUTLINE_COORDINATE_DENOMINATOR,
     OUTLINE_EXTRACTOR_NAME, OUTLINE_EXTRACTOR_VERSION, OutlineCommand, OutlinePoint,
@@ -57,6 +59,18 @@ pub enum DrawCommand {
         run: Box<ShapedRun>,
         outlines: Box<BTreeMap<u32, GlyphOutline>>,
         color: Color,
+    },
+    Image {
+        entity: EntityId,
+        rect: Rect,
+        asset: AssetId,
+        resource: ResourceDigest,
+        decoder_profile: String,
+        image: Box<Rgba8Image>,
+        fit: ImageFit,
+        crop: ImageCrop,
+        sampling: ImageSampling,
+        opacity: f32,
     },
 }
 
@@ -143,6 +157,14 @@ pub enum RenderError {
         #[source]
         source: TextError,
     },
+    #[error("image decoding failed for entity {entity}: {source}")]
+    Image {
+        entity: EntityId,
+        #[source]
+        source: MediaError,
+    },
+    #[error("image metadata or decoded dimensions are inconsistent for entity {entity}")]
+    InvalidImage { entity: EntityId },
     #[error("PNG encoding failed: {0}")]
     Png(String),
 }
@@ -174,6 +196,23 @@ pub fn build_scene(
     layout: &LayoutSnapshot,
     context: &EvaluationContext,
 ) -> Result<RenderScene, RenderError> {
+    build_scene_with_resources(document, layout, context, |_| None)
+}
+
+/// Lowers a scene while resolving exact encoded image resources explicitly.
+/// The resolver grants no filesystem or network authority; callers decide how
+/// a verified digest maps to bytes.
+///
+/// # Errors
+///
+/// Returns typed text, image decode or image metadata errors. Missing resources
+/// and unsupported decoder/paint profiles remain item-level fidelity records.
+pub fn build_scene_with_resources<'a>(
+    document: &Document,
+    layout: &LayoutSnapshot,
+    context: &EvaluationContext,
+    resolve: impl Fn(&ResourceDigest) -> Option<&'a [u8]>,
+) -> Result<RenderScene, RenderError> {
     let mut scene = RenderScene::default();
     for namespace in document.extensions.0.keys() {
         scene.fidelity.push(RenderFidelity {
@@ -197,7 +236,18 @@ pub fn build_scene(
                 },
             });
         }
-        lower_entity_visual(&mut scene, *id, &entity.kind, rect, entity.authored.fill);
+        if matches!(entity.kind, EntityKind::Image) {
+            lower_image(
+                &mut scene,
+                document,
+                *id,
+                rect,
+                entity.authored.image.as_ref(),
+                &resolve,
+            )?;
+        } else {
+            lower_entity_visual(&mut scene, *id, &entity.kind, rect, entity.authored.fill);
+        }
         if let Some(text) = &entity.authored.text {
             lower_text(&mut scene, *id, rect, text, context)?;
         }
@@ -229,13 +279,6 @@ fn lower_entity_visual(
                 },
             });
         }
-        EntityKind::Image => scene.fidelity.push(RenderFidelity {
-            entity: Some(id),
-            pointer: format!("/entities/{id}/kind"),
-            status: Fidelity::Unsupported {
-                reason: "profile 0 has no authored image-asset field".to_owned(),
-            },
-        }),
         EntityKind::Instance { .. } => scene.fidelity.push(RenderFidelity {
             entity: Some(id),
             pointer: format!("/entities/{id}/kind"),
@@ -262,6 +305,96 @@ fn lower_entity_visual(
             }
         }
     }
+}
+
+fn lower_image<'a>(
+    scene: &mut RenderScene,
+    document: &Document,
+    id: EntityId,
+    rect: Rect,
+    paint: Option<&ImagePaint>,
+    resolve: &impl Fn(&ResourceDigest) -> Option<&'a [u8]>,
+) -> Result<(), RenderError> {
+    let Some(paint) = paint else {
+        image_fidelity(scene, id, "image entity has no authored image paint");
+        return Ok(());
+    };
+    if !image_transform_is_identity(paint) {
+        image_fidelity(
+            scene,
+            id,
+            "nuif-image-rgba8-0 supports only the identity image transform",
+        );
+        return Ok(());
+    }
+    if paint.color_conversion != "srgb" {
+        image_fidelity(
+            scene,
+            id,
+            "nuif-image-rgba8-0 supports only encoded-sRGB passthrough",
+        );
+        return Ok(());
+    }
+    let Some(asset) = document.assets.get(&paint.asset) else {
+        return Err(RenderError::InvalidImage { entity: id });
+    };
+    let AssetKind::Image(metadata) = &asset.kind else {
+        return Err(RenderError::InvalidImage { entity: id });
+    };
+    if metadata.decoder_profile != PNG_RGBA8_PROFILE {
+        image_fidelity(scene, id, "image decoder profile is not supported");
+        return Ok(());
+    }
+    let Some(resource) = &asset.resource else {
+        image_fidelity(scene, id, "image resource is unavailable");
+        return Ok(());
+    };
+    let Some(bytes) = resolve(resource) else {
+        image_fidelity(scene, id, "image resource was not explicitly resolved");
+        return Ok(());
+    };
+    let image =
+        decode_png_rgba8(bytes).map_err(|source| RenderError::Image { entity: id, source })?;
+    if image.width != metadata.width || image.height != metadata.height {
+        return Err(RenderError::InvalidImage { entity: id });
+    }
+    scene.commands.push(DrawCommand::Image {
+        entity: id,
+        rect,
+        asset: paint.asset,
+        resource: resource.clone(),
+        decoder_profile: metadata.decoder_profile.clone(),
+        image: Box::new(image),
+        fit: paint.fit,
+        crop: paint.crop,
+        sampling: paint.sampling,
+        opacity: paint.opacity,
+    });
+    scene.fidelity.push(RenderFidelity {
+        entity: Some(id),
+        pointer: format!("/entities/{id}/authored/image"),
+        status: Fidelity::Lossless,
+    });
+    Ok(())
+}
+
+fn image_transform_is_identity(paint: &ImagePaint) -> bool {
+    paint.transform.a.to_bits() == 1.0_f64.to_bits()
+        && paint.transform.b.to_bits() == 0.0_f64.to_bits()
+        && paint.transform.c.to_bits() == 0.0_f64.to_bits()
+        && paint.transform.d.to_bits() == 1.0_f64.to_bits()
+        && paint.transform.tx.to_bits() == 0.0_f64.to_bits()
+        && paint.transform.ty.to_bits() == 0.0_f64.to_bits()
+}
+
+fn image_fidelity(scene: &mut RenderScene, id: EntityId, reason: &str) {
+    scene.fidelity.push(RenderFidelity {
+        entity: Some(id),
+        pointer: format!("/entities/{id}/authored/image"),
+        status: Fidelity::Unsupported {
+            reason: reason.to_owned(),
+        },
+    });
 }
 
 fn lower_text(
@@ -352,9 +485,12 @@ pub fn render_cpu(scene: &RenderScene, target: RenderTarget) -> Result<RasterIma
         return Err(RenderError::InvalidTarget);
     }
     for command in &scene.commands {
-        let (entity, rect, color, valid_text_run) = match command {
+        let (entity, valid) = match command {
             DrawCommand::Rect { entity, rect, fill }
-            | DrawCommand::Ellipse { entity, rect, fill } => (*entity, *rect, *fill, true),
+            | DrawCommand::Ellipse { entity, rect, fill } => (
+                *entity,
+                command_rect_is_valid(*rect, target.scale_factor) && color_is_finite(*fill),
+            ),
             DrawCommand::Text {
                 entity,
                 rect,
@@ -363,16 +499,26 @@ pub fn render_cpu(scene: &RenderScene, target: RenderTarget) -> Result<RasterIma
                 outlines,
             } => (
                 *entity,
-                *rect,
-                *color,
-                shaped_run_is_valid(run, outlines, f64::from(target.scale_factor)),
+                command_rect_is_valid(*rect, target.scale_factor)
+                    && color_is_finite(*color)
+                    && shaped_run_is_valid(run, outlines, f64::from(target.scale_factor)),
+            ),
+            DrawCommand::Image {
+                entity,
+                rect,
+                decoder_profile,
+                image,
+                crop,
+                opacity,
+                ..
+            } => (
+                *entity,
+                command_rect_is_valid(*rect, target.scale_factor)
+                    && decoder_profile == PNG_RGBA8_PROFILE
+                    && image_command_is_valid(image, *crop, *opacity),
             ),
         };
-        if !rect_is_valid(rect)
-            || !rect_is_valid(scale_rect(rect, f64::from(target.scale_factor)))
-            || !color_is_finite(color)
-            || !valid_text_run
-        {
+        if !valid {
             return Err(RenderError::InvalidScene { entity });
         }
     }
@@ -407,9 +553,49 @@ pub fn render_cpu(scene: &RenderScene, target: RenderTarget) -> Result<RasterIma
                 f64::from(target.scale_factor),
                 *color,
             ),
+            DrawCommand::Image {
+                rect,
+                image: source,
+                fit,
+                crop,
+                sampling,
+                opacity,
+                ..
+            } => draw_image(
+                &mut image,
+                scale_rect(*rect, f64::from(target.scale_factor)),
+                source,
+                *fit,
+                *crop,
+                *sampling,
+                *opacity,
+                f64::from(target.scale_factor),
+            ),
         }
     }
     Ok(image)
+}
+
+fn command_rect_is_valid(rect: Rect, scale_factor: f32) -> bool {
+    rect_is_valid(rect) && rect_is_valid(scale_rect(rect, f64::from(scale_factor)))
+}
+
+fn image_command_is_valid(image: &Rgba8Image, crop: ImageCrop, opacity: f32) -> bool {
+    let expected = usize::try_from(u64::from(image.width) * u64::from(image.height) * 4).ok();
+    image.width > 0
+        && image.height > 0
+        && expected == Some(image.rgba.len())
+        && [crop.x, crop.y, crop.width, crop.height]
+            .into_iter()
+            .all(f64::is_finite)
+        && crop.x >= 0.0
+        && crop.y >= 0.0
+        && crop.width > 0.0
+        && crop.height > 0.0
+        && crop.x + crop.width <= 1.0
+        && crop.y + crop.height <= 1.0
+        && opacity.is_finite()
+        && (0.0..=1.0).contains(&opacity)
 }
 
 fn scale_rect(rect: Rect, scale: f64) -> Rect {
@@ -454,6 +640,153 @@ fn shaped_run_is_valid(
                     .get(&glyph.glyph_id)
                     .is_some_and(|outline| outline_is_valid(glyph.glyph_id, outline))
         })
+}
+
+#[expect(
+    clippy::too_many_arguments,
+    reason = "the image command fields stay explicit at the deterministic raster boundary"
+)]
+fn draw_image(
+    destination: &mut RasterImage,
+    destination_rect: Rect,
+    source: &Rgba8Image,
+    fit: ImageFit,
+    crop: ImageCrop,
+    sampling: ImageSampling,
+    opacity: f32,
+    target_scale: f64,
+) {
+    if destination_rect.width == 0.0 || destination_rect.height == 0.0 || opacity == 0.0 {
+        return;
+    }
+    let source_width = f64::from(source.width) * crop.width;
+    let source_height = f64::from(source.height) * crop.height;
+    let (draw_width, draw_height) = match fit {
+        ImageFit::Fill => (destination_rect.width, destination_rect.height),
+        ImageFit::Contain => {
+            let scale = (destination_rect.width / source_width)
+                .min(destination_rect.height / source_height);
+            (source_width * scale, source_height * scale)
+        }
+        ImageFit::Cover => {
+            let scale = (destination_rect.width / source_width)
+                .max(destination_rect.height / source_height);
+            (source_width * scale, source_height * scale)
+        }
+        ImageFit::None => (source_width * target_scale, source_height * target_scale),
+    };
+    let draw = Rect {
+        x: destination_rect.x + (destination_rect.width - draw_width) * 0.5,
+        y: destination_rect.y + (destination_rect.height - draw_height) * 0.5,
+        width: draw_width,
+        height: draw_height,
+    };
+    let x0 = floor_coordinate(draw.x.max(destination_rect.x), destination.width);
+    let y0 = floor_coordinate(draw.y.max(destination_rect.y), destination.height);
+    let x1 = ceil_coordinate(
+        (draw.x + draw.width).min(destination_rect.x + destination_rect.width),
+        destination.width,
+    );
+    let y1 = ceil_coordinate(
+        (draw.y + draw.height).min(destination_rect.y + destination_rect.height),
+        destination.height,
+    );
+    let opacity = channel(opacity);
+    for y in y0..y1 {
+        for x in x0..x1 {
+            let u = (f64::from(x) + 0.5 - draw.x) / draw.width;
+            let v = (f64::from(y) + 0.5 - draw.y) / draw.height;
+            if !(0.0..1.0).contains(&u) || !(0.0..1.0).contains(&v) {
+                continue;
+            }
+            let mut pixel = match sampling {
+                ImageSampling::Nearest => sample_image_nearest(source, crop, u, v),
+                ImageSampling::Linear => sample_image_linear(source, crop, u, v),
+            };
+            pixel[3] = u8::try_from((u16::from(pixel[3]) * u16::from(opacity) + 127) / 255)
+                .expect("product of two u8 alpha values remains in the u8 domain");
+            blend_pixel(destination, x, y, pixel);
+        }
+    }
+}
+
+fn sample_image_nearest(source: &Rgba8Image, crop: ImageCrop, u: f64, v: f64) -> [u8; 4] {
+    let x = (crop.x + u * crop.width) * f64::from(source.width);
+    let y = (crop.y + v * crop.height) * f64::from(source.height);
+    image_pixel(
+        source,
+        bounded_sample_index(x.floor(), source.width),
+        bounded_sample_index(y.floor(), source.height),
+    )
+}
+
+fn sample_image_linear(source: &Rgba8Image, crop: ImageCrop, u: f64, v: f64) -> [u8; 4] {
+    let x = (crop.x + u * crop.width) * f64::from(source.width) - 0.5;
+    let y = (crop.y + v * crop.height) * f64::from(source.height) - 0.5;
+    let min_x = bounded_sample_index((crop.x * f64::from(source.width)).floor(), source.width);
+    let min_y = bounded_sample_index((crop.y * f64::from(source.height)).floor(), source.height);
+    let max_x = bounded_sample_index(
+        ((crop.x + crop.width) * f64::from(source.width)).ceil() - 1.0,
+        source.width,
+    );
+    let max_y = bounded_sample_index(
+        ((crop.y + crop.height) * f64::from(source.height)).ceil() - 1.0,
+        source.height,
+    );
+    let x_floor = x.floor();
+    let y_floor = y.floor();
+    let x0 = bounded_sample_index(x_floor, source.width).clamp(min_x, max_x);
+    let y0 = bounded_sample_index(y_floor, source.height).clamp(min_y, max_y);
+    let x1 = bounded_sample_index(x_floor + 1.0, source.width).clamp(min_x, max_x);
+    let y1 = bounded_sample_index(y_floor + 1.0, source.height).clamp(min_y, max_y);
+    let wx = sample_fraction(x - x_floor);
+    let wy = sample_fraction(y - y_floor);
+    let samples = [
+        image_pixel(source, x0, y0),
+        image_pixel(source, x1, y0),
+        image_pixel(source, x0, y1),
+        image_pixel(source, x1, y1),
+    ];
+    let weights = [
+        (65_536 - wx) * (65_536 - wy),
+        wx * (65_536 - wy),
+        (65_536 - wx) * wy,
+        wx * wy,
+    ];
+    std::array::from_fn(|channel| {
+        let total = samples
+            .iter()
+            .zip(weights)
+            .map(|(pixel, weight)| u64::from(pixel[channel]) * weight)
+            .sum::<u64>();
+        u8::try_from((total + (1_u64 << 31)) >> 32)
+            .expect("normalized bilinear weights retain the u8 channel domain")
+    })
+}
+
+#[expect(
+    clippy::cast_possible_truncation,
+    clippy::cast_sign_loss,
+    reason = "the finite sample coordinate is clamped to the source image before conversion"
+)]
+fn bounded_sample_index(value: f64, limit: u32) -> u32 {
+    value.clamp(0.0, f64::from(limit.saturating_sub(1))) as u32
+}
+
+#[expect(
+    clippy::cast_possible_truncation,
+    clippy::cast_sign_loss,
+    reason = "the finite fraction is clamped to the fixed 16-bit interpolation domain"
+)]
+fn sample_fraction(value: f64) -> u64 {
+    (value.clamp(0.0, 1.0) * 65_536.0).round() as u64
+}
+
+fn image_pixel(image: &Rgba8Image, x: u32, y: u32) -> [u8; 4] {
+    let index = (y as usize * image.width as usize + x as usize) * 4;
+    image.rgba[index..index + 4]
+        .try_into()
+        .expect("validated RGBA image has four channels per pixel")
 }
 
 fn outline_is_valid(glyph_id: u32, outline: &GlyphOutline) -> bool {
@@ -711,7 +1044,10 @@ fn blend_pixel(image: &mut RasterImage, x: u32, y: u32, source: [u8; 4]) {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use nuif_core::{Entity, SizeIntent, TextContent};
+    use nuif_core::{
+        AffineTransform, Asset, AssetPortability, CURRENT_SCHEMA_VERSION, Entity, ImageAsset,
+        Point, SizeIntent, TextContent,
+    };
     use nuif_text::{PINNED_FONT_NAME, PINNED_FONT_SHA256};
 
     fn text_document_and_layout() -> (Document, LayoutSnapshot) {
@@ -730,6 +1066,73 @@ mod tests {
         document.entities.insert(text.id, text);
         let layout = nuif_layout::evaluate(&document, &EvaluationContext::viewport(100.0, 20.0));
         (document, layout)
+    }
+
+    fn image_bytes() -> Vec<u8> {
+        let mut output = Vec::new();
+        {
+            let mut encoder = png::Encoder::new(Cursor::new(&mut output), 2, 2);
+            encoder.set_color(png::ColorType::Rgba);
+            encoder.set_depth(png::BitDepth::Eight);
+            encoder.set_filter(png::Filter::NoFilter);
+            let mut writer = encoder.write_header().unwrap();
+            writer
+                .write_image_data(&[
+                    255, 0, 0, 255, 0, 255, 0, 255, 0, 0, 255, 255, 255, 255, 255, 255,
+                ])
+                .unwrap();
+        }
+        output
+    }
+
+    fn image_document() -> (Document, ResourceDigest, Vec<u8>) {
+        let bytes = image_bytes();
+        let resource = ResourceDigest::from_sha256_hex("a".repeat(64));
+        let asset_id = AssetId::new(0xa0);
+        let mut document = Document::empty(EntityId::new(1));
+        document.assets.insert(
+            asset_id,
+            Asset {
+                schema_version: CURRENT_SCHEMA_VERSION,
+                id: asset_id,
+                name: Some("pixels".to_owned()),
+                resource: Some(resource.clone()),
+                portability: AssetPortability::Portable,
+                kind: AssetKind::Image(ImageAsset {
+                    width: 2,
+                    height: 2,
+                    decoder_profile: PNG_RGBA8_PROFILE.to_owned(),
+                }),
+            },
+        );
+        let mut entity = Entity::new(EntityId::new(2), EntityKind::Image);
+        entity.authored.width = SizeIntent::Fixed(4.0);
+        entity.authored.height = SizeIntent::Fixed(4.0);
+        entity.authored.position = Point { x: 0.0, y: 0.0 };
+        entity.authored.image = Some(ImagePaint {
+            asset: asset_id,
+            fit: ImageFit::Fill,
+            crop: ImageCrop {
+                x: 0.0,
+                y: 0.0,
+                width: 1.0,
+                height: 1.0,
+            },
+            transform: AffineTransform {
+                a: 1.0,
+                b: 0.0,
+                c: 0.0,
+                d: 1.0,
+                tx: 0.0,
+                ty: 0.0,
+            },
+            sampling: ImageSampling::Nearest,
+            opacity: 1.0,
+            color_conversion: "srgb".to_owned(),
+        });
+        document.roots.push(entity.id);
+        document.entities.insert(entity.id, entity);
+        (document, resource, bytes)
     }
 
     #[test]
@@ -797,7 +1200,9 @@ mod tests {
             .iter()
             .filter_map(|command| match command {
                 DrawCommand::Text { rect, run, .. } => Some((*rect, run.text.as_str())),
-                DrawCommand::Rect { .. } | DrawCommand::Ellipse { .. } => None,
+                DrawCommand::Rect { .. }
+                | DrawCommand::Ellipse { .. }
+                | DrawCommand::Image { .. } => None,
             })
             .collect::<Vec<_>>();
         assert_eq!(text_commands.len(), 2);
@@ -859,6 +1264,156 @@ mod tests {
         assert_eq!(first, second);
         assert_eq!(&first.rgba[20..24], &[255, 0, 0, 255]);
         assert_eq!(first.to_png().unwrap(), second.to_png().unwrap());
+    }
+
+    #[test]
+    fn package_image_lowers_only_through_explicit_resource_resolution() {
+        let (mut document, resource, bytes) = image_document();
+        let context = EvaluationContext::viewport(4.0, 4.0);
+        let layout = nuif_layout::evaluate(&document, &context);
+        let unresolved = build_scene(&document, &layout, &context).unwrap();
+        assert!(unresolved.commands.is_empty());
+        assert!(matches!(
+            unresolved.fidelity[0].status,
+            Fidelity::Unsupported { .. }
+        ));
+
+        let scene = build_scene_with_resources(&document, &layout, &context, |digest| {
+            (digest == &resource).then_some(bytes.as_slice())
+        })
+        .unwrap();
+        assert!(matches!(scene.commands[0], DrawCommand::Image { .. }));
+        assert_eq!(scene.fidelity[0].status, Fidelity::Lossless);
+        let raster = render_cpu(
+            &scene,
+            RenderTarget {
+                width: 4,
+                height: 4,
+                scale_factor: 1.0,
+            },
+        )
+        .unwrap();
+        let pixel = |x: usize, y: usize| &raster.rgba[(y * 4 + x) * 4..][..4];
+        assert_eq!(pixel(0, 0), [255, 0, 0, 255]);
+        assert_eq!(pixel(3, 0), [0, 255, 0, 255]);
+        assert_eq!(pixel(0, 3), [0, 0, 255, 255]);
+        assert_eq!(pixel(3, 3), [255, 255, 255, 255]);
+
+        let AssetKind::Image(metadata) =
+            &mut document.assets.get_mut(&AssetId::new(0xa0)).unwrap().kind
+        else {
+            panic!("fixture asset must be an image");
+        };
+        metadata.width = 3;
+        assert!(matches!(
+            build_scene_with_resources(&document, &layout, &context, |_| Some(bytes.as_slice())),
+            Err(RenderError::InvalidImage { .. })
+        ));
+    }
+
+    #[test]
+    fn image_sampling_crop_fit_and_opacity_are_fixed() {
+        let source = Rgba8Image {
+            width: 2,
+            height: 2,
+            rgba: vec![
+                255, 0, 0, 255, 0, 255, 0, 255, 0, 0, 255, 255, 255, 255, 255, 255,
+            ],
+        };
+        let command = |rect, fit, crop, sampling, opacity| DrawCommand::Image {
+            entity: EntityId::new(2),
+            rect,
+            asset: AssetId::new(1),
+            resource: ResourceDigest::from_sha256_hex("b".repeat(64)),
+            decoder_profile: PNG_RGBA8_PROFILE.to_owned(),
+            image: Box::new(source.clone()),
+            fit,
+            crop,
+            sampling,
+            opacity,
+        };
+        let render = |command, width, height| {
+            render_cpu(
+                &RenderScene {
+                    commands: vec![command],
+                    fidelity: Vec::new(),
+                },
+                RenderTarget {
+                    width,
+                    height,
+                    scale_factor: 1.0,
+                },
+            )
+            .unwrap()
+        };
+        let full = ImageCrop {
+            x: 0.0,
+            y: 0.0,
+            width: 1.0,
+            height: 1.0,
+        };
+        let linear = render(
+            command(
+                Rect {
+                    x: 0.0,
+                    y: 0.0,
+                    width: 1.0,
+                    height: 1.0,
+                },
+                ImageFit::Fill,
+                full,
+                ImageSampling::Linear,
+                1.0,
+            ),
+            1,
+            1,
+        );
+        assert_eq!(linear.rgba, [128, 128, 128, 255]);
+
+        let cropped = render(
+            command(
+                Rect {
+                    x: 0.0,
+                    y: 0.0,
+                    width: 1.0,
+                    height: 2.0,
+                },
+                ImageFit::Fill,
+                ImageCrop {
+                    x: 0.5,
+                    y: 0.0,
+                    width: 0.5,
+                    height: 1.0,
+                },
+                ImageSampling::Nearest,
+                1.0,
+            ),
+            1,
+            2,
+        );
+        assert_eq!(cropped.rgba, [0, 255, 0, 255, 255, 255, 255, 255]);
+
+        let contained = render(
+            command(
+                Rect {
+                    x: 0.0,
+                    y: 0.0,
+                    width: 4.0,
+                    height: 6.0,
+                },
+                ImageFit::Contain,
+                full,
+                ImageSampling::Nearest,
+                0.5,
+            ),
+            4,
+            6,
+        );
+        let pixel = |x: usize, y: usize| &contained.rgba[(y * 4 + x) * 4..][..4];
+        assert_eq!(pixel(0, 0), [255, 255, 255, 255]);
+        assert_eq!(pixel(0, 1), [255, 127, 127, 255]);
+        assert_eq!(pixel(3, 4), [255, 255, 255, 255]);
+        assert_eq!(pixel(0, 5), [255, 255, 255, 255]);
     }
 
     #[test]

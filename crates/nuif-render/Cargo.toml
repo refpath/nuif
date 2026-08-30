@@ -8,6 +8,7 @@ repository.workspace = true
 [dependencies]
 nuif-core = { version = "0.0.1", path = "../nuif-core" }
 nuif-layout = { version = "0.0.0", path = "../nuif-layout" }
+nuif-media = { version = "0.0.1", path = "../nuif-media" }
 nuif-text = { version = "0.0.1", path = "../nuif-text" }
 png.workspace = true
 serde.workspace = true
