@@ -32,7 +32,9 @@ This distinction is important: marking an open research problem as finished woul
 - OpenType and Fontations evidence now supports one executable static TrueType
   package baseline with a pinned HarfBuzz metadata oracle. The retired
   `ttf-parser` decision remains documented; broad font formats, portability
-  outcomes and shaping/raster integration remain experiment-required.
+  outcomes and shaping/raster integration remain experiment-required. Warmed
+  parser and packaged-validation allocation ceilings cover every accepted
+  fixture.
 - Browser source capture and screenshot reconstruction are different evidence
   lanes and cannot share a blanket `lossless` claim.
 - Current screenshot-to-code work supports OCR/region/hierarchical and render-

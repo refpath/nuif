@@ -43,10 +43,11 @@ RGBA forms plus valid transparency; both retain encoded bytes and repeat
 package-aware CPU image rendering through `cargo xtask gate-i-image`. Gate I
 remains open for 16-bit/interlaced/colour-managed PNG and live host/GPU affine
 equivalence. Package/session handoff and decoded image surfaces now have
-measured sharing, total-byte and allocation ceilings; font processing still
-needs an equivalent allocation profile. A Linux/Windows/macOS resource-gate
-matrix is configured; successful hosted artifacts are still required before a
-cross-platform reproduction claim. The
+measured sharing, total-byte and allocation ceilings. Static-font inspection
+and packaged validation now have warmed allocation ceilings across every
+accepted fixture. A Linux/Windows/macOS resource-gate matrix is configured;
+successful hosted artifacts are still required before a cross-platform
+reproduction claim. The
 separate `nuif-opentype-static-single-0` baseline validates one exact static
 TrueType face through package encoding/resolution, compares Skrifa results with
 a pinned HarfBuzz metadata capture and rejects malformed/policy/one-over cases through

@@ -64,6 +64,12 @@ Resource limits are validation policy, not proof that an accepted font is safe
 for every downstream native rasterizer. A renderer must preserve its own
 sandbox and work budgets.
 
+The release gate measures each of the four accepted fixtures after one parser
+warmup. A single inspection and a packaged-font validation must each remain at
+or below 4 MiB total allocator traffic and 2 MiB retained memory. These are
+reference-implementation regression ceilings measured with `stats_alloc`
+0.1.10, not portable format limits or a downstream rasterizer budget.
+
 This baseline does not yet prove shaping equivalence, glyph-outline
 equivalence, subsetting, variable-axis behavior, color-font behavior, browser
 font decoding, layout fidelity, or licensing compliance.
@@ -79,4 +85,5 @@ CFF, variable, COLR, embedded bitmap, CBDT and sbix categories. Ten metadata and
 embedding-policy mutations plus six portable/private/linked/substituted/
 unavailable package outcomes are blocking. The real rejected fixtures prove
 that those categories fail closed; they do not specify how a future profile
-will accept them.
+will accept them. Four warmed inspection-allocation trials and one warmed
+packaged-validation allocation trial are also blocking.

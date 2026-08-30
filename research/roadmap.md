@@ -47,8 +47,9 @@ TTC, CFF, variable/color/bitmap/WOFF2 acceptance and complete item-level
 portability fidelity remain separate beyond the automated package-state outcomes.
 Package/session handoff now proves shared immutable bytes, and image scenes
 deduplicate decoded surfaces under a preflighted 64 MiB total plus measured
-allocation ceilings. Cross-platform writer reproduction and font-processing
-allocation evidence remain independent requirements. Browser capture precedes
+allocation ceilings. Static-font inspection and packaged validation have their
+own warmed allocation ceilings. Cross-platform writer reproduction remains an
+independent requirement. Browser capture precedes
 screenshot reconstruction because it provides stronger source-backed fixtures
 and exposes which information is truly unavailable from pixels.
 

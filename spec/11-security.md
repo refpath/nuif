@@ -84,5 +84,9 @@ a 32 MiB encoded-byte limit, 256-table limit, 256-family-name limit,
 65,536-coverage-range limit and 64-feature-setting limit. It validates sfnt
 search fields, sorted unique table records, exact contiguous zero-padded
 packing, per-table checksums and the whole-font checksum before accepting face
-metadata. These limits do not authorize other font containers/outlines, native
-rasterizer execution, redistribution or inclusion in CPU render profile 0.
+metadata. Its warmed reference implementation additionally caps one inspection
+or packaged-font validation at 4 MiB allocator traffic and 2 MiB retained
+memory. The allocation ceilings are CI regressions rather than portable format
+semantics. These limits do not authorize other font containers/outlines,
+native rasterizer execution, redistribution or inclusion in CPU render profile
+0.

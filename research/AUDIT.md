@@ -24,7 +24,7 @@ The research base is solid enough to continue only under the gates below. It is 
 | Oracle independence | The harness listed the reference implementation as oracle for several properties without separating self-consistency from independent correctness. | Reports identify oracle class. Codec, replay and inverse tests are metamorphic. Gate C now supplies Taffy and pinned Chrome foreign references for the declared CSS-compatible layout subset; adapters remain experimental until a foreign round trip is wired in. |
 | Layout thresholds | A global `< 0.1 px` browser threshold and fixed visual thresholds were copied from prior systems without a NUIF calibration dataset. | Gate C now stores a bound per fixture: the measured Taffy/browser maximum rounded upward to 0.01 px and capped at 0.1 px. Exact foreign agreement retains a zero bound. These empirical bounds apply only to the pinned browser/platform report and are not normative across platforms. |
 | CPU exactness | “CPU `f32`, tolerance 0 across operating systems” was asserted before a pinned math, font and raster pipeline existed. | Exactness is limited to the declared CPU profile 0. It pins color, coverage, composition, font, shaping, hard-line layout, outlines and grayscale masks; rectangle, ellipse and text hashes agree on the recorded macOS/aarch64, Linux/aarch64 and Linux/x86_64 matrix. Untested platforms and future visual operations are not covered. |
-| Resource limits | Depth 1024 and one million nodes were listed without memory/time measurements. | RFC 0009 replaces them with measured profile-0 byte, syntax, semantic, diagnostic, allocation and time bounds. Image/font/path/GPU budgets remain future-profile work. |
+| Resource limits | Depth 1024 and one million nodes were listed without memory/time measurements. | RFC 0009 replaces them with measured profile-0 byte, syntax, semantic, diagnostic, allocation and time bounds. Orthogonal image and static-font profiles now publish measured ceilings; broader media, path and GPU budgets remain future-profile work. |
 | Package/assets claim | The roadmap called package/assets complete although `.nuif` fixtures are bare canonical documents and profile 0 rejects images. | Phase 4 is split. RFC 0010 is proposed; package, image and font profiles require independent experiments before acceptance. |
 | Capture versus inference | Static source synchronization, browser observation and screenshot reconstruction were described under one broad inference front. | RFC 0011/specification 14 define separate evidence classes, fidelity ceilings, typed-operation boundaries and planned capture/reconstruction/calibration gates. |
 | Training proposal | Distillation and low-rank adaptation had no frozen evaluator, rights-cleared trace contract or untuned baseline. | Training is conditional Gate L work. Baseline, closed-loop, calibration and artifact/data governance precede any model adaptation. |
@@ -155,8 +155,9 @@ synthetic/real malformed or out-of-profile cases plus 10 policy cases through
 Six additional trials distinguish package-level portable/private/linked/
 substituted/unavailable outcomes. TTC, CFF/CFF2, variable/color/bitmap/WOFF2
 acceptance, item-level substitution/unavailability fidelity, shaping integration,
-cross-platform font reproduction and calibrated font-processing allocation
-evidence remain required. Package-to-session handoff shares an 8 MiB buffer
+and cross-platform font reproduction remain required. Four accepted-font
+inspections and packaged validation now carry warmed 4 MiB allocated/2 MiB
+retained regression ceilings. Package-to-session handoff shares an 8 MiB buffer
 under a 1 MiB allocation ceiling, and 1,024 image instances retain one 1 MiB
 surface under the 64 MiB preflighted scene total. Both media segments are separate
 from CPU render profile 0 and do not establish general images or packaged-font

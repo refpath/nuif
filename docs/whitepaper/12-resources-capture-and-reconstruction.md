@@ -209,7 +209,9 @@ coverage, `fsType`, license expression and explicit embedding review must
 agree. Package encode/decode and caller-resolved linked bytes run the same
 validation. Four static TrueType fixtures are accepted, while six package
 trials distinguish portable, private-authoring, linked, substituted and
-unavailable outcomes.
+unavailable outcomes. Each accepted inspection and packaged-font validation is
+also measured after warmup against a 4 MiB allocator-traffic and 2 MiB retained
+reference ceiling; these are implementation regressions, not format semantics.
 
 This is intentionally not general OpenType support. TTC, CFF/CFF2, variable,
 color, bitmap, SVG and WOFF/WOFF2 sources, historic ambiguous permission

@@ -13,12 +13,22 @@ use nuif_text::{PINNED_FONT_NAME, PINNED_FONT_SHA256, pinned_font_bytes};
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 use sha2::{Digest, Sha256};
+use stats_alloc::{INSTRUMENTED_SYSTEM, Region, Stats, StatsAlloc};
+use std::alloc::System;
 use std::collections::BTreeMap;
 use std::env;
 use std::fs;
 use std::path::PathBuf;
 use std::process::Command;
 use std::time::Instant;
+
+#[global_allocator]
+static GLOBAL: &StatsAlloc<System> = &INSTRUMENTED_SYSTEM;
+
+const MAX_INSPECTION_ALLOCATED_BYTES: usize = 4 * 1024 * 1024;
+const MAX_INSPECTION_RETAINED_BYTES: usize = 2 * 1024 * 1024;
+const MAX_PACKAGED_VALIDATION_ALLOCATED_BYTES: usize = 4 * 1024 * 1024;
+const MAX_PACKAGED_VALIDATION_RETAINED_BYTES: usize = 2 * 1024 * 1024;
 
 fn main() {
     if let Err(error) = run() {
@@ -92,6 +102,7 @@ fn run() -> Result<(), String> {
     let policy_trials = policy_trials(&primary, bytes);
     let portability_trials = portability_trials(&primary, bytes)?;
     let package_trials = package_trials(&primary, bytes)?;
+    let allocation_trials = allocation_trials(&primary, bytes)?;
     let passed = parser_trials
         .iter()
         .chain(&accepted_trials)
@@ -99,6 +110,7 @@ fn run() -> Result<(), String> {
         .chain(&policy_trials)
         .chain(&portability_trials)
         .chain(&package_trials)
+        .chain(&allocation_trials)
         .all(passed_trial);
     let report = json!({
         "schema_version": 1,
@@ -118,6 +130,10 @@ fn run() -> Result<(), String> {
             "family_names": MAX_FONT_NAMES,
             "coverage_ranges": MAX_FONT_COVERAGE_RANGES,
             "feature_settings": MAX_FONT_FEATURES,
+            "inspection_allocated_bytes": MAX_INSPECTION_ALLOCATED_BYTES,
+            "inspection_retained_bytes": MAX_INSPECTION_RETAINED_BYTES,
+            "packaged_validation_allocated_bytes": MAX_PACKAGED_VALIDATION_ALLOCATED_BYTES,
+            "packaged_validation_retained_bytes": MAX_PACKAGED_VALIDATION_RETAINED_BYTES,
         },
         "measurements": {
             "font_bytes": bytes.len(),
@@ -136,6 +152,7 @@ fn run() -> Result<(), String> {
         "policy_trials": policy_trials,
         "portability_trials": portability_trials,
         "package_trials": package_trials,
+        "allocation_trials": allocation_trials,
         "source": source_identity(),
         "non_claims": [
             "four accepted static TrueType fixtures with only an Ahem HarfBuzz metadata golden are not broad OpenType conformance",
@@ -143,6 +160,7 @@ fn run() -> Result<(), String> {
             "no shaping outline raster browser or cross-platform font reproduction is established by this gate",
             "fsType and a recorded review are policy evidence, not an automated license decision or redistribution grant",
             "the HarfBuzz oracle is a committed capture rather than a live executable dependency in every run",
+            "allocator ceilings are reference-implementation regressions measured after one warmup, not portable format semantics",
         ],
         "summary": {
             "parser": parser_trials.len(),
@@ -151,7 +169,8 @@ fn run() -> Result<(), String> {
             "policy": policy_trials.len(),
             "portability": portability_trials.len(),
             "package": package_trials.len(),
-            "blocking_failures": parser_trials.iter().chain(&accepted_trials).chain(&negative_trials).chain(&policy_trials).chain(&portability_trials).chain(&package_trials).filter(|item| !passed_trial(item)).count(),
+            "allocation": allocation_trials.len(),
+            "blocking_failures": parser_trials.iter().chain(&accepted_trials).chain(&negative_trials).chain(&policy_trials).chain(&portability_trials).chain(&package_trials).chain(&allocation_trials).filter(|item| !passed_trial(item)).count(),
         }
     });
     if let Some(parent) = output.parent()
@@ -165,10 +184,13 @@ fn run() -> Result<(), String> {
     )
     .map_err(|error| error.to_string())?;
     println!(
-        "font resources: {} parser/accepted, {} negative, {} policy/portability/package, status {}",
+        "font resources: {} parser/accepted, {} negative, {} policy/portability/package/allocation, status {}",
         parser_trials.len() + accepted_trials.len(),
         negative_trials.len(),
-        policy_trials.len() + portability_trials.len() + package_trials.len(),
+        policy_trials.len()
+            + portability_trials.len()
+            + package_trials.len()
+            + allocation_trials.len(),
         if passed { "passed" } else { "failed" }
     );
     if passed {
@@ -176,6 +198,72 @@ fn run() -> Result<(), String> {
     } else {
         Err(format!("report failed; inspect {}", output.display()))
     }
+}
+
+fn allocation_trials(
+    primary: &nuif_font::FontInspection,
+    primary_bytes: &[u8],
+) -> Result<Vec<Value>, String> {
+    let fixtures = [
+        ("ahem", font_test_data::AHEM),
+        ("tinos_subset", font_test_data::TINOS_SUBSET),
+        ("cousine_hint_subset", font_test_data::COUSINE_HINT_SUBSET),
+        ("tthint_subset", font_test_data::TTHINT_SUBSET),
+    ];
+    let mut trials = Vec::with_capacity(fixtures.len() + 1);
+    for (name, bytes) in fixtures {
+        drop(inspect_opentype_static(bytes, 0).map_err(|error| error.to_string())?);
+        let region = Region::new(GLOBAL);
+        let inspection = inspect_opentype_static(bytes, 0).map_err(|error| error.to_string())?;
+        let stats = region.change();
+        let retained = retained_bytes(stats);
+        let within_budget = stats.bytes_allocated <= MAX_INSPECTION_ALLOCATED_BYTES
+            && retained <= MAX_INSPECTION_RETAINED_BYTES;
+        trials.push(json!({
+            "name": format!("{name}_inspection_allocation"),
+            "passed": within_budget,
+            "input_bytes": bytes.len(),
+            "tables": inspection.table_tags.len(),
+            "family_names": inspection.names.len(),
+            "coverage_ranges": inspection.coverage.len(),
+            "allocations": stats.allocations,
+            "reallocations": stats.reallocations,
+            "allocated_bytes": stats.bytes_allocated,
+            "retained_bytes": retained,
+            "allocated_budget": MAX_INSPECTION_ALLOCATED_BYTES,
+            "retained_budget": MAX_INSPECTION_RETAINED_BYTES,
+            "allocator": "stats_alloc 0.1.10 instrumented system allocator after one warmup",
+        }));
+    }
+
+    let asset = font_asset(primary, None);
+    nuif_font::validate_packaged_font(&asset, primary_bytes).map_err(|error| error.to_string())?;
+    let region = Region::new(GLOBAL);
+    nuif_font::validate_packaged_font(&asset, primary_bytes).map_err(|error| error.to_string())?;
+    let stats = region.change();
+    let retained = retained_bytes(stats);
+    let within_budget = stats.bytes_allocated <= MAX_PACKAGED_VALIDATION_ALLOCATED_BYTES
+        && retained <= MAX_PACKAGED_VALIDATION_RETAINED_BYTES;
+    trials.push(json!({
+        "name": "packaged_font_validation_allocation",
+        "passed": within_budget,
+        "input_bytes": primary_bytes.len(),
+        "allocations": stats.allocations,
+        "reallocations": stats.reallocations,
+        "allocated_bytes": stats.bytes_allocated,
+        "retained_bytes": retained,
+        "allocated_budget": MAX_PACKAGED_VALIDATION_ALLOCATED_BYTES,
+        "retained_budget": MAX_PACKAGED_VALIDATION_RETAINED_BYTES,
+        "allocator": "stats_alloc 0.1.10 instrumented system allocator after one warmup",
+    }));
+    Ok(trials)
+}
+
+fn retained_bytes(stats: Stats) -> usize {
+    let retained = i128::try_from(stats.bytes_allocated).unwrap_or(i128::MAX)
+        - i128::try_from(stats.bytes_deallocated).unwrap_or(i128::MAX)
+        + i128::try_from(stats.bytes_reallocated).unwrap_or(i128::MAX);
+    usize::try_from(retained.max(0)).unwrap_or(usize::MAX)
 }
 
 fn accepted_static_trials() -> Vec<Value> {
