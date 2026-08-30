@@ -10,7 +10,7 @@ source:
   published_at: "GitHub, Cargo, Apple, Microsoft, and cargo-dist documentation retrieved 2026-08-30"
   license: "Documentation terms vary by publisher; referenced Actions are MIT"
 retrieved_at: 2026-08-30
-tags: [release, github-actions, semver, provenance, signing, macos, windows, packaging]
+tags: [release, github-actions, semver, provenance, signing, macos, windows, packaging, supply-chain]
 confidence: 0.96
 claims: []
 relations:
@@ -24,7 +24,7 @@ links:
   spec: []
   adr: [adrs/0007-editor-release-delivery.md]
   rfc: []
-  code: [.github/workflows/release.yml, xtask/src/main.rs, apps/editor/PACKAGING.md, docs/VERSIONING.md]
+  code: [.github/workflows/ci.yml, .github/workflows/release.yml, xtask/src/main.rs, apps/editor/PACKAGING.md, docs/VERSIONING.md]
   experiments: []
 ---
 
@@ -51,8 +51,11 @@ NUIF uses tag-driven GitHub prereleases for the reference editor. The first tag
 is `v0.1.0-alpha.1`. Five native-host jobs build versioned archives, record
 package manifests, and attest the archives. A final job creates checksums, a
 CycloneDX software bill of materials, and a release manifest, uploads all files
-to a draft, and publishes the prerelease. The alpha artifacts remain explicitly
-unsigned until platform credentials are configured and reviewed.
+to a draft, and publishes the prerelease. Every external workflow action is
+pinned to the full commit of a verified release, checkout credentials are not
+persisted, and a pinned zizmor audit rejects regressions. The alpha artifacts
+remain explicitly unsigned until platform credentials are configured and
+reviewed.
 
 ## Evidence
 
@@ -103,6 +106,20 @@ unsigned until platform credentials are configured and reviewed.
   cargo-cyclonedx release `0.5.9`, published 2026-03-19 and retrieved
   2026-08-30:
   https://github.com/CycloneDX/cyclonedx-rust-cargo/releases/tag/cargo-cyclonedx-0.5.9.
+- GitHub states that pinning an action to a full-length commit SHA is the only
+  immutable way to use an action. NUIF resolved the selected release tags
+  through the GitHub Git data API and records both the SHA and human-readable
+  release beside each `uses` entry. Locator: GitHub Docs, *Secure use
+  reference*, "Using third-party actions", retrieved 2026-08-30:
+  https://docs.github.com/en/actions/reference/security/secure-use.
+- zizmor 1.29.0 identifies mutable action references, persisted checkout
+  credentials, expression-to-shell interpolation, undocumented permissions,
+  and absent concurrency controls. After remediation, `zizmor 1.29.0
+  --pedantic .` reports no findings; CI runs the same version through
+  `zizmor-action` 0.6.2 with its action itself pinned by full SHA. Locator:
+  zizmor audit documentation and action release, retrieved 2026-08-30:
+  https://docs.zizmor.sh/audits/ and
+  https://github.com/zizmorcore/zizmor-action/releases/tag/v0.6.2.
 
 ## Mechanism
 
@@ -124,6 +141,15 @@ cargo-cyclonedx 0.5.9 binary with the tagged commit time as
 `release-manifest.json`. It attests the software bill of materials and both
 index files before using GitHub CLI to create or resume a draft, upload the
 assets, and publish the prerelease.
+
+Workflow dependencies are resolved separately from Cargo dependencies. All
+`uses` references are full commit SHAs with release-version comments, checkout
+sets `persist-credentials: false`, and shell steps receive GitHub context values
+through environment variables rather than source interpolation. Default token
+access is read-only; only the package and publication jobs receive the OIDC,
+attestation, and release-write permissions they require. CI cancels superseded
+runs and executes a pinned pedantic zizmor audit, making these constraints
+enforceable rather than review conventions.
 
 The macOS package separates the SemVer version from the bundle build number.
 `CFBundleShortVersionString` receives the three-component base version, while
