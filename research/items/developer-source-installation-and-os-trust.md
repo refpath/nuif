@@ -24,7 +24,7 @@ links:
   spec: []
   adr: [adrs/0009-developer-source-installation.md]
   rfc: []
-  code: [xtask/src/main.rs, apps/editor/PACKAGING.md, docs/VERSIONING.md]
+  code: [xtask/src/main.rs, xtask/src/editor_install.rs, apps/editor/INSTALLING.md, apps/editor/PACKAGING.md, docs/VERSIONING.md]
   experiments: []
 ---
 

@@ -49,6 +49,9 @@ partially assembled release.
 
 - GitHub Releases becomes the durable download surface for tagged editor
   builds. CI artifacts remain diagnostic evidence for ordinary commits.
+- ADR 0009 makes locally built, user-scoped source installation the primary
+  developer path. Release archives remain durable evidence and an expert
+  opt-in path rather than the default installation mechanism.
 - Application consumers can verify SHA-256 checksums and GitHub provenance
   without building the repository.
 - Unsigned alpha packages may trigger Gatekeeper or SmartScreen warnings. The

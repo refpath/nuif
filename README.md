@@ -99,7 +99,7 @@ Principles that the diagram encodes:
 | `spec/` | Draft normative modules (model, identity, components, layout, paint and text, operations, extensions, serialization, provenance, collaboration, security, automation, semantics) |
 | `rfcs/` · `adrs/` | Proposals for the specification · decisions for the reference implementation |
 | `crates/` | Rust workspace: model, protocol, layout, pinned text shaping, render, codecs, query, API, CLI and shared seeded testing |
-| `apps/editor/` | Reference test editor: architecture, headless contract, UI specification |
+| `apps/editor/` | Reference test editor: architecture, source installation, headless contract, UI specification |
 | `conformance/` | Suite plan, test-harness architecture, fixtures including the v0 falsification experiment |
 | `adapters/` · `bindings/` · `schemas/` | Adapter contracts, WASM bindings, interchange schemas |
 | `tools/` | Research graph ingestion, validators, commit lint |
@@ -131,6 +131,12 @@ cargo xtask editor-trial # author the v0 fixture and emit editor evidence
 cargo xtask editor-gui-trial # exercise AccessKit and reproduce shell pixels
 cargo xtask editor-package # build, smoke-test and archive the host application
 cargo xtask editor-launch # package and open the native application
+cargo xtask editor-install --user --channel source # persistent local build
+cargo xtask editor-doctor --user # verify receipt, binary and integration
+cargo xtask editor-update --user --channel alpha --check # resolve only
+cargo xtask editor-update --user --channel alpha # verified explicit update
+cargo xtask editor-rollback --user # reactivate the retained previous build
+cargo xtask editor-uninstall --user # remove only marked managed paths
 cargo xtask gate-f # retentive HTML/CSS subset synchronization
 cargo xtask gate-f-v0 # full-v0 model sync plus editor/CLI source bridge
 cargo xtask gate-g # independent Python v0 parse/write/layout/render

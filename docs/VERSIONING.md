@@ -59,6 +59,27 @@ SHA-256 verification on Linux uses `sha256sum -c SHA256SUMS`. macOS uses
 `Get-FileHash -Algorithm SHA256` with the corresponding line in
 `SHA256SUMS`.
 
+## Developer channel contract
+
+Release archives are evidence and an expert opt-in path. The primary developer
+installation builds locally from a retained source checkout according to ADR
+0009. `source` installs the current clean revision. `alpha` additionally
+requires the exact release tag and rejects a dirty tree.
+
+An explicit `editor-update --channel alpha` operation queries published
+prereleases and selects the greatest numeric `MAJOR.MINOR.PATCH-alpha.N`
+version. It accepts a release only when `release-manifest.json` exists, its five
+package records passed from one clean source revision, and its GitHub
+attestation verifies the repository, release workflow, tag, source digest and
+GitHub-hosted runner. The updater fetches the attested tag with Git hooks
+disabled and requires the checked-out commit to equal that digest before
+building with `Cargo.lock`.
+
+The lifecycle retains an active and previous immutable install. It never moves
+a release tag, installs from a mutable branch, performs a silent update or
+changes an operating-system trust policy. See `apps/editor/INSTALLING.md` for
+commands and paths.
+
 ## Signing boundary
 
 The alpha artifacts are unsigned and record that status in each manifest.
