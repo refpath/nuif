@@ -11,8 +11,14 @@ Implement typed properties, relations, components, tokens, extensions, determini
 ## Phase 2a — responsive layout falsifier (complete)
 Implement freeform + stack/flex subset and a pinned NUIF/Taffy/Chrome context matrix. Exit: responsive-card layout agreement at three viewports, measured per-fixture bounds and classification of every generated divergence.
 
-## Phase 2b — Grid schema and evaluator
-Define authored track sizing, auto-flow and item placement before wiring Taffy Grid behind NUIF types. The Gate C report proves the current family-only model is insufficient and classifies its fallback as schema loss; no Grid support is claimed until those fields and foreign fixtures pass.
+## Phase 2b — bounded explicit Grid (complete)
+Profile 0 now defines positive fixed/`fr` tracks, sparse row/column auto-flow,
+zero-based explicit placement, positive spans, no implicit tracks and bounded
+resource use. The independent NUIF evaluator implements those rules directly;
+Taffy and CSS are lowering targets, not hidden runtime dependencies. Gate C
+exercises simple, explicit and spanning Grid cases and passes with no classified,
+blocking or unexplained divergence. Intrinsic, percentage, named, repeated,
+subgrid, masonry and implicit CSS tracks remain outside this bounded profile.
 
 ## Phase 3 — visual/text (complete for profile 0)
 Pinned Ahem/HarfRust shaping matches HarfBuzz glyph goldens; unhinted Skrifa 0.46.2 outlines match normalized `hb-vector` goldens; hard-line layout, rectangles, ellipses, encoded-sRGB color and integer composition have normative scene/raw-RGBA baselines across macOS/aarch64, Linux/aarch64 and Linux/x86_64. PNG hashes remain deterministic artifact diagnostics but are not pixel-conformance boundaries. Path, image, instance and extension paint remain explicit unsupported/preserved fidelity rather than hidden fallbacks. Full UAX #14 soft wrapping and expanded vector paints belong to a future profile.

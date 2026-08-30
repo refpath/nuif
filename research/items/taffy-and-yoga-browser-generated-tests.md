@@ -117,11 +117,15 @@ Divergence handling is structural, not numeric: Taffy excludes fixtures by file-
 
 ## NUIF executable verification
 
-`cargo xtask gate-c` now applies this method without hand-edited generated expectations. The lock file selects Chrome for Testing 152.0.7977.64 revision 1669021 and Taffy is exactly pinned to 0.14.0. The generator revision is the NUIF source revision recorded in the JSON report. One deterministic seed produces the v0 card at 360, 768 and 1,440 px plus 12 stack/flex/grid cases; the harness retains all three box maps and compares NUIF/Taffy, NUIF/browser and Taffy/browser.
+`cargo xtask gate-c` now applies this method without hand-edited generated expectations. The lock file selects Chrome for Testing 152.0.7977.64 revision 1669021 and Taffy is exactly pinned to 0.14.0. The generator revision is the NUIF source revision recorded in the JSON report. One deterministic seed produces the v0 card at 360, 768 and 1,440 px plus 24 stack/flex/Grid cases; the harness retains all three box maps and compares NUIF/Taffy, NUIF/browser and Taffy/browser.
 
-The 2026-08-29 strict run evaluated 15 cases, 45 engine pairs and 1,008 box components. The v0, stack and flex subsets matched within their fixture-local measured bounds. The largest Taffy/browser delta was 0.01251220703125 px; that fixture's measured value was rounded upward to a 0.02 px assertion bound, while fixtures with exact foreign agreement retained a 0 px bound. Thirty-eight pairwise differences were all traced to one declared schema loss: profile 0 names `grid` but has no grid track or placement fields, so the reference stack fallback cannot encode CSS Grid auto-placement. No unclassified or blocking divergence remained. The first run also exposed an evaluator defect—`stretch` incorrectly overrode definite cross sizes—which was corrected and retained as a unit regression before the passing report was accepted.
+The 2026-08-30 strict run evaluated 27 cases, 81 engine pairs and 1,536 box components. Eight Grid cases cover positive fixed and zero-minimum `fr` tracks, sparse row/column flow, explicit placement and spanning items. The complete v0, stack, flex and bounded-Grid sets passed with zero classified, blocking or unexplained divergence. Twenty-six fixtures had exact Taffy/browser agreement; one fractional Grid fixture measured 0.015594482421875 px and therefore received the fixture-local 0.02 px assertion bound. Across every case, the maximum NUIF/Taffy delta was 0.00003051757818184342 px and the maximum NUIF/browser delta was 0.015625000000056843 px. The run first exposed `fill` lowering as `auto` under non-stretch Grid alignment; explicit `justify-self`/`align-self: stretch` fixed the foreign lowering without changing the normative evaluator.
 
-This closes the Gate C differential criterion, not the Grid implementation phase. Grid schema design and lowering remain required, and no text-dependent layout is included before Gate D pins fonts and shaping inputs.
+This closes the bounded explicit-Grid implementation criterion. It does not
+claim the broader CSS Grid surface: intrinsic, percentage, named, repeated,
+implicit, subgrid and masonry tracks remain capability-reported exclusions.
+Text-dependent Grid layout is also outside this experiment; Gate D separately
+pins font and shaping inputs.
 
 ## Open questions
 

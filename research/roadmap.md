@@ -6,7 +6,13 @@ The operational plan and audit findings are in `AUDIT.md`. Work advances by evid
 
 Gate B: canonical model, operations and encodings. The executable baseline covers structural validation, anchored atomic operations, stale-base rejection, replay/inversion, text/CBOR fixpoints, negative numeric/canonical cases, opaque-byte cycles, a passing 10,000-patch seeded trial, and measured hostile-input byte, depth, node, allocation and time budgets. RFC 0009 and `cargo xtask hostile-inputs` close the final Gate B condition.
 
-Gate C: responsive layout falsifier. `cargo xtask gate-c` compares the v0 viewport matrix and seeded stack/flex/grid cases across NUIF, Taffy 0.14.0 and pinned Chrome for Testing 152.0.7977.64. Per-fixture measured bounds, raw boxes and classifications are stored in `target/layout-differential-report.json`. The remaining grid divergences are explicit schema loss, not accepted Grid conformance.
+Gate C: responsive and bounded-Grid layout falsifier. `cargo xtask gate-c`
+compares the v0 viewport matrix and 24 seeded stack/flex/Grid cases across the
+independent NUIF evaluator, Taffy 0.14.0 and pinned Chrome for Testing
+152.0.7977.64. Per-fixture measured bounds, raw boxes and classifications are
+stored in `target/layout-differential-report.json`. Fixed/`fr` tracks, sparse
+row/column flow, explicit placement and spans pass with no classified, blocking
+or unexplained divergence; broader CSS Grid remains outside profile 0.
 
 Gate D: bounded visual and text profile. `cargo xtask gate-d` runs separate text and paint reports. Profile 0 pins Ahem/HarfRust/Unicode/Skrifa/Zeno; defines hard lines without automatic soft wrapping; fixes rectangle, ellipse, encoded-sRGB and integer-composition behavior by value; reproduces scene/raw-RGBA hashes on macOS/aarch64, Linux/aarch64 and Linux/x86_64; reports PNG encoding separately; and keeps path/image/instance/extension semantics in property-attributed fidelity records.
 

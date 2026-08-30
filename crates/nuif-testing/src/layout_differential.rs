@@ -2,8 +2,8 @@
 
 use crate::responsive_card_fixture;
 use nuif_core::{
-    Align, Document, Edges, Entity, EntityId, EntityKind, FlowDirection, GridAutoFlow, GridStyle,
-    GridTrack, LayoutFamily, LayoutStyle, SizeIntent,
+    Align, Document, Edges, Entity, EntityId, EntityKind, FlowDirection,
+    GridAutoFlow as NuifGridAutoFlow, GridStyle, GridTrack, LayoutFamily, LayoutStyle, SizeIntent,
 };
 use nuif_layout::{EvaluationContext, Rect as NuifRect, evaluate};
 use serde::{Deserialize, Serialize};
@@ -14,8 +14,10 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 use taffy::prelude::{
-    AlignItems, AvailableSpace, Dimension, Display, FlexDirection, NodeId, Position,
-    Rect as TaffyRect, Size as TaffySize, Style, TaffyTree, auto, length, percent,
+    AlignItems, AvailableSpace, Dimension, Display, FlexDirection,
+    GridAutoFlow as TaffyGridAutoFlow, GridPlacement as TaffyGridPlacement, GridTemplateComponent,
+    Line as TaffyLine, NodeId, Position, Rect as TaffyRect, Size as TaffySize, Style, TaffyTree,
+    auto, flex, length, line as taffy_line, percent, span as taffy_span,
 };
 
 pub const TAFFY_VERSION: &str = "0.14.0";
@@ -36,7 +38,7 @@ impl Default for DifferentialConfig {
     fn default() -> Self {
         Self {
             seed: DEFAULT_SEED,
-            generated_cases: 12,
+            generated_cases: 24,
             output: PathBuf::from("target/layout-differential-report.json"),
             chrome: None,
             enforce_browser_version: true,
@@ -400,19 +402,12 @@ fn rect_components(left: &NuifRect, right: &NuifRect) -> [(RectComponent, f64, f
 }
 
 fn classify(
-    document: &Document,
-    entity: EntityId,
+    _document: &Document,
+    _entity: EntityId,
     _component: RectComponent,
     left: &str,
     right: &str,
 ) -> (DivergenceClassification, String, bool) {
-    if has_grid_ancestor(document, entity) {
-        return (
-            DivergenceClassification::SchemaLoss,
-            "profile 0 names the grid family but has no authored track or placement fields; the reference stack fallback cannot preserve CSS Grid auto-placement".to_owned(),
-            false,
-        );
-    }
     match (left, right) {
         ("reference", _) | (_, "reference") => (
             DivergenceClassification::ReferenceEvaluatorDefect,
@@ -430,32 +425,6 @@ fn classify(
             true,
         ),
     }
-}
-
-fn has_grid_ancestor(document: &Document, entity: EntityId) -> bool {
-    let parents = parent_map(document);
-    let mut current = Some(entity);
-    while let Some(id) = current {
-        if document
-            .entities
-            .get(&id)
-            .is_some_and(|item| item.authored.layout.family == LayoutFamily::Grid)
-        {
-            return true;
-        }
-        current = parents.get(&id).copied();
-    }
-    false
-}
-
-fn parent_map(document: &Document) -> BTreeMap<EntityId, EntityId> {
-    let mut parents = BTreeMap::new();
-    for (parent, entity) in &document.entities {
-        for child in &entity.children {
-            parents.insert(*child, *parent);
-        }
-    }
-    parents
 }
 
 fn max_box_delta(left: &BTreeMap<EntityId, NuifRect>, right: &BTreeMap<EntityId, NuifRect>) -> f64 {
@@ -555,6 +524,12 @@ fn taffy_style(
             Align::End => AlignItems::END,
             Align::Stretch => AlignItems::STRETCH,
         }),
+        justify_items: Some(match entity.authored.layout.align {
+            Align::Start => AlignItems::START,
+            Align::Center => AlignItems::CENTER,
+            Align::End => AlignItems::END,
+            Align::Stretch => AlignItems::STRETCH,
+        }),
         gap: TaffySize::length(resolved.gap.max(0.0)),
         padding: TaffyRect {
             left: length(entity.authored.layout.padding.left),
@@ -565,6 +540,14 @@ fn taffy_style(
         min_size: TaffySize::length(0.0),
         ..Style::default()
     };
+    if entity.authored.layout.family == LayoutFamily::Grid {
+        style.grid_template_columns = taffy_grid_tracks(&entity.authored.layout.grid.columns);
+        style.grid_template_rows = taffy_grid_tracks(&entity.authored.layout.grid.rows);
+        style.grid_auto_flow = match entity.authored.layout.grid.auto_flow {
+            NuifGridAutoFlow::Row => TaffyGridAutoFlow::Row,
+            NuifGridAutoFlow::Column => TaffyGridAutoFlow::Column,
+        };
+    }
     style.size = if is_root {
         TaffySize {
             width: length(context.viewport.width),
@@ -584,7 +567,22 @@ fn taffy_style(
             style.position = Position::Absolute;
             style.inset.left = length(entity.authored.position.x);
             style.inset.top = length(entity.authored.position.y);
-        } else if parent.family != LayoutFamily::Grid {
+        } else if parent.family == LayoutFamily::Grid {
+            style.grid_column = taffy_grid_line(
+                entity.authored.grid_placement.column,
+                entity.authored.grid_placement.column_span,
+            );
+            style.grid_row = taffy_grid_line(
+                entity.authored.grid_placement.row,
+                entity.authored.grid_placement.row_span,
+            );
+            if matches!(resolved.width, SizeIntent::Fill) {
+                style.justify_self = Some(taffy::style::JustifySelf::STRETCH);
+            }
+            if matches!(resolved.height, SizeIntent::Fill) {
+                style.align_self = Some(taffy::style::AlignSelf::STRETCH);
+            }
+        } else {
             let main = match parent.direction {
                 FlowDirection::Row => &resolved.width,
                 FlowDirection::Column => &resolved.height,
@@ -606,6 +604,30 @@ fn taffy_style(
         }
     }
     style
+}
+
+fn taffy_grid_tracks(tracks: &[GridTrack]) -> Vec<GridTemplateComponent<String>> {
+    tracks
+        .iter()
+        .map(|track| match track {
+            GridTrack::Fixed(value) => length(*value),
+            GridTrack::Fraction(value) => flex(*value),
+        })
+        .collect()
+}
+
+fn taffy_grid_line(start: Option<u32>, span: u32) -> TaffyLine<TaffyGridPlacement<String>> {
+    let explicit = start.is_some();
+    TaffyLine {
+        start: start.map_or(TaffyGridPlacement::Auto, |index| {
+            taffy_line(i16::try_from(index.saturating_add(1)).unwrap_or(i16::MAX))
+        }),
+        end: if explicit || span != 1 {
+            taffy_span(u16::try_from(span).unwrap_or(u16::MAX))
+        } else {
+            TaffyGridPlacement::Auto
+        },
+    }
 }
 
 fn dimension(intent: &SizeIntent, intrinsic: f64) -> Dimension {
@@ -780,6 +802,9 @@ fn write_browser_style(
         },
     )
     .map_err(|error| error.to_string())?;
+    if entity.authored.layout.family == LayoutFamily::Grid {
+        write_css_grid_container(css, entity)?;
+    }
     if parent.is_none() {
         write!(
             css,
@@ -802,7 +827,26 @@ fn write_browser_style(
                 entity.authored.position.x, entity.authored.position.y
             )
             .map_err(|error| error.to_string())?;
-        } else if parent.family != LayoutFamily::Grid {
+        } else if parent.family == LayoutFamily::Grid {
+            write_css_grid_placement(
+                css,
+                "grid-column",
+                entity.authored.grid_placement.column,
+                entity.authored.grid_placement.column_span,
+            )?;
+            write_css_grid_placement(
+                css,
+                "grid-row",
+                entity.authored.grid_placement.row,
+                entity.authored.grid_placement.row_span,
+            )?;
+            if matches!(resolved.width, SizeIntent::Fill) {
+                css.push_str("justify-self:stretch;");
+            }
+            if matches!(resolved.height, SizeIntent::Fill) {
+                css.push_str("align-self:stretch;");
+            }
+        } else {
             let main = match parent.direction {
                 FlowDirection::Row => &resolved.width,
                 FlowDirection::Column => &resolved.height,
@@ -822,6 +866,63 @@ fn write_browser_style(
         }
     }
     Ok(())
+}
+
+fn write_css_grid_container(css: &mut String, entity: &Entity) -> Result<(), String> {
+    write!(
+        css,
+        "justify-items:{};grid-template-columns:",
+        match entity.authored.layout.align {
+            Align::Start => "start",
+            Align::Center => "center",
+            Align::End => "end",
+            Align::Stretch => "stretch",
+        }
+    )
+    .map_err(|error| error.to_string())?;
+    write_css_grid_tracks(css, &entity.authored.layout.grid.columns)?;
+    css.push_str(";grid-template-rows:");
+    write_css_grid_tracks(css, &entity.authored.layout.grid.rows)?;
+    write!(
+        css,
+        ";grid-auto-flow:{};",
+        match entity.authored.layout.grid.auto_flow {
+            NuifGridAutoFlow::Row => "row",
+            NuifGridAutoFlow::Column => "column",
+        }
+    )
+    .map_err(|error| error.to_string())
+}
+
+fn write_css_grid_tracks(css: &mut String, tracks: &[GridTrack]) -> Result<(), String> {
+    for (index, track) in tracks.iter().enumerate() {
+        if index > 0 {
+            css.push(' ');
+        }
+        match track {
+            GridTrack::Fixed(value) => write!(css, "{value}px"),
+            GridTrack::Fraction(value) => write!(css, "minmax(0px,{value}fr)"),
+        }
+        .map_err(|error| error.to_string())?;
+    }
+    Ok(())
+}
+
+fn write_css_grid_placement(
+    css: &mut String,
+    property: &str,
+    start: Option<u32>,
+    span: u32,
+) -> Result<(), String> {
+    if start.is_none() && span == 1 {
+        return Ok(());
+    }
+    write!(
+        css,
+        "{property}:{} / span {span};",
+        start.map_or_else(|| "auto".to_owned(), |index| (index + 1).to_string())
+    )
+    .map_err(|error| error.to_string())
 }
 
 fn write_css_dimension(
@@ -995,19 +1096,21 @@ fn generated_case(
         ..LayoutStyle::default()
     };
     let child_count = 2 + rng.bounded(4);
+    let grid_mode = index / 3 % 4;
     if family == LayoutFamily::Grid {
+        let occupied_cells = child_count + u32::from(grid_mode == 3);
         root.authored.layout.grid = GridStyle {
             columns: vec![
                 GridTrack::Fixed(f64::from(72 + rng.bounded(40))),
                 GridTrack::Fraction(f64::from(1 + rng.bounded(3))),
             ],
-            rows: (0..child_count.div_ceil(2))
+            rows: (0..occupied_cells.div_ceil(2))
                 .map(|_| GridTrack::Fraction(1.0))
                 .collect(),
             auto_flow: if rng.bounded(2) == 0 {
-                GridAutoFlow::Row
+                NuifGridAutoFlow::Row
             } else {
-                GridAutoFlow::Column
+                NuifGridAutoFlow::Column
             },
         };
     }
@@ -1035,6 +1138,13 @@ fn generated_case(
                 child.authored.width = cross;
                 child.authored.height = main;
             }
+        }
+        if family == LayoutFamily::Grid && grid_mode == 2 && child_index == 1 {
+            child.authored.grid_placement.column = Some(0);
+            child.authored.grid_placement.row = Some(0);
+        }
+        if family == LayoutFamily::Grid && grid_mode == 3 && child_index == 0 {
+            child.authored.grid_placement.column_span = 2;
         }
         root.children.push(child_id);
         document.entities.insert(child_id, child);
@@ -1148,6 +1258,25 @@ mod tests {
             reference.keys().collect::<Vec<_>>(),
             foreign.keys().collect::<Vec<_>>()
         );
+    }
+
+    #[test]
+    fn every_bounded_grid_case_matches_taffy_without_browser() {
+        let cases = differential_cases(DEFAULT_SEED, 24);
+        let mut checked = 0_usize;
+        for case in cases.iter().filter(|case| case.name.ends_with("grid")) {
+            let context =
+                EvaluationContext::viewport(f64::from(case.viewport.0), f64::from(case.viewport.1));
+            let reference = evaluate(&case.document, &context).boxes;
+            let foreign = evaluate_taffy(&case.document, &context).unwrap();
+            assert!(
+                max_box_delta(&reference, &foreign) <= 0.001,
+                "{} exceeded the NUIF/Taffy f32 lowering bound",
+                case.name
+            );
+            checked += 1;
+        }
+        assert_eq!(checked, 8);
     }
 
     #[test]

@@ -25,9 +25,11 @@ experiments:
     acceptance:
       - pinned Taffy browser and generator versions recorded in the report
       - every divergence classified; no unexplained global tolerance
+      - bounded explicit Grid has no schema-loss exemption
     tests:
       - compare matching NUIF flex/grid fixtures with Taffy and browser output
-      - classify all divergences as schema loss evaluator bug or target semantic difference
+      - exercise fixed and fractional tracks sparse auto-flow explicit placement and spans
+      - classify divergences outside the bounded subset as schema loss evaluator bug or target semantic difference
       - write target/layout-differential-report.json and archive it in CI
   - id: nuif:experiment:layout-inference
     status: planned
