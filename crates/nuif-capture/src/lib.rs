@@ -504,6 +504,7 @@ fn browser_entity(
             y: node.bounds.y - parent_bounds.map_or(0.0, |bounds| bounds.y),
         },
         layout: freeform_layout(),
+        grid_placement: nuif_core::GridPlacement::default(),
         fill: node.background.map(model_color),
         text: node.text.as_ref().map(|content| TextContent {
             content: content.clone(),
@@ -948,6 +949,7 @@ fn freeform_layout() -> LayoutStyle {
         gap: 0.0,
         padding: Edges::default(),
         align: Align::Start,
+        ..LayoutStyle::default()
     }
 }
 

@@ -2,8 +2,8 @@
 
 use crate::responsive_card_fixture;
 use nuif_core::{
-    Align, Document, Edges, Entity, EntityId, EntityKind, FlowDirection, LayoutFamily, LayoutStyle,
-    SizeIntent,
+    Align, Document, Edges, Entity, EntityId, EntityKind, FlowDirection, GridAutoFlow, GridStyle,
+    GridTrack, LayoutFamily, LayoutStyle, SizeIntent,
 };
 use nuif_layout::{EvaluationContext, Rect as NuifRect, evaluate};
 use serde::{Deserialize, Serialize};
@@ -992,8 +992,25 @@ fn generated_case(
             2 => Align::End,
             _ => Align::Stretch,
         },
+        ..LayoutStyle::default()
     };
     let child_count = 2 + rng.bounded(4);
+    if family == LayoutFamily::Grid {
+        root.authored.layout.grid = GridStyle {
+            columns: vec![
+                GridTrack::Fixed(f64::from(72 + rng.bounded(40))),
+                GridTrack::Fraction(f64::from(1 + rng.bounded(3))),
+            ],
+            rows: (0..child_count.div_ceil(2))
+                .map(|_| GridTrack::Fraction(1.0))
+                .collect(),
+            auto_flow: if rng.bounded(2) == 0 {
+                GridAutoFlow::Row
+            } else {
+                GridAutoFlow::Column
+            },
+        };
+    }
     for child_index in 0..child_count {
         let child_id = EntityId::new(root_id.0 + 1 + u128::from(child_index));
         let mut child = Entity::new(child_id, EntityKind::Shape(nuif_core::ShapeKind::Rectangle));

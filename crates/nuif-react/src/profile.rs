@@ -32,6 +32,7 @@ pub fn profile_fixture() -> Document {
                 left: 24.0,
             },
             align: Align::Stretch,
+            ..LayoutStyle::default()
         },
         ..AuthoredProperties::default()
     };

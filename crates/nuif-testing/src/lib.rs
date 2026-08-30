@@ -209,6 +209,7 @@ pub fn responsive_card_fixture() -> Document {
             left: 16.0,
         },
         align: Align::Stretch,
+        ..LayoutStyle::default()
     };
     surface.children = vec![CARD, BUTTON_COMPONENT];
 
@@ -227,6 +228,7 @@ pub fn responsive_card_fixture() -> Document {
             left: 24.0,
         },
         align: Align::Stretch,
+        ..LayoutStyle::default()
     };
     card.authored.fill = Some(Color {
         space: ColorSpace::Srgb,

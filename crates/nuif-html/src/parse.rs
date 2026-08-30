@@ -543,6 +543,7 @@ fn parse_container_layout(
         gap,
         padding,
         align: align_value,
+        ..LayoutStyle::default()
     })
 }
 

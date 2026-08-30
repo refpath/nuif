@@ -25,7 +25,11 @@ pub const PROFILE0_RESOURCE_LIMITS: ResourceLimits = ResourceLimits {
     string_bytes: 8 * 1024 * 1024,
     single_string_bytes: 1024 * 1024,
     assets: 8_192,
+    grid_tracks: 4_096,
 };
+
+/// Maximum explicit tracks on either axis of a profile-0 grid.
+pub const PROFILE0_MAX_GRID_AXIS_TRACKS: usize = 256;
 
 /// Cardinality and retained-data bounds for one decoded profile-0 document.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -43,6 +47,7 @@ pub struct ResourceLimits {
     pub string_bytes: usize,
     pub single_string_bytes: usize,
     pub assets: usize,
+    pub grid_tracks: usize,
 }
 
 /// Measured semantic size of a decoded document.
@@ -60,6 +65,7 @@ pub struct ResourceUsage {
     pub binary_bytes: usize,
     pub string_bytes: usize,
     pub assets: usize,
+    pub grid_tracks: usize,
 }
 
 /// A semantic-model resource bound exceeded by an untrusted document.
@@ -335,6 +341,8 @@ pub struct AuthoredProperties {
     pub height: SizeIntent,
     pub position: Point,
     pub layout: LayoutStyle,
+    #[serde(default, skip_serializing_if = "GridPlacement::is_default")]
+    pub grid_placement: GridPlacement,
     pub fill: Option<Color>,
     pub text: Option<TextContent>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -352,6 +360,7 @@ impl Default for AuthoredProperties {
             height: SizeIntent::Auto,
             position: Point::default(),
             layout: LayoutStyle::default(),
+            grid_placement: GridPlacement::default(),
             fill: None,
             text: None,
             image: None,
@@ -390,6 +399,8 @@ pub struct LayoutStyle {
     pub gap: f64,
     pub padding: Edges,
     pub align: Align,
+    #[serde(default, skip_serializing_if = "GridStyle::is_default")]
+    pub grid: GridStyle,
 }
 
 impl Default for LayoutStyle {
@@ -400,8 +411,325 @@ impl Default for LayoutStyle {
             gap: 0.0,
             padding: Edges::default(),
             align: Align::Start,
+            grid: GridStyle::default(),
         }
     }
+}
+
+/// Bounded explicit-grid properties for a grid container.
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct GridStyle {
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub columns: Vec<GridTrack>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub rows: Vec<GridTrack>,
+    #[serde(default, skip_serializing_if = "GridAutoFlow::is_default")]
+    pub auto_flow: GridAutoFlow,
+}
+
+impl GridStyle {
+    fn is_default(&self) -> bool {
+        self == &Self::default()
+    }
+}
+
+/// A profile-0 explicit grid track.
+#[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case", tag = "type", content = "value")]
+pub enum GridTrack {
+    Fixed(f64),
+    Fraction(f64),
+}
+
+/// Deterministic traversal order for auto-placed grid items.
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum GridAutoFlow {
+    #[default]
+    Row,
+    Column,
+}
+
+impl GridAutoFlow {
+    #[expect(
+        clippy::trivially_copy_pass_by_ref,
+        reason = "serde skip_serializing_if requires a shared-reference predicate"
+    )]
+    fn is_default(&self) -> bool {
+        *self == Self::default()
+    }
+}
+
+/// Explicit or auto grid placement authored on an item.
+#[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct GridPlacement {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub column: Option<u32>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub row: Option<u32>,
+    #[serde(default = "one", skip_serializing_if = "is_one")]
+    pub column_span: u32,
+    #[serde(default = "one", skip_serializing_if = "is_one")]
+    pub row_span: u32,
+}
+
+impl Default for GridPlacement {
+    fn default() -> Self {
+        Self {
+            column: None,
+            row: None,
+            column_span: 1,
+            row_span: 1,
+        }
+    }
+}
+
+impl GridPlacement {
+    fn is_default(&self) -> bool {
+        self == &Self::default()
+    }
+}
+
+const fn one() -> u32 {
+    1
+}
+
+#[expect(
+    clippy::trivially_copy_pass_by_ref,
+    reason = "serde skip_serializing_if requires a shared-reference predicate"
+)]
+const fn is_one(value: &u32) -> bool {
+    *value == 1
+}
+
+/// Resolved zero-based grid area occupied by one item.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct GridArea {
+    pub column: u32,
+    pub row: u32,
+    pub column_span: u32,
+    pub row_span: u32,
+}
+
+/// A deterministic explicit-grid placement failure.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum GridPlacementError {
+    MissingTracks,
+    TooManyTracks,
+    PartialPosition { entity: EntityId },
+    ZeroSpan { entity: EntityId },
+    OutOfBounds { entity: EntityId },
+    Overlap { entity: EntityId },
+    Exhausted { entity: EntityId },
+}
+
+impl fmt::Display for GridPlacementError {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::MissingTracks => formatter.write_str("grid columns and rows must be non-empty"),
+            Self::TooManyTracks => write!(
+                formatter,
+                "grid axes may contain at most {PROFILE0_MAX_GRID_AXIS_TRACKS} tracks"
+            ),
+            Self::PartialPosition { entity } => write!(
+                formatter,
+                "grid item {entity} must specify both row and column or neither"
+            ),
+            Self::ZeroSpan { entity } => {
+                write!(formatter, "grid item {entity} spans must be positive")
+            }
+            Self::OutOfBounds { entity } => {
+                write!(
+                    formatter,
+                    "grid item {entity} lies outside the explicit grid"
+                )
+            }
+            Self::Overlap { entity } => {
+                write!(
+                    formatter,
+                    "grid item {entity} overlaps an occupied grid cell"
+                )
+            }
+            Self::Exhausted { entity } => write!(
+                formatter,
+                "grid item {entity} cannot fit without creating an implicit track"
+            ),
+        }
+    }
+}
+
+impl std::error::Error for GridPlacementError {}
+
+/// Resolves explicit and auto placements for one bounded profile-0 grid.
+///
+/// Explicitly positioned items reserve cells first. Remaining items are then
+/// placed in child order using the container's row-major or column-major flow.
+/// Profile 0 never creates implicit tracks.
+///
+/// # Errors
+///
+/// Returns a typed error when tracks or item placements are outside the
+/// bounded profile, overlap, or require an implicit track.
+pub fn resolve_grid_placements(
+    document: &Document,
+    container: &Entity,
+) -> Result<BTreeMap<EntityId, GridArea>, GridPlacementError> {
+    let grid = &container.authored.layout.grid;
+    let column_count = grid.columns.len();
+    let row_count = grid.rows.len();
+    if column_count == 0 || row_count == 0 {
+        return Err(GridPlacementError::MissingTracks);
+    }
+    if column_count > PROFILE0_MAX_GRID_AXIS_TRACKS || row_count > PROFILE0_MAX_GRID_AXIS_TRACKS {
+        return Err(GridPlacementError::TooManyTracks);
+    }
+    let mut occupied = vec![false; column_count.saturating_mul(row_count)];
+    let mut areas = BTreeMap::new();
+    let mut auto_cursor = 0_usize;
+
+    for child_id in &container.children {
+        let Some(child) = document.entities.get(child_id) else {
+            continue;
+        };
+        let placement = child.authored.grid_placement;
+        match (placement.column, placement.row) {
+            (Some(column), Some(row)) => {
+                let area = GridArea {
+                    column,
+                    row,
+                    column_span: placement.column_span,
+                    row_span: placement.row_span,
+                };
+                reserve_grid_area(&mut occupied, column_count, row_count, child.id, area)?;
+                areas.insert(child.id, area);
+            }
+            (None, None) => {
+                if placement.column_span == 0 || placement.row_span == 0 {
+                    return Err(GridPlacementError::ZeroSpan { entity: child.id });
+                }
+            }
+            _ => return Err(GridPlacementError::PartialPosition { entity: child.id }),
+        }
+    }
+
+    for child_id in &container.children {
+        if areas.contains_key(child_id) {
+            continue;
+        }
+        let Some(child) = document.entities.get(child_id) else {
+            continue;
+        };
+        let placement = child.authored.grid_placement;
+        let Some((area, next_cursor)) = find_grid_area(
+            &occupied,
+            column_count,
+            row_count,
+            placement.column_span,
+            placement.row_span,
+            grid.auto_flow,
+            auto_cursor,
+        ) else {
+            return Err(GridPlacementError::Exhausted { entity: child.id });
+        };
+        reserve_grid_area(&mut occupied, column_count, row_count, child.id, area)?;
+        areas.insert(child.id, area);
+        auto_cursor = next_cursor;
+    }
+    Ok(areas)
+}
+
+fn reserve_grid_area(
+    occupied: &mut [bool],
+    column_count: usize,
+    row_count: usize,
+    entity: EntityId,
+    area: GridArea,
+) -> Result<(), GridPlacementError> {
+    if area.column_span == 0 || area.row_span == 0 {
+        return Err(GridPlacementError::ZeroSpan { entity });
+    }
+    let column =
+        usize::try_from(area.column).map_err(|_| GridPlacementError::OutOfBounds { entity })?;
+    let row = usize::try_from(area.row).map_err(|_| GridPlacementError::OutOfBounds { entity })?;
+    let column_span = usize::try_from(area.column_span)
+        .map_err(|_| GridPlacementError::OutOfBounds { entity })?;
+    let row_span =
+        usize::try_from(area.row_span).map_err(|_| GridPlacementError::OutOfBounds { entity })?;
+    let column_end = column
+        .checked_add(column_span)
+        .ok_or(GridPlacementError::OutOfBounds { entity })?;
+    let row_end = row
+        .checked_add(row_span)
+        .ok_or(GridPlacementError::OutOfBounds { entity })?;
+    if column_end > column_count || row_end > row_count {
+        return Err(GridPlacementError::OutOfBounds { entity });
+    }
+    for current_row in row..row_end {
+        for current_column in column..column_end {
+            let index = current_row * column_count + current_column;
+            if occupied[index] {
+                return Err(GridPlacementError::Overlap { entity });
+            }
+        }
+    }
+    for current_row in row..row_end {
+        for current_column in column..column_end {
+            occupied[current_row * column_count + current_column] = true;
+        }
+    }
+    Ok(())
+}
+
+fn find_grid_area(
+    occupied: &[bool],
+    column_count: usize,
+    row_count: usize,
+    column_span: u32,
+    row_span: u32,
+    auto_flow: GridAutoFlow,
+    cursor: usize,
+) -> Option<(GridArea, usize)> {
+    let column_span = usize::try_from(column_span).ok()?;
+    let row_span = usize::try_from(row_span).ok()?;
+    if column_span == 0 || row_span == 0 || column_span > column_count || row_span > row_count {
+        return None;
+    }
+    let fits = |column: usize, row: usize| {
+        (row..row + row_span).all(|current_row| {
+            (column..column + column_span)
+                .all(|current_column| !occupied[current_row * column_count + current_column])
+        })
+    };
+    let cell_count = column_count.checked_mul(row_count)?;
+    let coordinate = match auto_flow {
+        GridAutoFlow::Row => (cursor..cell_count).find_map(|index| {
+            let column = index % column_count;
+            let row = index / column_count;
+            (column + column_span <= column_count
+                && row + row_span <= row_count
+                && fits(column, row))
+            .then_some((column, row, index + column_span))
+        }),
+        GridAutoFlow::Column => (cursor..cell_count).find_map(|index| {
+            let column = index / row_count;
+            let row = index % row_count;
+            (column + column_span <= column_count
+                && row + row_span <= row_count
+                && fits(column, row))
+            .then_some((column, row, index + row_span))
+        }),
+    }?;
+    Some((
+        GridArea {
+            column: u32::try_from(coordinate.0).ok()?,
+            row: u32::try_from(coordinate.1).ok()?,
+            column_span: u32::try_from(column_span).ok()?,
+            row_span: u32::try_from(row_span).ok()?,
+        },
+        coordinate.2,
+    ))
 }
 
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq, Serialize, Deserialize)]
@@ -838,6 +1166,18 @@ pub fn resource_usage(document: &Document) -> Result<ResourceUsage, ResourceLimi
             "responsive overrides",
             limits.responsive_overrides,
         )?;
+        add_count(
+            &mut usage.grid_tracks,
+            entity
+                .authored
+                .layout
+                .grid
+                .columns
+                .len()
+                .saturating_add(entity.authored.layout.grid.rows.len()),
+            "grid tracks",
+            limits.grid_tracks,
+        )?;
         if let Some(text) = &entity.authored.text {
             add_string(&mut usage, &text.content, limits)?;
             add_string(&mut usage, &text.font, limits)?;
@@ -1168,6 +1508,8 @@ pub fn validate(document: &Document) -> Vec<Diagnostic> {
         validate_entity(document, entity, &mut diagnostics);
     }
 
+    validate_grid_structure(document, &parents, &mut diagnostics);
+
     for root in &document.roots {
         if parents.contains_key(root) {
             diagnostics.push_capped(Diagnostic::error(
@@ -1330,6 +1672,7 @@ pub fn validate(document: &Document) -> Vec<Diagnostic> {
 
 fn validate_entity(document: &Document, entity: &Entity, diagnostics: &mut Vec<Diagnostic>) {
     validate_authored_numbers(entity, diagnostics);
+    validate_grid_style(entity, diagnostics);
     validate_entity_identifiers(document, entity, diagnostics);
     if let Some(text) = &entity.authored.text {
         if !is_sha256(&text.font_sha256) {
@@ -1562,6 +1905,18 @@ fn validate_authored_numbers(entity: &Entity, diagnostics: &mut Vec<Diagnostic>)
     ];
     authored_numbers.extend(size_number(&entity.authored.width));
     authored_numbers.extend(size_number(&entity.authored.height));
+    authored_numbers.extend(
+        entity
+            .authored
+            .layout
+            .grid
+            .columns
+            .iter()
+            .chain(&entity.authored.layout.grid.rows)
+            .map(|track| match track {
+                GridTrack::Fixed(value) | GridTrack::Fraction(value) => *value,
+            }),
+    );
     if let Some(fill) = entity.authored.fill {
         authored_numbers.extend([
             f64::from(fill.red),
@@ -1597,6 +1952,100 @@ fn validate_authored_numbers(entity: &Entity, diagnostics: &mut Vec<Diagnostic>)
                 "authored numeric values must be finite",
                 Some(entity.id),
             ));
+        }
+    }
+}
+
+fn validate_grid_style(entity: &Entity, diagnostics: &mut Vec<Diagnostic>) {
+    let layout = &entity.authored.layout;
+    if layout.family == LayoutFamily::Grid {
+        if layout.grid.columns.is_empty() || layout.grid.rows.is_empty() {
+            diagnostics.push_capped(Diagnostic::error(
+                "GRID_TRACKS_REQUIRED",
+                "grid containers require at least one explicit column and row",
+                Some(entity.id),
+            ));
+        }
+        if layout.grid.columns.len() > PROFILE0_MAX_GRID_AXIS_TRACKS
+            || layout.grid.rows.len() > PROFILE0_MAX_GRID_AXIS_TRACKS
+        {
+            diagnostics.push_capped(Diagnostic::error(
+                "GRID_TRACK_LIMIT_EXCEEDED",
+                format!("grid axes may contain at most {PROFILE0_MAX_GRID_AXIS_TRACKS} tracks"),
+                Some(entity.id),
+            ));
+        }
+        if layout
+            .grid
+            .columns
+            .iter()
+            .chain(&layout.grid.rows)
+            .any(|track| match track {
+                GridTrack::Fixed(value) | GridTrack::Fraction(value) => {
+                    value.is_finite() && *value <= 0.0
+                }
+            })
+        {
+            diagnostics.push_capped(Diagnostic::error(
+                "GRID_TRACK_INVALID",
+                "fixed sizes and fractional weights must be positive",
+                Some(entity.id),
+            ));
+        }
+    } else if !layout.grid.is_default() {
+        diagnostics.push_capped(Diagnostic::error(
+            "GRID_STYLE_WITHOUT_GRID_FAMILY",
+            "grid tracks and auto flow are only valid on a grid container",
+            Some(entity.id),
+        ));
+    }
+}
+
+fn validate_grid_structure(
+    document: &Document,
+    parents: &BTreeMap<EntityId, EntityId>,
+    diagnostics: &mut Vec<Diagnostic>,
+) {
+    for entity in document.entities.values() {
+        if !entity.authored.grid_placement.is_default()
+            && !parents.get(&entity.id).is_some_and(|parent| {
+                document
+                    .entities
+                    .get(parent)
+                    .is_some_and(|item| item.authored.layout.family == LayoutFamily::Grid)
+            })
+        {
+            diagnostics.push_capped(Diagnostic::error(
+                "GRID_PLACEMENT_WITHOUT_GRID_PARENT",
+                "grid placement is only valid on a direct child of a grid container",
+                Some(entity.id),
+            ));
+        }
+        if entity.authored.layout.family != LayoutFamily::Grid {
+            continue;
+        }
+        if let Err(error) = resolve_grid_placements(document, entity) {
+            let (code, target) = match error {
+                GridPlacementError::MissingTracks => ("GRID_TRACKS_REQUIRED", entity.id),
+                GridPlacementError::TooManyTracks => ("GRID_TRACK_LIMIT_EXCEEDED", entity.id),
+                GridPlacementError::PartialPosition { entity } => {
+                    ("GRID_PLACEMENT_PARTIAL", entity)
+                }
+                GridPlacementError::ZeroSpan { entity } => ("GRID_SPAN_INVALID", entity),
+                GridPlacementError::OutOfBounds { entity } => {
+                    ("GRID_PLACEMENT_OUT_OF_BOUNDS", entity)
+                }
+                GridPlacementError::Overlap { entity } => ("GRID_PLACEMENT_OVERLAP", entity),
+                GridPlacementError::Exhausted { entity } => {
+                    ("GRID_EXPLICIT_AREA_EXHAUSTED", entity)
+                }
+            };
+            if !diagnostics
+                .iter()
+                .any(|diagnostic| diagnostic.code == code && diagnostic.entity == Some(target))
+            {
+                diagnostics.push_capped(Diagnostic::error(code, error.to_string(), Some(target)));
+            }
         }
     }
 }
@@ -2084,6 +2533,16 @@ mod tests {
 
         let mut document = Document::empty(EntityId::new(1));
         let mut root = Entity::new(EntityId::new(2), EntityKind::Container);
+        root.authored.layout.grid.columns =
+            vec![GridTrack::Fixed(1.0); PROFILE0_RESOURCE_LIMITS.grid_tracks + 1];
+        document.entities.insert(root.id, root);
+        assert_eq!(
+            resource_usage(&document).unwrap_err().resource,
+            "grid tracks"
+        );
+
+        let mut document = Document::empty(EntityId::new(1));
+        let mut root = Entity::new(EntityId::new(2), EntityKind::Container);
         root.authored.values.insert(
             "values".to_owned(),
             PropertyValue::Array(vec![
@@ -2181,6 +2640,135 @@ mod tests {
             validate(&document)
                 .iter()
                 .any(|diagnostic| diagnostic.code == "RESOURCE_DIGEST_INVALID")
+        );
+    }
+
+    #[test]
+    fn explicit_grid_reserves_positioned_items_before_auto_placement() {
+        let mut document = Document::empty(EntityId::new(1));
+        let mut root = Entity::new(EntityId::new(2), EntityKind::Container);
+        root.authored.layout.family = LayoutFamily::Grid;
+        root.authored.layout.grid = GridStyle {
+            columns: vec![GridTrack::Fixed(40.0), GridTrack::Fraction(1.0)],
+            rows: vec![GridTrack::Fraction(1.0), GridTrack::Fraction(1.0)],
+            auto_flow: GridAutoFlow::Row,
+        };
+        let auto_first = Entity::new(EntityId::new(3), EntityKind::Container);
+        let mut explicit_second = Entity::new(EntityId::new(4), EntityKind::Container);
+        explicit_second.authored.grid_placement.column = Some(0);
+        explicit_second.authored.grid_placement.row = Some(0);
+        let auto_third = Entity::new(EntityId::new(5), EntityKind::Container);
+        root.children = vec![auto_first.id, explicit_second.id, auto_third.id];
+        document.roots.push(root.id);
+        document.entities.insert(root.id, root.clone());
+        document.entities.insert(auto_first.id, auto_first);
+        document
+            .entities
+            .insert(explicit_second.id, explicit_second);
+        document.entities.insert(auto_third.id, auto_third);
+
+        assert!(validate(&document).is_empty());
+        let areas = resolve_grid_placements(&document, &root).unwrap();
+        assert_eq!(
+            areas[&EntityId::new(3)],
+            GridArea {
+                column: 1,
+                row: 0,
+                column_span: 1,
+                row_span: 1,
+            }
+        );
+        assert_eq!(
+            areas[&EntityId::new(4)],
+            GridArea {
+                column: 0,
+                row: 0,
+                column_span: 1,
+                row_span: 1,
+            }
+        );
+        assert_eq!(areas[&EntityId::new(5)].row, 1);
+    }
+
+    #[test]
+    fn grid_validation_rejects_partial_overlap_and_implicit_tracks() {
+        let mut document = Document::empty(EntityId::new(1));
+        let mut root = Entity::new(EntityId::new(2), EntityKind::Container);
+        root.authored.layout.family = LayoutFamily::Grid;
+        root.authored.layout.grid.columns = vec![GridTrack::Fraction(1.0)];
+        root.authored.layout.grid.rows = vec![GridTrack::Fixed(20.0)];
+        let mut first = Entity::new(EntityId::new(3), EntityKind::Container);
+        first.authored.grid_placement.column = Some(0);
+        let second = Entity::new(EntityId::new(4), EntityKind::Container);
+        root.children = vec![first.id, second.id];
+        document.roots.push(root.id);
+        document.entities.insert(root.id, root);
+        document.entities.insert(first.id, first);
+        document.entities.insert(second.id, second);
+        assert!(
+            validate(&document)
+                .iter()
+                .any(|diagnostic| diagnostic.code == "GRID_PLACEMENT_PARTIAL")
+        );
+
+        let first = document.entities.get_mut(&EntityId::new(3)).unwrap();
+        first.authored.grid_placement.row = Some(0);
+        assert!(
+            validate(&document)
+                .iter()
+                .any(|diagnostic| diagnostic.code == "GRID_EXPLICIT_AREA_EXHAUSTED")
+        );
+
+        let second = document.entities.get_mut(&EntityId::new(4)).unwrap();
+        second.authored.grid_placement.column = Some(0);
+        second.authored.grid_placement.row = Some(0);
+        assert!(
+            validate(&document)
+                .iter()
+                .any(|diagnostic| diagnostic.code == "GRID_PLACEMENT_OVERLAP")
+        );
+    }
+
+    #[test]
+    fn grid_auto_flow_is_sparse_and_does_not_backfill() {
+        let mut document = Document::empty(EntityId::new(1));
+        let mut root = Entity::new(EntityId::new(2), EntityKind::Container);
+        root.authored.layout.family = LayoutFamily::Grid;
+        root.authored.layout.grid.columns = vec![GridTrack::Fraction(1.0); 3];
+        root.authored.layout.grid.rows = vec![GridTrack::Fraction(1.0); 2];
+        let mut wide_first = Entity::new(EntityId::new(3), EntityKind::Container);
+        wide_first.authored.grid_placement.column_span = 2;
+        let mut wide_second = Entity::new(EntityId::new(4), EntityKind::Container);
+        wide_second.authored.grid_placement.column_span = 2;
+        let final_item = Entity::new(EntityId::new(5), EntityKind::Container);
+        root.children = vec![wide_first.id, wide_second.id, final_item.id];
+        document.roots.push(root.id);
+        document.entities.insert(root.id, root.clone());
+        document.entities.insert(wide_first.id, wide_first);
+        document.entities.insert(wide_second.id, wide_second);
+        document.entities.insert(final_item.id, final_item);
+
+        let areas = resolve_grid_placements(&document, &root).unwrap();
+        assert_eq!(
+            (
+                areas[&EntityId::new(3)].column,
+                areas[&EntityId::new(3)].row
+            ),
+            (0, 0)
+        );
+        assert_eq!(
+            (
+                areas[&EntityId::new(4)].column,
+                areas[&EntityId::new(4)].row
+            ),
+            (0, 1)
+        );
+        assert_eq!(
+            (
+                areas[&EntityId::new(5)].column,
+                areas[&EntityId::new(5)].row
+            ),
+            (2, 1)
         );
     }
 }

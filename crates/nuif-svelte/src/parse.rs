@@ -335,6 +335,7 @@ fn parse_container(
                 left,
             },
             align,
+            ..LayoutStyle::default()
         },
         ..AuthoredProperties::default()
     };

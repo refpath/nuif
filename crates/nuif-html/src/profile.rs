@@ -41,6 +41,7 @@ pub fn profile_fixture() -> Document {
                 left: 24.0,
             },
             align: Align::Stretch,
+            ..LayoutStyle::default()
         },
         values: [("token.spacing".to_owned(), PropertyValue::Token(token_id))]
             .into_iter()

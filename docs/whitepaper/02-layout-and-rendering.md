@@ -9,7 +9,9 @@ The initial layout vocabulary contains families rather than one universal algori
 - `freeform` — transforms/anchors and explicit geometry.
 - `stack` — one-dimensional flow with intrinsic sizing, distribution, alignment and gaps.
 - `flex` — web-compatible flexible layout semantics.
-- `grid` — track-based two-dimensional layout.
+- `grid` — bounded explicit fixed/`fr` tracks, spans and deterministic
+  no-implicit-track placement in profile 0; broader CSS Grid features remain
+  capability-reported adapter input.
 - `constraint` — relational linear constraints for editor/native-layout cases.
 - `custom` — extension/dialect-defined evaluator with declared fallback/resolved geometry.
 
