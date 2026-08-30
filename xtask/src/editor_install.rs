@@ -143,6 +143,7 @@ struct SourceIdentity {
     tag: Option<String>,
     repository: Option<String>,
     lock_sha256: String,
+    tree_sha256: String,
     toolchain: String,
     channel: Channel,
 }
@@ -559,6 +560,7 @@ fn source_identity(options: &InstallOptions) -> Result<SourceIdentity, String> {
         ));
     }
     let lock_sha256 = sha256_file(Path::new("Cargo.lock"))?;
+    let tree_sha256 = source_tree_sha256()?;
     let toolchain = required_command_text("rustc", &["--version"])?;
     Ok(SourceIdentity {
         version,
@@ -567,6 +569,7 @@ fn source_identity(options: &InstallOptions) -> Result<SourceIdentity, String> {
         tag,
         repository: command_text("git", &["config", "--get", "remote.origin.url"]),
         lock_sha256,
+        tree_sha256,
         toolchain,
         channel: options.channel,
     })
@@ -627,7 +630,12 @@ fn stage_install(
         ));
     }
     let binary_sha256 = sha256_file(&staging_binary)?;
-    let id = install_id(&source.version, &source.revision, &binary_sha256)?;
+    let id = install_id(
+        &source.version,
+        &source.revision,
+        &source.tree_sha256,
+        &binary_sha256,
+    )?;
     let final_root = paths.versions.join(&id);
     let receipt = install_receipt(
         platform,
@@ -688,6 +696,7 @@ fn install_receipt(
             "revision": source.revision,
             "dirty": source.dirty,
             "cargo_lock_sha256": source.lock_sha256,
+            "working_tree_sha256": source.tree_sha256,
             "toolchain": source.toolchain,
         },
         "binary_relative_path": binary_relative,
@@ -701,7 +710,12 @@ fn install_receipt(
     })
 }
 
-fn install_id(version: &str, revision: &str, binary_sha256: &str) -> Result<String, String> {
+fn install_id(
+    version: &str,
+    revision: &str,
+    tree_sha256: &str,
+    binary_sha256: &str,
+) -> Result<String, String> {
     if !version
         .bytes()
         .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'.' | b'-'))
@@ -709,10 +723,12 @@ fn install_id(version: &str, revision: &str, binary_sha256: &str) -> Result<Stri
         return Err(format!("editor version is not path-safe: {version:?}"));
     }
     validate_revision(revision)?;
+    validate_sha256(tree_sha256, "working-tree digest")?;
     validate_sha256(binary_sha256, "installed binary digest")?;
     Ok(format!(
-        "{version}-{}-{}",
+        "{version}-{}-{}-{}",
         &revision[..12],
+        &tree_sha256[..12],
         &binary_sha256[..12]
     ))
 }
@@ -1115,6 +1131,10 @@ fn installed_version_from_receipt(
         .as_str()
         .ok_or_else(|| format!("install receipt {id} has no lockfile digest"))?;
     validate_sha256(lock_sha256, "install receipt lockfile digest")?;
+    let tree_sha256 = receipt["source"]["working_tree_sha256"]
+        .as_str()
+        .ok_or_else(|| format!("install receipt {id} has no working-tree digest"))?;
+    validate_sha256(tree_sha256, "install receipt working-tree digest")?;
     let dirty = receipt["source"]["dirty"]
         .as_bool()
         .ok_or_else(|| format!("install receipt {id} has no source cleanliness state"))?;
@@ -1144,7 +1164,7 @@ fn installed_version_from_receipt(
         .ok_or_else(|| format!("install receipt {id} has no binary digest"))?
         .to_owned();
     validate_sha256(&binary_sha256, "install receipt binary digest")?;
-    if install_id(version, revision, &binary_sha256)? != id {
+    if install_id(version, revision, tree_sha256, &binary_sha256)? != id {
         return Err(format!(
             "install receipt {id} is not bound to its version, revision and binary"
         ));
@@ -1436,6 +1456,64 @@ fn write_bytes_atomic(path: &Path, bytes: &[u8]) -> Result<(), String> {
 fn sha256_file(path: &Path) -> Result<String, String> {
     let bytes = fs::read(path).map_err(|error| error.to_string())?;
     Ok(format!("{:x}", Sha256::digest(bytes)))
+}
+
+fn source_tree_sha256() -> Result<String, String> {
+    let output = Command::new("git")
+        .args([
+            "ls-files",
+            "--cached",
+            "--others",
+            "--exclude-standard",
+            "-z",
+        ])
+        .output()
+        .map_err(|error| error.to_string())?;
+    check_status(output.status, "git ls-files")?;
+    let mut files = output
+        .stdout
+        .split(|byte| *byte == 0)
+        .filter(|path| !path.is_empty())
+        .map(|path| {
+            String::from_utf8(path.to_vec())
+                .map_err(|_| "source path is not valid UTF-8".to_owned())
+        })
+        .collect::<Result<Vec<_>, _>>()?;
+    files.sort();
+    let mut digest = Sha256::new();
+    for relative in files {
+        let path = Path::new(&relative);
+        if path.is_absolute()
+            || path
+                .components()
+                .any(|component| component == std::path::Component::ParentDir)
+        {
+            return Err(format!("Git reported an unsafe source path {relative:?}"));
+        }
+        let metadata = fs::symlink_metadata(path).map_err(|error| error.to_string())?;
+        digest.update((relative.len() as u64).to_le_bytes());
+        digest.update(relative.as_bytes());
+        if metadata.file_type().is_symlink() {
+            digest.update(b"symlink");
+            let target = fs::read_link(path).map_err(|error| error.to_string())?;
+            let target = target
+                .to_str()
+                .ok_or_else(|| format!("symlink target is not valid UTF-8: {}", path.display()))?;
+            digest.update((target.len() as u64).to_le_bytes());
+            digest.update(target.as_bytes());
+        } else if metadata.is_file() {
+            digest.update(b"file");
+            let bytes = fs::read(path).map_err(|error| error.to_string())?;
+            digest.update((bytes.len() as u64).to_le_bytes());
+            digest.update(bytes);
+        } else {
+            return Err(format!(
+                "Git source entry is neither a file nor a symlink: {}",
+                path.display()
+            ));
+        }
+    }
+    Ok(format!("{:x}", digest.finalize()))
 }
 
 fn require_update_tools() -> Result<(), String> {
@@ -1802,10 +1880,11 @@ mod tests {
     #[test]
     fn install_identifier_binds_version_revision_and_binary() {
         let revision = "0123456789abcdef0123456789abcdef01234567";
+        let tree = "123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0";
         let digest = "abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789";
         assert_eq!(
-            install_id("0.1.0-alpha.2", revision, digest).unwrap(),
-            "0.1.0-alpha.2-0123456789ab-abcdef012345"
+            install_id("0.1.0-alpha.2", revision, tree, digest).unwrap(),
+            "0.1.0-alpha.2-0123456789ab-123456789abc-abcdef012345"
         );
     }
 
