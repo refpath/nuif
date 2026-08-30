@@ -36,7 +36,7 @@ links:
 
 # Summary
 
-Cargo metadata reports 32 distinct direct external crates across the workspace.
+Cargo metadata reports 33 distinct direct external crates across the workspace.
 Each is now registered with a role, a current decision, at least one considered
 alternative and repository evidence. The executable audit fails when a direct
 crate is added without ownership or when a stale registration remains. Cargo

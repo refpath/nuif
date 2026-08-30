@@ -210,6 +210,14 @@
       "evidence": ["research/items/react-jsx-adapter-surface.md", "research/items/tree-sitter.md"]
     },
     {
+      "name": "tree-sitter-svelte-next",
+      "role": "concrete Svelte syntax grammar for the bounded static source adapter",
+      "decision": "retain",
+      "alternatives": ["official svelte/compiler in production", "svelte-compiler", "HTML parser"],
+      "rationale": "The adapter needs small in-process UTF-8 spans and structural exclusion of Svelte expressions, blocks, directives, scripts and styles; the exact official compiler remains the independent test oracle instead of becoming a JavaScript production sidecar.",
+      "evidence": ["research/items/svelte-source-adapter-surface.md", "adrs/0010-svelte-source-adapter.md"]
+    },
+    {
       "name": "tokio",
       "role": "single-thread async runtime and standard-I/O primitives for the MCP process shell",
       "decision": "retain",
