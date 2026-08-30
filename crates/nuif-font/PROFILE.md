@@ -12,10 +12,12 @@ silently interpreting them differently across hosts.
 ## Accepted input
 
 - sfnt signature `0x00010000` and face index `0`;
-- at most 32 MiB and 256 strictly sorted, unique table records;
+- at most 32 MiB and 256 strictly sorted, unique table records with consistent
+  sfnt search fields;
 - required `OS/2`, `cmap`, `glyf`, `head`, `hhea`, `hmtx`, `loca`, `maxp`, and
   `name` tables;
-- aligned, in-range, non-overlapping table data with exact trailing padding;
+- aligned, in-range, contiguously packed table data with exact zero padding and
+  no trailing data;
 - valid per-table checksums and complete-font checksum;
 - `OS/2` version 0 through 5 with one unambiguous `fsType` usage permission;
 - Unicode coverage derived from mappings that resolve to glyphs;

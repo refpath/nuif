@@ -303,6 +303,16 @@ fn inspect_directory(bytes: &[u8]) -> Result<Vec<TableRecord>, FontError> {
     if directory_end > bytes.len() {
         return Err(FontError::Unsupported("truncated table directory"));
     }
+    let entry_selector = usize::try_from(table_count.ilog2())
+        .map_err(|_| FontError::Unsupported("table search parameters"))?;
+    let search_range = (1_usize << entry_selector).saturating_mul(16);
+    let range_shift = table_count.saturating_mul(16).saturating_sub(search_range);
+    if usize::from(read_u16(bytes, 6)?) != search_range
+        || usize::from(read_u16(bytes, 8)?) != entry_selector
+        || usize::from(read_u16(bytes, 10)?) != range_shift
+    {
+        return Err(FontError::Unsupported("invalid table search parameters"));
+    }
     let mut tables = Vec::with_capacity(table_count);
     let mut tags = BTreeSet::new();
     for index in 0..table_count {
@@ -348,21 +358,7 @@ fn inspect_directory(bytes: &[u8]) -> Result<Vec<TableRecord>, FontError> {
             "variable, CFF, color, bitmap or SVG table",
         ));
     }
-    let mut ranges = tables
-        .iter()
-        .map(|table| (table.offset, align4(table.offset + table.length), table.tag))
-        .collect::<Vec<_>>();
-    ranges.sort_unstable_by_key(|range| range.0);
-    if ranges.windows(2).any(|pair| pair[0].1 > pair[1].0) {
-        return Err(FontError::Unsupported("overlapping table ranges"));
-    }
-    let expected_len = ranges
-        .last()
-        .map(|range| range.1)
-        .ok_or(FontError::Unsupported("empty table directory"))?;
-    if expected_len != bytes.len() {
-        return Err(FontError::Unsupported("trailing or missing table padding"));
-    }
+    validate_table_packing(bytes, &tables, directory_end)?;
     for table in &tables {
         let data = &bytes[table.offset..table.offset + table.length];
         let observed = table_checksum(data, table.tag == *b"head");
@@ -376,6 +372,40 @@ fn inspect_directory(bytes: &[u8]) -> Result<Vec<TableRecord>, FontError> {
         return Err(FontError::FontChecksum);
     }
     Ok(tables)
+}
+
+fn validate_table_packing(
+    bytes: &[u8],
+    tables: &[TableRecord],
+    directory_end: usize,
+) -> Result<(), FontError> {
+    let mut ranges = tables
+        .iter()
+        .map(|table| (table.offset, table.offset + table.length))
+        .collect::<Vec<_>>();
+    ranges.sort_unstable_by_key(|range| range.0);
+    let mut expected_offset = directory_end;
+    for (offset, end) in ranges {
+        if offset != expected_offset {
+            return Err(FontError::Unsupported(
+                "noncanonical table packing or padding",
+            ));
+        }
+        let aligned_end = align4(end);
+        let padding = bytes
+            .get(end..aligned_end)
+            .ok_or(FontError::Unsupported("trailing or missing table padding"))?;
+        if padding.iter().any(|byte| *byte != 0) {
+            return Err(FontError::Unsupported(
+                "noncanonical table packing or padding",
+            ));
+        }
+        expected_offset = aligned_end;
+    }
+    if expected_offset != bytes.len() {
+        return Err(FontError::Unsupported("trailing or missing table padding"));
+    }
+    Ok(())
 }
 
 fn coverage_ranges(face: &Face<'_>) -> Result<Vec<CodepointRange>, FontError> {
