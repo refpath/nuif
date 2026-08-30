@@ -7,6 +7,7 @@ use nuif_core::{
     FlowDirection, ImageAsset, ImageCrop, ImageFit, ImagePaint, ImageSampling, LayoutFamily,
     LayoutStyle, Point, ResourceDigest, ResourceRole, Semantics, SizeIntent, TextContent,
 };
+use nuif_media::{MediaError, Rgba8Image, decode_png_rgba8};
 use nuif_package::{NuifPackage, PackageError, PackageMode};
 use nuif_protocol::{Anchor, Operation, Patch, Transaction};
 use nuif_reconstruct::{
@@ -15,22 +16,20 @@ use nuif_reconstruct::{
     Proposal, Subject,
 };
 use nuif_text::PINNED_FONT_SHA256;
-use png::{BitDepth, ColorType, Transformations};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::collections::{BTreeMap, BTreeSet};
-use std::io::Cursor;
 use thiserror::Error;
 
 pub const BROWSER_CAPTURE_PROFILE: &str = "nuif-browser-capture-0";
 pub const SCREENSHOT_CAPTURE_PROFILE: &str = "nuif-screenshot-baseline-0";
-pub const PNG_DECODER_PROFILE: &str = "nuif-png-rgba8-0";
+pub const PNG_DECODER_PROFILE: &str = nuif_media::PNG_RGBA8_PROFILE;
 pub const MAX_CAPTURE_NODES: usize = 32_768;
 pub const MAX_CAPTURE_RESOURCES: usize = 8_192;
-pub const MAX_PNG_WIDTH: u32 = 8_192;
-pub const MAX_PNG_HEIGHT: u32 = 8_192;
-pub const MAX_PNG_PIXELS: u64 = 16_777_216;
-pub const MAX_PNG_CHUNKS: usize = 4_096;
+pub const MAX_PNG_WIDTH: u32 = nuif_media::MAX_PNG_WIDTH;
+pub const MAX_PNG_HEIGHT: u32 = nuif_media::MAX_PNG_HEIGHT;
+pub const MAX_PNG_PIXELS: u64 = nuif_media::MAX_PNG_PIXELS;
+pub const MAX_PNG_CHUNKS: usize = nuif_media::MAX_PNG_CHUNKS;
 pub const MAX_COLOR_REGIONS: usize = 64;
 pub const MAX_OCR_SPANS: usize = 8_192;
 
@@ -642,94 +641,6 @@ fn validate_screenshot_capture(
     Ok(())
 }
 
-#[derive(Clone, Debug, Eq, PartialEq)]
-struct RgbaImage {
-    width: u32,
-    height: u32,
-    rgba: Vec<u8>,
-}
-
-fn decode_png_rgba8(bytes: &[u8]) -> Result<RgbaImage, CaptureError> {
-    inspect_png_chunks(bytes)?;
-    let mut decoder = png::Decoder::new(Cursor::new(bytes));
-    decoder.set_transformations(Transformations::IDENTITY);
-    let mut reader = decoder
-        .read_info()
-        .map_err(|error| CaptureError::Png(error.to_string()))?;
-    let info = reader.info();
-    if info.width == 0
-        || info.height == 0
-        || info.width > MAX_PNG_WIDTH
-        || info.height > MAX_PNG_HEIGHT
-        || u64::from(info.width) * u64::from(info.height) > MAX_PNG_PIXELS
-        || info.color_type != ColorType::Rgba
-        || info.bit_depth != BitDepth::Eight
-        || info.interlaced
-    {
-        return Err(CaptureError::UnsupportedPng);
-    }
-    let (width, height) = (info.width, info.height);
-    let buffer_size = reader
-        .output_buffer_size()
-        .ok_or(CaptureError::ResourceLimit)?;
-    let mut rgba = vec![0; buffer_size];
-    let output = reader
-        .next_frame(&mut rgba)
-        .map_err(|error| CaptureError::Png(error.to_string()))?;
-    rgba.truncate(output.buffer_size());
-    let expected = usize::try_from(u64::from(width) * u64::from(height) * 4)
-        .map_err(|_| CaptureError::ResourceLimit)?;
-    if rgba.len() != expected {
-        return Err(CaptureError::UnsupportedPng);
-    }
-    Ok(RgbaImage {
-        width,
-        height,
-        rgba,
-    })
-}
-
-fn inspect_png_chunks(bytes: &[u8]) -> Result<(), CaptureError> {
-    if bytes.len() > nuif_package::MAX_RESOURCE_BYTES || !bytes.starts_with(b"\x89PNG\r\n\x1a\n") {
-        return Err(CaptureError::UnsupportedPng);
-    }
-    let mut offset = 8_usize;
-    let mut chunks = 0_usize;
-    let mut seen_ihdr = false;
-    let mut seen_idat = false;
-    let mut seen_iend = false;
-    while offset < bytes.len() {
-        chunks = chunks.saturating_add(1);
-        if chunks > MAX_PNG_CHUNKS || offset.checked_add(12).is_none_or(|end| end > bytes.len()) {
-            return Err(CaptureError::ResourceLimit);
-        }
-        let length = u32::from_be_bytes(bytes[offset..offset + 4].try_into().unwrap()) as usize;
-        let kind = &bytes[offset + 4..offset + 8];
-        let end = offset
-            .checked_add(12)
-            .and_then(|value| value.checked_add(length))
-            .ok_or(CaptureError::ResourceLimit)?;
-        if end > bytes.len() {
-            return Err(CaptureError::Png("truncated PNG chunk".to_owned()));
-        }
-        match kind {
-            b"IHDR" if !seen_ihdr && chunks == 1 && length == 13 => seen_ihdr = true,
-            b"IDAT" if seen_ihdr && !seen_iend => seen_idat = true,
-            b"IEND" if seen_idat && !seen_iend && length == 0 => seen_iend = true,
-            b"sRGB" if seen_ihdr && !seen_idat && length == 1 => {}
-            _ => return Err(CaptureError::UnsupportedPng),
-        }
-        offset = end;
-        if seen_iend {
-            break;
-        }
-    }
-    if !seen_ihdr || !seen_idat || !seen_iend || offset != bytes.len() {
-        return Err(CaptureError::UnsupportedPng);
-    }
-    Ok(())
-}
-
 #[derive(Clone, Copy, Debug, Default)]
 struct RegionStats {
     count: u32,
@@ -739,7 +650,7 @@ struct RegionStats {
     max_y: u32,
 }
 
-fn extract_color_regions(image: &RgbaImage) -> Vec<ColorRegion> {
+fn extract_color_regions(image: &Rgba8Image) -> Vec<ColorRegion> {
     let mut colors = BTreeMap::<[u8; 4], RegionStats>::new();
     for y in 0..image.height {
         for x in 0..image.width {
@@ -1154,20 +1065,20 @@ pub enum CaptureError {
     Observation(#[from] ObservationError),
     #[error(transparent)]
     Codec(#[from] CodecError),
+    #[error(transparent)]
+    Media(#[from] MediaError),
     #[error("invalid capture: {0}")]
     InvalidCapture(String),
     #[error("capture exceeds a configured resource limit")]
     ResourceLimit,
-    #[error("PNG decode failed: {0}")]
-    Png(String),
-    #[error("PNG is outside the strict non-interlaced RGBA8 screenshot profile")]
-    UnsupportedPng,
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use nuif_reconstruct::{ProposalPolicy, apply_proposal};
+    use png::{BitDepth, ColorType};
+    use std::io::Cursor;
 
     fn png(width: u32, height: u32, pixels: &[u8]) -> Vec<u8> {
         let mut bytes = Vec::new();
@@ -1321,7 +1232,7 @@ mod tests {
         }
         assert!(matches!(
             decode_png_rgba8(&indexed),
-            Err(CaptureError::UnsupportedPng)
+            Err(MediaError::UnsupportedPng(_))
         ));
     }
 }

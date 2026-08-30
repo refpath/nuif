@@ -2262,6 +2262,7 @@ version = "0.0.1"
 dependencies = [
  "nuif-codec",
  "nuif-core",
+ "nuif-media",
  "nuif-package",
  "nuif-protocol",
  "nuif-reconstruct",
@@ -2415,6 +2416,16 @@ dependencies = [
  "nuif-core",
  "nuif-text",
  "serde",
+]
+
+[[package]]
+name = "nuif-media"
+version = "0.0.1"
+dependencies = [
+ "png",
+ "serde",
+ "serde_bytes",
+ "thiserror 2.0.20",
 ]
 
 [[package]]
