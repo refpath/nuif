@@ -13,12 +13,15 @@ path = "src/main.rs"
 nuif-api = { version = "0.0.0", path = "../nuif-api" }
 nuif-codec = { version = "0.0.0", path = "../nuif-codec" }
 nuif-core = { version = "0.0.1", path = "../nuif-core" }
+nuif-capture = { version = "0.0.1", path = "../nuif-capture" }
 nuif-dtcg = { version = "0.0.1", path = "../nuif-dtcg" }
 nuif-html = { version = "0.0.1", path = "../nuif-html" }
 nuif-layout = { version = "0.0.0", path = "../nuif-layout" }
+nuif-package = { version = "0.0.1", path = "../nuif-package" }
 nuif-penpot = { version = "0.0.1", path = "../nuif-penpot" }
 nuif-protocol = { version = "0.0.1", path = "../nuif-protocol" }
 nuif-render = { version = "0.0.0", path = "../nuif-render" }
+nuif-reconstruct = { version = "0.0.1", path = "../nuif-reconstruct" }
 nuif-svg = { version = "0.0.1", path = "../nuif-svg" }
 nuif-testing = { version = "0.0.1", path = "../nuif-testing" }
 serde.workspace = true

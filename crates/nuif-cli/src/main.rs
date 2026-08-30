@@ -1,4 +1,8 @@
 use nuif_api::{Engine, ReferenceEngine, Session, profile_zero_context};
+use nuif_capture::{
+    BrowserCapture, OcrSpan, SCREENSHOT_CAPTURE_PROFILE, ScreenshotCapture, Viewport,
+    analyze_screenshot, normalize_browser_capture,
+};
 use nuif_codec::{
     BoundedReadError, CanonicalText, Canonicalizer, Decoder, DeterministicCbor, Encoder,
     MAX_INPUT_BYTES, MAX_SYNTAX_DEPTH, MAX_TEXT_BINARY_BYTES, canonical_hash,
@@ -16,16 +20,19 @@ use nuif_html::{
     synchronize_v0 as synchronize_html_v0,
 };
 use nuif_layout::EvaluationContext;
+use nuif_package::{MAX_PACKAGE_BYTES, MAX_RESOURCE_BYTES, NuifPackage, PackageMode};
 use nuif_penpot::{
     AdapterError as PenpotAdapterError, export_document as export_penpot_document,
     import_package as import_penpot_package, synchronize as synchronize_penpot,
 };
 use nuif_protocol::{Patch, apply_patch};
+use nuif_reconstruct::{ObservationBundle, Proposal, ProposalPolicy, apply_proposal};
 use nuif_svg::{
     AdapterError as SvgAdapterError, export_document as export_svg_document,
     import_source as import_svg_source, synchronize as synchronize_svg,
 };
 use nuif_testing::{TrialConfig, run_trials};
+use serde::Deserialize;
 use std::env;
 use std::fs;
 use std::io::{self, Read, Write};
@@ -51,6 +58,9 @@ const COMMANDS: &[&str] = &[
     "export",
     "fixture",
     "trial",
+    "pack",
+    "unpack",
+    "capture",
 ];
 
 fn main() {
@@ -99,13 +109,17 @@ fn run() -> Result<(), CliError> {
         "export" => export(&rest),
         "fixture" => fixture(&rest),
         "trial" => trial(&rest),
+        "pack" => pack(&rest),
+        "unpack" => unpack(&rest),
+        "capture" => capture(&rest),
         _ => Err(usage()),
     }
 }
 
 fn inspect(args: &[String]) -> Result<(), CliError> {
-    let document = load_document(required(args, 0, "input document")?)?;
-    let errors = validate(&document)
+    let loaded = load_nuif(required(args, 0, "input document")?)?;
+    let document = &loaded.document;
+    let errors = validate(document)
         .iter()
         .filter(|item| item.severity == Severity::Error)
         .count();
@@ -113,11 +127,18 @@ fn inspect(args: &[String]) -> Result<(), CliError> {
         "status": if errors == 0 { "passed" } else { "failed" },
         "document": document.id,
         "schema_version": document.schema_version,
-        "canonical_hash": canonical_hash(&document).ok(),
+        "canonical_hash": canonical_hash(document).ok(),
         "entities": document.entities.len(),
         "roots": document.roots,
         "tokens": document.tokens.len(),
         "relations": document.relations.len(),
+        "assets": document.assets.len(),
+        "file_profile": loaded.profile,
+        "package": loaded.package.as_ref().map(|package| serde_json::json!({
+            "mode": package.mode,
+            "resources": package.resources.len(),
+            "package_hash": package.package_hash().ok()
+        })),
         "extensions_used": document.extension_declarations.used,
         "errors": errors
     }))
@@ -181,8 +202,10 @@ fn kind_name(kind: &EntityKind) -> &'static str {
 
 fn validate_command(args: &[String]) -> Result<(), CliError> {
     let path = required(args, 0, "input document")?;
-    let bytes = read_input(path)?;
-    let document = if Path::new(path)
+    let bytes = read_input_with_limit(path, MAX_PACKAGE_BYTES)?;
+    let document = if bytes.starts_with(b"PK\x03\x04") {
+        NuifPackage::decode(&bytes).map_err(package_error)?.document
+    } else if Path::new(path)
         .extension()
         .is_some_and(|extension| extension.eq_ignore_ascii_case("cbor"))
     {
@@ -268,15 +291,14 @@ fn diff(args: &[String]) -> Result<(), CliError> {
 }
 
 fn replay(args: &[String]) -> Result<(), CliError> {
-    let mut document = load_document(required(args, 0, "input document")?)?;
+    let mut loaded = load_nuif(required(args, 0, "input document")?)?;
     let patch_bytes = read_input(required(args, 1, "patch JSON")?)?;
     let patch: Patch = serde_json::from_slice(&patch_bytes)
         .map_err(|error| CliError::new(1, "PATCH_MALFORMED", error.to_string()))?;
-    apply_patch(&mut document, &patch)
+    apply_patch(&mut loaded.document, &patch)
         .map_err(|error| CliError::new(1, "PATCH_APPLY_FAILED", error.to_string()))?;
     let output = args.get(2).map_or("-", String::as_str);
-    let bytes = CanonicalText.encode(&document).map_err(codec_error)?;
-    write_output(output, &bytes)
+    write_loaded_document(output, &mut loaded)
 }
 
 fn layout(args: &[String]) -> Result<(), CliError> {
@@ -366,10 +388,7 @@ fn snapshot(args: &[String]) -> Result<(), CliError> {
 fn migrate(args: &[String]) -> Result<(), CliError> {
     let document = load_document(required(args, 0, "input document")?)?;
     let output = args.get(1).map_or("-", String::as_str);
-    write_output(
-        output,
-        &CanonicalText.encode(&document).map_err(codec_error)?,
-    )
+    write_document(output, &document)
 }
 
 fn import(args: &[String]) -> Result<(), CliError> {
@@ -400,10 +419,7 @@ fn import(args: &[String]) -> Result<(), CliError> {
     let input = required(args, 0, "input document")?;
     let output = args.get(1).map_or("-", String::as_str);
     let document = load_document(input)?;
-    write_output(
-        output,
-        &CanonicalText.encode(&document).map_err(codec_error)?,
-    )?;
+    write_document(output, &document)?;
     eprintln!(
         "{}",
         serde_json::json!({"status":"passed","fidelity":[{"class":"lossless","reason":"native NUIF import"}]})
@@ -423,6 +439,12 @@ fn export(args: &[String]) -> Result<(), CliError> {
         "nuif-cbor-0" => write_output(
             output,
             &DeterministicCbor.encode(&document).map_err(codec_error)?,
+        ),
+        "nuif-package-0" => write_output(
+            output,
+            &NuifPackage::new(document, PackageMode::Portable)
+                .encode()
+                .map_err(package_error)?,
         ),
         "html-css-0" => {
             let report_path = args.get(3).map(String::as_str);
@@ -494,12 +516,7 @@ fn import_html(args: &[String]) -> Result<(), CliError> {
         Ok(imported) => imported,
         Err(error) => return adapter_failure(&error, report_path),
     };
-    write_output(
-        output,
-        &CanonicalText
-            .encode(&imported.document)
-            .map_err(codec_error)?,
-    )?;
+    write_document(output, &imported.document)?;
     emit_adapter_report(&imported.retentive.report, report_path)
 }
 
@@ -513,12 +530,7 @@ fn import_svg(args: &[String]) -> Result<(), CliError> {
         Ok(imported) => imported,
         Err(error) => return svg_adapter_failure(&error, report_path),
     };
-    write_output(
-        output,
-        &CanonicalText
-            .encode(&imported.document)
-            .map_err(codec_error)?,
-    )?;
+    write_document(output, &imported.document)?;
     emit_adapter_report(&imported.retentive.report, report_path)
 }
 
@@ -532,12 +544,7 @@ fn import_dtcg(args: &[String]) -> Result<(), CliError> {
         Ok(imported) => imported,
         Err(error) => return dtcg_adapter_failure(&error, report_path),
     };
-    write_output(
-        output,
-        &CanonicalText
-            .encode(&imported.document)
-            .map_err(codec_error)?,
-    )?;
+    write_document(output, &imported.document)?;
     emit_adapter_report(&imported.retentive.report, report_path)
 }
 
@@ -549,12 +556,7 @@ fn import_penpot(args: &[String]) -> Result<(), CliError> {
         Ok(imported) => imported,
         Err(error) => return penpot_adapter_failure(&error, report_path),
     };
-    write_output(
-        output,
-        &CanonicalText
-            .encode(&imported.document)
-            .map_err(codec_error)?,
-    )?;
+    write_document(output, &imported.document)?;
     emit_adapter_report(imported.retentive.report(), report_path)
 }
 
@@ -767,6 +769,194 @@ fn trial(args: &[String]) -> Result<(), CliError> {
     }
 }
 
+fn pack(args: &[String]) -> Result<(), CliError> {
+    let input = required(args, 0, "input NUIF document")?;
+    let output = required(args, 1, "output .nuif package")?;
+    if !has_extension(output, "nuif") {
+        return Err(CliError::new(
+            2,
+            "PACKAGE_EXTENSION_REQUIRED",
+            "pack output must use the .nuif extension",
+        ));
+    }
+    let loaded = load_nuif(input)?;
+    let requested_mode = if args.iter().any(|argument| argument == "--authoring") {
+        Some(PackageMode::Authoring)
+    } else if args.iter().any(|argument| argument == "--portable") {
+        Some(PackageMode::Portable)
+    } else {
+        None
+    };
+    let mut package = loaded
+        .package
+        .unwrap_or_else(|| NuifPackage::new(loaded.document.clone(), PackageMode::Portable));
+    package.document = loaded.document;
+    if let Some(mode) = requested_mode {
+        package.mode = mode;
+    }
+    let bytes = package.encode().map_err(package_error)?;
+    write_output(output, &bytes)?;
+    print_json(&serde_json::json!({
+        "status": "passed",
+        "profile": nuif_package::PROFILE,
+        "mode": package.mode,
+        "document_hash": canonical_hash(&package.document).map_err(codec_error)?,
+        "package_hash": package.package_hash().map_err(package_error)?,
+        "resources": package.resources.len(),
+        "bytes": bytes.len()
+    }))
+}
+
+fn unpack(args: &[String]) -> Result<(), CliError> {
+    let input = required(args, 0, "input .nuif package")?;
+    let output = required(args, 1, "output .nuif.json or .nuif.cbor")?;
+    if has_extension(output, "nuif") {
+        return Err(CliError::new(
+            2,
+            "BARE_EXTENSION_REQUIRED",
+            "unpack output must use .json or .cbor, not .nuif",
+        ));
+    }
+    let bytes = read_input_with_limit(input, MAX_PACKAGE_BYTES)?;
+    let package = NuifPackage::decode(&bytes).map_err(package_error)?;
+    let document_bytes = if has_extension(output, "cbor") {
+        DeterministicCbor
+            .encode(&package.document)
+            .map_err(codec_error)?
+    } else {
+        CanonicalText
+            .encode(&package.document)
+            .map_err(codec_error)?
+    };
+    write_output(output, &document_bytes)?;
+    print_json(&serde_json::json!({
+        "status": "passed",
+        "source_profile": nuif_package::PROFILE,
+        "output_profile": if has_extension(output, "cbor") { "nuif-cbor-0" } else { "nuif-text-0" },
+        "document_hash": canonical_hash(&package.document).map_err(codec_error)?
+    }))
+}
+
+fn capture(args: &[String]) -> Result<(), CliError> {
+    match required(args, 0, "capture kind")? {
+        "browser" => capture_browser(args),
+        "screenshot" => capture_screenshot(args),
+        kind => Err(CliError::new(
+            2,
+            "CAPTURE_KIND_UNSUPPORTED",
+            format!("capture kind {kind} is unsupported"),
+        )),
+    }
+}
+
+fn capture_browser(args: &[String]) -> Result<(), CliError> {
+    let input = required(args, 1, "browser capture JSON")?;
+    let output = required(args, 2, "output .nuif package")?;
+    let observations = required(args, 3, "output observation CBOR")?;
+    let proposal = required(args, 4, "output proposal JSON")?;
+    let capture: BrowserCapture = serde_json::from_slice(&read_input(input)?)
+        .map_err(|error| CliError::new(1, "CAPTURE_JSON_INVALID", error.to_string()))?;
+    let mut package = NuifPackage::new(Document::empty(EntityId::new(1)), PackageMode::Authoring);
+    let result = normalize_browser_capture(&capture, &mut package).map_err(capture_error)?;
+    finish_capture(
+        output,
+        observations,
+        proposal,
+        &mut package,
+        &result.observations,
+        &result.proposal,
+    )
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct ScreenshotMetadata {
+    schema_version: u32,
+    profile: String,
+    capture_id: String,
+    viewport: Viewport,
+    #[serde(default)]
+    ocr: Vec<OcrSpan>,
+}
+
+fn capture_screenshot(args: &[String]) -> Result<(), CliError> {
+    let png = required(args, 1, "input screenshot PNG")?;
+    let metadata = required(args, 2, "screenshot metadata JSON")?;
+    let output = required(args, 3, "output .nuif package")?;
+    let observations = required(args, 4, "output observation CBOR")?;
+    let proposal = required(args, 5, "output proposal JSON")?;
+    let metadata: ScreenshotMetadata = serde_json::from_slice(&read_input(metadata)?)
+        .map_err(|error| CliError::new(1, "CAPTURE_JSON_INVALID", error.to_string()))?;
+    if metadata.profile != SCREENSHOT_CAPTURE_PROFILE {
+        return Err(CliError::new(
+            2,
+            "CAPTURE_PROFILE_UNSUPPORTED",
+            "screenshot metadata does not declare nuif-screenshot-baseline-0",
+        ));
+    }
+    let capture = ScreenshotCapture {
+        schema_version: metadata.schema_version,
+        profile: metadata.profile,
+        capture_id: metadata.capture_id,
+        viewport: metadata.viewport,
+        png: read_input_with_limit(png, MAX_RESOURCE_BYTES)?,
+        ocr: metadata.ocr,
+    };
+    let mut package = NuifPackage::new(Document::empty(EntityId::new(1)), PackageMode::Authoring);
+    let result = analyze_screenshot(&capture, &mut package).map_err(capture_error)?;
+    finish_capture(
+        output,
+        observations,
+        proposal,
+        &mut package,
+        &result.observations,
+        &result.proposal,
+    )
+}
+
+fn finish_capture(
+    output: &str,
+    observations_path: &str,
+    proposal_path: &str,
+    package: &mut NuifPackage,
+    observations: &ObservationBundle,
+    proposal: &Proposal,
+) -> Result<(), CliError> {
+    if !has_extension(output, "nuif") {
+        return Err(CliError::new(
+            2,
+            "PACKAGE_EXTENSION_REQUIRED",
+            "capture output must use the .nuif extension",
+        ));
+    }
+    apply_proposal(
+        &mut package.document,
+        observations,
+        proposal,
+        &ProposalPolicy::default(),
+    )
+    .map_err(|error| CliError::new(1, "PROPOSAL_APPLY_FAILED", error.to_string()))?;
+    let package_bytes = package.encode().map_err(package_error)?;
+    let observation_bytes = observations
+        .encode()
+        .map_err(|error| CliError::new(1, "OBSERVATION_ENCODE_FAILED", error.to_string()))?;
+    let proposal_bytes = serde_json::to_vec_pretty(proposal)
+        .map_err(|error| CliError::new(1, "PROPOSAL_JSON_FAILED", error.to_string()))?;
+    write_output(output, &package_bytes)?;
+    write_output(observations_path, &observation_bytes)?;
+    write_output(proposal_path, &proposal_bytes)?;
+    print_json(&serde_json::json!({
+        "status": "passed",
+        "package": output,
+        "observations": observations_path,
+        "proposal": proposal_path,
+        "document_hash": canonical_hash(&package.document).map_err(codec_error)?,
+        "package_hash": package.package_hash().map_err(package_error)?,
+        "observation_count": observations.observations.len(),
+        "omission_count": observations.omissions.len()
+    }))
+}
+
 fn fixture(args: &[String]) -> Result<(), CliError> {
     let fixture = args.first().map_or("v0-responsive-card", String::as_str);
     let output = args.get(1).map_or("-", String::as_str);
@@ -784,10 +974,7 @@ fn fixture(args: &[String]) -> Result<(), CliError> {
             ));
         }
     };
-    write_output(
-        output,
-        &CanonicalText.encode(&document).map_err(codec_error)?,
-    )
+    write_document(output, &document)
 }
 
 fn print_capabilities() -> Result<(), CliError> {
@@ -797,6 +984,8 @@ fn print_capabilities() -> Result<(), CliError> {
         "status": "executable",
         "commands": COMMANDS,
         "adapters": ["html-css-0", "html-css-v0", "svg-0", "dtcg-scalar-0", "penpot-v3-0"],
+        "containers": ["nuif-package-0", "nuif-cbor-0", "nuif-text-0"],
+        "capture_profiles": ["nuif-browser-capture-0", "nuif-screenshot-baseline-0"],
         "engine": engine.capabilities(),
         "resource_limits": {
             "input_bytes": MAX_INPUT_BYTES,
@@ -813,35 +1002,67 @@ fn print_capabilities() -> Result<(), CliError> {
             "containment_depth": PROFILE0_RESOURCE_LIMITS.containment_depth,
             "binary_bytes": PROFILE0_RESOURCE_LIMITS.binary_bytes,
             "string_bytes": PROFILE0_RESOURCE_LIMITS.string_bytes,
-            "single_string_bytes": PROFILE0_RESOURCE_LIMITS.single_string_bytes
+            "single_string_bytes": PROFILE0_RESOURCE_LIMITS.single_string_bytes,
+            "assets": PROFILE0_RESOURCE_LIMITS.assets,
+            "package_bytes": MAX_PACKAGE_BYTES,
+            "single_resource_bytes": MAX_RESOURCE_BYTES
         }
     }))
 }
 
 fn load_document(path: &str) -> Result<Document, CliError> {
-    let bytes = read_input(path)?;
-    if Path::new(path)
-        .extension()
-        .is_some_and(|extension| extension.eq_ignore_ascii_case("cbor"))
-    {
-        DeterministicCbor.decode(&bytes).map_err(codec_error)
-    } else {
-        CanonicalText.decode(&bytes).map_err(codec_error)
+    load_nuif(path).map(|loaded| loaded.document)
+}
+
+struct LoadedNuif {
+    document: Document,
+    package: Option<NuifPackage>,
+    profile: &'static str,
+}
+
+fn load_nuif(path: &str) -> Result<LoadedNuif, CliError> {
+    let bytes = read_input_with_limit(path, MAX_PACKAGE_BYTES)?;
+    if bytes.starts_with(b"PK\x03\x04") {
+        let package = NuifPackage::decode(&bytes).map_err(package_error)?;
+        return Ok(LoadedNuif {
+            document: package.document.clone(),
+            package: Some(package),
+            profile: nuif_package::PROFILE,
+        });
     }
+    if has_extension(path, "cbor") {
+        return Ok(LoadedNuif {
+            document: DeterministicCbor.decode(&bytes).map_err(codec_error)?,
+            package: None,
+            profile: "nuif-cbor-0",
+        });
+    }
+    if let Ok(document) = CanonicalText.decode(&bytes) {
+        return Ok(LoadedNuif {
+            document,
+            package: None,
+            profile: "nuif-text-0-legacy",
+        });
+    }
+    Ok(LoadedNuif {
+        document: DeterministicCbor.decode(&bytes).map_err(codec_error)?,
+        package: None,
+        profile: "nuif-cbor-0-legacy",
+    })
 }
 
 fn read_input(path: &str) -> Result<Vec<u8>, CliError> {
+    read_input_with_limit(path, MAX_INPUT_BYTES)
+}
+
+fn read_input_with_limit(path: &str, limit: usize) -> Result<Vec<u8>, CliError> {
     if path == "-" {
-        read_bounded(&mut io::stdin())
+        read_bounded_with_limit(&mut io::stdin(), limit)
     } else {
         let mut input = fs::File::open(path)
             .map_err(|error| CliError::new(1, "READ_FAILED", error.to_string()))?;
-        read_bounded(&mut input)
+        read_bounded_with_limit(&mut input, limit)
     }
-}
-
-fn read_bounded(reader: &mut impl Read) -> Result<Vec<u8>, CliError> {
-    read_bounded_with_limit(reader, MAX_INPUT_BYTES)
 }
 
 fn read_bounded_with_limit(reader: &mut impl Read, limit: usize) -> Result<Vec<u8>, CliError> {
@@ -883,6 +1104,37 @@ fn write_output(path: &str, bytes: &[u8]) -> Result<(), CliError> {
     }
 }
 
+fn write_document(path: &str, document: &Document) -> Result<(), CliError> {
+    let bytes = if path != "-" && has_extension(path, "nuif") {
+        NuifPackage::new(document.clone(), PackageMode::Portable)
+            .encode()
+            .map_err(package_error)?
+    } else if has_extension(path, "cbor") {
+        DeterministicCbor.encode(document).map_err(codec_error)?
+    } else {
+        CanonicalText.encode(document).map_err(codec_error)?
+    };
+    write_output(path, &bytes)
+}
+
+fn write_loaded_document(path: &str, loaded: &mut LoadedNuif) -> Result<(), CliError> {
+    if path != "-" && has_extension(path, "nuif") {
+        let mut package = loaded
+            .package
+            .take()
+            .unwrap_or_else(|| NuifPackage::new(loaded.document.clone(), PackageMode::Portable));
+        package.document.clone_from(&loaded.document);
+        return write_output(path, &package.encode().map_err(package_error)?);
+    }
+    write_document(path, &loaded.document)
+}
+
+fn has_extension(path: &str, extension: &str) -> bool {
+    Path::new(path)
+        .extension()
+        .is_some_and(|value| value.eq_ignore_ascii_case(extension))
+}
+
 fn write_file(path: &Path, bytes: &[u8]) -> Result<(), CliError> {
     fs::write(path, bytes).map_err(|error| CliError::new(1, "WRITE_FAILED", error.to_string()))
 }
@@ -915,6 +1167,14 @@ fn number(args: &[String], index: usize, default: f64) -> Result<f64, CliError> 
 
 fn codec_error(error: impl std::fmt::Display) -> CliError {
     CliError::new(1, "CODEC_FAILED", error.to_string())
+}
+
+fn package_error(error: impl std::fmt::Display) -> CliError {
+    CliError::new(1, "PACKAGE_FAILED", error.to_string())
+}
+
+fn capture_error(error: impl std::fmt::Display) -> CliError {
+    CliError::new(1, "CAPTURE_FAILED", error.to_string())
 }
 
 fn usage() -> CliError {
