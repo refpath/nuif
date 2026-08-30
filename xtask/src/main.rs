@@ -34,6 +34,7 @@ const ALL_STEPS: &[Step] = &[
     ("gate-penpot", gate_penpot),
     ("gate-g", gate_g),
     ("gate-h", gate_h),
+    ("gate-i-package", gate_i_package),
 ];
 
 const VERIFICATION_ARTIFACTS: &[&str] = &[
@@ -76,6 +77,7 @@ const VERIFICATION_ARTIFACTS: &[&str] = &[
     "target/gate-g-report.json",
     "target/gate-g-independent",
     "target/collaboration-report.json",
+    "target/package-resources-report.json",
 ];
 
 fn main() {
@@ -122,6 +124,7 @@ fn run() -> Result<(), String> {
         Some("gate-penpot") => gate_penpot(),
         Some("gate-g") => gate_g(),
         Some("gate-h") => gate_h(),
+        Some("gate-i-package") => gate_i_package(),
         Some("browser-install") => browser_install(),
         Some("hostile-inputs") => hostile_inputs(),
         Some("editor-hostile-inputs") => editor_hostile_inputs(),
@@ -148,7 +151,7 @@ fn run() -> Result<(), String> {
         Some("manifest") => standalone_manifest(),
         Some("all") => all(),
         _ => Err(
-            "usage: cargo xtask <research|adapter-audit|dependency-audit|docs-check|docs-build|docs-paper|docs-serve|docs-setup|verify|trial [seed iterations snapshot-interval report-path]|gate-b|gate-c|gate-d|gate-d-text|gate-d-render|gate-f|gate-f-v0|gate-svg|gate-dtcg|gate-penpot|gate-g|gate-h|browser-install|hostile-inputs|editor-hostile-inputs|performance|editor-trial|editor-gui-trial|editor-install-trial|editor-package|editor-launch|editor-install|editor-doctor|editor-rollback|editor-uninstall|editor-update|release-check <tag>|manifest|all>"
+            "usage: cargo xtask <research|adapter-audit|dependency-audit|docs-check|docs-build|docs-paper|docs-serve|docs-setup|verify|trial [seed iterations snapshot-interval report-path]|gate-b|gate-c|gate-d|gate-d-text|gate-d-render|gate-f|gate-f-v0|gate-svg|gate-dtcg|gate-penpot|gate-g|gate-h|gate-i-package|browser-install|hostile-inputs|editor-hostile-inputs|performance|editor-trial|editor-gui-trial|editor-install-trial|editor-package|editor-launch|editor-install|editor-doctor|editor-rollback|editor-uninstall|editor-update|release-check <tag>|manifest|all>"
                 .to_owned(),
         ),
     }
@@ -206,6 +209,21 @@ fn gate_b() -> Result<(), String> {
         "10000",
         "100",
         "target/gate-b-report.json",
+    ])
+}
+
+fn gate_i_package() -> Result<(), String> {
+    cargo(&[
+        "run",
+        "--release",
+        "--locked",
+        "-p",
+        "nuif-testing",
+        "--bin",
+        "package-resources",
+        "--",
+        "--output",
+        "target/package-resources-report.json",
     ])
 }
 

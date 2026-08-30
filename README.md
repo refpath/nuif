@@ -123,18 +123,25 @@ Testing is designed for automated trial loops: generate or load a document, appl
 | Reference editor | Research preview; current release `0.1.0-alpha.3` | Semantic Versioning applies to the editor application only |
 | Draft specification | Pre-draft | No normative conformance profile is published |
 | Executable adapter and conformance profiles | Experimental | Results apply only to each declared profile and evaluation matrix |
-| Package/resources and capture/reconstruction | Proposed research | RFCs 0010/0011 and specification 14 have planned Gates I–L; no implementation or accuracy claim |
+| Package/resources | Experimental implementation; Gate I incomplete | Deterministic package, stable assets, explicit resource resolution and CLI/editor I/O are executable; image rendering, general font policy and external/cross-platform reproduction remain open |
+| Capture/reconstruction | Experimental contracts and deterministic baselines | Browser/screenshot normalization, typed proposals, calibration primitives and a finite loop exist; no broad accuracy or model claim |
 | Project | Open research project; not a standard | Standards status requires neutral governance and independent implementations |
 
 Gates B through H are complete under the bounded, quantified criteria in `research/AUDIT.md`. The workspace executes structural validation, anchored atomic operations, replay/inversion, canonical text and deterministic CBOR, measured hostile-input limits, responsive profile-0 layout, exact CPU rasterization, pinned NUIF/Taffy/Chrome layout trials, seeded reports and headless and native-shell editor drivers. Gate C explicitly reports the still-missing Grid track/placement schema. Gate D pins shaping, outlines, hard-line layout, encoded-sRGB paint and integer composition; scene and raw-RGBA hashes reproduce on macOS/aarch64, Linux/aarch64 and Linux/x86_64, while PNG encoding is non-normative and paths, images, instances and extension paint remain property-attributed fidelity records. Five retentive adapter profiles are integrated across HTML/CSS, SVG 2, DTCG 2025.10 and Penpot v3 packages, with import, export, synchronization, hostile-input checks and CLI conformance. A machine-audited inventory separates these executable profiles from seven researched or externally bounded targets. Complete fixture authoring, AccessKit-driven deterministic GUI trials, standard-library-only Python v0 reproduction, a metadata-free collaboration register checkpoint, hostile editor interaction trials, a scaling benchmark suite and native host packaging are automated. The native shell exposes the complete model-backed profile-zero editing surface while leaving future-profile sections of the draft UI specification explicit; structural tree collaboration, a foreign collaboration engine, a general-purpose second implementation, signed release distribution and external interoperability review remain incomplete.
 
-Gates I through L are planned, not complete. RFC 0010 proposes the portable
-package/resource boundary; RFC 0011 and specification 14 propose source-backed
-capture and screenshot reconstruction evidence contracts. The repository does
-not yet implement the `.nuif` package profile, general image/font resources,
-browser capture, reconstruction models, LoRA/QLoRA artifacts or distillation.
-The editor's `0.1.0-alpha.3` version is not maturity evidence for those fronts.
-Specifications are drafts; no conformance profile is published.
+Gates I through L are not complete. The package segment of Gate I is now
+executable: `.nuif` is a deterministic bounded package, stable assets and exact
+resources have distinct identities, resolution is explicit, and the CLI/editor
+preserve package resources. `cargo xtask gate-i-package` records cross-writer,
+fixpoint, identity, resolver and hostile/one-over evidence. Gate I still lacks
+the independent PNG render and OpenType policy/parser profiles plus external
+and cross-platform writer evidence. RFC 0011/specification 14 have executable
+provider-neutral observation, browser/screenshot baseline, typed-proposal,
+flat-copy rejection, calibration and finite-loop primitives, but Gates J/K
+still require pinned live-browser, held-out accuracy and independent evaluator
+evidence. No LoRA/QLoRA artifact or distillation is implemented. The editor's
+`0.1.0-alpha.3` version is not maturity evidence for these research fronts.
+Specifications remain drafts and no standards conformance profile is published.
 
 Run the automated baseline:
 
@@ -163,6 +170,7 @@ cargo xtask gate-f # retentive HTML/CSS subset synchronization
 cargo xtask gate-f-v0 # full-v0 model sync plus editor/CLI source bridge
 cargo xtask gate-g # independent Python v0 parse/write/layout/render
 cargo xtask gate-h # exhaustive collaboration register convergence
+cargo xtask gate-i-package # deterministic package/resource evidence
 cargo run --locked -p nuif-cli -- fixture v0-responsive-card /tmp/v0.nuif
 cargo run --locked -p nuif-editor -- --headless \
   --script conformance/fixtures/v0-responsive-card/editor-trial.jsonl \
@@ -170,7 +178,7 @@ cargo run --locked -p nuif-editor -- --headless \
 cargo run --locked -p nuif-editor # launch the native editor
 ```
 
-`cargo xtask all` bootstraps the pinned Python research-validator environment and Chrome for Testing under ignored `target/`, then runs research validation, Rust verification, the short full-raster trial, the 10,000-patch Gate B trial, the release-mode hostile-input allocation/time trial, the Gate C differential layout trial, both Gate D text/render trials, complete headless editor authoring, the reproducible native-shell trial, bounded and full-v0 retentive HTML/CSS synchronization, the editor/CLI source bridge, the independent Gate G reproduction and exhaustive Gate H collaboration-register convergence. Each measured run leaves a JSON report or snapshot under `target/`; `target/verification-manifest.json` indexes the complete evidence set and records success or the first failed step. CI archives both the individual evidence and this manifest.
+`cargo xtask all` bootstraps the pinned Python research-validator environment and Chrome for Testing under ignored `target/`, then runs research validation, Rust verification, the short full-raster trial, the 10,000-patch Gate B trial, release-mode hostile-input and performance trials, the Gate C differential layout trial, both Gate D text/render trials, complete headless/native editor trials, bounded retentive adapter bridges, the independent Gate G reproduction, exhaustive Gate H collaboration-register convergence and the Gate I package segment. Each measured run leaves a JSON report or snapshot under `target/`; `target/verification-manifest.json` indexes the complete evidence set and records success or the first failed step. CI archives both the individual evidence and this manifest.
 
 ## Contributing
 

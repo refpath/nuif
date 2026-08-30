@@ -6,9 +6,12 @@ status: proposed
 
 # RFC 0010 — Portable resource and package profile
 
-Status: proposed. This RFC does not change executable profile 0 until
-`nuif:experiment:portable-package-resources`, the image profile and the font
-profile satisfy their acceptance criteria.
+Status: proposed, with an executable experimental container subset. The
+reference implementation now provides stable assets, deterministic
+`nuif-package-0`, explicit verified resolution and the package segment of
+`nuif:experiment:portable-package-resources`. This RFC does not add image
+rendering or general packaged-font conformance to profile 0; the independent
+image and font profiles still have to satisfy their acceptance criteria.
 
 ## Motivation
 
@@ -175,8 +178,11 @@ Writers MUST:
 - emit no directory entries;
 - emit one central-directory entry for each local member in the same order.
 
-The exact header values become final only when two independent writers pass the
-byte fixture. Until then these are proposed semantics, not stable wire bytes.
+The manual writer and the independently implemented `zip` 8.6.0 writer now
+produce identical fixture bytes with creator/version `0x030a`, version-needed
+`10`, regular-file attributes `0x81a40000` and the rules above. These values are
+fixed for the experimental `nuif-package-0` implementation. Standards-track
+stability still requires cross-platform and externally maintained reproduction.
 
 Readers MUST reject duplicate decoded names, backslashes, absolute paths,
 dot-segments, empty segments, non-ASCII paths, symlinks, directories, split or

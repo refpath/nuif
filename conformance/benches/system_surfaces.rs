@@ -1,6 +1,7 @@
 use criterion::{BenchmarkId, Criterion, Throughput, criterion_group, criterion_main};
 use nuif_collab::{Change, ChangeId, OperationSetEngine, ReplicaLogEngine};
 use nuif_core::{EntityId, EntityKind, PropertyValue, SizeIntent};
+use nuif_package::{NuifPackage, PackageMode};
 use nuif_protocol::Operation;
 use nuif_testing::{performance_fixture, responsive_card_fixture};
 use std::collections::BTreeMap;
@@ -9,6 +10,7 @@ use std::time::Duration;
 
 const QUERY_SIZES: &[usize] = &[128, 1_024, 4_096, 8_192];
 const COLLABORATOR_SIZES: &[usize] = &[2, 32, 256, 1_024];
+const PACKAGE_SIZES: &[usize] = &[128, 1_024, 4_096];
 
 fn benchmark_queries(criterion: &mut Criterion) {
     let mut lookup = criterion.benchmark_group("query/entity_lookup");
@@ -65,6 +67,22 @@ fn benchmark_collaboration(criterion: &mut Criterion) {
         });
         group.bench_function(BenchmarkId::new("replica_logs", changes), |bencher| {
             bencher.iter(|| replica_logs.checkpoint(black_box(&base)).unwrap());
+        });
+    }
+    group.finish();
+}
+
+fn benchmark_package(criterion: &mut Criterion) {
+    let mut group = criterion.benchmark_group("package/nuif_package_0");
+    for &entities in PACKAGE_SIZES {
+        let package = NuifPackage::new(performance_fixture(entities, true), PackageMode::Portable);
+        let bytes = package.encode().unwrap();
+        group.throughput(Throughput::Bytes(bytes.len() as u64));
+        group.bench_function(BenchmarkId::new("encode", entities), |bencher| {
+            bencher.iter(|| black_box(&package).encode().unwrap());
+        });
+        group.bench_function(BenchmarkId::new("decode", entities), |bencher| {
+            bencher.iter(|| NuifPackage::decode(black_box(&bytes)).unwrap());
         });
     }
     group.finish();
@@ -208,6 +226,7 @@ criterion_group! {
     config = criterion_config();
     targets = benchmark_queries,
         benchmark_collaboration,
+        benchmark_package,
         benchmark_html_adapter,
         benchmark_svg_adapter,
         benchmark_dtcg_adapter,

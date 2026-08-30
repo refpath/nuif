@@ -324,8 +324,9 @@ experiments:
       - perturb reference layout and raster observations and require exact comparison failures
       - write and archive target/gate-g-report.json plus independent canonical layout and PNG artifacts
   - id: nuif:experiment:portable-package-resources
-    status: planned
+    status: active
     evidence: [nuif:research:epub-ocf-package-container, nuif:research:oci-resource-descriptors, nuif:research:resource-packaging-and-source-capture-synthesis]
+    implementation: [crates/nuif-package/src/lib.rs, crates/nuif-testing/src/bin/package-resources.rs, conformance/benches/system_surfaces.rs, xtask/src/main.rs]
     oracle: cross-writer-and-metamorphic
     acceptance:
       - two independently implemented writers produce identical package bytes from the same manifest document and resources
@@ -338,6 +339,7 @@ experiments:
       - distinguish semantic document hash package hash asset identity resource digest and locator in positive and negative fixtures
       - reject duplicate traversal symlink directory encrypted split unsupported-compression undeclared and digest-mismatched members
       - measure compressed expanded per-member descriptor-count and total-resource budgets before accepting the profile
+      - archive target/package-resources-report.json from cargo xtask gate-i-package
   - id: nuif:experiment:image-resource-profile
     status: planned
     evidence: [nuif:research:png-image-preservation-and-decoding, nuif:research:text-rendering-reproducibility]

@@ -22,13 +22,16 @@ Canonical text + deterministic CBOR plus patch/diff/query CLI. Exit: byte-stable
 cycles and measured hostile-input limits. This phase does not include the
 portable `.nuif` package, images or general font resources.
 
-## Phase 4b — portable package and resources (proposed)
-Implement RFC 0010 through a package layer above `nuif-codec`, stable assets in
-the core and independent PNG/OpenType profiles. Exit: two independent writers
-produce identical package bytes; semantic/resource/package hashes obey distinct
-fixtures; all embedded resources are size/digest verified; archive, image and
-font boundary/one-over cases pass calibrated limits. Existing raw `.nuif`
-inputs migrate read-only; new bare forms use `.nuif.json`/`.nuif.cbor`.
+## Phase 4b — portable package and resources (active; container segment implemented)
+RFC 0010 now has a package layer above `nuif-codec`, stable assets in the core,
+explicit verified resource resolution and package-preserving CLI/editor I/O.
+The manual writer and an independent ZIP writer produce identical bytes;
+semantic/resource/package hashes obey distinct fixtures; hostile archives and
+package/resource/count one-over cases are blocking through
+`cargo xtask gate-i-package`. Existing raw `.nuif` inputs migrate read-only and
+new bare forms use `.nuif.json`/`.nuif.cbor`. Gate I remains open for the
+independent PNG render profile, OpenType policy/parser profile, cross-platform
+writer matrix and calibrated total-resource/media allocation evidence.
 
 ## Phase 5 — editor (complete for the headless profile-0 instrument)
 The entire v0 fixture is authored from an empty document through identity-addressed semantic actions. Direct generation, editor output and operation replay are byte-identical, and the editor writes canonical document, context, layout, scene, CPU raster and fidelity report artifacts. The Rust-native Masonry shell from ADR 0006 and the later Svelte/WASM demonstration are non-normative interface work and cannot redefine this headless result.

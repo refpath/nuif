@@ -15,14 +15,17 @@ Initial profiles:
 - `nuif-text-0` — deterministic human-readable canonical form for fixtures/review.
 - `nuif-cbor-0` — deterministic CBOR following draft-ietf-cbor-serialization §4.1 (preferred serialization) and §5.1 (bytewise-lexicographic map key order), with the narrowing rules of RFC 0005 stated by value.
 
-The proposed `nuif-package-0` profile assigns `.nuif` to a deterministic ZIP
+The experimental `nuif-package-0` profile assigns `.nuif` to a deterministic ZIP
 container. Bare encodings use `.nuif.json` and `.nuif.cbor`. Historical alpha
 files that used `.nuif` for bare bytes MAY be recognized read-only through
 content detection, but new `.nuif` output MUST be a package once this profile is
 accepted.
 
-`nuif-package-0` is proposed by RFC 0010 and is not an executable conformance
-claim until its cross-writer/resource experiments pass.
+`nuif-package-0` is proposed by RFC 0010. Its reference codec, cross-writer byte
+fixture, package/resource identity relations, explicit resolver and hostile
+archive/one-over suite are executable through `cargo xtask gate-i-package`.
+This is not full Gate I: independent PNG interpretation, OpenType policy and
+cross-platform/external writer evidence remain incomplete.
 
 ## Numeric and string rules (RFC 0005)
 
@@ -67,11 +70,11 @@ descriptor, required capabilities, stable assets and every immutable resource
 descriptor. A descriptor includes media type, SHA-256 digest, size, role and an
 embedded or explicit linked locator. The manifest is not self-addressed.
 
-Profile 0 proposes stored ZIP members only; `mimetype` is first and other names
+Profile 0 uses stored ZIP members only; `mimetype` is first and other names
 are bytewise sorted. Names are exact ASCII registered paths. Writers use fixed
 timestamps/header attributes, no comments/extra fields/data descriptors,
-encryption, directories, ZIP64 or split archives. Exact header fixture values
-remain provisional until two independent writers reproduce them.
+encryption, directories, ZIP64 or split archives. The manual reference writer
+and `zip` 8.6.0 independently reproduce the exact header fixture.
 
 Readers MUST reject duplicate decoded names, non-ASCII/backslash/absolute/dot
 paths, directories, symlinks, encryption, unsupported compression, inconsistent
@@ -87,4 +90,4 @@ stored in resource locators.
 
 Every serialized record kind carries a schema version. Migrations are registered pure functions per kind; reading a record whose version is newer than the implementation knows is an error with a diagnostic, never silent loss.
 
-Parsers MUST enforce resource limits and reject cycles where the relevant graph is specified acyclic. Package/image/font limits remain experiment-required and MUST be accepted through a later resource profile before implementations claim them as executable conformance.
+Parsers MUST enforce resource limits and reject cycles where the relevant graph is specified acyclic. The experimental package limits are 80 MiB per archive, 32 MiB per resource, 64 MiB total embedded resources and 8,192 descriptors. Image interpretation and general font-policy limits remain experiment-required and MUST be accepted through later media profiles before implementations claim those capabilities.

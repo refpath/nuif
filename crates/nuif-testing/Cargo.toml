@@ -13,6 +13,7 @@ nuif-core = { version = "0.0.1", path = "../nuif-core" }
 nuif-dtcg = { version = "0.0.1", path = "../nuif-dtcg" }
 nuif-html = { version = "0.0.1", path = "../nuif-html" }
 nuif-layout = { version = "0.0.0", path = "../nuif-layout" }
+nuif-package = { version = "0.0.1", path = "../nuif-package" }
 nuif-penpot = { version = "0.0.1", path = "../nuif-penpot" }
 nuif-protocol = { version = "0.0.1", path = "../nuif-protocol" }
 nuif-render = { version = "0.0.0", path = "../nuif-render" }
@@ -23,6 +24,7 @@ serde_json.workspace = true
 sha2.workspace = true
 stats_alloc.workspace = true
 taffy.workspace = true
+zip.workspace = true
 
 [lints]
 workspace = true

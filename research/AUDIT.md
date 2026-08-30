@@ -114,7 +114,7 @@ Exit metrics:
 
 Evidence: `nuif-collab-registers-0` maps register-like NUIF semantic operations to causal multi-value registers. One implementation computes pairwise maximal changes from an operation set; the other incrementally maintains causal frontiers in per-replica logs. `cargo xtask gate-h` exhausts all 5,040 deliveries of a seven-change/three-replica history, compares both materializers and multiple merge orders, repeats duplicate delivery, requires two explicit property conflicts and proves canonical NUIF text contains no replica/context/conflict metadata. Five unit regressions cover incomplete and non-transitive context, atomic merge failure and structural rejection. This closes only the bounded property-register checkpoint: insert/remove/move, tombstones, sibling-list ordering and a foreign collaboration engine remain open.
 
-### Gate I — portable package and resources (planned)
+### Gate I — portable package and resources (package segment active)
 
 Exit only when:
 
@@ -129,8 +129,15 @@ Exit only when:
 - PNG interpretation and font policy/shaping inputs reproduce through
   independent implementations for their declared subsets.
 
-Until Gate I passes, `.nuif` package layout, image assets and packaged general
-fonts remain proposed. Existing raw canonical fixtures are not retroactive proof.
+Current evidence: stable `AssetId`/`ResourceDigest` semantics, deterministic
+stored ZIP packages, exact manual/independent-writer bytes, package fixpoint,
+separate document/resource/package identities, explicit resolver authority and
+15 hostile/archive/one-over cases run through `cargo xtask gate-i-package`.
+The CLI and editor write real packages and preserve embedded resources. Gate I
+does not yet pass: independent PNG interpretation/rendering, OpenType
+parser/policy fixtures, a cross-platform/external writer and calibrated
+total-resource/media allocation evidence remain required. Images and general
+packaged fonts therefore remain outside CPU render profile 0.
 
 ### Gate J — source-backed browser capture (planned)
 

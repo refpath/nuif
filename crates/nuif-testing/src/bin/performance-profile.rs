@@ -2,6 +2,7 @@ use nuif_api::{Session, profile_zero_context};
 use nuif_codec::{CanonicalText, Decoder, DeterministicCbor, Encoder};
 use nuif_core::{EntityId, PropertyValue, SizeIntent, validate};
 use nuif_layout::evaluate;
+use nuif_package::{NuifPackage, PackageMode};
 use nuif_protocol::{Operation, Patch, Transaction, apply_patch};
 use nuif_render::{RenderTarget, build_scene, render_cpu};
 use serde::Serialize;
@@ -59,6 +60,10 @@ fn main() {
         .unwrap_or_else(|error| fail(&error.to_string()));
     let cbor = DeterministicCbor
         .encode(&large)
+        .unwrap_or_else(|error| fail(&error.to_string()));
+    let package = NuifPackage::new(large.clone(), PackageMode::Portable);
+    let package_bytes = package
+        .encode()
         .unwrap_or_else(|error| fail(&error.to_string()));
     let context = profile_zero_context(1_440.0, 900.0);
     let layout = evaluate(&large, &context);
@@ -155,6 +160,15 @@ fn main() {
         }),
         measure("deterministic_cbor_decode", 1_024, 1, 1_000_000_000, || {
             black_box(DeterministicCbor.decode(black_box(&cbor)).unwrap())
+                .entities
+                .len() as u64
+        }),
+        measure("package_encode", 1_024, 1, 1_000_000_000, || {
+            black_box(package.encode().unwrap()).len() as u64
+        }),
+        measure("package_decode", 1_024, 1, 1_000_000_000, || {
+            black_box(NuifPackage::decode(black_box(&package_bytes)).unwrap())
+                .document
                 .entities
                 .len() as u64
         }),
@@ -335,6 +349,7 @@ fn main() {
             "entities": large.entities.len(),
             "canonical_text_bytes": text.len(),
             "deterministic_cbor_bytes": cbor.len(),
+            "package_bytes": package_bytes.len(),
             "layout_boxes": layout.boxes.len(),
             "scene_commands": scene.commands.len(),
             "scene_fidelity_records": scene.fidelity.len()

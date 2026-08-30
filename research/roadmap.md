@@ -26,11 +26,15 @@ Publication infrastructure: `docs/catalog.json` currently selects 231 canonical 
 
 `nuif:experiment:v0-responsive-card` and the bounded collaboration property-register checkpoint are complete under their declared acceptance. The next collaboration falsifier is structural: concurrent insert/remove/move must preserve one-parent/acyclic invariants, sibling ordering and deletion intent through an explicit tree/list algorithm, then reproduce its checkpoint through a foreign engine. Register convergence does not imply any of those properties.
 
-The next resource falsifier is `nuif:experiment:portable-package-resources`:
-two writers must agree on bytes before RFC 0010 can become accepted. PNG and
-font profiles remain independent gates. Browser capture precedes screenshot
-reconstruction because it provides stronger source-backed fixtures and exposes
-which information is truly unavailable from pixels.
+The package segment of `nuif:experiment:portable-package-resources` is active:
+the manual writer agrees byte-for-byte with an independent ZIP writer, identity
+relations and explicit resolution are exercised, and 15 hostile/one-over cases
+produce `target/package-resources-report.json`. RFC 0010 remains proposed and
+Gate I remains open because PNG interpretation, image rendering, OpenType
+policy/parser budgets, cross-platform writer reproduction and total-resource
+allocation evidence are independent requirements. Browser capture precedes
+screenshot reconstruction because it provides stronger source-backed fixtures
+and exposes which information is truly unavailable from pixels.
 
 The reconstruction work begins with untuned baselines and a frozen evaluator.
 Adaptation/distillation is conditional on evidence from that loop rather than a
@@ -43,8 +47,8 @@ standing implementation commitment.
 3. Design explicit Grid track and placement fields before replacing the classified profile-0 stack fallback; do not infer Grid support from the Gate C pass.
 4. Attach any Masonry shell to the already-tested editor driver boundary; keep shell behavior outside model/layout/render conformance.
 5. Treat soft wrapping, gradients, strokes, paths, images and instance materialization as a separately versioned expanded profile; do not weaken profile-0 exactness to add them.
-6. Implement the RFC 0010 package/resource experiment before changing `.nuif` writers; retain historical raw `.nuif` input as read-only alpha compatibility.
-7. Calibrate PNG and OpenType parser/decoder/policy budgets independently; do not expand profile 0 by fallback.
+6. Keep `cargo xtask gate-i-package` green across CLI/editor/package changes and add a recorded cross-platform/external writer before accepting the wire profile.
+7. Complete independent PNG render and OpenType parser/policy fixtures with calibrated allocation/time budgets; do not expand profile 0 by fallback.
 8. Build pinned source-backed browser capture as a new adapter with secret-canary, multi-viewport and unavailable-evidence tests.
 9. Freeze the reconstruction benchmark, then compare deterministic OCR/CV, one-shot, observation-assisted, hierarchical and corrective-loop baselines.
 10. Train or distill only if the frozen evaluation demonstrates a learnable gap and rights-cleared validated traces exist.

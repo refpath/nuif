@@ -1179,6 +1179,12 @@ mod tests {
         let mut members = vec![Member::new(MIME_PATH, MIME_TYPE.to_vec())];
         members.push(Member::new("unregistered", Vec::new()));
         assert!(write_zip(&members).is_err());
+
+        let duplicate = vec![
+            Member::new(MIME_PATH, MIME_TYPE.to_vec()),
+            Member::new(MIME_PATH, MIME_TYPE.to_vec()),
+        ];
+        assert!(write_zip(&duplicate).is_err());
     }
 
     #[test]
