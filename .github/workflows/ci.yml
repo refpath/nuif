@@ -226,7 +226,7 @@ jobs:
         run: cargo xtask editor-package
       - name: Validate macOS bundle metadata
         if: runner.os == 'macOS'
-        run: plutil -lint target/dist/nuif-editor-macos-*/NUIF\ Editor.app/Contents/Info.plist
+        run: plutil -lint target/dist/nuif-editor-*/NUIF\ Editor.app/Contents/Info.plist
       - name: Upload native package and editor evidence
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
