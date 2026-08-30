@@ -19,7 +19,8 @@
     "research/items"
   ],
   "exclude": [
-    "research/items/_template.md"
+    "research/items/_template.md",
+    "conformance/foreign/penpot/node_modules/@penpot/library/README.md"
   ],
   "manuscript": {
     "title": "NUIF authored-interface interchange research manuscript",
