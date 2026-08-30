@@ -3,7 +3,7 @@
 use nuif_api::Session;
 use nuif_codec::{CanonicalText, DeterministicCbor, Encoder, MAX_INPUT_BYTES, canonical_hash};
 use nuif_core::{Diagnostic, Document, Severity, validate};
-use nuif_protocol::Patch;
+use nuif_protocol::{Patch, PatchLimits, enforce_patch_limits};
 use serde::Serialize;
 use thiserror::Error;
 use wasm_bindgen::prelude::*;
@@ -290,33 +290,14 @@ fn decode_patch(bytes: &[u8]) -> Result<Patch, BindingError> {
     }
     let patch: Patch = serde_json::from_slice(bytes)
         .map_err(|error| BindingError::new("NUIF_PATCH_DECODE_FAILED", error.to_string()))?;
-    if patch.transactions.len() > MAX_PATCH_TRANSACTIONS {
-        return Err(BindingError::new(
-            "NUIF_PATCH_LIMIT_EXCEEDED",
-            format!(
-                "patch has {} transactions; limit is {MAX_PATCH_TRANSACTIONS}",
-                patch.transactions.len()
-            ),
-        ));
-    }
-    let operations = patch
-        .transactions
-        .iter()
-        .try_fold(0_usize, |total, transaction| {
-            total.checked_add(transaction.operations.len())
-        })
-        .ok_or_else(|| {
-            BindingError::new(
-                "NUIF_PATCH_LIMIT_EXCEEDED",
-                "patch operation count overflowed".to_owned(),
-            )
-        })?;
-    if operations > MAX_PATCH_OPERATIONS {
-        return Err(BindingError::new(
-            "NUIF_PATCH_LIMIT_EXCEEDED",
-            format!("patch has {operations} operations; limit is {MAX_PATCH_OPERATIONS}"),
-        ));
-    }
+    enforce_patch_limits(
+        &patch,
+        PatchLimits {
+            transactions: MAX_PATCH_TRANSACTIONS,
+            operations: MAX_PATCH_OPERATIONS,
+        },
+    )
+    .map_err(|error| BindingError::new("NUIF_PATCH_LIMIT_EXCEEDED", error.to_string()))?;
     Ok(patch)
 }
 

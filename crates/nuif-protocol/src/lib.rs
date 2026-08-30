@@ -176,6 +176,68 @@ pub struct Patch {
     pub transactions: Vec<Transaction>,
 }
 
+/// Caller-selected structural limits for an untrusted patch envelope.
+///
+/// Byte limits belong to the transport that decodes the patch. These limits
+/// cover the semantic cardinalities shared by WASM, MCP and future bindings.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct PatchLimits {
+    pub transactions: usize,
+    pub operations: usize,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct PatchUsage {
+    pub transactions: usize,
+    pub operations: usize,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Error)]
+pub enum PatchLimitExceeded {
+    #[error("patch has {observed} transactions; limit is {limit}")]
+    Transactions { limit: usize, observed: usize },
+    #[error("patch operation count overflowed")]
+    OperationCountOverflow,
+    #[error("patch has {observed} operations; limit is {limit}")]
+    Operations { limit: usize, observed: usize },
+}
+
+/// Measures a decoded patch and rejects cardinalities above caller-selected
+/// limits before any operation is applied.
+///
+/// # Errors
+///
+/// Returns the first transaction or aggregate-operation bound exceeded.
+pub fn enforce_patch_limits(
+    patch: &Patch,
+    limits: PatchLimits,
+) -> Result<PatchUsage, PatchLimitExceeded> {
+    let transactions = patch.transactions.len();
+    if transactions > limits.transactions {
+        return Err(PatchLimitExceeded::Transactions {
+            limit: limits.transactions,
+            observed: transactions,
+        });
+    }
+    let operations = patch
+        .transactions
+        .iter()
+        .try_fold(0_usize, |total, transaction| {
+            total.checked_add(transaction.operations.len())
+        })
+        .ok_or(PatchLimitExceeded::OperationCountOverflow)?;
+    if operations > limits.operations {
+        return Err(PatchLimitExceeded::Operations {
+            limit: limits.operations,
+            observed: operations,
+        });
+    }
+    Ok(PatchUsage {
+        transactions,
+        operations,
+    })
+}
+
 #[derive(Clone, Debug, Eq, PartialEq, Error, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case", tag = "code")]
 pub enum ApplyError {
@@ -991,5 +1053,73 @@ mod tests {
         assert_eq!(document.assets[&asset_id].resource.as_ref(), Some(&second));
         apply_patch(&mut document, &inverse).unwrap();
         assert_eq!(document, original);
+    }
+
+    #[test]
+    fn patch_limits_measure_the_shared_semantic_envelope() {
+        let patch = Patch {
+            base_revision: None,
+            transactions: vec![
+                Transaction {
+                    id: 1,
+                    operations: vec![Operation::Rename {
+                        entity: EntityId::new(1),
+                        name: Some("one".to_owned()),
+                    }],
+                },
+                Transaction {
+                    id: 2,
+                    operations: vec![
+                        Operation::Rename {
+                            entity: EntityId::new(2),
+                            name: Some("two".to_owned()),
+                        },
+                        Operation::Rename {
+                            entity: EntityId::new(3),
+                            name: Some("three".to_owned()),
+                        },
+                    ],
+                },
+            ],
+        };
+        assert_eq!(
+            enforce_patch_limits(
+                &patch,
+                PatchLimits {
+                    transactions: 2,
+                    operations: 3,
+                },
+            ),
+            Ok(PatchUsage {
+                transactions: 2,
+                operations: 3,
+            })
+        );
+        assert_eq!(
+            enforce_patch_limits(
+                &patch,
+                PatchLimits {
+                    transactions: 1,
+                    operations: 3,
+                },
+            ),
+            Err(PatchLimitExceeded::Transactions {
+                limit: 1,
+                observed: 2,
+            })
+        );
+        assert_eq!(
+            enforce_patch_limits(
+                &patch,
+                PatchLimits {
+                    transactions: 2,
+                    operations: 2,
+                },
+            ),
+            Err(PatchLimitExceeded::Operations {
+                limit: 2,
+                observed: 3,
+            })
+        );
     }
 }
