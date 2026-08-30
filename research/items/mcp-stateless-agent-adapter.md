@@ -25,7 +25,7 @@ links:
   adr: []
   rfc: []
   code: [crates/nuif-mcp, crates/nuif-api, crates/nuif-protocol]
-  experiments: []
+  experiments: [nuif:experiment:mcp-cross-surface]
 ---
 
 # Summary

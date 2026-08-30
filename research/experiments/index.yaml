@@ -129,6 +129,24 @@ experiments:
       - enforce document patch transaction and operation limits
       - generate TypeScript declarations and a direct-browser ES module package
       - write and archive target/wasm-conformance-report.json and target/nuif-wasm-web
+  - id: nuif:experiment:mcp-cross-surface
+    status: automated
+    evidence: [nuif:research:mcp-stateless-agent-adapter, nuif:research:differential-testing, nuif:research:resource-bounded-serde-and-ciborium]
+    implementation: [crates/nuif-mcp/src/lib.rs, tools/mcp/smoke.py, xtask/src/main.rs, .github/workflows/ci.yml]
+    oracle: cross-surface-differential
+    acceptance:
+      - the real stdio binary serves only the declared 2026-07-28 stateless profile and writes only MCP messages to stdout
+      - tool schemas and side-effect annotations exactly describe four pure inline-text transforms with no host authority
+      - MCP canonicalization and atomic patch output are byte-identical to the native CLI
+      - missing metadata malformed documents stale patches and a one-over message frame are rejected without an uncontrolled allocation path
+      - repeated validation records a portable smoke distribution below the catastrophic p95 budget
+    tests:
+      - open with server/discover and send protocol client and capability metadata on every valid request without initialize or initialized
+      - list validate inspect canonicalize and apply-patch tools through newline-delimited JSON-RPC
+      - compare canonical hashes canonical bytes and edited bytes with the direct native surface
+      - reject one request without metadata then prove the same connection remains usable
+      - send one frame above 4 MiB and require a bounded nonzero close with no stdout contamination
+      - write and archive target/mcp-conformance-report.json
   - id: nuif:experiment:crdt-checkpoint
     status: completed
     evidence: [nuif:research:automerge-yjs, nuif:research:crdt-tree-move-operation, nuif:research:operational-transformation-vs-crdt]

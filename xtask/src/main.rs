@@ -18,6 +18,7 @@ const ALL_STEPS: &[Step] = &[
     ("docs-check", documentation::check),
     ("verify", verify),
     ("gate-wasm", gate_wasm),
+    ("gate-mcp", gate_mcp),
     ("gate-b", gate_b),
     ("hostile-inputs", hostile_inputs),
     ("editor-hostile-inputs", editor_hostile_inputs),
@@ -49,6 +50,7 @@ const VERIFICATION_ARTIFACTS: &[&str] = &[
     "target/documentation-report.json",
     "target/wasm-conformance-report.json",
     "target/nuif-wasm-web",
+    "target/mcp-conformance-report.json",
     "target/gate-b-report.json",
     "target/hostile-input-report.json",
     "target/editor-hostile-input-report.json",
@@ -139,6 +141,7 @@ fn run() -> Result<(), String> {
         Some("gate-penpot") => gate_penpot(),
         Some("gate-react") => gate_react(),
         Some("gate-wasm") => gate_wasm(),
+        Some("gate-mcp") => gate_mcp(),
         Some("wasm-install") => wasm_install(),
         Some("wasm-package") => wasm_package(),
         Some("gate-g") => gate_g(),
@@ -173,7 +176,7 @@ fn run() -> Result<(), String> {
         Some("manifest") => standalone_manifest(),
         Some("all") => all(),
         _ => Err(
-            "usage: cargo xtask <research|adapter-audit|dependency-audit|docs-check|docs-build|docs-paper|docs-serve|docs-setup|verify|trial [seed iterations snapshot-interval report-path]|gate-b|gate-c|gate-d|gate-d-text|gate-d-render|gate-f|gate-f-v0|gate-svg|gate-dtcg|gate-penpot|gate-react|gate-wasm|gate-g|gate-h|gate-i-package|gate-i-image|gate-i-font|capture-baselines|browser-install|wasm-install|wasm-package|hostile-inputs|editor-hostile-inputs|performance|editor-trial|editor-gui-trial|editor-install-trial|editor-package|editor-launch|editor-install|editor-doctor|editor-rollback|editor-uninstall|editor-update|release-check <tag>|manifest|all>"
+            "usage: cargo xtask <research|adapter-audit|dependency-audit|docs-check|docs-build|docs-paper|docs-serve|docs-setup|verify|trial [seed iterations snapshot-interval report-path]|gate-b|gate-c|gate-d|gate-d-text|gate-d-render|gate-f|gate-f-v0|gate-svg|gate-dtcg|gate-penpot|gate-react|gate-wasm|gate-mcp|gate-g|gate-h|gate-i-package|gate-i-image|gate-i-font|capture-baselines|browser-install|wasm-install|wasm-package|hostile-inputs|editor-hostile-inputs|performance|editor-trial|editor-gui-trial|editor-install-trial|editor-package|editor-launch|editor-install|editor-doctor|editor-rollback|editor-uninstall|editor-update|release-check <tag>|manifest|all>"
                 .to_owned(),
         ),
     }
@@ -449,6 +452,44 @@ fn gate_wasm() -> Result<(), String> {
         return Err("WebAssembly conformance report failed its assertions".to_owned());
     }
     Ok(())
+}
+
+fn gate_mcp() -> Result<(), String> {
+    let executable_suffix = if cfg!(windows) { ".exe" } else { "" };
+    let server = Path::new("target")
+        .join("debug")
+        .join(format!("nuif-mcp{executable_suffix}"));
+    let cli = Path::new("target")
+        .join("debug")
+        .join(format!("nuif{executable_suffix}"));
+    let fixture = Path::new("target/mcp-smoke-input.nuif.json");
+    let report = Path::new("target/mcp-conformance-report.json");
+    cargo(&["build", "--locked", "-p", "nuif-mcp", "-p", "nuif-cli"])?;
+    cargo(&[
+        "run",
+        "--quiet",
+        "--locked",
+        "-p",
+        "nuif-cli",
+        "--",
+        "fixture",
+        "v0-responsive-card",
+        path(fixture)?,
+    ])?;
+    command(
+        "python3",
+        &[
+            "tools/mcp/smoke.py",
+            "--server",
+            path(&server)?,
+            "--cli",
+            path(&cli)?,
+            "--fixture",
+            path(fixture)?,
+            "--report",
+            path(report)?,
+        ],
+    )
 }
 
 fn run_wasm_browser_smoke(web_output: &Path) -> Result<String, String> {

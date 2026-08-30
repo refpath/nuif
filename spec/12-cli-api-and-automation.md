@@ -16,6 +16,15 @@ Every command MUST support machine-readable output and stable diagnostic codes. 
 
 The editor MUST route mutations through the same operation layer available to CLI/API clients. AI/MCP adapters are optional clients of this interface and are never the canonical protocol.
 
+The experimental `nuif-mcp-tools-0` profile is a stateless, stdio-only process
+adapter for MCP `2026-07-28`. It exposes `validate`, `inspect`, `canonicalize`
+and atomic `apply_patch` as pure inline-text transforms over the authoritative
+core. It MUST NOT infer filesystem paths, retain a hidden document session, or
+gain network, credential, package-resource or host-product authority. Every
+request is independently bounded and carries current protocol metadata; a
+client does not perform the retired initialization handshake. MCP tool
+annotations describe side effects but do not grant authority.
+
 Capture and reconstruction systems are also optional clients. They MUST submit
 bounded typed transactions through the ordinary operation API, and MUST receive
 the same validation, stale-revision, atomicity and diagnostic behavior as the

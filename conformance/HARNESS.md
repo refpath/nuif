@@ -206,6 +206,17 @@ stale, malformed and one-over-byte failure atomicity and an empty authority
 declaration. Browser layout, WASI and vendor plug-in behavior remain separate
 trials.
 
+The MCP cross-surface experiment writes
+`target/mcp-conformance-report.json`. `cargo xtask gate-mcp` launches the real
+stdio binary, opens the 2026-07-28 stateless lifecycle with `server/discover`,
+and sends complete metadata on every valid request. An independent Python
+driver checks the exact four-tool set, JSON input/output schemas, side-effect
+annotations, typed errors, connection survival after a rejected request and a
+one-over 4 MiB frame. Canonicalization and atomic patch output must be
+byte-identical to the native CLI. Twenty-five repeated validation calls record
+wire median, p95 and maximum latency with a catastrophic two-second p95 budget;
+this smoke distribution is not a controlled throughput benchmark.
+
 The collaboration register experiment writes `target/collaboration-report.json`. `cargo xtask gate-h` exhausts all 5,040 deliveries through operation-set and replica-log materializers, checks multiple merge orders and duplicate delivery, requires property-attributed multi-value conflicts and inspects canonical text for leaked replica state. Structural operations fail before ingestion; the executable boundary is specified in `crates/nuif-collab/README.md` and `spec/10-collaboration-profile.md`.
 
 The capture/reconstruction contract experiment writes
