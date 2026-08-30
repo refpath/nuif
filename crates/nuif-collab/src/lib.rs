@@ -477,6 +477,7 @@ fn register_key(operation: &Operation) -> Result<RegisterKey, CollaborationError
         Operation::SetPosition { entity, .. } => entity_key(*entity, "/authored/position"),
         Operation::SetFill { entity, .. } => entity_key(*entity, "/authored/fill"),
         Operation::SetText { entity, .. } => entity_key(*entity, "/authored/text"),
+        Operation::SetImage { entity, .. } => entity_key(*entity, "/authored/image"),
         Operation::SetToken { token } => RegisterKey {
             target: RegisterTarget::Token { id: token.id },
             pointer: format!("/tokens/{}", token.id),
@@ -506,6 +507,9 @@ fn register_key(operation: &Operation) -> Result<RegisterKey, CollaborationError
         Operation::Insert { .. }
         | Operation::Remove { .. }
         | Operation::Move { .. }
+        | Operation::SetAsset { .. }
+        | Operation::RemoveAsset { .. }
+        | Operation::BindAssetResource { .. }
         | Operation::RestoreSubtree { .. } => {
             return Err(CollaborationError::UnsupportedOperation {
                 operation: operation_name(operation),
@@ -537,6 +541,10 @@ fn operation_name(operation: &Operation) -> &'static str {
         Operation::SetPosition { .. } => "set_position",
         Operation::SetFill { .. } => "set_fill",
         Operation::SetText { .. } => "set_text",
+        Operation::SetImage { .. } => "set_image",
+        Operation::SetAsset { .. } => "set_asset",
+        Operation::RemoveAsset { .. } => "remove_asset",
+        Operation::BindAssetResource { .. } => "bind_asset_resource",
         Operation::SetToken { .. } => "set_token",
         Operation::RemoveToken { .. } => "remove_token",
         Operation::SetExtensionDeclarations { .. } => "set_extension_declarations",

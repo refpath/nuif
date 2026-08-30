@@ -24,6 +24,7 @@ pub const PROFILE0_RESOURCE_LIMITS: ResourceLimits = ResourceLimits {
     binary_bytes: 8 * 1024 * 1024,
     string_bytes: 8 * 1024 * 1024,
     single_string_bytes: 1024 * 1024,
+    assets: 8_192,
 };
 
 /// Cardinality and retained-data bounds for one decoded profile-0 document.
@@ -41,6 +42,7 @@ pub struct ResourceLimits {
     pub binary_bytes: usize,
     pub string_bytes: usize,
     pub single_string_bytes: usize,
+    pub assets: usize,
 }
 
 /// Measured semantic size of a decoded document.
@@ -57,6 +59,7 @@ pub struct ResourceUsage {
     pub containment_depth: usize,
     pub binary_bytes: usize,
     pub string_bytes: usize,
+    pub assets: usize,
 }
 
 /// A semantic-model resource bound exceeded by an untrusted document.
@@ -138,6 +141,69 @@ mod entity_id_serde {
     }
 }
 
+/// Stable semantic identity of an editable asset.
+///
+/// Unlike [`ResourceDigest`], this identity survives replacement of the
+/// asset's encoded bytes.
+#[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd, Serialize, Deserialize)]
+#[serde(transparent)]
+pub struct AssetId(#[serde(with = "asset_id_serde")] pub u128);
+
+impl AssetId {
+    #[must_use]
+    pub const fn new(value: u128) -> Self {
+        Self(value)
+    }
+}
+
+impl fmt::Display for AssetId {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(formatter, "{:032x}", self.0)
+    }
+}
+
+impl FromStr for AssetId {
+    type Err = ParseAssetIdError;
+
+    fn from_str(value: &str) -> Result<Self, Self::Err> {
+        if value.len() != 32 || !value.bytes().all(|byte| byte.is_ascii_hexdigit()) {
+            return Err(ParseAssetIdError);
+        }
+        u128::from_str_radix(value, 16)
+            .map(Self)
+            .map_err(|_| ParseAssetIdError)
+    }
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct ParseAssetIdError;
+
+impl fmt::Display for ParseAssetIdError {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        formatter.write_str("asset identifier must contain exactly 32 hexadecimal digits")
+    }
+}
+
+impl std::error::Error for ParseAssetIdError {}
+
+mod asset_id_serde {
+    use serde::{Deserialize, Deserializer, Serializer};
+    use std::str::FromStr;
+
+    use super::AssetId;
+
+    pub fn serialize<S: Serializer>(value: &u128, serializer: S) -> Result<S::Ok, S::Error> {
+        serializer.serialize_str(&format!("{value:032x}"))
+    }
+
+    pub fn deserialize<'de, D: Deserializer<'de>>(deserializer: D) -> Result<u128, D::Error> {
+        let value = String::deserialize(deserializer)?;
+        AssetId::from_str(&value)
+            .map(|id| id.0)
+            .map_err(serde::de::Error::custom)
+    }
+}
+
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Document {
@@ -149,6 +215,8 @@ pub struct Document {
     pub tokens: BTreeMap<EntityId, Token>,
     #[serde(default)]
     pub relations: Vec<Relation>,
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub assets: BTreeMap<AssetId, Asset>,
     #[serde(default)]
     pub extension_declarations: ExtensionDeclarations,
     #[serde(default)]
@@ -165,6 +233,7 @@ impl Document {
             roots: Vec::new(),
             tokens: BTreeMap::new(),
             relations: Vec::new(),
+            assets: BTreeMap::new(),
             extension_declarations: ExtensionDeclarations::default(),
             extensions: Extensions::default(),
         }
@@ -268,6 +337,8 @@ pub struct AuthoredProperties {
     pub layout: LayoutStyle,
     pub fill: Option<Color>,
     pub text: Option<TextContent>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub image: Option<ImagePaint>,
     #[serde(default)]
     pub responsive: Vec<ResponsiveOverride>,
     #[serde(default)]
@@ -283,6 +354,7 @@ impl Default for AuthoredProperties {
             layout: LayoutStyle::default(),
             fill: None,
             text: None,
+            image: None,
             responsive: Vec::new(),
             values: BTreeMap::new(),
         }
@@ -414,6 +486,182 @@ pub struct TextContent {
     pub font_sha256: String,
     pub size: f64,
     pub line_height: f64,
+}
+
+/// SHA-256 identity of exact immutable resource bytes.
+#[derive(Clone, Debug, Eq, Hash, Ord, PartialEq, PartialOrd, Serialize, Deserialize)]
+#[serde(transparent)]
+pub struct ResourceDigest(pub String);
+
+impl ResourceDigest {
+    #[must_use]
+    pub fn from_sha256_hex(hex: impl Into<String>) -> Self {
+        Self(format!("sha256:{}", hex.into()))
+    }
+
+    #[must_use]
+    pub fn is_valid(&self) -> bool {
+        self.0.strip_prefix("sha256:").is_some_and(|hex| {
+            hex.len() == 64
+                && hex
+                    .bytes()
+                    .all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte))
+        })
+    }
+
+    #[must_use]
+    pub fn sha256_hex(&self) -> Option<&str> {
+        self.is_valid().then(|| &self.0[7..])
+    }
+}
+
+impl fmt::Display for ResourceDigest {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        formatter.write_str(&self.0)
+    }
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ResourceRole {
+    Source,
+    Authoring,
+    Derived,
+    Cache,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case", tag = "type")]
+pub enum ResourceLocator {
+    Embedded { path: String },
+    Linked { uri: String },
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ResourceDerivation {
+    pub profile: String,
+    pub inputs: Vec<ResourceDigest>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ResourceDescriptor {
+    pub digest: ResourceDigest,
+    pub size: u64,
+    pub media_type: String,
+    pub role: ResourceRole,
+    pub locator: ResourceLocator,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub derivation: Option<ResourceDerivation>,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct Asset {
+    pub schema_version: u32,
+    pub id: AssetId,
+    pub name: Option<String>,
+    pub resource: Option<ResourceDigest>,
+    pub portability: AssetPortability,
+    pub kind: AssetKind,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AssetPortability {
+    Portable,
+    PrivateAuthoring,
+    Linked,
+    Substituted,
+    Unavailable,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case", tag = "type", content = "data")]
+pub enum AssetKind {
+    Image(ImageAsset),
+    Font(FontAsset),
+    Unknown(UnknownKind),
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ImageAsset {
+    pub width: u32,
+    pub height: u32,
+    pub decoder_profile: String,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct FontAsset {
+    pub face_index: u32,
+    #[serde(default)]
+    pub names: Vec<String>,
+    #[serde(default)]
+    pub axes: BTreeMap<String, f64>,
+    #[serde(default)]
+    pub features: BTreeMap<String, u32>,
+    #[serde(default)]
+    pub coverage: Vec<CodepointRange>,
+    #[serde(default)]
+    pub policy_evidence: BTreeMap<String, String>,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct CodepointRange {
+    pub start: u32,
+    pub end: u32,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ImagePaint {
+    pub asset: AssetId,
+    pub fit: ImageFit,
+    pub crop: ImageCrop,
+    pub transform: AffineTransform,
+    pub sampling: ImageSampling,
+    pub opacity: f32,
+    pub color_conversion: String,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ImageFit {
+    Fill,
+    Contain,
+    Cover,
+    None,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ImageCrop {
+    pub x: f64,
+    pub y: f64,
+    pub width: f64,
+    pub height: f64,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct AffineTransform {
+    pub a: f64,
+    pub b: f64,
+    pub c: f64,
+    pub d: f64,
+    pub tx: f64,
+    pub ty: f64,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ImageSampling {
+    Nearest,
+    Linear,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -563,12 +811,14 @@ pub fn resource_usage(document: &Document) -> Result<ResourceUsage, ResourceLimi
         roots: document.roots.len(),
         tokens: document.tokens.len(),
         relations: document.relations.len(),
+        assets: document.assets.len(),
         ..ResourceUsage::default()
     };
     check_limit("entities", usage.entities, limits.entities)?;
     check_limit("roots", usage.roots, limits.roots)?;
     check_limit("tokens", usage.tokens, limits.tokens)?;
     check_limit("relations", usage.relations, limits.relations)?;
+    check_limit("assets", usage.assets, limits.assets)?;
 
     let mut parents = BTreeMap::new();
     for entity in document.entities.values() {
@@ -592,6 +842,9 @@ pub fn resource_usage(document: &Document) -> Result<ResourceUsage, ResourceLimi
             add_string(&mut usage, &text.content, limits)?;
             add_string(&mut usage, &text.font, limits)?;
             add_string(&mut usage, &text.font_sha256, limits)?;
+        }
+        if let Some(image) = &entity.authored.image {
+            add_string(&mut usage, &image.color_conversion, limits)?;
         }
         for override_value in &entity.authored.responsive {
             add_optional_string(&mut usage, override_value.when.theme.as_deref(), limits)?;
@@ -621,6 +874,7 @@ pub fn resource_usage(document: &Document) -> Result<ResourceUsage, ResourceLimi
         add_string(&mut usage, &token.name, limits)?;
         inspect_property_value(&mut usage, &token.value, limits)?;
     }
+    inspect_assets(&mut usage, document, limits)?;
     for relation in &document.relations {
         add_string(&mut usage, &relation.kind, limits)?;
     }
@@ -638,6 +892,16 @@ pub fn resource_usage(document: &Document) -> Result<ResourceUsage, ResourceLimi
     }
     inspect_extensions(&mut usage, &document.extensions, limits)?;
 
+    inspect_containment_depth(&mut usage, document, &parents, limits)?;
+    Ok(usage)
+}
+
+fn inspect_containment_depth(
+    usage: &mut ResourceUsage,
+    document: &Document,
+    parents: &BTreeMap<EntityId, EntityId>,
+    limits: ResourceLimits,
+) -> Result<(), ResourceLimitExceeded> {
     for id in document.entities.keys() {
         let mut current = Some(*id);
         let mut path = BTreeSet::new();
@@ -656,7 +920,41 @@ pub fn resource_usage(document: &Document) -> Result<ResourceUsage, ResourceLimi
             current = parents.get(&item).copied();
         }
     }
-    Ok(usage)
+    Ok(())
+}
+
+fn inspect_assets(
+    usage: &mut ResourceUsage,
+    document: &Document,
+    limits: ResourceLimits,
+) -> Result<(), ResourceLimitExceeded> {
+    for asset in document.assets.values() {
+        add_optional_string(usage, asset.name.as_deref(), limits)?;
+        if let Some(digest) = &asset.resource {
+            add_string(usage, &digest.0, limits)?;
+        }
+        match &asset.kind {
+            AssetKind::Image(image) => add_string(usage, &image.decoder_profile, limits)?,
+            AssetKind::Font(font) => {
+                for name in &font.names {
+                    add_string(usage, name, limits)?;
+                }
+                for tag in font.axes.keys().chain(font.features.keys()) {
+                    add_string(usage, tag, limits)?;
+                }
+                for (key, value) in &font.policy_evidence {
+                    add_string(usage, key, limits)?;
+                    add_string(usage, value, limits)?;
+                }
+            }
+            AssetKind::Unknown(unknown) => {
+                add_string(usage, &unknown.namespace, limits)?;
+                add_string(usage, &unknown.kind, limits)?;
+                add_binary(usage, unknown.payload.bytes.len(), limits)?;
+            }
+        }
+    }
+    Ok(())
 }
 
 fn inspect_property_value(
@@ -948,6 +1246,10 @@ pub fn validate(document: &Document) -> Vec<Diagnostic> {
         validate_property_value(document, None, &token.value, &mut diagnostics);
     }
 
+    for (key, asset) in &document.assets {
+        validate_asset(*key, asset, &mut diagnostics);
+    }
+
     for namespace in &document.extension_declarations.required {
         if !document.extension_declarations.used.contains(namespace) {
             diagnostics.push_capped(Diagnostic::error(
@@ -1062,6 +1364,9 @@ fn validate_entity(document: &Document, entity: &Entity, diagnostics: &mut Vec<D
             ));
         }
     }
+    if let Some(image) = &entity.authored.image {
+        validate_image_paint(document, entity, image, diagnostics);
+    }
     if let EntityKind::Instance { component } = entity.kind
         && !matches!(
             document.entities.get(&component).map(|item| &item.kind),
@@ -1081,6 +1386,161 @@ fn validate_entity(document: &Document, entity: &Entity, diagnostics: &mut Vec<D
         Some(entity.id),
         diagnostics,
     );
+}
+
+fn validate_image_paint(
+    document: &Document,
+    entity: &Entity,
+    image: &ImagePaint,
+    diagnostics: &mut Vec<Diagnostic>,
+) {
+    if !matches!(entity.kind, EntityKind::Image) {
+        diagnostics.push_capped(Diagnostic::error(
+            "IMAGE_PAINT_KIND_INVALID",
+            "an image paint may only be authored on an image entity",
+            Some(entity.id),
+        ));
+    }
+    if !matches!(
+        document.assets.get(&image.asset).map(|asset| &asset.kind),
+        Some(AssetKind::Image(_))
+    ) {
+        diagnostics.push_capped(Diagnostic::error(
+            "IMAGE_ASSET_MISSING",
+            format!(
+                "image paint references missing or non-image asset {}",
+                image.asset
+            ),
+            Some(entity.id),
+        ));
+    }
+    let crop = [
+        image.crop.x,
+        image.crop.y,
+        image.crop.width,
+        image.crop.height,
+    ];
+    if crop.iter().any(|value| !value.is_finite())
+        || image.crop.x < 0.0
+        || image.crop.y < 0.0
+        || image.crop.width <= 0.0
+        || image.crop.height <= 0.0
+        || image.crop.x + image.crop.width > 1.0
+        || image.crop.y + image.crop.height > 1.0
+    {
+        diagnostics.push_capped(Diagnostic::error(
+            "IMAGE_CROP_INVALID",
+            "image crop must be a finite, positive normalized rectangle within 0..=1",
+            Some(entity.id),
+        ));
+    }
+    let transform = [
+        image.transform.a,
+        image.transform.b,
+        image.transform.c,
+        image.transform.d,
+        image.transform.tx,
+        image.transform.ty,
+    ];
+    if transform.iter().any(|value| !value.is_finite())
+        || !image.opacity.is_finite()
+        || !(0.0..=1.0).contains(&image.opacity)
+        || !is_identifier(&image.color_conversion)
+    {
+        diagnostics.push_capped(Diagnostic::error(
+            "IMAGE_PAINT_INVALID",
+            "image transform and opacity must be finite, opacity must be within 0..=1, and color conversion must be an identifier",
+            Some(entity.id),
+        ));
+    }
+}
+
+fn validate_asset(key: AssetId, asset: &Asset, diagnostics: &mut Vec<Diagnostic>) {
+    let pointer = Some(format!("/assets/{key}"));
+    let mut push = |code: &str, message: String| {
+        diagnostics.push_capped(Diagnostic {
+            code: code.to_owned(),
+            severity: Severity::Error,
+            message,
+            entity: None,
+            pointer: pointer.clone(),
+            fidelity: None,
+        });
+    };
+    if key != asset.id {
+        push(
+            "MODEL_ASSET_KEY_MISMATCH",
+            format!("asset map key {key} differs from embedded id {}", asset.id),
+        );
+    }
+    if asset.schema_version > CURRENT_SCHEMA_VERSION && !matches!(asset.kind, AssetKind::Unknown(_))
+    {
+        push(
+            "MODEL_ASSET_VERSION_NOT_OPAQUE",
+            "a newer asset schema version must be represented as unknown".to_owned(),
+        );
+    }
+    if let Some(digest) = &asset.resource
+        && !digest.is_valid()
+    {
+        push(
+            "RESOURCE_DIGEST_INVALID",
+            "resource digest must be sha256 followed by 64 lowercase hexadecimal digits".to_owned(),
+        );
+    }
+    if matches!(
+        asset.portability,
+        AssetPortability::Portable | AssetPortability::Substituted
+    ) && asset.resource.is_none()
+    {
+        push(
+            "ASSET_RESOURCE_REQUIRED",
+            "portable and substituted assets require an exact resource digest".to_owned(),
+        );
+    }
+    if matches!(asset.portability, AssetPortability::Unavailable) && asset.resource.is_some() {
+        push(
+            "ASSET_UNAVAILABLE_HAS_RESOURCE",
+            "an unavailable asset cannot bind resource bytes".to_owned(),
+        );
+    }
+    match &asset.kind {
+        AssetKind::Image(image) => {
+            if image.width == 0 || image.height == 0 || !is_identifier(&image.decoder_profile) {
+                push(
+                    "IMAGE_ASSET_INVALID",
+                    "image dimensions must be positive and decoder profile must be an identifier"
+                        .to_owned(),
+                );
+            }
+        }
+        AssetKind::Font(font) => {
+            if font.axes.values().any(|value| !value.is_finite()) {
+                push(
+                    "FONT_AXIS_INVALID",
+                    "font variation axis values must be finite".to_owned(),
+                );
+            }
+            if font
+                .coverage
+                .iter()
+                .any(|range| range.start > range.end || range.end > 0x10_ffff)
+            {
+                push(
+                    "FONT_COVERAGE_INVALID",
+                    "font coverage ranges must be ordered Unicode scalar bounds".to_owned(),
+                );
+            }
+        }
+        AssetKind::Unknown(unknown) => {
+            if !is_identifier(&unknown.namespace) || !is_identifier(&unknown.kind) {
+                push(
+                    "MODEL_IDENTIFIER_INVALID",
+                    "unknown asset namespace and kind must be lowercase identifiers".to_owned(),
+                );
+            }
+        }
+    }
 }
 
 fn is_sha256(value: &str) -> bool {
@@ -1667,6 +2127,60 @@ mod tests {
         assert_eq!(
             resource_usage(&document).unwrap_err().resource,
             "binary bytes"
+        );
+    }
+
+    #[test]
+    fn asset_identity_and_image_references_are_validated() {
+        let asset_id = AssetId::new(0xa0);
+        let mut document = Document::empty(EntityId::new(1));
+        document.assets.insert(
+            asset_id,
+            Asset {
+                schema_version: CURRENT_SCHEMA_VERSION,
+                id: asset_id,
+                name: Some("hero".to_owned()),
+                resource: Some(ResourceDigest::from_sha256_hex("a".repeat(64))),
+                portability: AssetPortability::Portable,
+                kind: AssetKind::Image(ImageAsset {
+                    width: 32,
+                    height: 24,
+                    decoder_profile: "nuif-png-0".to_owned(),
+                }),
+            },
+        );
+        let mut image = Entity::new(EntityId::new(2), EntityKind::Image);
+        image.authored.image = Some(ImagePaint {
+            asset: asset_id,
+            fit: ImageFit::Contain,
+            crop: ImageCrop {
+                x: 0.0,
+                y: 0.0,
+                width: 1.0,
+                height: 1.0,
+            },
+            transform: AffineTransform {
+                a: 1.0,
+                b: 0.0,
+                c: 0.0,
+                d: 1.0,
+                tx: 0.0,
+                ty: 0.0,
+            },
+            sampling: ImageSampling::Linear,
+            opacity: 1.0,
+            color_conversion: "srgb".to_owned(),
+        });
+        document.roots.push(image.id);
+        document.entities.insert(image.id, image);
+        assert!(validate(&document).is_empty());
+
+        document.assets.get_mut(&asset_id).unwrap().resource =
+            Some(ResourceDigest("sha256:ABC".to_owned()));
+        assert!(
+            validate(&document)
+                .iter()
+                .any(|diagnostic| diagnostic.code == "RESOURCE_DIGEST_INVALID")
         );
     }
 }

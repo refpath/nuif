@@ -2,9 +2,9 @@
 
 use nuif_codec::canonical_hash;
 use nuif_core::{
-    Color, Document, Entity, EntityId, ExtensionDeclarations, Extensions, LayoutStyle,
-    OpaquePayload, Point, PropertyValue, Relation, Severity, SizeIntent, TextContent, Token,
-    validate,
+    Asset, AssetId, Color, Document, Entity, EntityId, ExtensionDeclarations, Extensions,
+    ImagePaint, LayoutStyle, OpaquePayload, Point, PropertyValue, Relation, ResourceDigest,
+    Severity, SizeIntent, TextContent, Token, validate,
 };
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet};
@@ -65,6 +65,20 @@ pub enum Operation {
     SetText {
         entity: EntityId,
         value: Option<TextContent>,
+    },
+    SetImage {
+        entity: EntityId,
+        value: Option<ImagePaint>,
+    },
+    SetAsset {
+        asset: Asset,
+    },
+    RemoveAsset {
+        asset: AssetId,
+    },
+    BindAssetResource {
+        asset: AssetId,
+        digest: Option<ResourceDigest>,
     },
     SetToken {
         token: Token,
@@ -173,6 +187,8 @@ pub enum ApplyError {
     EntityMissing { entity: EntityId },
     #[error("entity {entity} already exists")]
     EntityExists { entity: EntityId },
+    #[error("asset {asset} does not exist")]
+    AssetMissing { asset: AssetId },
     #[error("parent {parent} does not exist")]
     ParentMissing { parent: EntityId },
     #[error("anchor {anchor:?} does not exist under parent {parent:?}")]
@@ -411,6 +427,40 @@ fn apply_operation(
             Ok(Operation::SetText {
                 entity: *entity,
                 value: previous,
+            })
+        }
+        Operation::SetImage { entity, value } => {
+            let item = document
+                .entities
+                .get_mut(entity)
+                .ok_or(ApplyError::EntityMissing { entity: *entity })?;
+            let previous = std::mem::replace(&mut item.authored.image, value.clone());
+            Ok(Operation::SetImage {
+                entity: *entity,
+                value: previous,
+            })
+        }
+        Operation::SetAsset { asset } => Ok(document
+            .assets
+            .insert(asset.id, asset.clone())
+            .map_or(Operation::RemoveAsset { asset: asset.id }, |previous| {
+                Operation::SetAsset { asset: previous }
+            })),
+        Operation::RemoveAsset { asset } => Ok(document
+            .assets
+            .remove(asset)
+            .map_or(Operation::RemoveAsset { asset: *asset }, |previous| {
+                Operation::SetAsset { asset: previous }
+            })),
+        Operation::BindAssetResource { asset, digest } => {
+            let item = document
+                .assets
+                .get_mut(asset)
+                .ok_or(ApplyError::AssetMissing { asset: *asset })?;
+            let previous = std::mem::replace(&mut item.resource, digest.clone());
+            Ok(Operation::BindAssetResource {
+                asset: *asset,
+                digest: previous,
             })
         }
         Operation::SetToken { token } => Ok(document
@@ -899,6 +949,46 @@ mod tests {
                 .content,
             "Editable"
         );
+        apply_patch(&mut document, &inverse).unwrap();
+        assert_eq!(document, original);
+    }
+
+    #[test]
+    fn asset_binding_is_semantic_and_invertible() {
+        let mut document = base();
+        let original = document.clone();
+        let asset_id = AssetId::new(0xa0);
+        let first = ResourceDigest::from_sha256_hex("a".repeat(64));
+        let second = ResourceDigest::from_sha256_hex("b".repeat(64));
+        let patch = Patch {
+            base_revision: None,
+            transactions: vec![Transaction {
+                id: 10,
+                operations: vec![
+                    Operation::SetAsset {
+                        asset: Asset {
+                            schema_version: nuif_core::CURRENT_SCHEMA_VERSION,
+                            id: asset_id,
+                            name: Some("image".to_owned()),
+                            resource: Some(first),
+                            portability: nuif_core::AssetPortability::Portable,
+                            kind: nuif_core::AssetKind::Image(nuif_core::ImageAsset {
+                                width: 16,
+                                height: 16,
+                                decoder_profile: "nuif-png-0".to_owned(),
+                            }),
+                        },
+                    },
+                    Operation::BindAssetResource {
+                        asset: asset_id,
+                        digest: Some(second.clone()),
+                    },
+                ],
+            }],
+        };
+        let inverse = apply_patch_with_inverse(&mut document, &patch).unwrap();
+        assert_eq!(document.assets[&asset_id].id, asset_id);
+        assert_eq!(document.assets[&asset_id].resource.as_ref(), Some(&second));
         apply_patch(&mut document, &inverse).unwrap();
         assert_eq!(document, original);
     }
