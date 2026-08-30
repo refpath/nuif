@@ -2440,6 +2440,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "nuif-reconstruct"
+version = "0.0.1"
+dependencies = [
+ "nuif-codec",
+ "nuif-core",
+ "nuif-protocol",
+ "serde",
+ "serde_json",
+ "sha2",
+ "thiserror 2.0.20",
+]
+
+[[package]]
 name = "nuif-render"
 version = "0.0.0"
 dependencies = [

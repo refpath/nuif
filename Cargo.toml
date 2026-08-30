@@ -9,6 +9,7 @@ members = [
   "crates/nuif-text",
   "crates/nuif-codec",
   "crates/nuif-package",
+  "crates/nuif-reconstruct",
   "crates/nuif-query",
   "crates/nuif-api",
   "crates/nuif-testing",
