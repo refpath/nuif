@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en" data-status="pending">
+  <head>
+    <meta charset="utf-8">
+    <title>NUIF WebAssembly smoke test</title>
+  </head>
+  <body>
+    <pre id="result">pending</pre>
+    <script type="module">
+      import init, { apiVersion, capabilities } from "./nuif.js";
+
+      const result = document.querySelector("#result");
+      try {
+        await init();
+        const contract = JSON.parse(
+          new TextDecoder().decode(capabilities()),
+        );
+        if (
+          apiVersion() !==
+            `${contract.api_profile}/${contract.binding_version}` ||
+          contract.api_profile !== "nuif-wasm-api-0" ||
+          contract.authorities.length !== 0
+        ) {
+          throw new Error("generated browser contract does not match its profile");
+        }
+        document.documentElement.dataset.status = "passed";
+        result.textContent = JSON.stringify({
+          status: "passed",
+          api_profile: contract.api_profile,
+        });
+      } catch (error) {
+        document.documentElement.dataset.status = "failed";
+        result.textContent = String(error?.stack ?? error);
+      }
+    </script>
+  </body>
+</html>

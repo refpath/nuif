@@ -115,7 +115,7 @@
       "title": "Implementation reference",
       "paths": [
         "schemas/README.md",
-        "bindings/wasm/README.md",
+        "crates/nuif-wasm/README.md",
         "implementations/python/README.md",
         "tools/refpath/README.md",
         "crates/nuif-media/PROFILE.md",

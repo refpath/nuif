@@ -1,6 +1,6 @@
 # Test-harness architecture
 
-Status: profile-0 baseline, deterministic `nuif-package-0`, narrow cross-decoder `nuif-png-rgba8-0`, Gate C browser/Taffy, Gate D text/render, Gate E complete editor authoring, bounded and full-v0 Gate F HTML/CSS synchronization, SVG/DTCG/Penpot adapter gates, Gate G independent v0 reproduction and Gate H collaboration-register convergence are implemented. Bounded browser/screenshot capture and reconstruction contracts have unit evidence; their cross-provider accuracy corpus is not yet a release gate. Fuzz packages, perceptual comparison, structural collaboration and broader foreign-runtime trials remain planned. This document specifies how round-trip trials run unattended, fail reproducibly, minimize themselves and report in machine-readable form. Evidence is cited by research record identifier.
+Status: profile-0 baseline, deterministic `nuif-package-0`, narrow cross-decoder `nuif-png-rgba8-0`, Gate C browser/Taffy, Gate D text/render, Gate E complete editor authoring, bounded and full-v0 Gate F HTML/CSS synchronization, SVG/DTCG/Penpot/React adapter gates, `nuif-wasm-api-0`, Gate G independent v0 reproduction and Gate H collaboration-register convergence are implemented. Bounded browser/screenshot capture and reconstruction contracts have unit evidence; their cross-provider accuracy corpus is not yet a release gate. Fuzz packages, perceptual comparison, structural collaboration and broader foreign-runtime trials remain planned. This document specifies how round-trip trials run unattended, fail reproducibly, minimize themselves and report in machine-readable form. Evidence is cited by research record identifier.
 
 ## Goals
 
@@ -28,6 +28,7 @@ crates/
   nuif-capture             browser-source and strict screenshot capture baselines
   nuif-query               semantic queries
   nuif-api                 Engine trait, report types, session driver
+  nuif-wasm                byte-oriented browser/Node binding over nuif-api
   nuif-cli                 command surface; JSON output; stable exit codes
   nuif-testing             seeded trials, hostile-input measurement, v0 fixture, direct Taffy/Chrome oracles, reducer and reports
 apps/
@@ -195,6 +196,16 @@ failures and eleven excluded or hostile sources, including the one-over mapped
 JSX depth case. The intrinsic-only mapping and
 runtime non-claims are specified in `adapters/react/PROFILE.md`.
 
+The WebAssembly cross-surface experiment writes
+`target/wasm-conformance-report.json` and generates Node and direct-browser
+packages. `cargo xtask gate-wasm` pins wasm-bindgen 0.2.127, initializes the
+direct-browser target in pinned Chrome, runs the generated Node ABI through
+canonical text/CBOR, validation, atomic patch and history paths, and requires
+the output bytes to equal the native CLI after the same patch. It also checks
+stale, malformed and one-over-byte failure atomicity and an empty authority
+declaration. Browser layout, WASI and vendor plug-in behavior remain separate
+trials.
+
 The collaboration register experiment writes `target/collaboration-report.json`. `cargo xtask gate-h` exhausts all 5,040 deliveries through operation-set and replica-log materializers, checks multiple merge orders and duplicate delivery, requires property-attributed multi-value conflicts and inspects canonical text for leaked replica state. Structural operations fail before ingestion; the executable boundary is specified in `crates/nuif-collab/README.md` and `spec/10-collaboration-profile.md`.
 
 The capture/reconstruction contract experiment writes
@@ -217,6 +228,7 @@ The editor exposes an in-process session driver (`nuif-api`) that the harness ca
 | commit-lint | subject rules |
 | research | record validation |
 | rust | fmt, check, clippy pedantic, `cargo test --workspace --locked`, 10,000-patch Gate B trial, hostile-input release measurement, pinned Gate C three-way layout trial, both Gate D text/render trials and all report uploads (all render suites CPU only) |
+| wasm | generated Node/direct-browser binding, Node/native byte differential, typed limit failures and downloadable developer artifact (currently part of the `rust` complete gate) |
 | fuzz-smoke (planned) | future fuzz targets with committed seed corpora |
 | layout-differential | `cargo xtask browser-install` plus `cargo xtask gate-c`; seed-derived cases run in headless Chrome and fail on pin drift or blocking/unclassified divergence |
 | editor-headless | editor session scripts through `nuif-api`; accessibility-tree assertions; CPU snapshots |

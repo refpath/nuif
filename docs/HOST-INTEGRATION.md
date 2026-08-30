@@ -30,6 +30,21 @@ The portable contract is canonical NUIF plus the report. Rust is optional for a
 vendor implementation. A TypeScript or JavaScript plug-in may implement the
 same mapping directly from the specification and conformance fixtures.
 
+## Browser binding boundary
+
+`nuif-wasm-api-0` packages parsing, validation, canonical text/CBOR and bounded
+semantic patch/history operations for browser and JavaScript consumers. It
+accepts byte arrays and returns byte arrays or hashes; it deliberately does not
+expose a second mutable JavaScript model. The generated module has no
+filesystem, network, Figma or Adobe authority.
+
+For Figma, the module belongs in the UI iframe, where Figma documents normal
+browser APIs including WebAssembly. The plug-in main thread still owns
+`SceneNode` access and exchanges bounded messages with that iframe. For Adobe,
+the UXP shell owns file tokens and host mutation. In both cases the WASM module
+can validate and encode NUIF locally, but it is not the host adapter and cannot
+justify a vendor fidelity claim by itself.
+
 ## Local package evaluation
 
 A Rust host that opens a package passes only its verified embedded resources to
@@ -132,9 +147,10 @@ the snapshot tests does not justify a live integration claim.
 
 ## Release operation
 
-The native editor release is versioned independently. A future Figma plug-in and
-each Adobe `.ccx` use their own semantic versions and changelogs. CI should
-build deterministic review bundles, checksums, an SBOM where applicable and
-fixture reports. Publication to a vendor marketplace is never inferred from a
-Git tag: it requires the vendor account, assigned plug-in ID, disclosure or
-review forms, and an explicit authenticated release operation.
+The native editor and `nuif-wasm` developer binding are versioned
+independently. A future Figma plug-in and each Adobe `.ccx` use their own
+semantic versions and changelogs. CI should build review bundles, checksums,
+provenance, an SBOM where applicable and fixture reports. Publication to a
+vendor marketplace is never inferred from a Git tag: it requires the vendor
+account, assigned plug-in ID, disclosure or review forms, and an explicit
+authenticated release operation.

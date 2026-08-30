@@ -36,7 +36,7 @@ links:
 
 # Summary
 
-Cargo metadata reports 29 distinct direct external crates across the workspace.
+Cargo metadata reports 30 distinct direct external crates across the workspace.
 Each is now registered with a role, a current decision, at least one considered
 alternative and repository evidence. The executable audit fails when a direct
 crate is added without ownership or when a stale registration remains. Cargo
@@ -131,6 +131,14 @@ Source adapters
   transforms, but their normalized AST boundary does not improve a profile that
   explicitly refuses evaluation and patches exact source ranges. Locator:
   https://github.com/tree-sitter/tree-sitter-javascript, retrieved 2026-08-30.
+- wasm-bindgen 0.2.127 is the current browser/Node ABI generator and already
+  resolves transitively in the native editor graph. Making it direct only in
+  `nuif-wasm` adds no second resolved version. WIT is the stronger long-term
+  language-neutral component interface, but browsers and Figma-style iframe
+  hosts consume JavaScript modules today. The binding therefore passes only
+  canonical documents, diagnostics and patches as bytes instead of generating
+  a parallel JavaScript model. Locators: https://wasm-bindgen.github.io/wasm-bindgen/reference/deployment.html
+  and https://component-model.bytecodealliance.org/, retrieved 2026-08-30.
 - roxmltree represents XML as a read-only tree and exposes original byte
   positions. Quick XML is an almost-zero-copy pull parser and a better candidate
   for very large streaming documents, while usvg is a better renderer-facing
@@ -217,3 +225,9 @@ it advertises more format coverage.
   smoke profile after its Criterion fixtures were calibrated.
 - Whether a future Masonry release incorporates the refpath wgpu, resvg/usvg and
   UI Events feature corrections, allowing both fork pins to be removed.
+- Whether a future WebAssembly Component Model browser path is mature enough to
+  replace JavaScript glue. The current 0.2.127 CLI build also reports
+  future-incompatible `buf_redux` and `multipart` in its optional packaging/test
+  tool graph; neither crate is linked into NUIF or the emitted module. The
+  pinned compiler remains an isolated build tool until upstream removes them or
+  verified prebuilt-tool acquisition is adopted.

@@ -32,8 +32,8 @@ links:
   spec: [spec/12-cli-api-and-automation.md]
   adr: [adrs/0001-rust-reference-core.md]
   rfc: []
-  code: [apps/editor/ARCHITECTURE.md, conformance/PLAN.md, .github/workflows/ci.yml, crates/nuif-layout, crates/nuif-api]
-  experiments: []
+  code: [apps/editor/ARCHITECTURE.md, conformance/PLAN.md, .github/workflows/ci.yml, crates/nuif-layout, crates/nuif-api, crates/nuif-wasm, tools/wasm/smoke.cjs, xtask/src/main.rs]
+  experiments: [nuif:experiment:wasm-cross-surface]
 ---
 
 # Summary
@@ -58,6 +58,11 @@ NUIF interpretation: the engine's differential layout suite should run in three 
 - Taffy generates layout fixtures by driving Chrome for Testing through ChromeDriver with `fantoccini`, downloading a matching Chrome/driver pair once per version. Locator: Taffy `scripts/gentest/src/main.rs` lines 11-67; `CONTRIBUTING.md` lines 26-35.
 - egui_kittest removes `Backends::BROWSER_WEBGPU` from its test setup because it relies on blocking screenshots. Locator: egui `crates/egui_kittest/src/wgpu.rs` lines 20-27.
 - The NUIF whitepaper and ADR 0001 assign the WASM boundary to Rust and the editor shell to a web stack; ARCHITECTURE.md draws the Rust core behind a WASM boundary. Locator: `docs/whitepaper/06-language-and-runtime-choice.md`; `adrs/0001-rust-reference-core.md`; `apps/editor/ARCHITECTURE.md`.
+- Figma documents that a plug-in UI iframe can use browser APIs including
+  WebAssembly, while host-document access remains in the plug-in API. This
+  supports a capability-free WASM core in the iframe and a thin, separately
+  tested host adapter. Locator: https://developers.figma.com/docs/plugins/,
+  retrieved 2026-08-30.
 
 ## Mechanism
 
@@ -83,6 +88,16 @@ Invariants and constraints from the sources: wasm-bindgen tests must be in the c
 
 Reproducibility: pin browser versions (Playwright pins browser builds per release; Taffy pins Chrome for Testing), pin wasmtime (`cargo install --locked wasmtime-cli` at a fixed version), and record the browser name and version in the differential report as part of the evaluation context.
 
+The implemented first layer is `nuif-wasm-api-0`: a
+`wasm32-unknown-unknown` module generated with wasm-bindgen 0.2.127. It accepts
+only explicit canonical-text/CBOR and patch byte arrays, exposes validation,
+hashing, encoding, bounded atomic application and exact undo/redo, and declares
+no host authority. `cargo xtask gate-wasm` generates Node and direct-browser
+packages, initializes the web target in pinned headless Chrome, drives the Node
+package, and requires the edited canonical bytes to equal the native CLI
+result. This closes binding and browser-package initialization only; it does
+not close browser-layout, WASI CLI or host-adapter behavior described above.
+
 ## NUIF relevance
 
 **Borrow**
@@ -104,3 +119,8 @@ Reproducibility: pin browser versions (Playwright pins browser builds per releas
 - Whether wasm-bindgen's browser runner or Playwright should own the browser differential tests; running both duplicates driver management.
 - Whether font availability in headless browsers can be pinned tightly enough for text-dependent layout fixtures, or whether differential tests must exclude text metrics.
 - Whether `wasm32-unknown-unknown` builds of `nuif-render` with `wgpu` are needed at all for tests, given that in-browser pixel assertions are rejected above.
+- Whether to acquire wasm-bindgen's immutable prebuilt CLI archives with
+  per-platform checksums instead of compiling its full optional test-runner
+  tool graph. The latter currently warns about future-incompatible HTTP-server
+  dependencies, but those dependencies are absent from the NUIF module and
+  workspace runtime graph.

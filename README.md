@@ -48,6 +48,7 @@ flowchart LR
   subgraph Clients
     CLI[CLI]
     Editor[Reference test editor]
+    WASM[Browser and plug-in WASM]
     QA[Automated conformance clients]
   end
 
@@ -74,6 +75,7 @@ flowchart LR
 
   CLI --> API
   Editor --> API
+  WASM --> API
   QA --> API
   API --> Proto --> Doc
   Doc --> Eval --> Res --> Scene --> Ref
@@ -104,10 +106,10 @@ Principles that the diagram encodes:
 | `research/` | Evidence records, claims, open questions, experiment registry, coverage contract, schema |
 | `spec/` | Draft normative modules (model, identity, components, layout, paint/resources/text, operations, extensions, serialization/package, provenance, collaboration, security, automation, semantics, observation/reconstruction) |
 | `rfcs/` · `adrs/` | Proposals for the specification · decisions for the reference implementation |
-| `crates/` | Rust workspace: model, protocol, layout, pinned text shaping, render, codecs, query, API, CLI and shared seeded testing |
+| `crates/` | Rust workspace: model, protocol, layout, pinned text shaping, render, codecs, query, API, CLI, WebAssembly binding and shared seeded testing |
 | `apps/editor/` | Reference test editor: architecture, source installation, headless contract, UI specification |
 | `conformance/` | Suite plan, test-harness architecture, fixtures including the v0 falsification experiment |
-| `adapters/` · `bindings/` · `schemas/` | Adapter contracts, WASM bindings, interchange schemas |
+| `adapters/` · `schemas/` | Adapter contracts and interchange schemas |
 | `tools/` | Research graph ingestion, validators, commit lint |
 
 ## Method
@@ -123,11 +125,12 @@ Testing is designed for automated trial loops: generate or load a document, appl
 | Reference editor | Research preview; current release `0.1.0-alpha.3` | Semantic Versioning applies to the editor application only |
 | Draft specification | Pre-draft | No normative conformance profile is published |
 | Executable adapter and conformance profiles | Experimental | Results apply only to each declared profile and evaluation matrix |
+| WebAssembly binding | Experimental `nuif-wasm-api-0` | Byte-oriented text/CBOR, validation, patch and history parity; no host authority or browser-layout claim |
 | Package/resources | Experimental implementation; Gate I incomplete | Deterministic package plus narrow independently parsed RGBA8 PNG and static TrueType resource paths are executable; a three-OS CI matrix is configured, while broad media/font matrices, external reproduction and successful hosted matrix evidence remain open |
 | Capture/reconstruction | Experimental contracts and deterministic baselines | Browser/screenshot normalization, typed proposals, calibration primitives and a finite loop exist; no broad accuracy or model claim |
 | Project | Open research project; not a standard | Standards status requires neutral governance and independent implementations |
 
-Gates B through H are complete under the bounded, quantified criteria in `research/AUDIT.md`. The workspace executes structural validation, anchored atomic operations, replay/inversion, canonical text and deterministic CBOR, measured hostile-input limits, responsive profile-0 layout, exact CPU rasterization, pinned NUIF/Taffy/Chrome layout trials, seeded reports and headless and native-shell editor drivers. Gate C explicitly reports the still-missing Grid track/placement schema. Gate D pins shaping, outlines, hard-line layout, encoded-sRGB paint and integer composition; scene and raw-RGBA hashes reproduce on macOS/aarch64, Linux/aarch64 and Linux/x86_64, while PNG encoding is non-normative and paths, images, instances and extension paint remain property-attributed fidelity records. Six retentive adapter profiles are integrated across HTML/CSS, SVG 2, DTCG 2025.10, Penpot v3 packages and static React JSX, with import, export, synchronization, hostile-input checks and CLI conformance. A machine-audited inventory separates these executable profiles from six researched or externally bounded targets. Complete fixture authoring, AccessKit-driven deterministic GUI trials, standard-library-only Python v0 reproduction, a metadata-free collaboration register checkpoint, hostile editor interaction trials, a scaling benchmark suite and native host packaging are automated. The native shell exposes the complete model-backed profile-zero editing surface while leaving future-profile sections of the draft UI specification explicit; structural tree collaboration, a foreign collaboration engine, a general-purpose second implementation, signed release distribution and external interoperability review remain incomplete.
+Gates B through H are complete under the bounded, quantified criteria in `research/AUDIT.md`. The workspace executes structural validation, anchored atomic operations, replay/inversion, canonical text and deterministic CBOR, measured hostile-input limits, responsive profile-0 layout, exact CPU rasterization, pinned NUIF/Taffy/Chrome layout trials, seeded reports and headless and native-shell editor drivers. Gate C explicitly reports the still-missing Grid track/placement schema. Gate D pins shaping, outlines, hard-line layout, encoded-sRGB paint and integer composition; scene and raw-RGBA hashes reproduce on macOS/aarch64, Linux/aarch64 and Linux/x86_64, while PNG encoding is non-normative and paths, images, instances and extension paint remain property-attributed fidelity records. Six retentive adapter profiles are integrated across HTML/CSS, SVG 2, DTCG 2025.10, Penpot v3 packages and static React JSX, with import, export, synchronization, hostile-input checks and CLI conformance. A machine-audited inventory separates these executable profiles from six researched or externally bounded targets. Complete fixture authoring, AccessKit-driven deterministic GUI trials, standard-library-only Python v0 reproduction, a metadata-free collaboration register checkpoint, hostile editor interaction trials, a scaling benchmark suite, native host packaging and a cross-checked WebAssembly developer package are automated. The native shell exposes the complete model-backed profile-zero editing surface while leaving future-profile sections of the draft UI specification explicit; structural tree collaboration, a foreign collaboration engine, a general-purpose second implementation, signed native distribution and external interoperability review remain incomplete.
 
 Gates I through L are not complete. The package segment of Gate I is now
 executable: `.nuif` is a deterministic bounded package, stable assets and exact
@@ -157,6 +160,8 @@ Run the automated baseline:
 ```sh
 cargo xtask all # installs/reuses the pinned browser and runs every gate
 cargo xtask browser-install # optional browser prefetch
+cargo xtask gate-wasm # pinned-browser initialization and Node/native byte parity
+cargo xtask wasm-package # downloadable direct-browser developer archive
 cargo xtask trial 24301 100
 cargo xtask gate-b # 10,000 patches; raster sample every 100 patches
 cargo xtask hostile-inputs # boundary/one-over time and allocator report
@@ -190,7 +195,7 @@ cargo run --locked -p nuif-editor -- --headless \
 cargo run --locked -p nuif-editor # launch the native editor
 ```
 
-`cargo xtask all` bootstraps the pinned Python research-validator environment and Chrome for Testing under ignored `target/`, then runs research validation, Rust verification, the short full-raster trial, the 10,000-patch Gate B trial, release-mode hostile-input and performance trials, the Gate C differential layout trial, both Gate D text/render trials, complete headless/native editor trials, bounded retentive adapter bridges, the independent Gate G reproduction, exhaustive Gate H collaboration-register convergence, the Gate I package, narrow-image and narrow-font segments, and the bounded capture/reconstruction contract report. Each measured run leaves a JSON report or snapshot under `target/`; `target/verification-manifest.json` indexes the complete evidence set and records success or the first failed step. CI archives both the individual evidence and this manifest.
+`cargo xtask all` bootstraps the pinned Python research-validator environment, wasm-bindgen toolchain and Chrome for Testing under ignored `target/`, then runs research validation, Rust verification, WebAssembly/native API parity, the short full-raster trial, the 10,000-patch Gate B trial, release-mode hostile-input and performance trials, the Gate C differential layout trial, both Gate D text/render trials, complete headless/native editor trials, bounded retentive adapter bridges, the independent Gate G reproduction, exhaustive Gate H collaboration-register convergence, the Gate I package, narrow-image and narrow-font segments, and the bounded capture/reconstruction contract report. Each measured run leaves a JSON report or snapshot under `target/`; `target/verification-manifest.json` indexes the complete evidence set and records success or the first failed step. CI archives both the individual evidence and this manifest.
 
 ## Contributing
 

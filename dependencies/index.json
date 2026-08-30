@@ -210,6 +210,14 @@
       "evidence": ["research/items/ttf-parser.md", "research/items/opentype-font-embedding-and-portability.md"]
     },
     {
+      "name": "wasm-bindgen",
+      "role": "typed byte-oriented JavaScript and WebAssembly ABI generation",
+      "decision": "retain",
+      "alternatives": ["WebAssembly Component Model with WIT", "manual C-style WebAssembly exports"],
+      "rationale": "Current browser and Figma-style iframe consumers need generated JavaScript and TypeScript bindings today; keeping canonical documents and patches as byte arrays makes the binding thin and leaves a future WIT component surface possible without mirroring the model in JavaScript.",
+      "evidence": ["research/items/wasm-headless-execution.md", "research/items/wasm-component-model.md"]
+    },
+    {
       "name": "zip",
       "role": "bounded Penpot package container reading and deterministic writing",
       "decision": "retain",

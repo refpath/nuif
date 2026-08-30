@@ -1,7 +1,7 @@
 use std::collections::BTreeSet;
 use std::env;
 use std::fs;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::process::{Command, ExitStatus};
 
 use sha2::{Digest, Sha256};
@@ -17,6 +17,7 @@ const ALL_STEPS: &[Step] = &[
     ("dependency-audit", dependency_audit),
     ("docs-check", documentation::check),
     ("verify", verify),
+    ("gate-wasm", gate_wasm),
     ("gate-b", gate_b),
     ("hostile-inputs", hostile_inputs),
     ("editor-hostile-inputs", editor_hostile_inputs),
@@ -46,6 +47,8 @@ const VERIFICATION_ARTIFACTS: &[&str] = &[
     "target/dependency-audit-report.json",
     "target/documentation-catalog.json",
     "target/documentation-report.json",
+    "target/wasm-conformance-report.json",
+    "target/nuif-wasm-web",
     "target/gate-b-report.json",
     "target/hostile-input-report.json",
     "target/editor-hostile-input-report.json",
@@ -135,6 +138,9 @@ fn run() -> Result<(), String> {
         Some("gate-dtcg") => gate_dtcg(),
         Some("gate-penpot") => gate_penpot(),
         Some("gate-react") => gate_react(),
+        Some("gate-wasm") => gate_wasm(),
+        Some("wasm-install") => wasm_install(),
+        Some("wasm-package") => wasm_package(),
         Some("gate-g") => gate_g(),
         Some("gate-h") => gate_h(),
         Some("gate-i-package") => gate_i_package(),
@@ -167,7 +173,7 @@ fn run() -> Result<(), String> {
         Some("manifest") => standalone_manifest(),
         Some("all") => all(),
         _ => Err(
-            "usage: cargo xtask <research|adapter-audit|dependency-audit|docs-check|docs-build|docs-paper|docs-serve|docs-setup|verify|trial [seed iterations snapshot-interval report-path]|gate-b|gate-c|gate-d|gate-d-text|gate-d-render|gate-f|gate-f-v0|gate-svg|gate-dtcg|gate-penpot|gate-react|gate-g|gate-h|gate-i-package|gate-i-image|gate-i-font|capture-baselines|browser-install|hostile-inputs|editor-hostile-inputs|performance|editor-trial|editor-gui-trial|editor-install-trial|editor-package|editor-launch|editor-install|editor-doctor|editor-rollback|editor-uninstall|editor-update|release-check <tag>|manifest|all>"
+            "usage: cargo xtask <research|adapter-audit|dependency-audit|docs-check|docs-build|docs-paper|docs-serve|docs-setup|verify|trial [seed iterations snapshot-interval report-path]|gate-b|gate-c|gate-d|gate-d-text|gate-d-render|gate-f|gate-f-v0|gate-svg|gate-dtcg|gate-penpot|gate-react|gate-wasm|gate-g|gate-h|gate-i-package|gate-i-image|gate-i-font|capture-baselines|browser-install|wasm-install|wasm-package|hostile-inputs|editor-hostile-inputs|performance|editor-trial|editor-gui-trial|editor-install-trial|editor-package|editor-launch|editor-install|editor-doctor|editor-rollback|editor-uninstall|editor-update|release-check <tag>|manifest|all>"
                 .to_owned(),
         ),
     }
@@ -343,6 +349,359 @@ fn performance() -> Result<(), String> {
 
 fn browser_install() -> Result<(), String> {
     command("sh", &["tools/browser/install-chrome-for-testing.sh"])
+}
+
+fn wasm_install() -> Result<(), String> {
+    command("rustup", &["target", "add", "wasm32-unknown-unknown"])?;
+    let binary = wasm_bindgen_binary();
+    if !binary.is_file() {
+        command(
+            "cargo",
+            &[
+                "install",
+                "--root",
+                "target/wasm-tools",
+                "--version",
+                "=0.2.127",
+                "--locked",
+                "wasm-bindgen-cli",
+            ],
+        )?;
+    }
+    let observed = command_text(path(&binary)?, &["--version"])
+        .ok_or("could not inspect the pinned wasm-bindgen CLI")?;
+    if observed != "wasm-bindgen 0.2.127" {
+        return Err(format!(
+            "wasm-bindgen CLI version mismatch: expected 0.2.127, observed {observed:?}"
+        ));
+    }
+    Ok(())
+}
+
+fn gate_wasm() -> Result<(), String> {
+    wasm_install()?;
+    let node_output = Path::new("target/nuif-wasm-node");
+    let web_output = Path::new("target/nuif-wasm-web");
+    let smoke_output = Path::new("target/wasm-smoke-output.nuif.json");
+    let native_output = Path::new("target/wasm-native-output.nuif.json");
+    let fixture = Path::new("target/wasm-smoke-input.nuif.json");
+    let patch = Path::new("target/wasm-smoke-patch.json");
+    let report = Path::new("target/wasm-conformance-report.json");
+    build_wasm_bindings(node_output, web_output)?;
+    cargo(&[
+        "run",
+        "--quiet",
+        "--locked",
+        "-p",
+        "nuif-cli",
+        "--",
+        "fixture",
+        "v0-responsive-card",
+        path(fixture)?,
+    ])?;
+    command(
+        "node",
+        &[
+            "tools/wasm/smoke.cjs",
+            path(&node_output.join("nuif.js"))?,
+            path(fixture)?,
+            path(smoke_output)?,
+            path(patch)?,
+            path(report)?,
+        ],
+    )?;
+    cargo(&[
+        "run",
+        "--quiet",
+        "--locked",
+        "-p",
+        "nuif-cli",
+        "--",
+        "patch",
+        path(fixture)?,
+        path(patch)?,
+        path(native_output)?,
+    ])?;
+    if fs::read(smoke_output).map_err(|error| error.to_string())?
+        != fs::read(native_output).map_err(|error| error.to_string())?
+    {
+        return Err("WebAssembly and native APIs produced different canonical bytes".to_owned());
+    }
+    let browser_version = run_wasm_browser_smoke(web_output)?;
+    let mut report_json = read_json(report)?;
+    report_json["checks"]["browser_web_target_initializes"] = serde_json::Value::Bool(true);
+    report_json["browser"] = serde_json::json!({
+        "name": "Chrome for Testing",
+        "version": browser_version,
+        "target": "web",
+        "status": "passed",
+    });
+    let mut report_bytes =
+        serde_json::to_vec_pretty(&report_json).map_err(|error| error.to_string())?;
+    report_bytes.push(b'\n');
+    fs::write(report, report_bytes).map_err(|error| error.to_string())?;
+    if report_json["status"] != "passed"
+        || report_json["api_profile"] != "nuif-wasm-api-0"
+        || report_json["checks"]
+            .as_object()
+            .is_none_or(|checks| checks.values().any(|value| value != true))
+    {
+        return Err("WebAssembly conformance report failed its assertions".to_owned());
+    }
+    Ok(())
+}
+
+fn run_wasm_browser_smoke(web_output: &Path) -> Result<String, String> {
+    browser_install()?;
+    let page = web_output.join("browser-smoke.html");
+    fs::copy("tools/wasm/browser-smoke.html", &page).map_err(|error| error.to_string())?;
+    let url = local_file_url(&page)?;
+    let chrome = wasm_browser_binary()?;
+    let output = Command::new(&chrome)
+        .args([
+            "--headless=new",
+            "--disable-gpu",
+            "--no-sandbox",
+            "--allow-file-access-from-files",
+            "--virtual-time-budget=5000",
+            "--dump-dom",
+        ])
+        .arg(url)
+        .output()
+        .map_err(|error| format!("could not start pinned Chrome: {error}"));
+    let cleanup = fs::remove_file(&page);
+    let output = output?;
+    cleanup.map_err(|error| format!("could not remove browser smoke page: {error}"))?;
+    if !output.status.success() {
+        return Err(format!(
+            "pinned Chrome failed WebAssembly browser smoke with {}: {}",
+            output.status,
+            String::from_utf8_lossy(&output.stderr).trim()
+        ));
+    }
+    let dom = String::from_utf8(output.stdout).map_err(|error| error.to_string())?;
+    if !dom.contains("data-status=\"passed\"") {
+        return Err(format!(
+            "generated browser WebAssembly package did not initialize: {}",
+            dom.trim()
+        ));
+    }
+    command_text(path(&chrome)?, &["--version"])
+        .ok_or_else(|| "could not inspect the pinned Chrome version".to_owned())
+}
+
+fn wasm_browser_binary() -> Result<PathBuf, String> {
+    [
+        PathBuf::from(
+            "target/chrome-for-testing/chrome-mac-arm64/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing",
+        ),
+        PathBuf::from(
+            "target/chrome-for-testing/chrome-mac-x64/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing",
+        ),
+        PathBuf::from("target/chrome-for-testing/chrome-linux64/chrome"),
+    ]
+    .into_iter()
+    .find(|candidate| candidate.is_file())
+    .ok_or_else(|| "the pinned Chrome for Testing binary is absent".to_owned())
+}
+
+fn local_file_url(file: &Path) -> Result<String, String> {
+    let canonical = file.canonicalize().map_err(|error| error.to_string())?;
+    let value = canonical
+        .to_str()
+        .ok_or_else(|| format!("path is not valid UTF-8: {}", canonical.display()))?;
+    Ok(format!(
+        "file://{}",
+        value
+            .replace('%', "%25")
+            .replace(' ', "%20")
+            .replace('#', "%23")
+    ))
+}
+
+fn build_wasm_bindings(node_output: &Path, web_output: &Path) -> Result<(), String> {
+    for directory in [node_output, web_output] {
+        if directory.exists() {
+            fs::remove_dir_all(directory).map_err(|error| error.to_string())?;
+        }
+        fs::create_dir_all(directory).map_err(|error| error.to_string())?;
+    }
+    cargo(&[
+        "build",
+        "--release",
+        "--locked",
+        "--target",
+        "wasm32-unknown-unknown",
+        "-p",
+        "nuif-wasm",
+    ])?;
+    let raw = Path::new("target/wasm32-unknown-unknown/release/nuif_wasm.wasm");
+    if !raw.is_file() {
+        return Err(format!(
+            "WebAssembly build output is absent: {}",
+            raw.display()
+        ));
+    }
+    let binary = wasm_bindgen_binary();
+    for (target, output) in [("nodejs", node_output), ("web", web_output)] {
+        command(
+            path(&binary)?,
+            &[
+                path(raw)?,
+                "--target",
+                target,
+                "--out-dir",
+                path(output)?,
+                "--out-name",
+                "nuif",
+                "--typescript",
+            ],
+        )?;
+    }
+    for file in ["README.md", "LICENSE-APACHE", "LICENSE-MIT"] {
+        fs::copy(
+            if file == "README.md" {
+                "crates/nuif-wasm/README.md"
+            } else {
+                file
+            },
+            web_output.join(file),
+        )
+        .map_err(|error| error.to_string())?;
+    }
+    fs::copy(
+        "crates/nuif-wasm/package.json",
+        web_output.join("package.json"),
+    )
+    .map_err(|error| error.to_string())?;
+    Ok(())
+}
+
+fn wasm_bindgen_binary() -> PathBuf {
+    Path::new("target")
+        .join("wasm-tools")
+        .join("bin")
+        .join(if cfg!(windows) {
+            "wasm-bindgen.exe"
+        } else {
+            "wasm-bindgen"
+        })
+}
+
+fn wasm_package() -> Result<(), String> {
+    gate_wasm()?;
+    let package = read_json(Path::new("crates/nuif-wasm/package.json"))?;
+    let version = package["version"]
+        .as_str()
+        .ok_or("nuif-wasm package version is absent")?;
+    let manifest =
+        fs::read_to_string("crates/nuif-wasm/Cargo.toml").map_err(|error| error.to_string())?;
+    if !manifest.contains(&format!("version = \"{version}\"")) {
+        return Err("nuif-wasm Cargo and JavaScript package versions differ".to_owned());
+    }
+    let package_name = format!("nuif-wasm-{version}-web");
+    let dist = Path::new("target/dist");
+    let package_root = dist.join(&package_name);
+    if package_root.exists() {
+        fs::remove_dir_all(&package_root).map_err(|error| error.to_string())?;
+    }
+    fs::create_dir_all(&package_root).map_err(|error| error.to_string())?;
+    let source = Path::new("target/nuif-wasm-web");
+    let files = copy_wasm_package_files(source, &package_root)?;
+    let source_revision = command_text("git", &["rev-parse", "HEAD"])
+        .ok_or("could not read the source revision for the WASM package")?;
+    let source_dirty = command_text("git", &["status", "--porcelain"])
+        .map(|value| !value.is_empty())
+        .ok_or("could not inspect the source tree for the WASM package")?;
+    let mut binding = serde_json::json!({
+        "schema_version": 1,
+        "status": "passed",
+        "name": "@refpath/nuif-wasm",
+        "version": version,
+        "api_profile": "nuif-wasm-api-0",
+        "target": "web",
+        "source_revision": source_revision,
+        "source_dirty": source_dirty,
+        "files": files,
+        "publication": {
+            "npm": "not-published",
+            "github_release": "downloadable-developer-package"
+        }
+    });
+    fs::write(
+        package_root.join("manifest.json"),
+        serde_json::to_vec_pretty(&binding).map_err(|error| error.to_string())?,
+    )
+    .map_err(|error| error.to_string())?;
+    let archive = create_editor_archive(dist, &package_root, &package_name)?;
+    let archive_bytes = fs::read(&archive).map_err(|error| error.to_string())?;
+    let archive_name = archive
+        .file_name()
+        .and_then(|name| name.to_str())
+        .ok_or_else(|| format!("archive name is not valid UTF-8: {}", archive.display()))?;
+    binding["archive"] = serde_json::json!({
+        "name": archive_name,
+        "bytes": archive_bytes.len(),
+        "sha256": format!("{:x}", Sha256::digest(&archive_bytes)),
+    });
+    fs::write(
+        dist.join(format!("{package_name}.binding.json")),
+        serde_json::to_vec_pretty(&binding).map_err(|error| error.to_string())?,
+    )
+    .map_err(|error| error.to_string())
+}
+
+fn copy_wasm_package_files(
+    source: &Path,
+    package_root: &Path,
+) -> Result<Vec<serde_json::Value>, String> {
+    let mut files = Vec::new();
+    let mut observed_names = BTreeSet::new();
+    for entry in fs::read_dir(source).map_err(|error| error.to_string())? {
+        let entry = entry.map_err(|error| error.to_string())?;
+        let file_type = entry.file_type().map_err(|error| error.to_string())?;
+        if !file_type.is_file() {
+            return Err(format!(
+                "unexpected non-file in generated WASM package: {}",
+                entry.path().display()
+            ));
+        }
+        let name = entry.file_name().into_string().map_err(|name| {
+            format!(
+                "generated WASM package filename is not valid UTF-8: {}",
+                name.display()
+            )
+        })?;
+        observed_names.insert(name.clone());
+        let destination = package_root.join(&name);
+        fs::copy(entry.path(), &destination).map_err(|error| error.to_string())?;
+        let bytes = fs::read(&destination).map_err(|error| error.to_string())?;
+        files.push(serde_json::json!({
+            "name": name,
+            "bytes": bytes.len(),
+            "sha256": format!("{:x}", Sha256::digest(&bytes)),
+        }));
+    }
+    let expected_names = [
+        "LICENSE-APACHE",
+        "LICENSE-MIT",
+        "README.md",
+        "nuif.d.ts",
+        "nuif.js",
+        "nuif_bg.wasm",
+        "nuif_bg.wasm.d.ts",
+        "package.json",
+    ]
+    .into_iter()
+    .map(str::to_owned)
+    .collect::<BTreeSet<_>>();
+    if observed_names != expected_names {
+        return Err(format!(
+            "generated WASM package file set changed: expected {expected_names:?}, observed {observed_names:?}"
+        ));
+    }
+    files.sort_by(|left, right| left["name"].as_str().cmp(&right["name"].as_str()));
+    Ok(files)
 }
 
 fn gate_c() -> Result<(), String> {
@@ -1729,7 +2088,7 @@ fn create_editor_archive(
             == 0
     {
         return Err(format!(
-            "native editor archive is absent or empty: {}",
+            "package archive is absent or empty: {}",
             archive.display()
         ));
     }

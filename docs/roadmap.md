@@ -50,6 +50,17 @@ The entire v0 fixture is authored from an empty document through identity-addres
 ## Phase 5b — native editor research preview (complete through alpha.3)
 The native shell exposes the semantic driver through identity-backed canvas selection, a file menu with canonical and declared adapter import/export routes, document-aligned grid and pixel rulers, layer and component browsing, insertion tools, evaluation widths, zoom, inspector transactions and source-built developer installation. Open packages pass their digest-verified embedded resources through the same bounded session used by CLI render/snapshot, so the narrow RGBA8 image segment renders without implicit fetching. `cargo xtask editor-gui-trial` and `cargo xtask editor-install-trial` exercise the semantic, visual and lifecycle boundaries. The broader `apps/editor/UI-SPEC.md` remains a draft; direct manipulation, multi-selection, snapping, token authoring and expanded paint are not claimed by this phase.
 
+## Phase 5c — browser and plug-in binding (complete for `nuif-wasm-api-0`)
+
+The byte-oriented WebAssembly module wraps `nuif-api`, canonical text/CBOR and
+semantic patches without copying the model into JavaScript. A Node/native
+differential checks exact edited bytes, and the direct-browser target
+initializes in pinned headless Chrome. Its JavaScript, TypeScript and WASM are
+packaged as a CI and tagged-release developer artifact. The module declares no
+filesystem, network or host-document authority. Browser-layout execution, a
+WASI CLI, npm publication and live Figma/Adobe adapters remain separate
+profiles and version streams.
+
 ## Phase 6a — first adapters/sync falsifier (complete for bounded HTML/CSS profile 0)
 `nuif-html-css-0` maps a declared container/text/finite-token subset through real DOM/CSS syntax with byte-span correspondence. Text, token and four-edge padding edits change only their six spans; comments and unmapped markup survive exactly; unsupported semantics have target/property fidelity. HTML/CSS was intentionally tested before SVG because Gate F and the architecture stop condition concern minimal source patches. This narrow profile remains independently automated even after the full-v0 follow-on; arbitrary HTML/CSS and SVG remain broader adapter work.
 

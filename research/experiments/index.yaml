@@ -112,6 +112,23 @@ experiments:
       - preserve module comments and unrelated declarations outside every returned source edit
       - reject spreads components event handlers runtime style expressions extra properties duplicate identities and malformed syntax
       - write and archive target/react-sync-report.json and synchronized JSX/NUIF artifacts
+  - id: nuif:experiment:wasm-cross-surface
+    status: automated
+    evidence: [nuif:research:wasm-headless-execution, nuif:research:wasm-component-model]
+    implementation: [crates/nuif-wasm/src/lib.rs, crates/nuif-wasm/package.json, tools/wasm/smoke.cjs, xtask/src/main.rs, .github/workflows/ci.yml, .github/workflows/release.yml]
+    oracle: cross-surface-differential
+    acceptance:
+      - the generated Node binding and native CLI produce byte-identical canonical text after the same semantic patch
+      - the direct-browser target initializes and exposes its declared contract in pinned headless Chrome
+      - canonical text and deterministic CBOR reach the same canonical document hash
+      - stale malformed and one-over-byte patches fail atomically with stable error classes
+      - the generated direct-browser package declares no filesystem network or host-document authority
+    tests:
+      - load validate hash export apply undo and redo through the generated JavaScript binding
+      - initialize the generated ES module and WebAssembly binary in pinned Chrome for Testing
+      - enforce document patch transaction and operation limits
+      - generate TypeScript declarations and a direct-browser ES module package
+      - write and archive target/wasm-conformance-report.json and target/nuif-wasm-web
   - id: nuif:experiment:crdt-checkpoint
     status: completed
     evidence: [nuif:research:automerge-yjs, nuif:research:crdt-tree-move-operation, nuif:research:operational-transformation-vs-crdt]

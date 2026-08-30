@@ -116,7 +116,7 @@ areas:
     artifacts: [README.md, Cargo.toml, GOVERNANCE.md, CONTRIBUTING.md]
   initial_code_base:
     status: covered
-    artifacts: [crates/nuif-core, crates/nuif-protocol, crates/nuif-layout, crates/nuif-render, crates/nuif-codec, crates/nuif-query, crates/nuif-api, crates/nuif-cli, crates/nuif-html, crates/nuif-collab, bindings/wasm, implementations/python]
+    artifacts: [crates/nuif-core, crates/nuif-protocol, crates/nuif-layout, crates/nuif-render, crates/nuif-codec, crates/nuif-query, crates/nuif-api, crates/nuif-cli, crates/nuif-html, crates/nuif-collab, crates/nuif-wasm, implementations/python]
   v0_hard_experiment:
     status: covered
     artifacts: [conformance/fixtures/v0-responsive-card/README.md, research/experiments/index.yaml, crates/nuif-testing/src/layout_differential.rs, crates/nuif-testing/src/bin/html-sync-v0.rs, crates/nuif-html/src/v0.rs, implementations/python/nuif_profile0.py]

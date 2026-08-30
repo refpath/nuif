@@ -29,7 +29,8 @@ and source evidence are recorded in ADR 0007 and
 3. Create and push the exact version tag.
 4. `.github/workflows/release.yml` checks out the tag and runs `cargo xtask
    release-check <tag>` followed by the complete verification harness.
-5. Native jobs build, test, package, and attest five host architectures.
+5. Native jobs build, test, package, and attest five host architectures; a
+   separate job builds, cross-checks, packages and attests the browser binding.
 6. The publication job writes checksums and a combined release manifest,
    creates a draft release, uploads all assets, and publishes the prerelease.
 
@@ -56,6 +57,13 @@ dependency graph for all release targets. GitHub provenance can be checked with:
 ```sh
 gh attestation verify <archive> --repo refpath/nuif
 ```
+
+Tagged prereleases also attach `nuif-wasm-0.0.1-web.tar.gz` and its
+`.binding.json` manifest as a separately versioned developer binding. The
+binding is listed under `bindings` in the release manifest and does not count
+among the five native editor packages used by the source updater. Its
+`package.json` is private: GitHub download is automated, npm publication is not
+authorized until an independent library-version policy is adopted.
 
 SHA-256 verification on Linux uses `sha256sum -c SHA256SUMS`. macOS uses
 `shasum -a 256 -c SHA256SUMS`. PowerShell users can compare

@@ -40,13 +40,22 @@ interactions, media, paths, layout and compact pages remain outside the profile.
 Run `cargo xtask gate-react` for the bounded `nuif-react-jsx-0` source profile.
 It extracts one directly returned marked intrinsic subtree without executing
 JavaScript, applies 11 byte-local scalar edits, preserves unrelated module
-source, rejects ten dynamic/hostile cases and exercises the public CLI bridge.
+source, rejects eleven dynamic/hostile cases and exercises the public CLI bridge.
 Reports and synchronized JSX are written under `target/react-sync-*`;
 components, hooks, spreads, handlers, runtime expressions, TSX and browser
 runtime equivalence remain outside the profile.
 
+Run `cargo xtask gate-wasm` for `nuif-wasm-api-0`. It compiles the same core
+for `wasm32-unknown-unknown`, generates Node and direct-browser JavaScript plus
+TypeScript surfaces, initializes the web target in pinned headless Chrome,
+exercises load/validate/hash/text/CBOR/patch/undo/redo in Node and requires the
+edited canonical bytes to equal the native CLI output.
+The report and direct-browser developer package are written to
+`target/wasm-conformance-report.json` and `target/nuif-wasm-web`. This gate does
+not claim browser-layout, host plug-in or WASI CLI conformance.
+
 Run `cargo xtask adapter-audit` to validate the complete advertised adapter
 inventory independently of executable profile tests. It requires research and
 explicit boundaries for eleven targets, checks crate/profile/gate references for
-the five integrated profiles and prevents researched or externally blocked
+the six integrated profiles and prevents researched or externally blocked
 targets from claiming executable directions.

@@ -61,6 +61,7 @@ jobs:
             target/image-resources-report.json
             target/font-resources-report.json
             target/react-sync-report.json
+            target/wasm-conformance-report.json
             target/editor-gui-trial/report.json
 
   package:
@@ -140,9 +141,58 @@ jobs:
             ${{ steps.assets.outputs.archive }}
             ${{ steps.assets.outputs.manifest }}
 
+  wasm-package:
+    needs: validate
+    name: package (wasm-web)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    permissions:
+      contents: read
+      id-token: write # mint the OIDC identity used for package attestations
+      attestations: write # publish package attestations for this repository
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+          ref: ${{ env.RELEASE_TAG }}
+      - name: Install the pinned Rust toolchain
+        run: |
+          rustup toolchain install 1.98.0 --profile minimal
+          rustup default 1.98.0
+      - name: Install Linux native dependencies
+        run: sudo apt-get update && sudo apt-get install -y libfontconfig1-dev
+      - name: Validate the tag and source version
+        run: cargo xtask release-check "$RELEASE_TAG"
+      - name: Build and cross-check the browser package
+        run: cargo xtask wasm-package
+      - name: Locate binding assets
+        id: assets
+        run: |
+          archive=$(find target/dist -maxdepth 1 -type f -name 'nuif-wasm-*-web.tar.gz' -print -quit)
+          manifest=$(find target/dist -maxdepth 1 -type f -name 'nuif-wasm-*-web.binding.json' -print -quit)
+          test -n "$archive"
+          test -n "$manifest"
+          printf 'archive=%s\n' "$archive" >> "$GITHUB_OUTPUT"
+          printf 'manifest=%s\n' "$manifest" >> "$GITHUB_OUTPUT"
+      - name: Attest WebAssembly package
+        uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
+        with:
+          subject-path: |
+            ${{ steps.assets.outputs.archive }}
+            ${{ steps.assets.outputs.manifest }}
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: release-wasm-package
+          if-no-files-found: error
+          retention-days: 14
+          path: |
+            ${{ steps.assets.outputs.archive }}
+            ${{ steps.assets.outputs.manifest }}
+
   publish:
     name: publish prerelease
-    needs: package
+    needs: [package, wasm-package]
     runs-on: ubuntu-24.04
     permissions:
       contents: write # create the GitHub prerelease and upload its assets
@@ -163,6 +213,10 @@ jobs:
           pattern: release-package-*
           path: release-assets
           merge-multiple: true
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: release-wasm-package
+          path: release-assets
       - name: Generate the editor SBOM
         env:
           GH_TOKEN: ${{ github.token }}
@@ -204,10 +258,31 @@ jobs:
           version=${RELEASE_TAG#v}
           revision=$(git rev-parse HEAD)
           cd release-assets
-          test "$(find . -maxdepth 1 -type f \( -name '*.tar.gz' -o -name '*.zip' \) | wc -l | tr -d ' ')" = 5
+          test "$(find . -maxdepth 1 -type f -name 'nuif-editor-*' \( -name '*.tar.gz' -o -name '*.zip' \) | wc -l | tr -d ' ')" = 5
+          test "$(find . -maxdepth 1 -type f -name 'nuif-wasm-*-web.tar.gz' | wc -l | tr -d ' ')" = 1
           test "$(find . -maxdepth 1 -type f -name '*.manifest.json' | wc -l | tr -d ' ')" = 5
+          test "$(find . -maxdepth 1 -type f -name '*.binding.json' | wc -l | tr -d ' ')" = 1
           test -f "nuif-editor-${version}.cdx.json"
-          find . -maxdepth 1 -type f \( -name '*.tar.gz' -o -name '*.zip' -o -name '*.manifest.json' -o -name '*.cdx.json' \) -print0 \
+          binding=$(find . -maxdepth 1 -type f -name '*.binding.json' -print -quit)
+          jq -e --arg revision "$revision" '
+            .schema_version == 1 and
+            .status == "passed" and
+            .name == "@refpath/nuif-wasm" and
+            .api_profile == "nuif-wasm-api-0" and
+            .target == "web" and
+            .source_revision == $revision and
+            .source_dirty == false and
+            (.files | length == 8) and
+            all(.files[]; (.name | type == "string") and (.bytes > 0) and (.sha256 | test("^[0-9a-f]{64}$")))
+          ' "$binding"
+          binding_archive=$(jq -r '.archive.name' "$binding")
+          case "$binding_archive" in
+            nuif-wasm-*-web.tar.gz) ;;
+            *) printf 'unsafe WebAssembly archive name: %s\n' "$binding_archive" >&2; exit 1 ;;
+          esac
+          test -f "$binding_archive"
+          test "$(sha256sum "$binding_archive" | cut -d ' ' -f 1)" = "$(jq -r '.archive.sha256' "$binding")"
+          find . -maxdepth 1 -type f \( -name '*.tar.gz' -o -name '*.zip' -o -name '*.manifest.json' -o -name '*.binding.json' -o -name '*.cdx.json' \) -print0 \
             | sort -z \
             | xargs -0 sha256sum \
             | sed 's#  \./#  #' > SHA256SUMS
@@ -217,6 +292,10 @@ jobs:
             --arg revision "$revision" \
             '{schema_version: 1, version: $version, tag: $tag, source_revision: $revision, sbom: ("nuif-editor-" + $version + ".cdx.json"), packages: .}' \
             ./*.manifest.json > release-manifest.json
+          jq --slurpfile bindings ./nuif-wasm-*-web.binding.json \
+            '. + {bindings: $bindings}' \
+            release-manifest.json > release-manifest.with-bindings.json
+          mv release-manifest.with-bindings.json release-manifest.json
       - name: Attest release index
         uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
         with:

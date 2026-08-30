@@ -1,0 +1,19 @@
+{
+  "name": "@refpath/nuif-wasm",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "module": "./nuif.js",
+  "types": "./nuif.d.ts",
+  "sideEffects": false,
+  "files": [
+    "nuif.js",
+    "nuif.d.ts",
+    "nuif_bg.wasm",
+    "nuif_bg.wasm.d.ts",
+    "README.md",
+    "LICENSE-APACHE",
+    "LICENSE-MIT"
+  ],
+  "license": "Apache-2.0 OR MIT"
+}
