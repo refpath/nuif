@@ -1,0 +1,22 @@
+[package]
+name = "nuif-capture"
+version = "0.0.1"
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+nuif-codec = { version = "0.0.0", path = "../nuif-codec" }
+nuif-core = { version = "0.0.1", path = "../nuif-core" }
+nuif-package = { version = "0.0.1", path = "../nuif-package" }
+nuif-protocol = { version = "0.0.1", path = "../nuif-protocol" }
+nuif-reconstruct = { version = "0.0.1", path = "../nuif-reconstruct" }
+nuif-text = { version = "0.0.1", path = "../nuif-text" }
+png.workspace = true
+serde.workspace = true
+serde_bytes.workspace = true
+sha2.workspace = true
+thiserror.workspace = true
+
+[lints]
+workspace = true
