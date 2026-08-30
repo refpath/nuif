@@ -90,6 +90,7 @@ Persisted expectation regeneration remains a planned extension and will use one 
 | provenance | assertions | correspondence records survive representable round trips; minimal-patch locality measured as changed source spans |
 | adapter | round trip and fidelity report | `canon(Y(X(d))) = canon(d)` on the representable subset; every deviation explained by a report entry |
 | package | independent ZIP writer plus fixpoint and corruption trials | fixed member order/metadata, exact package bytes, manifest/document/resource hashes, no traversal/symlink/encryption/compression/ZIP64 ambiguity, explicit linked-resource resolver |
+| capture/reconstruction contracts | metamorphic and policy assertions over fixed provider inputs | repeated normalized observations/packages, exact retained source resources, secret-query absence, evidence/omission truthfulness, observation codec fixpoint, typed proposal application, flat-copy rejection and finite-loop stop states; no live-capture or accuracy claim |
 | security | measured boundary and one-over cases | bare readers stop at 16 MiB plus one byte; packages stop at 80 MiB with 32 MiB per resource, 64 MiB total embedded resources and 8,192 resources; syntax depth 64 and the RFC 0009 semantic limits are enforced; release bare-codec cases fail above 2 s, 64 MiB allocated or 16 MiB retained; CPU targets remain capped at 16,777,216 pixels (`resource-bounded-serde-and-ciborium`) |
 
 ## Trial loop
@@ -161,6 +162,15 @@ The DTCG scalar-token experiment writes `target/dtcg-sync-report.json`, a direct
 The Penpot v3 package experiment writes `target/penpot-sync-report.json`, a synchronized Penpot package and edited canonical NUIF document at `target/penpot-sync-edited.nuif.json`, plus separate public-CLI synchronization report and Penpot package. `cargo xtask gate-penpot` imports the fixture produced by official `@penpot/library` 1.1.0, checks deterministic export and byte-exact no-op archive retention, applies eight mapped JSON scalar edits, preserves untouched member payloads plus injected opaque binary/JSON data, and requires exact canonical document re-import. Unsafe paths and one-over package/member limits are typed failures. The library importer additionally rejects excessive count/expansion/ratio/depth/value cases, duplicate names, directories, symlinks, encryption and unsupported compression. The mapped package subset and compact/components/libraries/interactions non-claims are specified in `adapters/penpot/PROFILE.md`.
 
 The collaboration register experiment writes `target/collaboration-report.json`. `cargo xtask gate-h` exhausts all 5,040 deliveries through operation-set and replica-log materializers, checks multiple merge orders and duplicate delivery, requires property-attributed multi-value conflicts and inspects canonical text for leaked replica state. Structural operations fail before ingestion; the executable boundary is specified in `crates/nuif-collab/README.md` and `spec/10-collaboration-profile.md`.
+
+The capture/reconstruction contract experiment writes
+`target/capture-reconstruction-report.json`. `cargo xtask capture-baselines`
+uses fixed browser-provider and strict PNG inputs to exercise repeatability,
+resource identity, query-secret redaction, evidence classes and omissions,
+typed atomic proposal application, flat-copy rejection, observation codec
+fixpoints, calibration interpolation/selective review and finite loop stops.
+The report carries explicit non-claims for live browser capture, OCR/model
+accuracy, a broad or held-out corpus, independent evaluation and training.
 
 ## Editor participation
 

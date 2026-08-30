@@ -7,7 +7,10 @@ status: draft
 # 14 — Observation, capture and reconstruction
 
 Status: draft. This module specifies candidate contracts from RFC 0011. No
-screenshot reconstruction profile is currently conforming.
+screenshot reconstruction profile is currently conforming. The executable
+fixed-input contract baseline exercises observation/proposal encoding, evidence
+ceilings, flat-copy rejection and bounded correction stops; it is not an
+accuracy or live-capture conformance profile.
 
 ## Scope
 

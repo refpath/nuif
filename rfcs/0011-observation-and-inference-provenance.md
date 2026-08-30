@@ -10,6 +10,11 @@ Status: proposed. This RFC refines RFC 0003 for imported observations and
 probabilistic reconstruction. It does not make any model, capture provider or
 screenshot profile normative.
 
+Implementation note: `nuif-capture`, `nuif-reconstruct` and `cargo xtask
+capture-baselines` exercise a bounded fixed-input subset of these contracts.
+That automation does not change this RFC's proposed status or establish a live
+capture/reconstruction accuracy profile.
+
 ## Motivation
 
 NUIF supports deterministic source adapters and is researching browser capture

@@ -139,7 +139,7 @@ parser/policy fixtures, a cross-platform/external writer and calibrated
 total-resource/media allocation evidence remain required. Images and general
 packaged fonts therefore remain outside CPU render profile 0.
 
-### Gate J — source-backed browser capture (planned)
+### Gate J — source-backed browser capture (contract baseline active)
 
 Exit only when:
 
@@ -156,7 +156,16 @@ Exit only when:
 This gate creates a new runtime adapter; it does not enlarge the existing
 Tree-sitter source-synchronization profile by implication.
 
-### Gate K — screenshot reconstruction and calibrated abstention (planned)
+Current evidence: `cargo xtask capture-baselines` repeats fixed browser-provider
+input through `nuif-capture`, requires identical normalized output/package
+bytes, exact image-resource digest and body retention, absence of a query-token
+canary from observations/proposals/packages, typed proposal application and
+cyclic-parent rejection. This is a deterministic adapter contract only. It has
+not captured a live pinned browser, exercised cookies/headers/storage, collected
+the complete observation set or predicted a held-out viewport, so Gate J remains
+open.
+
+### Gate K — screenshot reconstruction and calibrated abstention (contract baseline active)
 
 Exit only when:
 
@@ -174,6 +183,16 @@ Exit only when:
   real editing task benefits from the reconstructed semantics.
 
 No editor prerelease or visually selected demo can substitute for this gate.
+
+Current evidence: the same automated report repeats strict fixed-PNG analysis,
+round-trips observation bytes, distinguishes observed pixels from inference,
+records four unavailable evidence categories, applies typed proposals, rejects
+screenshot-derived flat-copy assets by default and exercises improved,
+repeated-state, no-proposal, provider-call and memory-budget loop stops. A two-
+point interpolation/selective-review fixture verifies the calibration API. No
+OCR engine is evaluated, no real or held-out reconstruction corpus is scored,
+the required metric families are incomplete and no independent evaluator has
+reproduced a result; Gate K remains open.
 
 ### Gate L — conditional adaptation and distillation (blocked on Gate K)
 
@@ -214,8 +233,12 @@ Gate G is complete for the bounded v0 profile. The Python implementation indepen
 
 Gate H is complete for collaboration property registers. The operation-set and replica-log materializers converge to hash `nuif-cbor-0:sha256:29f24d0cb9613b7a6adaf1f57760031d12271c0eb06084e3807115ef869941ab` across all 5,040 deliveries and tested merge orders. Concurrent card-name and variant values remain two explicit conflicts with deterministic provisional selections, a causal size overwrite selects only its maximal value, and the opaque entity stays exact. The checkpoint document contains no collaboration metadata. Structural tree collaboration and foreign-engine reproduction remain required before any general collaboration-profile claim.
 
-RFCs 0010 and 0011 plus specification 14 are research-aligned proposals only.
-No package writer, asset/resource model, PNG profile, general font package,
-browser capture or screenshot reconstruction runtime is present in this
-executable baseline. The editor version `0.1.0-alpha.3` identifies the developer
-application and must not be cited as maturity evidence for those proposals.
+RFCs 0010 and 0011 plus specification 14 remain research-aligned proposals.
+The executable baseline now includes the deterministic package writer,
+asset/resource model and bounded provider-input browser/screenshot and
+reconstruction contract implementations described above. It still has no
+independent image-render profile, general font package policy, pinned live-
+browser capture, reconstruction accuracy corpus, independent reconstruction
+evaluator or trained artifact. The editor version `0.1.0-alpha.3` identifies
+the developer application and must not be cited as maturity evidence for those
+open proposals.

@@ -8,6 +8,7 @@ repository.workspace = true
 [dependencies]
 ciborium.workspace = true
 nuif-api = { version = "0.0.0", path = "../nuif-api" }
+nuif-capture = { version = "0.0.1", path = "../nuif-capture" }
 nuif-codec = { version = "0.0.0", path = "../nuif-codec" }
 nuif-core = { version = "0.0.1", path = "../nuif-core" }
 nuif-dtcg = { version = "0.0.1", path = "../nuif-dtcg" }
@@ -16,9 +17,11 @@ nuif-layout = { version = "0.0.0", path = "../nuif-layout" }
 nuif-package = { version = "0.0.1", path = "../nuif-package" }
 nuif-penpot = { version = "0.0.1", path = "../nuif-penpot" }
 nuif-protocol = { version = "0.0.1", path = "../nuif-protocol" }
+nuif-reconstruct = { version = "0.0.1", path = "../nuif-reconstruct" }
 nuif-render = { version = "0.0.0", path = "../nuif-render" }
 nuif-svg = { version = "0.0.1", path = "../nuif-svg" }
 nuif-text = { version = "0.0.1", path = "../nuif-text" }
+png.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 sha2.workspace = true

@@ -36,21 +36,28 @@ allocation evidence are independent requirements. Browser capture precedes
 screenshot reconstruction because it provides stronger source-backed fixtures
 and exposes which information is truly unavailable from pixels.
 
-The reconstruction work begins with untuned baselines and a frozen evaluator.
-Adaptation/distillation is conditional on evidence from that loop rather than a
-standing implementation commitment.
+The automated capture/reconstruction contract baseline now produces
+`target/capture-reconstruction-report.json`. It checks repeatable provider-input
+normalization, exact browser resource retention, credential-query redaction,
+honest screenshot omissions, typed proposal application, flat-copy rejection,
+codec fixpoints, calibration interpolation and finite correction-loop stops.
+This starts but does not complete the broader browser, screenshot, closed-loop
+or calibration experiments: no live browser, accuracy corpus, held-out
+responsive prediction, independent evaluator or trained artifact is claimed.
+Adaptation/distillation remains conditional on evidence from that loop rather
+than a standing implementation commitment.
 
 ## Queue
 
 1. Keep Gates B through H green with `cargo xtask all`; commit minimized failures as fixtures and retain all machine reports as CI artifacts.
 2. Extend collaboration from property registers to a proved tree move/list profile with explicit cycle, tombstone and sibling-order behavior; compare a foreign engine before broad claims.
 3. Design explicit Grid track and placement fields before replacing the classified profile-0 stack fallback; do not infer Grid support from the Gate C pass.
-4. Attach any Masonry shell to the already-tested editor driver boundary; keep shell behavior outside model/layout/render conformance.
+4. Keep the tested Masonry shell attached only through the editor driver boundary; complete direct manipulation without moving semantic rules into shell code.
 5. Treat soft wrapping, gradients, strokes, paths, images and instance materialization as a separately versioned expanded profile; do not weaken profile-0 exactness to add them.
 6. Keep `cargo xtask gate-i-package` green across CLI/editor/package changes and add a recorded cross-platform/external writer before accepting the wire profile.
 7. Complete independent PNG render and OpenType parser/policy fixtures with calibrated allocation/time budgets; do not expand profile 0 by fallback.
-8. Build pinned source-backed browser capture as a new adapter with secret-canary, multi-viewport and unavailable-evidence tests.
-9. Freeze the reconstruction benchmark, then compare deterministic OCR/CV, one-shot, observation-assisted, hierarchical and corrective-loop baselines.
+8. Extend the fixed-input capture contract into a pinned live-browser adapter with header/body secret canaries, multi-viewport observations and explicit unavailable evidence.
+9. Freeze the reconstruction corpus and evaluator, then compare deterministic OCR/CV, one-shot, observation-assisted, hierarchical and corrective-loop baselines through the existing typed boundary.
 10. Train or distill only if the frozen evaluation demonstrates a learnable gap and rights-cleared validated traces exist.
 11. Maintain the credential-free Penpot package profile under its shared ZIP resource-limit, foreign-producer and unknown-member-retention gate; defer the compact representation until upstream stability and a second fixture.
 12. Run the bounded Figma and Adobe profiles in named live host versions; retain host reports and do not infer live behavior from API documentation.

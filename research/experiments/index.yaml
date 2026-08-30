@@ -368,9 +368,26 @@ experiments:
       - compare exact-byte embedded and digest-pinned linked resolution paths
       - require item-level fidelity for substitutions and unavailable fonts
       - verify package export rejects policy-forbidden embedded resources atomically
+  - id: nuif:experiment:capture-reconstruction-contract-baselines
+    status: automated
+    evidence: [nuif:research:chromium-source-backed-ui-capture, nuif:research:resource-packaging-and-source-capture-synthesis, nuif:research:model-agnostic-screenshot-reconstruction-and-training, nuif:research:confidence-calibration-and-selective-prediction]
+    implementation: [crates/nuif-capture/src/lib.rs, crates/nuif-reconstruct/src/lib.rs, crates/nuif-testing/src/bin/capture-reconstruction.rs, xtask/src/main.rs]
+    oracle: metamorphic-contract-and-policy
+    acceptance:
+      - fixed browser inputs normalize repeatably while exact resource bytes survive and credential canaries do not
+      - fixed screenshot inputs produce repeatable typed observations proposals explicit omissions and no implicit flat-copy asset
+      - proposal application rejects screenshot flattening and correction loops terminate on repeated state and every finite budget
+      - report distinguishes these contract checks from live capture OCR reconstruction accuracy calibration and training evidence
+    tests:
+      - compare normalized observations proposal and package bytes across repeated fixture runs
+      - apply browser and screenshot proposals through the core policy and validate their packages
+      - reject cycles dimension mismatch ambiguous image profiles and screenshot-derived flat-copy assets
+      - exercise observation codec fixpoint calibration-table interpolation selective review and loop stop states
+      - archive target/capture-reconstruction-report.json from cargo xtask capture-baselines
   - id: nuif:experiment:browser-source-capture
-    status: planned
+    status: active
     evidence: [nuif:research:chromium-source-backed-ui-capture, nuif:research:resource-packaging-and-source-capture-synthesis, nuif:research:reverse-layout-inference]
+    implementation: [crates/nuif-capture/src/lib.rs, crates/nuif-testing/src/bin/capture-reconstruction.rs, xtask/src/main.rs]
     oracle: pinned-browser-and-metamorphic
     acceptance:
       - repeated capture under the same pinned context produces equivalent normalized observations and exact resource hashes
@@ -384,8 +401,9 @@ experiments:
       - freeze canvas and video as bounded derived frames while keeping packaged scripts inert
       - scan capture artifacts for declared secret canaries and fail on disclosure
   - id: nuif:experiment:screenshot-reconstruction-baseline
-    status: planned
+    status: active
     evidence: [nuif:research:design2code-real-world-benchmark, nuif:research:pix2struct-screenshot-parsing-pretraining, nuif:research:screenai-ui-annotation, nuif:research:omniparser-ui-grounding, nuif:research:ocr-text-detection-and-recognition, nuif:research:model-agnostic-screenshot-reconstruction-and-training]
+    implementation: [crates/nuif-capture/src/lib.rs, crates/nuif-reconstruct/src/lib.rs, crates/nuif-testing/src/bin/capture-reconstruction.rs, xtask/src/main.rs]
     oracle: synthetic-exact-and-human-reviewed
     acceptance:
       - deterministic OCR CV one-shot model and observation-assisted model baselines run through one versioned harness
@@ -399,8 +417,9 @@ experiments:
       - evaluate OCR detection recognition and baselines separately from hierarchy layout and paint
       - retain typed alternatives provenance confidence abstentions and every invalid-output diagnostic
   - id: nuif:experiment:reconstruction-closed-loop
-    status: planned
+    status: active
     evidence: [nuif:research:ui-code-generation-boundaries, nuif:research:visrefiner-render-difference-learning, nuif:research:flip-perceptual-difference-metric, nuif:research:lpips-learned-perceptual-similarity, nuif:research:model-agnostic-screenshot-reconstruction-and-training]
+    implementation: [crates/nuif-reconstruct/src/lib.rs, crates/nuif-testing/src/bin/capture-reconstruction.rs, xtask/src/main.rs]
     oracle: deterministic-render-and-property-evaluation
     acceptance:
       - bounded corrective operations improve predeclared held-out metrics over the same one-shot proposal budget
@@ -414,8 +433,9 @@ experiments:
       - exercise invalid stale repeated regressive and non-improving correction proposals
       - measure improvement versus iteration latency memory and inference cost distributions
   - id: nuif:experiment:inference-confidence-calibration
-    status: planned
+    status: active
     evidence: [nuif:research:confidence-calibration-and-selective-prediction, nuif:research:model-agnostic-screenshot-reconstruction-and-training]
+    implementation: [crates/nuif-reconstruct/src/lib.rs, crates/nuif-testing/src/bin/capture-reconstruction.rs, xtask/src/main.rs]
     oracle: held-out-calibration-and-risk-coverage
     acceptance:
       - raw and calibrated confidence are reported separately for each supported decision type

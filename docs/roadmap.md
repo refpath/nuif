@@ -72,7 +72,7 @@ Package the schema/conformance kit and obtain reproduction by an externally auth
 ## Phase 9b — implementer draft and incubation (blocked on external evidence)
 Meet the implementer-draft gate in `docs/STANDARDS-ROADMAP.md`, including a general-purpose externally maintained implementation, requirement-to-test traceability, legal review of specification and patent terms and organizational supporters. Venue selection follows the resulting scope: W3C for Web and design-tool incubation, Khronos for graphics/content-tool conformance, or OASIS for a governed document protocol. Application alpha versions do not advance this phase.
 
-## Phase 10 — source-backed browser capture (proposed)
+## Phase 10 — source-backed browser capture (active contract baseline)
 
 Create a dedicated browser-capture adapter instead of expanding the retentive
 Tree-sitter adapter into a runtime. Pin browser/protocol/OS/context and collect
@@ -80,9 +80,13 @@ bounded source, DOM/layout/style, downloaded-resource, font-use, accessibility
 and screenshot observations. Exit: repeated normalized observations/resource
 hashes reproduce; multi-viewport evidence predicts a held-out context; canvas,
 video, cross-origin and local-font gaps remain explicit; secret canaries never
-enter exported evidence.
+enter exported evidence. `cargo xtask capture-baselines` currently proves
+repeatable normalization, exact resource retention, query-secret redaction,
+typed proposal application and cycle rejection from fixed provider input. It
+does not yet drive a live browser, predict a held-out viewport or satisfy this
+phase exit.
 
-## Phase 11 — screenshot reconstruction baseline (research)
+## Phase 11 — screenshot reconstruction baseline (active contract baseline)
 
 Implement the vendor/model-neutral observation and typed-operation boundary from
 RFC 0011/specification 14. Compare deterministic OCR/CV, one-shot proposal,
@@ -92,7 +96,13 @@ text, element, tree, geometry, resources, held-out layout, provenance, visual,
 confidence, latency and memory/cost; flat screenshot copies fail the editable
 profile; an independent evaluator reproduces the main result.
 
-## Phase 12 — calibration and conditional adaptation (blocked on Phase 11)
+The executable baseline currently proves observation-codec fixpoints, explicit
+observed/inferred evidence and omissions, typed atomic proposals, default
+flat-copy rejection and deterministic loop termination. Its report names the
+missing OCR/model accuracy corpus, complete metric families and independent
+evaluator; those omissions keep the phase open.
+
+## Phase 12 — calibration and conditional adaptation (calibration primitive active; adaptation blocked on Phase 11)
 
 Calibrate decision-level confidence and establish review/abstain risk thresholds
 on disjoint data. Only if a stable learnable error distribution remains, create
@@ -101,6 +111,9 @@ retrieval, supervised tuning, LoRA, QLoRA where compatible and sequence-level
 distillation. Exit: a candidate beats the untuned closed-loop baseline under the
 same frozen holdout/budget without validity, calibration, privacy, licensing or
 maintenance regression. Training is skipped if that gate is not met.
+
+The current interpolation/selective-review fixture tests only the calibration
+API contract. It is not evidence of calibrated risk coverage on real data.
 
 ## Early falsifiers
 Stop/rethink if: semantic model requires pervasive vendor-specific exceptions; opaque extensions cannot survive common operations; source synchronization routinely requires whole-file regeneration; independent implementation cannot reproduce normative layout/visual behavior from the spec; deterministic packages do not reproduce across writers; reconstruction optimizes pixels by discarding semantics; or tuning cannot beat the untuned tool-assisted baseline fairly.

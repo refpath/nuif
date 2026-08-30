@@ -171,6 +171,7 @@ cargo xtask gate-f-v0 # full-v0 model sync plus editor/CLI source bridge
 cargo xtask gate-g # independent Python v0 parse/write/layout/render
 cargo xtask gate-h # exhaustive collaboration register convergence
 cargo xtask gate-i-package # deterministic package/resource evidence
+cargo xtask capture-baselines # bounded capture/reconstruction contract evidence
 cargo run --locked -p nuif-cli -- fixture v0-responsive-card /tmp/v0.nuif
 cargo run --locked -p nuif-editor -- --headless \
   --script conformance/fixtures/v0-responsive-card/editor-trial.jsonl \
@@ -178,7 +179,7 @@ cargo run --locked -p nuif-editor -- --headless \
 cargo run --locked -p nuif-editor # launch the native editor
 ```
 
-`cargo xtask all` bootstraps the pinned Python research-validator environment and Chrome for Testing under ignored `target/`, then runs research validation, Rust verification, the short full-raster trial, the 10,000-patch Gate B trial, release-mode hostile-input and performance trials, the Gate C differential layout trial, both Gate D text/render trials, complete headless/native editor trials, bounded retentive adapter bridges, the independent Gate G reproduction, exhaustive Gate H collaboration-register convergence and the Gate I package segment. Each measured run leaves a JSON report or snapshot under `target/`; `target/verification-manifest.json` indexes the complete evidence set and records success or the first failed step. CI archives both the individual evidence and this manifest.
+`cargo xtask all` bootstraps the pinned Python research-validator environment and Chrome for Testing under ignored `target/`, then runs research validation, Rust verification, the short full-raster trial, the 10,000-patch Gate B trial, release-mode hostile-input and performance trials, the Gate C differential layout trial, both Gate D text/render trials, complete headless/native editor trials, bounded retentive adapter bridges, the independent Gate G reproduction, exhaustive Gate H collaboration-register convergence, the Gate I package segment and the bounded capture/reconstruction contract report. Each measured run leaves a JSON report or snapshot under `target/`; `target/verification-manifest.json` indexes the complete evidence set and records success or the first failed step. CI archives both the individual evidence and this manifest.
 
 ## Contributing
 

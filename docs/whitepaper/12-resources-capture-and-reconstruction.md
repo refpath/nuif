@@ -284,9 +284,11 @@ consent/policy decisions.
 ## Maturity boundary
 
 The current `0.1.0-alpha.3` label belongs to the developer editor application.
-It provides no evidence that the proposed package, image/font resources,
-browser capture or screenshot reconstruction profiles are implemented or
-accurate.
+It provides no evidence that the proposed image/font resource, live browser
+capture or screenshot reconstruction accuracy profiles are complete. A
+deterministic package/resource segment and fixed provider-input
+capture/reconstruction contract baseline are implemented, but their deliberately
+narrow evidence does not promote the broader profiles.
 
 Promotion requires the package/resource cross-writer fixtures, pinned capture
 reproduction, baseline/closed-loop/calibration harness, leak-resistant licensed
