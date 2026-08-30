@@ -1,5 +1,5 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "oracle": {
     "implementation": "HarfBuzz",
     "version": "14.4.0",
@@ -51,21 +51,24 @@
         "height": 640,
         "direction": "left_to_right",
         "scene_sha256": "e06001466700c1f68cdef6b26e2bbd0e8312603f882b009e95f3c53d1915c285",
-        "png_sha256": "2f57ba958b77d6d2a283741a9968bbb7c68f001bbb34ce0559526c0eb7f93e03"
+        "rgba_sha256": "005ee10fd1386f6499992ad3c9e38bd093849ab5e1f6b893631ccd93d4822900",
+        "png_sha256": "b892b3f6f6fd965b334efb125379606a4ee3d49da718fcfab3cf6be6e1649883"
       },
       {
         "width": 768,
         "height": 768,
         "direction": "left_to_right",
         "scene_sha256": "6833a18701aaa996c4fbc74874e524d91ebe50c65df3eeb7714699259c811075",
-        "png_sha256": "d9d292cef2ed6ef2b27dc2a2169f640ca2715a17402feb11494df4e5e243b6b7"
+        "rgba_sha256": "6f2a8bdcb501fdf15cdf3d4c5e1727a42a118016f004414d5b26635b37b3a1f0",
+        "png_sha256": "62eb29e9b2dea0df1bb8d28d1023a50cba999d70f8b367dd334184dafba57b2a"
       },
       {
         "width": 1440,
         "height": 900,
         "direction": "right_to_left",
         "scene_sha256": "f73db4f7390f5cad16db47a8b0906f142ae070524a68152a49c12724989c6329",
-        "png_sha256": "357553c4b8f9a4781a12bb7be575390bcc365e8856e5d8d2a4a66879c8692f2b"
+        "rgba_sha256": "8f0caea5de65bdd564b483052689e77eb68edff7a36a9f38e4438bd5383faf29",
+        "png_sha256": "fc2101c40425469dbaaf6fd8d0730b9001fb3b46a1149faa73f4f77ed5deb60d"
       }
     ]
   },

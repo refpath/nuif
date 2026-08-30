@@ -90,6 +90,7 @@ struct RasterCase {
     height: u32,
     direction: WritingDirection,
     scene_sha256: String,
+    rgba_sha256: String,
     png_sha256: String,
 }
 
@@ -109,7 +110,7 @@ fn run() -> Result<(), String> {
     let golden: GoldenFile =
         serde_json::from_str(GOLDEN_JSON).map_err(|error| error.to_string())?;
     let identity = pinned_font_identity();
-    let pin_consistent = golden.schema_version == 1
+    let pin_consistent = golden.schema_version == 2
         && golden.font.family == identity.family
         && golden.font.version == identity.version
         && golden.font.sha256 == identity.sha256
@@ -139,7 +140,7 @@ fn run() -> Result<(), String> {
                     || platform.architecture != golden.raster_baseline.architecture
             });
     let report = json!({
-        "schema_version": 1,
+        "schema_version": 2,
         "experiment": "nuif:experiment:text-pinning",
         "status": if passed { "passed" } else { "failed" },
         "source": {
@@ -172,7 +173,8 @@ fn run() -> Result<(), String> {
         "classification": {
             "shaping": "exact_cross_implementation_golden",
             "outlines": "exact_cross_implementation_normalized_golden",
-            "raster": "exact_on_recorded_platform_matrix",
+            "raster": "exact_raw_rgba_on_recorded_platform_matrix",
+            "png_encoding": "repeatable_artifact_non_normative",
             "text_semantics": "exact_hard_break_no_soft_wrap_profile",
             "cross_platform_raster_verified": cross_platform_raster_verified
         },
@@ -306,9 +308,11 @@ fn raster_trials(cases: &[RasterCase]) -> Result<(Vec<Value>, bool), String> {
         });
         let scene_sha256 =
             sha256_hex(&serde_json::to_vec(&first.scene).map_err(|error| error.to_string())?);
+        let rgba_sha256 = sha256_hex(&first.raster.rgba);
         let png_sha256 = sha256_hex(&first_png);
         let repeatable = first.scene == second.scene && first_png == second_png;
-        let baseline_match = scene_sha256 == case.scene_sha256 && png_sha256 == case.png_sha256;
+        let baseline_match = scene_sha256 == case.scene_sha256 && rgba_sha256 == case.rgba_sha256;
+        let png_reference_match = png_sha256 == case.png_sha256;
         let passed = repeatable && baseline_match && !glyph_runs.is_empty() && lossless_text;
         all_passed &= passed;
         reports.push(json!({
@@ -317,8 +321,11 @@ fn raster_trials(cases: &[RasterCase]) -> Result<(Vec<Value>, bool), String> {
             "writing_direction": case.direction,
             "scene_sha256": scene_sha256,
             "expected_scene_sha256": case.scene_sha256,
+            "rgba_sha256": rgba_sha256,
+            "expected_rgba_sha256": case.rgba_sha256,
             "png_sha256": png_sha256,
             "expected_png_sha256": case.png_sha256,
+            "png_reference_match": png_reference_match,
             "png_bytes": first_png.len(),
             "glyph_runs": glyph_runs,
             "repeatable": repeatable,

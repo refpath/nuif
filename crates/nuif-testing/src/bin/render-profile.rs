@@ -43,6 +43,7 @@ struct GoldenCase {
     fill: Color,
     target: RenderTarget,
     scene_sha256: String,
+    rgba_sha256: String,
     png_sha256: String,
 }
 
@@ -66,13 +67,13 @@ fn run() -> Result<(), String> {
     let (raster_trials, raster_passed) = raster_trials(&golden.cases)?;
     let (fidelity_trials, fidelity_passed) = fidelity_trials()?;
     let (negative_trials, negative_passed) = negative_trials();
-    let passed = golden.schema_version == 1 && raster_passed && fidelity_passed && negative_passed;
+    let passed = golden.schema_version == 2 && raster_passed && fidelity_passed && negative_passed;
     let cross_platform_verified = raster_passed
         && golden.verified_platforms.iter().any(|platform| {
             platform.os != env::consts::OS || platform.architecture != env::consts::ARCH
         });
     let report = json!({
-        "schema_version": 1,
+        "schema_version": 2,
         "experiment": "nuif:experiment:render-profile-zero",
         "status": if passed { "passed" } else { "failed" },
         "source": {
@@ -150,9 +151,11 @@ fn raster_trials(cases: &[GoldenCase]) -> Result<(Vec<Value>, bool), String> {
         let second_png = second.to_png().map_err(|error| error.to_string())?;
         let scene_sha256 =
             sha256_hex(&serde_json::to_vec(&scene).map_err(|error| error.to_string())?);
+        let rgba_sha256 = sha256_hex(&first.rgba);
         let png_sha256 = sha256_hex(&first_png);
         let repeatable = first == second && first_png == second_png;
-        let baseline_match = scene_sha256 == case.scene_sha256 && png_sha256 == case.png_sha256;
+        let baseline_match = scene_sha256 == case.scene_sha256 && rgba_sha256 == case.rgba_sha256;
+        let png_reference_match = png_sha256 == case.png_sha256;
         let passed = repeatable && baseline_match;
         all_passed &= passed;
         reports.push(json!({
@@ -163,8 +166,11 @@ fn raster_trials(cases: &[GoldenCase]) -> Result<(Vec<Value>, bool), String> {
             "target": case.target,
             "scene_sha256": scene_sha256,
             "expected_scene_sha256": case.scene_sha256,
+            "rgba_sha256": rgba_sha256,
+            "expected_rgba_sha256": case.rgba_sha256,
             "png_sha256": png_sha256,
             "expected_png_sha256": case.png_sha256,
+            "png_reference_match": png_reference_match,
             "repeatable": repeatable,
             "baseline_match": baseline_match,
             "passed": passed,

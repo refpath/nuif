@@ -8,7 +8,7 @@ Gate B: canonical model, operations and encodings. The executable baseline cover
 
 Gate C: responsive layout falsifier. `cargo xtask gate-c` compares the v0 viewport matrix and seeded stack/flex/grid cases across NUIF, Taffy 0.14.0 and pinned Chrome for Testing 152.0.7977.64. Per-fixture measured bounds, raw boxes and classifications are stored in `target/layout-differential-report.json`. The remaining grid divergences are explicit schema loss, not accepted Grid conformance.
 
-Gate D: bounded visual and text profile. `cargo xtask gate-d` runs separate text and paint reports. Profile 0 pins Ahem/HarfRust/Unicode/Skrifa/Zeno; defines hard lines without automatic soft wrapping; fixes rectangle, ellipse, encoded-sRGB and integer-composition behavior by value; reproduces scene/PNG hashes on macOS/aarch64, Linux/aarch64 and Linux/x86_64; and keeps path/image/instance/extension semantics in property-attributed fidelity records.
+Gate D: bounded visual and text profile. `cargo xtask gate-d` runs separate text and paint reports. Profile 0 pins Ahem/HarfRust/Unicode/Skrifa/Zeno; defines hard lines without automatic soft wrapping; fixes rectangle, ellipse, encoded-sRGB and integer-composition behavior by value; reproduces scene/raw-RGBA hashes on macOS/aarch64, Linux/aarch64 and Linux/x86_64; reports PNG encoding separately; and keeps path/image/instance/extension semantics in property-attributed fidelity records.
 
 Gate E: editor/CLI parity. Twelve semantic actions author the complete v0 fixture from an empty document. Direct generation, editor output and operation replay are byte-identical, while the archived snapshot carries canonical input, context, layout, scene, CPU raster and fidelity.
 
