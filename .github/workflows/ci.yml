@@ -135,6 +135,12 @@ jobs:
         with:
           name: editor-gui-trial
           path: target/editor-gui-trial
+      - name: Upload user-scoped editor install trial
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: editor-install-trial
+          path: target/editor-install-trial.json
       - name: Upload HTML and CSS synchronization evidence
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
@@ -222,6 +228,8 @@ jobs:
         run: cargo test -p nuif-editor --all-targets --all-features --locked
       - name: Run semantic and visual editor trial
         run: cargo xtask editor-gui-trial
+      - name: Exercise user-scoped source installation
+        run: cargo xtask editor-install-trial
       - name: Build and verify native package
         run: cargo xtask editor-package
       - name: Validate macOS bundle metadata
@@ -240,6 +248,7 @@ jobs:
             target/editor-gui-trial/editor-shell.png
             target/editor-gui-trial/editor-file-menu.png
             target/editor-gui-trial/semantics.json
+            target/editor-install-trial.json
 
   msrv:
     name: minimum Rust version

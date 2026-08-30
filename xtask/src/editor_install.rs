@@ -257,6 +257,71 @@ pub(crate) fn update(arguments: &[String]) -> Result<(), String> {
     doctor_paths(platform, &refreshed_paths)
 }
 
+pub(crate) fn trial(arguments: &[String]) -> Result<(), String> {
+    let mut channel = Channel::Source;
+    let mut allow_dirty = false;
+    let mut index = 0;
+    while index < arguments.len() {
+        match arguments[index].as_str() {
+            "--allow-dirty" => allow_dirty = true,
+            "--channel" => {
+                channel = Channel::parse(next_value(arguments, &mut index, "--channel")?)?;
+            }
+            value => return Err(format!("unknown editor-install-trial option {value:?}")),
+        }
+        index += 1;
+    }
+    if channel == Channel::Alpha && allow_dirty {
+        return Err("the alpha install trial cannot use a dirty source tree".to_owned());
+    }
+    let temporary = ManagedTempDir::new("install-trial")?;
+    let root = temporary.path.join("user");
+    let mut install_arguments = vec![
+        "--user".to_owned(),
+        "--channel".to_owned(),
+        channel.name().to_owned(),
+        "--root".to_owned(),
+        root.display().to_string(),
+    ];
+    if allow_dirty {
+        install_arguments.push("--allow-dirty".to_owned());
+    }
+    install(&install_arguments)?;
+    doctor(&["--root".to_owned(), root.display().to_string()])?;
+
+    let platform = Platform::host()?;
+    let paths = install_paths(platform, Some(&root))?;
+    let state = read_state(&paths)?;
+    let active = state_string(&state, "active")?;
+    let installed = installed_version_from_receipt(platform, &paths, &active)?;
+    let receipt = read_json(&installed.root.join("receipt.json"))?;
+    uninstall(&["--root".to_owned(), root.display().to_string()])?;
+    if paths.state_root.exists() {
+        return Err("install trial left managed state after uninstall".to_owned());
+    }
+    let report = json!({
+        "schema_version": SCHEMA_VERSION,
+        "status": "passed",
+        "channel": channel.name(),
+        "platform": platform.name(),
+        "architecture": env::consts::ARCH,
+        "active_install": active,
+        "version": receipt["version"],
+        "source": receipt["source"],
+        "binary_sha256": receipt["binary_sha256"],
+        "signing": receipt["signing"],
+        "checks": {
+            "install": "passed",
+            "doctor": "passed",
+            "uninstall": "passed",
+            "managed_state_removed": true,
+        },
+    });
+    write_json_atomic(Path::new("target/editor-install-trial.json"), &report)?;
+    println!("user-scoped editor install trial passed");
+    Ok(())
+}
+
 fn parse_install_options(arguments: &[String]) -> Result<InstallOptions, String> {
     let mut root = None;
     let mut channel = Channel::Source;
@@ -1229,6 +1294,15 @@ fn doctor_paths(platform: Platform, paths: &InstallPaths) -> Result<(), String> 
             ],
         )?;
     }
+    let tools = json!({
+        "git": tool_identity("git", &["--version"]),
+        "gh": tool_identity("gh", &["--version"]),
+        "cargo": tool_identity("cargo", &["--version"]),
+        "rustc": tool_identity("rustc", &["--version"]),
+    });
+    let update_ready = ["git", "gh", "cargo", "rustc"]
+        .iter()
+        .all(|tool| tools[*tool].is_string());
     let report = json!({
         "schema_version": SCHEMA_VERSION,
         "status": "passed",
@@ -1239,6 +1313,10 @@ fn doctor_paths(platform: Platform, paths: &InstallPaths) -> Result<(), String> 
         "architecture": env::consts::ARCH,
         "binary_sha256": observed_sha256,
         "signing": installed.signing,
+        "source_update": {
+            "ready": update_ready,
+            "tools": tools,
+        },
         "state_root": paths.state_root,
         "sandboxed": paths.sandboxed,
     });
@@ -1855,6 +1933,18 @@ impl Drop for ManagedTempDir {
 fn required_command_text(program: &str, arguments: &[&str]) -> Result<String, String> {
     command_text(program, arguments)
         .ok_or_else(|| format!("{program} {} failed", arguments.join(" ")))
+}
+
+fn tool_identity(program: &str, arguments: &[&str]) -> Option<String> {
+    let output = Command::new(program).args(arguments).output().ok()?;
+    if !output.status.success() {
+        return None;
+    }
+    let stdout = String::from_utf8_lossy(&output.stdout).trim().to_owned();
+    let stderr = String::from_utf8_lossy(&output.stderr).trim().to_owned();
+    (!stdout.is_empty())
+        .then_some(stdout)
+        .or_else(|| (!stderr.is_empty()).then_some(stderr))
 }
 
 fn run(program: &str, arguments: &[&OsStr]) -> Result<(), String> {

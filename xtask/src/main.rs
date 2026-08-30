@@ -24,6 +24,7 @@ const ALL_STEPS: &[Step] = &[
     ("gate-d", gate_d),
     ("editor-trial", editor_trial),
     ("editor-gui-trial", editor_gui_trial),
+    ("editor-install-trial", editor_install_trial),
     ("gate-f", gate_f),
     ("gate-f-v0", gate_f_v0),
     ("gate-svg", gate_svg),
@@ -45,6 +46,7 @@ const VERIFICATION_ARTIFACTS: &[&str] = &[
     "target/editor-authoring-report.json",
     "target/editor-authoring-snapshot",
     "target/editor-gui-trial",
+    "target/editor-install-trial.json",
     "target/html-sync-report.json",
     "target/html-sync-output.html",
     "target/html-sync-v0-report.json",
@@ -118,6 +120,7 @@ fn run() -> Result<(), String> {
         Some("dependency-audit") => dependency_audit(),
         Some("editor-trial") => editor_trial(),
         Some("editor-gui-trial") => editor_gui_trial(),
+        Some("editor-install-trial") => editor_install::trial(&args.collect::<Vec<_>>()),
         Some("editor-package") => editor_package(),
         Some("editor-launch") => editor_launch(),
         Some("editor-install") => editor_install::install(&args.collect::<Vec<_>>()),
@@ -129,7 +132,7 @@ fn run() -> Result<(), String> {
         Some("manifest") => standalone_manifest(),
         Some("all") => all(),
         _ => Err(
-            "usage: cargo xtask <research|adapter-audit|dependency-audit|verify|trial [seed iterations snapshot-interval report-path]|gate-b|gate-c|gate-d|gate-d-text|gate-d-render|gate-f|gate-f-v0|gate-svg|gate-dtcg|gate-g|gate-h|browser-install|hostile-inputs|editor-hostile-inputs|performance|editor-trial|editor-gui-trial|editor-package|editor-launch|editor-install|editor-doctor|editor-rollback|editor-uninstall|editor-update|release-check <tag>|manifest|all>"
+            "usage: cargo xtask <research|adapter-audit|dependency-audit|verify|trial [seed iterations snapshot-interval report-path]|gate-b|gate-c|gate-d|gate-d-text|gate-d-render|gate-f|gate-f-v0|gate-svg|gate-dtcg|gate-g|gate-h|browser-install|hostile-inputs|editor-hostile-inputs|performance|editor-trial|editor-gui-trial|editor-install-trial|editor-package|editor-launch|editor-install|editor-doctor|editor-rollback|editor-uninstall|editor-update|release-check <tag>|manifest|all>"
                 .to_owned(),
         ),
     }
@@ -1209,6 +1212,10 @@ fn editor_gui_trial() -> Result<(), String> {
             reproduction.display()
         )
     })
+}
+
+fn editor_install_trial() -> Result<(), String> {
+    editor_install::trial(&[])
 }
 
 fn run_editor_gui_automation(input: &Path, artifacts: &Path) -> Result<(), String> {

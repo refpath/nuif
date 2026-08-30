@@ -101,6 +101,8 @@ jobs:
         run: cargo xtask release-check "$RELEASE_TAG"
       - name: Test the native editor
         run: cargo test -p nuif-editor --all-targets --all-features --locked
+      - name: Exercise the tagged user-scoped alpha installation
+        run: cargo xtask editor-install-trial --channel alpha
       - name: Build and verify the native package
         env:
           NUIF_BUILD_NUMBER: ${{ github.run_number }}
