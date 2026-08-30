@@ -74,6 +74,14 @@
       "evidence": ["research/items/renderers.md", "research/items/metamorphic-testing-graphics.md"]
     },
     {
+      "name": "rmcp",
+      "role": "current Model Context Protocol types, tool schemas, lifecycle, and stdio server routing",
+      "decision": "retain",
+      "alternatives": ["hand-written JSON-RPC server", "TypeScript SDK sidecar", "Python SDK sidecar"],
+      "rationale": "The official Rust SDK tracks the breaking 2026-07-28 stateless lifecycle and conformance suite while calling NUIF's Rust core in-process; exact pinning and an executable wire oracle contain protocol churn without duplicating semantic operations or adding a second language process.",
+      "evidence": ["research/items/mcp-stateless-agent-adapter.md", "research/items/dependency-and-subsystem-audit.md"]
+    },
+    {
       "name": "rfd",
       "role": "native open and save dialogs",
       "decision": "watch",
@@ -200,6 +208,14 @@
       "alternatives": ["SWC parser", "Oxc parser"],
       "rationale": "The adapter needs retained UTF-8 byte ranges and syntax recovery but must not evaluate JavaScript; sharing the Tree-sitter correspondence boundary avoids an AST normalization layer while the profile rejects dynamic constructs explicitly.",
       "evidence": ["research/items/react-jsx-adapter-surface.md", "research/items/tree-sitter.md"]
+    },
+    {
+      "name": "tokio",
+      "role": "single-thread async runtime and standard-I/O primitives for the MCP process shell",
+      "decision": "retain",
+      "alternatives": ["async-std", "smol", "manual blocking JSON-RPC loop"],
+      "rationale": "rmcp is built on Tokio and the adapter needs only its current-thread runtime and stdio primitives; another runtime would add an interop layer, while a manual loop would duplicate official lifecycle and cancellation behavior.",
+      "evidence": ["research/items/mcp-stateless-agent-adapter.md"]
     },
     {
       "name": "ttf-parser",

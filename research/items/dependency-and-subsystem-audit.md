@@ -36,7 +36,7 @@ links:
 
 # Summary
 
-Cargo metadata reports 30 distinct direct external crates across the workspace.
+Cargo metadata reports 32 distinct direct external crates across the workspace.
 Each is now registered with a role, a current decision, at least one considered
 alternative and repository evidence. The executable audit fails when a direct
 crate is added without ownership or when a stale registration remains. Cargo
@@ -139,6 +139,24 @@ Source adapters
   canonical documents, diagnostics and patches as bytes instead of generating
   a parallel JavaScript model. Locators: https://wasm-bindgen.github.io/wasm-bindgen/reference/deployment.html
   and https://component-model.bytecodealliance.org/, retrieved 2026-08-30.
+
+Process and agent adapters
+
+- `rmcp` 3.1.4 is the official Rust SDK for the breaking MCP 2026-07-28
+  stateless lifecycle. It is preferable to a handwritten JSON-RPC loop because
+  request metadata, discovery, result types and schemas changed together; it is
+  preferable to a TypeScript or Python sidecar because NUIF can call the same
+  Rust core without a second private RPC. NUIF enables only the server, macro
+  and stdio features, pins the exact release, and covers the wire with an
+  independent subprocess harness. Locator: official SDK README and roadmap,
+  retrieved 2026-08-30:
+  https://github.com/modelcontextprotocol/rust-sdk and
+  https://github.com/modelcontextprotocol/rust-sdk/blob/main/ROADMAP.md.
+- Tokio 1.53.1 is already the official SDK's executor. NUIF makes it direct
+  only in `nuif-mcp`, enables a current-thread runtime and standard I/O, and
+  keeps every async concern outside the deterministic core. Async-std or Smol
+  would add runtime interoperation; a blocking loop would reproduce official
+  lifecycle behavior without a semantic benefit.
 - roxmltree represents XML as a read-only tree and exposes original byte
   positions. Quick XML is an almost-zero-copy pull parser and a better candidate
   for very large streaming documents, while usvg is a better renderer-facing
