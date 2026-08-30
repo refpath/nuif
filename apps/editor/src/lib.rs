@@ -5,8 +5,8 @@ pub mod gui;
 use nuif_api::{EngineError, Session, profile_zero_context};
 use nuif_codec::{CanonicalText, Decoder, DeterministicCbor, Encoder};
 use nuif_core::{
-    Color, Document, Entity, EntityId, EntityKind, ExtensionDeclarations, LayoutStyle, Point,
-    SizeIntent, TextContent, Token,
+    Color, Document, Entity, EntityId, EntityKind, ExtensionDeclarations, GridPlacement, GridTrack,
+    LayoutStyle, Point, SizeIntent, TextContent, Token,
 };
 use nuif_layout::{EvaluationContext, LayoutSnapshot};
 use nuif_package::{NuifPackage, PackageMode};
@@ -121,6 +121,10 @@ pub enum EditorCommand {
     SetLayout {
         entity: EntityId,
         value: LayoutStyle,
+    },
+    SetGridPlacement {
+        entity: EntityId,
+        value: GridPlacement,
     },
     SetFill {
         entity: EntityId,
@@ -296,89 +300,7 @@ impl EditorDriver {
             value: None,
         }];
         for entity in self.session.document().entities.values() {
-            nodes.push(AccessibilityNode {
-                role: AccessibilityRole::TreeItem,
-                label: entity
-                    .name
-                    .clone()
-                    .unwrap_or_else(|| kind_label(&entity.kind).to_owned()),
-                author_id: Some(entity.id),
-                value: None,
-            });
-            nodes.push(AccessibilityNode {
-                role: AccessibilityRole::TextField,
-                label: "name".to_owned(),
-                author_id: Some(entity.id),
-                value: entity.name.clone(),
-            });
-            nodes.push(AccessibilityNode {
-                role: AccessibilityRole::SpinButton,
-                label: "width".to_owned(),
-                author_id: Some(entity.id),
-                value: Some(size_label(&entity.authored.width)),
-            });
-            nodes.push(AccessibilityNode {
-                role: AccessibilityRole::SpinButton,
-                label: "height".to_owned(),
-                author_id: Some(entity.id),
-                value: Some(size_label(&entity.authored.height)),
-            });
-            for (label, value) in [
-                ("x", entity.authored.position.x.to_string()),
-                ("y", entity.authored.position.y.to_string()),
-                ("gap", entity.authored.layout.gap.to_string()),
-                (
-                    "padding_top",
-                    entity.authored.layout.padding.top.to_string(),
-                ),
-                (
-                    "padding_right",
-                    entity.authored.layout.padding.right.to_string(),
-                ),
-                (
-                    "padding_bottom",
-                    entity.authored.layout.padding.bottom.to_string(),
-                ),
-                (
-                    "padding_left",
-                    entity.authored.layout.padding.left.to_string(),
-                ),
-            ] {
-                nodes.push(AccessibilityNode {
-                    role: AccessibilityRole::SpinButton,
-                    label: label.to_owned(),
-                    author_id: Some(entity.id),
-                    value: Some(value),
-                });
-            }
-            nodes.push(AccessibilityNode {
-                role: AccessibilityRole::TextField,
-                label: "fill".to_owned(),
-                author_id: Some(entity.id),
-                value: Some(fill_label(entity.authored.fill)),
-            });
-            if let Some(text) = &entity.authored.text {
-                for (role, label, value) in [
-                    (AccessibilityRole::TextField, "text", text.content.clone()),
-                    (
-                        AccessibilityRole::SpinButton,
-                        "font_size",
-                        text.size.to_string(),
-                    ),
-                    (
-                        AccessibilityRole::SpinButton,
-                        "line_height",
-                        text.line_height.to_string(),
-                    ),
-                ] {
-                    nodes.push(AccessibilityNode {
-                        role,
-                        label: label.to_owned(),
-                        author_id: Some(entity.id),
-                        value: Some(value),
-                    });
-                }
-            }
+            nodes.extend(entity_accessibility_nodes(self.session.document(), entity));
         }
         nodes.push(AccessibilityNode {
             role: AccessibilityRole::Canvas,
@@ -440,6 +362,9 @@ impl EditorDriver {
             }
             EditorCommand::SetLayout { entity, value } => {
                 self.apply(Operation::SetLayout { entity, value })
+            }
+            EditorCommand::SetGridPlacement { entity, value } => {
+                self.apply(Operation::SetGridPlacement { entity, value })
             }
             EditorCommand::SetFill { entity, value } => {
                 self.apply(Operation::SetFill { entity, value })
@@ -571,6 +496,64 @@ impl EditorDriver {
                             value: layout,
                         })
                     }
+                    "grid_columns" | "grid_rows" => {
+                        let tracks = parse_grid_tracks(&value).map_err(|_| {
+                            EditorError::AccessibilityValueInvalid {
+                                label: label.clone(),
+                                value: value.clone(),
+                            }
+                        })?;
+                        let mut layout = self
+                            .session
+                            .document()
+                            .entities
+                            .get(&author_id)
+                            .ok_or(EditorError::EntityMissing(author_id))?
+                            .authored
+                            .layout
+                            .clone();
+                        if label == "grid_columns" {
+                            layout.grid.columns = tracks;
+                        } else {
+                            layout.grid.rows = tracks;
+                        }
+                        self.execute(EditorCommand::SetLayout {
+                            entity: author_id,
+                            value: layout,
+                        })
+                    }
+                    "grid_position" | "grid_column_span" | "grid_row_span" => {
+                        let mut placement = self
+                            .session
+                            .document()
+                            .entities
+                            .get(&author_id)
+                            .ok_or(EditorError::EntityMissing(author_id))?
+                            .authored
+                            .grid_placement;
+                        let invalid = |_| EditorError::AccessibilityValueInvalid {
+                            label: label.clone(),
+                            value: value.clone(),
+                        };
+                        match label.as_str() {
+                            "grid_position" => {
+                                let (column, row) = parse_grid_position(&value).map_err(invalid)?;
+                                placement.column = column;
+                                placement.row = row;
+                            }
+                            "grid_column_span" => {
+                                placement.column_span = parse_grid_span(&value).map_err(invalid)?;
+                            }
+                            "grid_row_span" => {
+                                placement.row_span = parse_grid_span(&value).map_err(invalid)?;
+                            }
+                            _ => unreachable!(),
+                        }
+                        self.execute(EditorCommand::SetGridPlacement {
+                            entity: author_id,
+                            value: placement,
+                        })
+                    }
                     "fill" => self.execute(EditorCommand::SetFill {
                         entity: author_id,
                         value: parse_fill(&value).map_err(|()| {
@@ -688,6 +671,264 @@ impl EditorDriver {
             }),
         })
     }
+}
+
+fn accessibility_node(
+    entity: &Entity,
+    role: AccessibilityRole,
+    label: &str,
+    value: Option<String>,
+) -> AccessibilityNode {
+    AccessibilityNode {
+        role,
+        label: label.to_owned(),
+        author_id: Some(entity.id),
+        value,
+    }
+}
+
+fn entity_accessibility_nodes(document: &Document, entity: &Entity) -> Vec<AccessibilityNode> {
+    let mut nodes = vec![
+        accessibility_node(
+            entity,
+            AccessibilityRole::TreeItem,
+            &entity
+                .name
+                .clone()
+                .unwrap_or_else(|| kind_label(&entity.kind).to_owned()),
+            None,
+        ),
+        accessibility_node(
+            entity,
+            AccessibilityRole::TextField,
+            "name",
+            entity.name.clone(),
+        ),
+        accessibility_node(
+            entity,
+            AccessibilityRole::SpinButton,
+            "width",
+            Some(size_label(&entity.authored.width)),
+        ),
+        accessibility_node(
+            entity,
+            AccessibilityRole::SpinButton,
+            "height",
+            Some(size_label(&entity.authored.height)),
+        ),
+    ];
+    for (label, value) in [
+        ("x", entity.authored.position.x.to_string()),
+        ("y", entity.authored.position.y.to_string()),
+        ("gap", entity.authored.layout.gap.to_string()),
+        (
+            "padding_top",
+            entity.authored.layout.padding.top.to_string(),
+        ),
+        (
+            "padding_right",
+            entity.authored.layout.padding.right.to_string(),
+        ),
+        (
+            "padding_bottom",
+            entity.authored.layout.padding.bottom.to_string(),
+        ),
+        (
+            "padding_left",
+            entity.authored.layout.padding.left.to_string(),
+        ),
+    ] {
+        nodes.push(accessibility_node(
+            entity,
+            AccessibilityRole::SpinButton,
+            label,
+            Some(value),
+        ));
+    }
+    nodes.extend(grid_accessibility_nodes(document, entity));
+    nodes.push(accessibility_node(
+        entity,
+        AccessibilityRole::TextField,
+        "fill",
+        Some(fill_label(entity.authored.fill)),
+    ));
+    nodes.extend(text_accessibility_nodes(entity));
+    nodes
+}
+
+fn grid_accessibility_nodes(document: &Document, entity: &Entity) -> Vec<AccessibilityNode> {
+    let mut nodes = Vec::new();
+    if entity.authored.layout.family == nuif_core::LayoutFamily::Grid {
+        for (label, value) in [
+            (
+                "grid_columns",
+                grid_tracks_label(&entity.authored.layout.grid.columns),
+            ),
+            (
+                "grid_rows",
+                grid_tracks_label(&entity.authored.layout.grid.rows),
+            ),
+        ] {
+            nodes.push(accessibility_node(
+                entity,
+                AccessibilityRole::TextField,
+                label,
+                Some(value),
+            ));
+        }
+    }
+    let parent_is_grid = document.parent_of(entity.id).is_some_and(|parent| {
+        document.entities[&parent].authored.layout.family == nuif_core::LayoutFamily::Grid
+    });
+    if parent_is_grid {
+        for (role, label, value) in [
+            (
+                AccessibilityRole::TextField,
+                "grid_position",
+                grid_position_label(entity.authored.grid_placement),
+            ),
+            (
+                AccessibilityRole::SpinButton,
+                "grid_column_span",
+                entity.authored.grid_placement.column_span.to_string(),
+            ),
+            (
+                AccessibilityRole::SpinButton,
+                "grid_row_span",
+                entity.authored.grid_placement.row_span.to_string(),
+            ),
+        ] {
+            nodes.push(accessibility_node(entity, role, label, Some(value)));
+        }
+    }
+    nodes
+}
+
+fn text_accessibility_nodes(entity: &Entity) -> Vec<AccessibilityNode> {
+    let Some(text) = &entity.authored.text else {
+        return Vec::new();
+    };
+    [
+        (AccessibilityRole::TextField, "text", text.content.clone()),
+        (
+            AccessibilityRole::SpinButton,
+            "font_size",
+            text.size.to_string(),
+        ),
+        (
+            AccessibilityRole::SpinButton,
+            "line_height",
+            text.line_height.to_string(),
+        ),
+    ]
+    .into_iter()
+    .map(|(role, label, value)| accessibility_node(entity, role, label, Some(value)))
+    .collect()
+}
+
+pub(crate) fn grid_tracks_label(tracks: &[GridTrack]) -> String {
+    tracks
+        .iter()
+        .map(|track| match track {
+            GridTrack::Fixed(value) => format!("{value}px"),
+            GridTrack::Fraction(value) => format!("{value}fr"),
+        })
+        .collect::<Vec<_>>()
+        .join(" ")
+}
+
+pub(crate) fn parse_grid_tracks(value: &str) -> Result<Vec<GridTrack>, String> {
+    let parts = value
+        .split(|character: char| character.is_whitespace() || character == ',')
+        .filter(|part| !part.is_empty())
+        .collect::<Vec<_>>();
+    if parts.is_empty() {
+        return Err("grid track list must not be empty".to_owned());
+    }
+    if parts.len() > nuif_core::PROFILE0_MAX_GRID_AXIS_TRACKS {
+        return Err(format!(
+            "grid track list exceeds {} tracks",
+            nuif_core::PROFILE0_MAX_GRID_AXIS_TRACKS
+        ));
+    }
+    parts
+        .into_iter()
+        .map(|part| {
+            let normalized = part.to_ascii_lowercase();
+            let (number, fraction) = normalized.strip_suffix("fr").map_or_else(
+                || (normalized.strip_suffix("px").unwrap_or(&normalized), false),
+                |number| (number, true),
+            );
+            let value = number
+                .parse::<f64>()
+                .map_err(|_| format!("invalid grid track {part:?}"))?;
+            if !value.is_finite() || value <= 0.0 {
+                return Err(format!("grid track {part:?} must be positive and finite"));
+            }
+            Ok(if fraction {
+                GridTrack::Fraction(value)
+            } else {
+                GridTrack::Fixed(value)
+            })
+        })
+        .collect()
+}
+
+pub(crate) fn grid_position_label(value: GridPlacement) -> String {
+    match (value.column, value.row) {
+        (Some(column), Some(row)) => format!("{} {}", column + 1, row + 1),
+        _ => "auto".to_owned(),
+    }
+}
+
+pub(crate) fn parse_grid_position(value: &str) -> Result<(Option<u32>, Option<u32>), String> {
+    let value = value.trim();
+    if value.eq_ignore_ascii_case("auto") {
+        return Ok((None, None));
+    }
+    let indices = value
+        .split(|character: char| character.is_whitespace() || matches!(character, ',' | '/'))
+        .filter(|part| !part.is_empty())
+        .collect::<Vec<_>>();
+    if indices.len() != 2 {
+        return Err("grid position must be auto or two 1-based integers".to_owned());
+    }
+    Ok((parse_grid_index(indices[0])?, parse_grid_index(indices[1])?))
+}
+
+fn parse_grid_index(value: &str) -> Result<Option<u32>, String> {
+    let value = value.trim();
+    if value.eq_ignore_ascii_case("auto") {
+        return Ok(None);
+    }
+    let index = value
+        .parse::<u32>()
+        .map_err(|_| "grid index must be auto or a positive integer".to_owned())?;
+    if index == 0
+        || usize::try_from(index).unwrap_or(usize::MAX) > nuif_core::PROFILE0_MAX_GRID_AXIS_TRACKS
+    {
+        return Err(format!(
+            "grid index must be between 1 and {}",
+            nuif_core::PROFILE0_MAX_GRID_AXIS_TRACKS
+        ));
+    }
+    Ok(Some(index - 1))
+}
+
+pub(crate) fn parse_grid_span(value: &str) -> Result<u32, String> {
+    let span = value
+        .trim()
+        .parse::<u32>()
+        .map_err(|_| "grid span must be a positive integer".to_owned())?;
+    if span == 0
+        || usize::try_from(span).unwrap_or(usize::MAX) > nuif_core::PROFILE0_MAX_GRID_AXIS_TRACKS
+    {
+        return Err(format!(
+            "grid span must be between 1 and {}",
+            nuif_core::PROFILE0_MAX_GRID_AXIS_TRACKS
+        ));
+    }
+    Ok(span)
 }
 
 fn parse_size_intent(value: &str) -> Option<SizeIntent> {
@@ -863,6 +1104,88 @@ mod tests {
                 && node.label == "width"
                 && node.value.as_deref() == Some("640")
         }));
+    }
+
+    #[test]
+    fn grid_controls_share_accessibility_protocol_and_replay() {
+        let mut document = Document::empty(EntityId::new(1));
+        let root = EntityId::new(2);
+        let child = EntityId::new(3);
+        let mut grid = Entity::new(root, EntityKind::Container);
+        grid.authored.width = SizeIntent::Fill;
+        grid.authored.height = SizeIntent::Fill;
+        grid.authored.layout.family = nuif_core::LayoutFamily::Grid;
+        grid.authored.layout.grid.columns = vec![GridTrack::Fraction(1.0); 2];
+        grid.authored.layout.grid.rows = vec![GridTrack::Fraction(1.0)];
+        grid.children.push(child);
+        document.roots.push(root);
+        document.entities.insert(root, grid);
+        document
+            .entities
+            .insert(child, Entity::new(child, EntityKind::Container));
+        let base = document.clone();
+        let mut driver = EditorDriver::new(document);
+        let tree = driver.accessibility_tree();
+        assert!(tree.iter().any(|node| {
+            node.author_id == Some(root)
+                && node.label == "grid_columns"
+                && node.value.as_deref() == Some("1fr 1fr")
+        }));
+        assert!(tree.iter().any(|node| {
+            node.author_id == Some(child)
+                && node.label == "grid_position"
+                && node.value.as_deref() == Some("auto")
+        }));
+
+        driver
+            .dispatch_accessibility_action(AccessibilityAction::SetValue {
+                author_id: root,
+                label: "grid_columns".to_owned(),
+                value: "80px 2fr".to_owned(),
+            })
+            .unwrap();
+        driver
+            .dispatch_accessibility_action(AccessibilityAction::SetValue {
+                author_id: child,
+                label: "grid_position".to_owned(),
+                value: "2 1".to_owned(),
+            })
+            .unwrap();
+        assert_eq!(
+            driver.document().entities[&root]
+                .authored
+                .layout
+                .grid
+                .columns,
+            vec![GridTrack::Fixed(80.0), GridTrack::Fraction(2.0)]
+        );
+        assert_eq!(
+            driver.document().entities[&child]
+                .authored
+                .grid_placement
+                .column,
+            Some(1)
+        );
+        let mut replayed = base;
+        for patch in driver.operation_log() {
+            apply_patch(&mut replayed, patch).unwrap();
+        }
+        assert_eq!(replayed, *driver.document());
+    }
+
+    #[test]
+    fn grid_control_parsers_reject_ambiguous_or_unbounded_values() {
+        assert_eq!(
+            parse_grid_tracks("120px, 2fr").unwrap(),
+            vec![GridTrack::Fixed(120.0), GridTrack::Fraction(2.0)]
+        );
+        assert_eq!(parse_grid_position("2 / 3").unwrap(), (Some(1), Some(2)));
+        assert!(parse_grid_tracks("").is_err());
+        assert!(parse_grid_tracks("0fr").is_err());
+        assert!(parse_grid_tracks("NaNpx").is_err());
+        assert!(parse_grid_position("1").is_err());
+        assert!(parse_grid_position("0 1").is_err());
+        assert!(parse_grid_span("0").is_err());
     }
 
     #[test]

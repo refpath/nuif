@@ -350,7 +350,8 @@ fn execute_action(
             let semantic_label = match label.as_str() {
                 "name" | "width" | "height" | "x" | "y" | "gap" | "padding_top"
                 | "padding_right" | "padding_bottom" | "padding_left" | "fill" | "text"
-                | "font_size" | "line_height" => label.as_str(),
+                | "font_size" | "line_height" | "grid_columns" | "grid_rows" | "grid_position"
+                | "grid_column_span" | "grid_row_span" => label.as_str(),
                 _ => return Err(format!("unsupported native control label {label:?}")),
             };
             let widget_id = driver

@@ -8,7 +8,8 @@ pub mod automation;
 use self::widgets::{AuthorAction, AuthorContainer, CanvasAction, CanvasShortcut, DocumentCanvas};
 use crate::{
     AccessibilityAction, EditorCommand, EditorDriver, EditorEvent, decode_editor_file,
-    encode_editor_file,
+    encode_editor_file, grid_position_label, grid_tracks_label, parse_grid_position,
+    parse_grid_span, parse_grid_tracks,
 };
 use masonry::core::{ErasedAction, NewWidget, StyleProperty, Widget, WidgetId};
 use masonry::dpi::LogicalSize;
@@ -27,8 +28,9 @@ use masonry_winit::winit::window::Window;
 use nuif_adapter::{AdapterReport, PackageReport};
 use nuif_codec::read_bounded as read_bounded_stream;
 use nuif_core::{
-    Align, Color, Document, Entity, EntityId, EntityKind, Fidelity, FlowDirection, LayoutFamily,
-    Point, ShapeKind, SizeIntent, TextContent, validate,
+    Align, Color, Document, Entity, EntityId, EntityKind, Fidelity, FlowDirection, GridAutoFlow,
+    GridPlacement, GridStyle, GridTrack, LayoutFamily, Point, ShapeKind, SizeIntent, TextContent,
+    validate,
 };
 use nuif_package::{MAX_PACKAGE_BYTES, NuifPackage};
 use nuif_protocol::{Anchor, Axis as ProtocolAxis, Operation};
@@ -93,6 +95,7 @@ enum UiAction {
     ChooseLeftPanel(LeftPanel),
     SetLayoutFamily(LayoutFamily),
     SetDirection(FlowDirection),
+    SetGridAutoFlow(GridAutoFlow),
     SetAlign(Align),
     SetViewport(u32),
     ZoomIn,
@@ -239,10 +242,66 @@ enum InspectorField {
     PaddingRight(EntityId),
     PaddingBottom(EntityId),
     PaddingLeft(EntityId),
+    GridColumns(EntityId),
+    GridRows(EntityId),
+    GridPosition(EntityId),
+    GridColumnSpan(EntityId),
+    GridRowSpan(EntityId),
     Fill(EntityId),
     TextContent(EntityId),
     FontSize(EntityId),
     LineHeight(EntityId),
+}
+
+impl InspectorField {
+    const fn entity(self) -> EntityId {
+        match self {
+            Self::Name(entity)
+            | Self::Width(entity)
+            | Self::Height(entity)
+            | Self::X(entity)
+            | Self::Y(entity)
+            | Self::Gap(entity)
+            | Self::PaddingTop(entity)
+            | Self::PaddingRight(entity)
+            | Self::PaddingBottom(entity)
+            | Self::PaddingLeft(entity)
+            | Self::GridColumns(entity)
+            | Self::GridRows(entity)
+            | Self::GridPosition(entity)
+            | Self::GridColumnSpan(entity)
+            | Self::GridRowSpan(entity)
+            | Self::Fill(entity)
+            | Self::TextContent(entity)
+            | Self::FontSize(entity)
+            | Self::LineHeight(entity) => entity,
+        }
+    }
+
+    fn accessibility(self) -> (&'static str, &'static str, masonry::accesskit::Role) {
+        use masonry::accesskit::Role::{SpinButton, TextInput};
+        match self {
+            Self::Name(_) => ("Name control", "name", TextInput),
+            Self::Width(_) => ("Width control", "width", SpinButton),
+            Self::Height(_) => ("Height control", "height", SpinButton),
+            Self::X(_) => ("X control", "x", SpinButton),
+            Self::Y(_) => ("Y control", "y", SpinButton),
+            Self::Gap(_) => ("Gap control", "gap", SpinButton),
+            Self::PaddingTop(_) => ("Top padding control", "padding_top", SpinButton),
+            Self::PaddingRight(_) => ("Right padding control", "padding_right", SpinButton),
+            Self::PaddingBottom(_) => ("Bottom padding control", "padding_bottom", SpinButton),
+            Self::PaddingLeft(_) => ("Left padding control", "padding_left", SpinButton),
+            Self::GridColumns(_) => ("Grid columns control", "grid_columns", TextInput),
+            Self::GridRows(_) => ("Grid rows control", "grid_rows", TextInput),
+            Self::GridPosition(_) => ("Grid position control", "grid_position", TextInput),
+            Self::GridColumnSpan(_) => ("Grid column span control", "grid_column_span", SpinButton),
+            Self::GridRowSpan(_) => ("Grid row span control", "grid_row_span", SpinButton),
+            Self::Fill(_) => ("Fill control", "fill", TextInput),
+            Self::TextContent(_) => ("Text content control", "text", TextInput),
+            Self::FontSize(_) => ("Font size control", "font_size", SpinButton),
+            Self::LineHeight(_) => ("Line height control", "line_height", SpinButton),
+        }
+    }
 }
 
 #[expect(
@@ -715,6 +774,7 @@ impl Driver {
                     ("Free", LayoutFamily::Freeform),
                     ("Stack", LayoutFamily::Stack),
                     ("Flex", LayoutFamily::Flex),
+                    ("Grid", LayoutFamily::Grid),
                 ] {
                     families = families.with_fixed(self.button(
                         caption,
@@ -725,20 +785,52 @@ impl Driver {
                 content = content
                     .with_fixed(families.prepare())
                     .with_fixed_spacer(7.px());
-                let mut directions = Flex::row();
-                for (caption, direction) in [
-                    ("Row", FlowDirection::Row),
-                    ("Column", FlowDirection::Column),
-                ] {
-                    directions = directions.with_fixed(self.button(
-                        caption,
-                        UiAction::SetDirection(direction),
-                        entity.authored.layout.direction == direction,
-                    ));
+                if entity.authored.layout.family == LayoutFamily::Grid {
+                    let mut flows = Flex::row();
+                    for (caption, flow) in [
+                        ("Row flow", GridAutoFlow::Row),
+                        ("Column flow", GridAutoFlow::Column),
+                    ] {
+                        flows = flows.with_fixed(self.button(
+                            caption,
+                            UiAction::SetGridAutoFlow(flow),
+                            entity.authored.layout.grid.auto_flow == flow,
+                        ));
+                    }
+                    content = content
+                        .with_fixed(flows.prepare())
+                        .with_fixed_spacer(7.px())
+                        .with_fixed(label("Columns · px or fr", 11.0, TEXT, false))
+                        .with_fixed(self.inspector_input(
+                            InspectorField::GridColumns(entity_id),
+                            &grid_tracks_label(&entity.authored.layout.grid.columns),
+                            "120px 1fr",
+                        ))
+                        .with_fixed_spacer(7.px())
+                        .with_fixed(label("Rows · px or fr", 11.0, TEXT, false))
+                        .with_fixed(self.inspector_input(
+                            InspectorField::GridRows(entity_id),
+                            &grid_tracks_label(&entity.authored.layout.grid.rows),
+                            "1fr 1fr",
+                        ))
+                        .with_fixed_spacer(7.px());
+                } else {
+                    let mut directions = Flex::row();
+                    for (caption, direction) in [
+                        ("Row", FlowDirection::Row),
+                        ("Column", FlowDirection::Column),
+                    ] {
+                        directions = directions.with_fixed(self.button(
+                            caption,
+                            UiAction::SetDirection(direction),
+                            entity.authored.layout.direction == direction,
+                        ));
+                    }
+                    content = content
+                        .with_fixed(directions.prepare())
+                        .with_fixed_spacer(7.px());
                 }
                 content = content
-                    .with_fixed(directions.prepare())
-                    .with_fixed_spacer(7.px())
                     .with_fixed(label("Gap · px", 11.0, TEXT, false))
                     .with_fixed(self.inspector_input(
                         InspectorField::Gap(entity_id),
@@ -783,6 +875,42 @@ impl Driver {
                 }
                 content = content
                     .with_fixed(alignments.prepare())
+                    .with_fixed_spacer(18.px());
+            }
+
+            if self
+                .editor
+                .document()
+                .parent_of(entity_id)
+                .is_some_and(|parent| {
+                    self.editor.document().entities[&parent]
+                        .authored
+                        .layout
+                        .family
+                        == LayoutFamily::Grid
+                })
+            {
+                content = content
+                    .with_fixed(label("GRID ITEM", 10.0, MUTED, true))
+                    .with_fixed_spacer(7.px())
+                    .with_fixed(label("Position · column row or auto", 11.0, TEXT, false))
+                    .with_fixed(self.inspector_input(
+                        InspectorField::GridPosition(entity_id),
+                        &grid_position_label(entity.authored.grid_placement),
+                        "auto or 1 1",
+                    ))
+                    .with_fixed_spacer(7.px())
+                    .with_fixed(label("Column / row span", 11.0, TEXT, false))
+                    .with_fixed(self.inspector_input(
+                        InspectorField::GridColumnSpan(entity_id),
+                        &entity.authored.grid_placement.column_span.to_string(),
+                        "1",
+                    ))
+                    .with_fixed(self.inspector_input(
+                        InspectorField::GridRowSpan(entity_id),
+                        &entity.authored.grid_placement.row_span.to_string(),
+                        "1",
+                    ))
                     .with_fixed_spacer(18.px());
             }
 
@@ -1033,78 +1161,8 @@ impl Driver {
             .map_or_else(|| value.to_owned(), Clone::clone);
         let input = TextInput::new(&value).with_placeholder(placeholder);
         self.text_fields.insert(input.area_pod().id(), field);
-        let entity = match field {
-            InspectorField::Name(entity)
-            | InspectorField::Width(entity)
-            | InspectorField::Height(entity)
-            | InspectorField::X(entity)
-            | InspectorField::Y(entity)
-            | InspectorField::Gap(entity)
-            | InspectorField::PaddingTop(entity)
-            | InspectorField::PaddingRight(entity)
-            | InspectorField::PaddingBottom(entity)
-            | InspectorField::PaddingLeft(entity)
-            | InspectorField::Fill(entity)
-            | InspectorField::TextContent(entity)
-            | InspectorField::FontSize(entity)
-            | InspectorField::LineHeight(entity) => entity,
-        };
-        let (label, semantic_label, role) = match field {
-            InspectorField::Name(_) => {
-                ("Name control", "name", masonry::accesskit::Role::TextInput)
-            }
-            InspectorField::Width(_) => (
-                "Width control",
-                "width",
-                masonry::accesskit::Role::SpinButton,
-            ),
-            InspectorField::Height(_) => (
-                "Height control",
-                "height",
-                masonry::accesskit::Role::SpinButton,
-            ),
-            InspectorField::X(_) => ("X control", "x", masonry::accesskit::Role::SpinButton),
-            InspectorField::Y(_) => ("Y control", "y", masonry::accesskit::Role::SpinButton),
-            InspectorField::Gap(_) => ("Gap control", "gap", masonry::accesskit::Role::SpinButton),
-            InspectorField::PaddingTop(_) => (
-                "Top padding control",
-                "padding_top",
-                masonry::accesskit::Role::SpinButton,
-            ),
-            InspectorField::PaddingRight(_) => (
-                "Right padding control",
-                "padding_right",
-                masonry::accesskit::Role::SpinButton,
-            ),
-            InspectorField::PaddingBottom(_) => (
-                "Bottom padding control",
-                "padding_bottom",
-                masonry::accesskit::Role::SpinButton,
-            ),
-            InspectorField::PaddingLeft(_) => (
-                "Left padding control",
-                "padding_left",
-                masonry::accesskit::Role::SpinButton,
-            ),
-            InspectorField::Fill(_) => {
-                ("Fill control", "fill", masonry::accesskit::Role::TextInput)
-            }
-            InspectorField::TextContent(_) => (
-                "Text content control",
-                "text",
-                masonry::accesskit::Role::TextInput,
-            ),
-            InspectorField::FontSize(_) => (
-                "Font size control",
-                "font_size",
-                masonry::accesskit::Role::SpinButton,
-            ),
-            InspectorField::LineHeight(_) => (
-                "Line height control",
-                "line_height",
-                masonry::accesskit::Role::SpinButton,
-            ),
-        };
+        let entity = field.entity();
+        let (label, semantic_label, role) = field.accessibility();
         let control = AuthorContainer::value_control(
             input.prepare(),
             entity,
@@ -1237,10 +1295,13 @@ impl Driver {
             }
             UiAction::ChooseLeftPanel(panel) => self.left_panel = panel,
             UiAction::SetLayoutFamily(family) => {
-                self.update_selected_layout(|layout| layout.family = family);
+                self.set_selected_layout_family(family);
             }
             UiAction::SetDirection(direction) => {
                 self.update_selected_layout(|layout| layout.direction = direction);
+            }
+            UiAction::SetGridAutoFlow(flow) => {
+                self.update_selected_layout(|layout| layout.grid.auto_flow = flow);
             }
             UiAction::SetAlign(align) => self.update_selected_layout(|layout| layout.align = align),
             UiAction::SetViewport(width) => {
@@ -1612,6 +1673,45 @@ impl Driver {
         Ok(())
     }
 
+    fn set_selected_layout_family(&mut self, family: LayoutFamily) {
+        let Some(entity_id) = self.editor.selection().first().copied() else {
+            "Select a container to edit layout".clone_into(&mut self.status);
+            return;
+        };
+        let entity = self.editor.document().entities[&entity_id].clone();
+        if entity.authored.layout.family == family {
+            return;
+        }
+        let mut layout = entity.authored.layout.clone();
+        layout.family = family;
+        layout.grid = if family == LayoutFamily::Grid {
+            default_grid_style(entity.children.len())
+        } else {
+            GridStyle::default()
+        };
+        let mut operations = vec![Operation::SetLayout {
+            entity: entity_id,
+            value: layout,
+        }];
+        operations.extend(entity.children.iter().filter_map(|child| {
+            let placement = self.editor.document().entities[child]
+                .authored
+                .grid_placement;
+            (placement != GridPlacement::default()).then_some(Operation::SetGridPlacement {
+                entity: *child,
+                value: GridPlacement::default(),
+            })
+        }));
+        match self.editor.execute(EditorCommand::Apply { operations }) {
+            Ok(_) => {
+                self.dirty = true;
+                self.drafts.clear();
+                "Updated layout family".clone_into(&mut self.status);
+            }
+            Err(error) => self.status = format!("Layout family edit failed: {error}"),
+        }
+    }
+
     fn update_selected_layout(&mut self, update: impl FnOnce(&mut nuif_core::LayoutStyle)) {
         let Some(entity) = self.editor.selection().first().copied() else {
             "Select a container to edit layout".clone_into(&mut self.status);
@@ -1687,6 +1787,7 @@ impl Driver {
         let mut height_changed = false;
         let mut position_changed = false;
         let mut layout_changed = false;
+        let mut grid_placement_changed = false;
         let mut fill_changed = false;
         let mut text_changed = false;
         for field in fields {
@@ -1733,6 +1834,27 @@ impl Driver {
                 InspectorField::PaddingLeft(_) => parse_number(value).map(|value| {
                     edited.authored.layout.padding.left = value;
                     layout_changed = true;
+                }),
+                InspectorField::GridColumns(_) => parse_grid_tracks(value).map(|value| {
+                    edited.authored.layout.grid.columns = value;
+                    layout_changed = true;
+                }),
+                InspectorField::GridRows(_) => parse_grid_tracks(value).map(|value| {
+                    edited.authored.layout.grid.rows = value;
+                    layout_changed = true;
+                }),
+                InspectorField::GridPosition(_) => parse_grid_position(value).map(|value| {
+                    edited.authored.grid_placement.column = value.0;
+                    edited.authored.grid_placement.row = value.1;
+                    grid_placement_changed = true;
+                }),
+                InspectorField::GridColumnSpan(_) => parse_grid_span(value).map(|value| {
+                    edited.authored.grid_placement.column_span = value;
+                    grid_placement_changed = true;
+                }),
+                InspectorField::GridRowSpan(_) => parse_grid_span(value).map(|value| {
+                    edited.authored.grid_placement.row_span = value;
+                    grid_placement_changed = true;
                 }),
                 InspectorField::Fill(_) => parse_fill(value).map(|value| {
                     edited.authored.fill = value;
@@ -1803,6 +1925,12 @@ impl Driver {
             operations.push(Operation::SetLayout {
                 entity: entity_id,
                 value: edited.authored.layout.clone(),
+            });
+        }
+        if grid_placement_changed {
+            operations.push(Operation::SetGridPlacement {
+                entity: entity_id,
+                value: edited.authored.grid_placement,
             });
         }
         if fill_changed {
@@ -2311,6 +2439,16 @@ fn size_value(value: &SizeIntent) -> String {
     }
 }
 
+fn default_grid_style(child_count: usize) -> GridStyle {
+    let column_count = if child_count > 1 { 2 } else { 1 };
+    let row_count = child_count.div_ceil(column_count).max(1);
+    GridStyle {
+        columns: vec![GridTrack::Fraction(1.0); column_count],
+        rows: vec![GridTrack::Fraction(1.0); row_count],
+        auto_flow: GridAutoFlow::Row,
+    }
+}
+
 fn parse_size_intent(value: &str) -> Result<SizeIntent, String> {
     let value = value.trim();
     match value {
@@ -2407,6 +2545,11 @@ fn inspector_entity(field: &InspectorField) -> EntityId {
         | InspectorField::PaddingRight(entity)
         | InspectorField::PaddingBottom(entity)
         | InspectorField::PaddingLeft(entity)
+        | InspectorField::GridColumns(entity)
+        | InspectorField::GridRows(entity)
+        | InspectorField::GridPosition(entity)
+        | InspectorField::GridColumnSpan(entity)
+        | InspectorField::GridRowSpan(entity)
         | InspectorField::Fill(entity)
         | InspectorField::TextContent(entity)
         | InspectorField::FontSize(entity)
@@ -2660,6 +2803,83 @@ mod tests {
                 .operations
                 .len(),
             3
+        );
+    }
+
+    #[test]
+    fn grid_family_tracks_and_item_position_use_semantic_transactions() {
+        let (_, mut driver) = harness();
+        let surface = driver.editor.document().roots[0];
+        driver
+            .insert_entity(Tool::Rectangle, Some(surface), 8.0, 8.0)
+            .unwrap();
+        let first = driver.editor.selection()[0];
+        driver
+            .insert_entity(Tool::Rectangle, Some(surface), 16.0, 8.0)
+            .unwrap();
+        let second = driver.editor.selection()[0];
+        driver
+            .editor
+            .execute(EditorCommand::Select { entity: surface })
+            .unwrap();
+        driver.set_selected_layout_family(LayoutFamily::Grid);
+        let layout = &driver.editor.document().entities[&surface].authored.layout;
+        assert_eq!(layout.family, LayoutFamily::Grid);
+        assert_eq!(layout.grid.columns, vec![GridTrack::Fraction(1.0); 2]);
+        assert_eq!(layout.grid.rows, vec![GridTrack::Fraction(1.0)]);
+
+        driver
+            .drafts
+            .insert(InspectorField::GridColumns(surface), "80px 2fr".to_owned());
+        driver.apply_all_drafts();
+        assert_eq!(
+            driver.editor.document().entities[&surface]
+                .authored
+                .layout
+                .grid
+                .columns,
+            vec![GridTrack::Fixed(80.0), GridTrack::Fraction(2.0)]
+        );
+
+        driver
+            .editor
+            .execute(EditorCommand::Select { entity: second })
+            .unwrap();
+        driver
+            .drafts
+            .insert(InspectorField::GridPosition(second), "2 1".to_owned());
+        driver.apply_all_drafts();
+        assert_eq!(
+            driver.editor.document().entities[&second]
+                .authored
+                .grid_placement
+                .column,
+            Some(1)
+        );
+
+        driver
+            .editor
+            .execute(EditorCommand::Select { entity: surface })
+            .unwrap();
+        driver.set_selected_layout_family(LayoutFamily::Stack);
+        assert_eq!(
+            driver.editor.document().entities[&surface]
+                .authored
+                .layout
+                .grid,
+            GridStyle::default()
+        );
+        assert_eq!(
+            driver.editor.document().entities[&second]
+                .authored
+                .grid_placement,
+            GridPlacement::default()
+        );
+        assert_eq!(
+            driver.editor.document().entities[&first]
+                .authored
+                .grid_placement,
+            GridPlacement::default()
         );
     }
 

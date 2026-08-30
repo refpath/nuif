@@ -1,5 +1,5 @@
 use nuif_core::{
-    Document, Entity, EntityId, EntityKind, Point, ShapeKind, SizeIntent, TextContent,
+    Document, Entity, EntityId, EntityKind, GridTrack, LayoutFamily, Point, SizeIntent, TextContent,
 };
 use nuif_editor::{
     AccessibilityAction, EditorCommand, EditorDriver, EditorError, EditorEvent, MAX_SNAPSHOT_EDGE,
@@ -28,6 +28,7 @@ fn run() -> Result<(), String> {
         "snapshot_edge_boundary_accepted": snapshot_edge_boundary_accepted(),
         "accessibility_nonfinite_atomic": accessibility_nonfinite_atomic(),
         "accessibility_fill_atomic": accessibility_fill_atomic(),
+        "accessibility_grid_atomic": accessibility_grid_atomic(),
         "missing_selection_atomic": missing_selection_atomic(),
         "missing_semantic_node_typed": missing_semantic_node_typed(),
         "multi_operation_failure_atomic": multi_operation_failure_atomic(),
@@ -147,6 +148,32 @@ fn accessibility_fill_atomic() -> bool {
         Err(EditorError::AccessibilityValueInvalid { .. })
     ) && driver.document() == &base
         && driver.operation_log().is_empty()
+}
+
+fn accessibility_grid_atomic() -> bool {
+    let base = editor_fixture();
+    let mut driver = EditorDriver::new(base.clone());
+    [
+        (EntityId::new(0x20), "grid_columns", ""),
+        (EntityId::new(0x20), "grid_rows", "0fr"),
+        (EntityId::new(0x21), "grid_position", "1"),
+        (EntityId::new(0x21), "grid_position", "0 1"),
+        (EntityId::new(0x21), "grid_column_span", "0"),
+        (EntityId::new(0x21), "grid_row_span", "257"),
+    ]
+    .into_iter()
+    .all(|(author_id, label, value)| {
+        matches!(
+            driver.dispatch_accessibility_action(AccessibilityAction::SetValue {
+                author_id,
+                label: label.to_owned(),
+                value: value.to_owned(),
+            }),
+            Err(EditorError::AccessibilityValueInvalid { .. })
+        ) && driver.document() == &base
+            && driver.operation_log().is_empty()
+            && !driver.can_undo()
+    })
 }
 
 fn missing_selection_atomic() -> bool {
@@ -289,12 +316,16 @@ fn editor_fixture() -> Document {
     surface.name = Some("Hostile trial surface".to_owned());
     surface.authored.width = SizeIntent::Fixed(320.0);
     surface.authored.height = SizeIntent::Fixed(200.0);
-    surface.children.extend([card_id, text_id]);
-    let mut card = Entity::new(card_id, EntityKind::Shape(ShapeKind::Rectangle));
+    surface.children.push(card_id);
+    let mut card = Entity::new(card_id, EntityKind::Container);
     card.name = Some("Card".to_owned());
     card.authored.position = Point { x: 16.0, y: 20.0 };
     card.authored.width = SizeIntent::Fixed(288.0);
     card.authored.height = SizeIntent::Fixed(160.0);
+    card.authored.layout.family = LayoutFamily::Grid;
+    card.authored.layout.grid.columns = vec![GridTrack::Fraction(1.0)];
+    card.authored.layout.grid.rows = vec![GridTrack::Fraction(1.0)];
+    card.children.push(text_id);
     let mut text = Entity::new(text_id, EntityKind::Text);
     text.name = Some("Label".to_owned());
     text.authored.position = Point { x: 24.0, y: 32.0 };
