@@ -107,7 +107,7 @@ Invariants: the target is deterministic for a given input; every limit produces 
 
 **Borrow**
 
-- `cargo fuzz` with `Arbitrary`-derived document generators as the standard harness for `nuif-codec` (text and CBOR decoders), path geometry and extension payload handling, matching the `fuzz parsers/codecs and path geometry` technique in `conformance/PLAN.md`.
+- `cargo fuzz` with `Arbitrary`-derived document generators as the default harness for `nuif-codec` (text and CBOR decoders), path geometry and extension payload handling, matching the `fuzz parsers/codecs and path geometry` technique in `conformance/PLAN.md`.
 - Concrete limit values from usvg, serde_json and image as starting points for the bounds that `spec/11-security.md` requires (depth, entity count, allocation, cycle detection).
 - libFuzzer's target contract (deterministic, no exit, no global state) as the acceptance rule for every headless engine entry point exposed through `spec/12-cli-api-and-automation.md`.
 - Zest's valid-coverage feedback: keep corpus inputs that are valid documents and add coverage, reject structurally invalid ones so the corpus stays useful for the round-trip loop.

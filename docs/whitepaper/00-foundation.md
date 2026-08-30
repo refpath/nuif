@@ -8,11 +8,11 @@ updated: 2026-08-29
 
 # NUIF foundation
 
-NUIF investigates a portable, vendor-neutral standard for authored user-interface documents. The standard is intended to preserve meaning across editors and implementation targets rather than treating a rendered bitmap, a vendor scene graph, or source-language AST as the universal truth.
+NUIF investigates a portable, vendor-neutral draft specification for authored user-interface documents. The candidate model is intended to preserve meaning across editors and implementation targets rather than treating a rendered bitmap, a vendor scene graph, or source-language AST as the universal truth.
 
 ## Thesis
 
-A useful portable interface standard must coordinate several representations instead of collapsing them into one:
+A useful portable interface specification must coordinate several representations instead of collapsing them into one:
 
 1. semantic/document containment;
 2. component and instance identity;
@@ -47,7 +47,7 @@ Silent loss is a conformance failure.
 
 ## Explicit non-goals
 
-NUIF does not promise to infer the unique original source program from pixels, reproduce arbitrary JavaScript execution, make every platform text renderer bit-identical, or force every target to support every capability. The standard should make such boundaries inspectable and machine-readable.
+NUIF does not promise to infer the unique original source program from pixels, reproduce arbitrary JavaScript execution, make every platform text renderer bit-identical, or force every target to support every capability. The draft specification should make such boundaries inspectable and machine-readable.
 
 ## Reference implementation role
 

@@ -111,7 +111,7 @@ Ambiguity handling: all solutions are enumerated lazily; the editor previews eac
 - **Adapt**: The explicit distinction between conservative (sound, may fail) and optimistic (always succeeds, may change unrelated output) merge should surface in NUIF as a fidelity class on the patch: a patch produced under an optimistic policy must be reported as `approximated` with the affected uses listed, never as `lossless`.
 - **Adapt**: The freeze primitive corresponds to NUIF correspondence records marking source regions as non-editable from the design side; NUIF should expose the same pruning to adapters but store it in the correspondence map rather than in the source program.
 - **Adapt**: Solution enumeration with previews is an editor concern; the NUIF protocol should instead return a ranked candidate list of patches with provenance so that any editor can implement the menu.
-- **Reject**: The absence of round-trip laws for user lenses (§6) is acceptable for an interactive programming environment but not for a conformance-tested interchange standard; NUIF adapters must declare which laws they satisfy per fidelity class.
+- **Reject**: The absence of round-trip laws for user lenses (§6) is acceptable for an interactive programming environment but not for a conformance-tested interchange specification; NUIF adapters must declare which laws they satisfy per fidelity class.
 - **Reject**: Update through general recursion and higher-order code (U-App into closure environments) presupposes an interpreter for the target language; NUIF adapters for Svelte, React or SwiftUI cannot assume this and should restrict the source side to a syntactic correspondence fragment (literal values, static structure) as in nuif:research:tree-sitter.
 
 ## Open questions

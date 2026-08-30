@@ -23,7 +23,7 @@ Resolved layout is keyed by an explicit context including viewport/container siz
 
 ## Rendering semantics
 
-The standard specifies the visual meaning of paths, fills, strokes, transforms, clipping, masks, gradients, compositing, images, text and supported effects. It does **not** standardize GPU command buffers or a renderer implementation.
+The draft specification defines the visual meaning of paths, fills, strokes, transforms, clipping, masks, gradients, compositing, images, text and supported effects. It does **not** specify GPU command buffers or a renderer implementation.
 
 The reference renderer uses a backend trait. Vello/wgpu is the leading interactive experiment, but conformance requires deterministic raster comparisons and must permit CPU reference rendering where GPU differences would make tests unstable.
 

@@ -24,4 +24,4 @@ links:
 Vello is a Rust GPU-compute-centric 2D renderer using wgpu. Its scene abstraction covers vector shapes, images, gradients and text-oriented drawing, while current releases still document evolving APIs and some incomplete effect/glyph areas.
 
 ## NUIF relevance
-Use Vello as an implementation experiment, not a normative dependency. Maintain a renderer trait and conformance raster path so the standard's visual semantics remain independent of Vello's evolution.
+Use Vello as an implementation experiment, not a normative dependency. Maintain a renderer trait and conformance raster path so the draft specification's visual semantics remain independent of Vello's evolution.

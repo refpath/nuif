@@ -17,7 +17,7 @@ NUIF is currently an experimental Refpath-hosted open research project, not an a
 
 - **Research records** collect evidence and may contradict one another.
 - **RFCs** propose normative model/protocol changes.
-- **ADRs** select reference-implementation techniques and do not automatically define the standard.
+- **ADRs** select reference-implementation techniques and do not automatically define the draft specification.
 - **Specifications** become normative only when their status explicitly says so.
 - **Conformance fixtures** are the executable interpretation of normative requirements.
 

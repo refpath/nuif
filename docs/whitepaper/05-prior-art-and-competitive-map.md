@@ -29,4 +29,4 @@ Retentive lenses → property/source correspondence; CRDTs → collaboration pro
 
 ## Invent/prove
 
-The genuinely new integration is the combination of authored + resolved UI state, stable cross-tool semantic identity, opaque extension retention, fidelity accounting, bidirectional semantic patches and a native open editor whose internal state is the standard itself.
+The proposed integration combines authored and resolved UI state, stable cross-tool semantic identity, opaque extension retention, fidelity accounting, bidirectional semantic patches and a native open editor whose internal state is the draft model itself.

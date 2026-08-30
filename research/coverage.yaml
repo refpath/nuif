@@ -113,5 +113,5 @@ areas:
     artifacts: [docs/PUBLISHING.md, docs/catalog.json, docs/schema/catalog.schema.json, docs/schema/document.schema.json, xtask/src/documentation.rs]
   governance_standardization:
     status: covered
-    evidence: [nuif:research:w3c-community-incubation-and-recommendation-process, nuif:research:community-specification-license-and-governance]
-    artifacts: [GOVERNANCE.md, docs/whitepaper/08-governance-and-standardization.md]
+    evidence: [nuif:research:w3c-community-incubation-and-recommendation-process, nuif:research:community-specification-license-and-governance, nuif:research:standards-development-venue-comparison]
+    artifacts: [GOVERNANCE.md, docs/STANDARDS-ROADMAP.md, docs/whitepaper/08-governance-and-standardization.md]

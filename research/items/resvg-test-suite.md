@@ -80,7 +80,7 @@ Conformance matrix:
 
 **Adapt**
 - Apply the usvg idea of a lowered, fully resolved tree to NUIF's resolved-snapshot layer, because conformance fixtures should compare the resolved scene as well as the raster; NUIF must keep authored intent alongside, which usvg discards.
-- Keep separate "reference" and "regression" raster sets, because NUIF needs hand-verified references for the standard and implementation-rendered snapshots for regression detection.
+- Keep separate "reference" and "regression" raster sets, because NUIF needs hand-verified references for the draft specification and implementation-rendered snapshots for regression detection.
 
 **Reject**
 - Do not exclude fixtures silently for SIMD rounding as `gen-tests.py` does; NUIF should instead pin the reference path's arithmetic (scalar or SIMD with identical rounding) or move the fixture to the tolerance tier with a recorded reason.

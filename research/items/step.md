@@ -24,4 +24,4 @@ links:
 STEP is a family of product-information representation and exchange standards designed to survive exchange among heterogeneous systems across a product lifecycle, with explicit data specification methods and modular parts.
 
 ## NUIF relevance
-The lesson is organizational: a durable interchange standard needs modular normative parts, conformance classes and schema discipline. Avoid STEP's complexity explosion by aggressively constraining the NUIF core and using profiles/extensions.
+The lesson is organizational: a durable interchange specification needs modular normative parts, conformance classes and schema discipline. Avoid STEP's complexity explosion by aggressively constraining the NUIF core and using profiles/extensions.

@@ -24,4 +24,4 @@ links:
 OpenPencil exposes its editor engine, scene graph, `.fig`/Kiwi codec, DOM/CSS conversion, CLI, RPC and MCP surfaces. It proves a modern design editor can treat programmatic control as a first-class surface.
 
 ## NUIF relevance
-Borrow the operational lesson: editor actions, document querying, linting and export must be available headlessly. NUIF differs by making the neutral standard itself canonical instead of centering compatibility with an existing vendor model.
+Borrow the operational lesson: editor actions, document querying, linting and export must be available headlessly. NUIF differs by making a neutral authored model canonical instead of centering compatibility with an existing vendor model.

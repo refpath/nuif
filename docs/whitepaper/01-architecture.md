@@ -1,6 +1,6 @@
 # NUIF architecture thesis
 
-NUIF is a standards-first authored-interface model. Its center is neither a vendor editor nor a source framework.
+NUIF is a specification-first authored-interface model. Its center is neither a vendor editor nor a source framework.
 
 ## Core thesis
 

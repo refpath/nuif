@@ -112,7 +112,7 @@ Divergence handling is structural, not numeric: Taffy excludes fixtures by file-
 - **Adapt**: NUIF resolved-layout snapshots must record the evaluation context fingerprint, including the reference browser version, since neither project pins it and expectations are known to move with Chrome releases (Taffy changelog, Chrome 123+ alignment change).
 - **Adapt**: Rounding must be an explicit part of the NUIF layout family contract; Taffy's separation of unrounded and edge-rounded geometry should be mirrored so that fixtures can assert either.
 - **Adapt**: Divergence flags (`x` prefix, `data-test-*`, `data-disabled`) are untyped; NUIF should replace them with the typed fidelity classes of spec/09 (evaluator bug, target semantic difference, schema loss) as required by the layout-differential experiment.
-- **Reject**: Treating Chrome as the sole ground truth is not acceptable for a vendor-neutral standard; NUIF fixtures should record specification citations and, where browsers disagree (see nuif:research:css-flexbox-grid-algorithm-specs), state which behaviour is normative for the NUIF family.
+- **Reject**: Treating Chrome as the sole ground truth is not acceptable for a vendor-neutral draft specification; NUIF fixtures should record specification citations and, where browsers disagree (see nuif:research:css-flexbox-grid-algorithm-specs), state which behaviour is normative for the NUIF family.
 - **Reject**: Reading input styles from the inline `style` object couples the fixtures to CSS syntax; NUIF fixtures should be authored in the NUIF layout vocabulary and lowered to CSS, not the reverse.
 
 ## NUIF executable verification

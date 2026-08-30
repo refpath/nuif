@@ -16,7 +16,7 @@ Immutable assets MAY additionally use cryptographic content IDs.
 
 ## Property model
 
-A property is addressed by `(entity_id, namespace, key)`. Core properties use the `nuif` namespace. Standard extensions use registered namespaces and vendor extensions use registered vendor identifiers.
+A property is addressed by `(entity_id, namespace, key)`. Core properties use the `nuif` namespace. Published extensions use registered namespaces and vendor extensions use registered vendor identifiers.
 
 Properties distinguish:
 
