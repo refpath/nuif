@@ -18,12 +18,16 @@ relations:
     note: Adds packaging and redistribution policy to the already-pinned shaping/raster inputs.
   - type: related_to
     target: nuif:research:harfbuzz-unicode
+  - type: related_to
+    target: nuif:research:ttf-parser
+  - type: related_to
+    target: nuif:research:fontations
 links:
   spec: [spec/05-geometry-paint-text.md, spec/08-serialization.md, spec/11-security.md]
   adr: [adrs/0003-reference-renderer.md]
   rfc: [rfcs/0010-portable-resource-package.md]
-  code: [crates/nuif-text]
-  experiments: [nuif:experiment:font-resource-profile]
+  code: [crates/nuif-text, crates/nuif-font, crates/nuif-package, crates/nuif-testing/src/bin/font-resources.rs]
+  experiments: [nuif:experiment:font-resource-static-baseline, nuif:experiment:font-resource-profile]
 ---
 
 # Summary
@@ -42,6 +46,10 @@ legal decision engine.
 - Bit 8 forbids subsetting and bit 9 permits only embedded bitmaps. Reserved
   bits and historical version differences mean parsers must validate the table
   version and length rather than assuming one modern layout.
+- Versions 0 through 2 historically permitted multiple usage bits with a
+  least-restrictive interpretation, while version 3 made those bits mutually
+  exclusive. The first NUIF profile deliberately rejects ambiguous historical
+  combinations instead of silently selecting a permission.
 - The specification says embedding-aware applications must not embed fonts
   whose permissions do not allow embedding or alter the flags, and notes that
   rights are granted by the font vendor.
@@ -77,6 +85,19 @@ facts; it does not provide legal advice.
 **Reject** family name as font identity, system-font discovery for exact
 profiles, silent fallback, automatic embedding from a browser's platform-font
 name, and a claim that `fsType == 0` alone proves redistribution rights.
+
+## Implemented narrow baseline
+
+`nuif-opentype-static-single-0` accepts only one checksummed, canonically packed
+TrueType-outline sfnt face. It rejects TTC, CFF/CFF2, variable, color, bitmap,
+SVG and WOFF/WOFF2 sources. Package validation compares face, family names,
+static axis state and exact Unicode coverage, then requires matching `fsType`,
+a non-empty license expression and an explicit `approved` embedding review.
+
+`cargo xtask gate-i-font` compares `ttf-parser` 0.25.1 against Skrifa 0.46.2 on
+the pinned Ahem resource, proves package byte fixpoint and resource retention,
+and runs malformed, checksum, directory, policy and one-over trials. This is an
+automated baseline, not completion of the broader font-resource experiment.
 
 ## Open questions
 

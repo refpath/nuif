@@ -36,6 +36,7 @@ const ALL_STEPS: &[Step] = &[
     ("gate-h", gate_h),
     ("gate-i-package", gate_i_package),
     ("gate-i-image", gate_i_image),
+    ("gate-i-font", gate_i_font),
     ("capture-baselines", capture_baselines),
 ];
 
@@ -81,6 +82,7 @@ const VERIFICATION_ARTIFACTS: &[&str] = &[
     "target/collaboration-report.json",
     "target/package-resources-report.json",
     "target/image-resources-report.json",
+    "target/font-resources-report.json",
     "target/capture-reconstruction-report.json",
 ];
 
@@ -130,6 +132,7 @@ fn run() -> Result<(), String> {
         Some("gate-h") => gate_h(),
         Some("gate-i-package") => gate_i_package(),
         Some("gate-i-image") => gate_i_image(),
+        Some("gate-i-font") => gate_i_font(),
         Some("capture-baselines") => capture_baselines(),
         Some("browser-install") => browser_install(),
         Some("hostile-inputs") => hostile_inputs(),
@@ -157,7 +160,7 @@ fn run() -> Result<(), String> {
         Some("manifest") => standalone_manifest(),
         Some("all") => all(),
         _ => Err(
-            "usage: cargo xtask <research|adapter-audit|dependency-audit|docs-check|docs-build|docs-paper|docs-serve|docs-setup|verify|trial [seed iterations snapshot-interval report-path]|gate-b|gate-c|gate-d|gate-d-text|gate-d-render|gate-f|gate-f-v0|gate-svg|gate-dtcg|gate-penpot|gate-g|gate-h|gate-i-package|gate-i-image|capture-baselines|browser-install|hostile-inputs|editor-hostile-inputs|performance|editor-trial|editor-gui-trial|editor-install-trial|editor-package|editor-launch|editor-install|editor-doctor|editor-rollback|editor-uninstall|editor-update|release-check <tag>|manifest|all>"
+            "usage: cargo xtask <research|adapter-audit|dependency-audit|docs-check|docs-build|docs-paper|docs-serve|docs-setup|verify|trial [seed iterations snapshot-interval report-path]|gate-b|gate-c|gate-d|gate-d-text|gate-d-render|gate-f|gate-f-v0|gate-svg|gate-dtcg|gate-penpot|gate-g|gate-h|gate-i-package|gate-i-image|gate-i-font|capture-baselines|browser-install|hostile-inputs|editor-hostile-inputs|performance|editor-trial|editor-gui-trial|editor-install-trial|editor-package|editor-launch|editor-install|editor-doctor|editor-rollback|editor-uninstall|editor-update|release-check <tag>|manifest|all>"
                 .to_owned(),
         ),
     }
@@ -245,6 +248,21 @@ fn gate_i_image() -> Result<(), String> {
         "--",
         "--output",
         "target/image-resources-report.json",
+    ])
+}
+
+fn gate_i_font() -> Result<(), String> {
+    cargo(&[
+        "run",
+        "--release",
+        "--locked",
+        "-p",
+        "nuif-testing",
+        "--bin",
+        "font-resources",
+        "--",
+        "--output",
+        "target/font-resources-report.json",
     ])
 }
 

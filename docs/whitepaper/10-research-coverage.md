@@ -25,8 +25,11 @@ This distinction is important: marking an open research problem as finished woul
 - Screenshot-to-code research continues to show that visual reconstruction is not equivalent to recovering authored layout or behavior.
 - Merkle/content addressing is appropriate for immutable assets and snapshots but not for editable semantic identity.
 - EPUB OCF and OCI descriptors support a narrow manifest-driven package with
-  size/digest verification, but deterministic NUIF ZIP bytes still require an
-  independent-writer experiment.
+  size/digest verification; NUIF now has an in-repository independent-writer
+  fixture, while cross-platform and external reproduction remain open.
+- OpenType, `ttf-parser` and Fontations evidence now supports one executable
+  static TrueType package baseline; broad font formats, portability outcomes
+  and shaping/raster integration remain experiment-required.
 - Browser source capture and screenshot reconstruction are different evidence
   lanes and cannot share a blanket `lossless` claim.
 - Current screenshot-to-code work supports OCR/region/hierarchical and render-

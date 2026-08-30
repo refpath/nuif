@@ -25,9 +25,10 @@ accepted.
 fixture, package/resource identity relations, explicit resolver and hostile
 archive/one-over suite are executable through `cargo xtask gate-i-package`.
 The separate `nuif-png-rgba8-0` segment is executable through
-`cargo xtask gate-i-image`. This is not full Gate I: broader PNG
-interpretation, OpenType policy and cross-platform/external package and image
-evidence remain incomplete.
+`cargo xtask gate-i-image`; `nuif-opentype-static-single-0` is executable
+through `cargo xtask gate-i-font`. This is not full Gate I: broader PNG and
+OpenType interpretation plus cross-platform/external package and media evidence
+remain incomplete.
 
 ## Numeric and string rules (RFC 0005)
 
@@ -92,4 +93,4 @@ stored in resource locators.
 
 Every serialized record kind carries a schema version. Migrations are registered pure functions per kind; reading a record whose version is newer than the implementation knows is an error with a diagnostic, never silent loss.
 
-Parsers MUST enforce resource limits and reject cycles where the relevant graph is specified acyclic. The experimental package limits are 80 MiB per archive, 32 MiB per resource, 64 MiB total embedded resources and 8,192 descriptors. `nuif-png-rgba8-0` additionally limits encoded input to 32 MiB, each dimension to 8,192, pixels to 16,777,216 and chunks to 4,096. Broader image interpretation and general font-policy limits remain experiment-required and MUST be accepted through later media profiles before implementations claim those capabilities.
+Parsers MUST enforce resource limits and reject cycles where the relevant graph is specified acyclic. The experimental package limits are 80 MiB per archive, 32 MiB per resource, 64 MiB total embedded resources and 8,192 descriptors. `nuif-png-rgba8-0` additionally limits encoded input to 32 MiB, each dimension to 8,192, pixels to 16,777,216 and chunks to 4,096. `nuif-opentype-static-single-0` limits encoded input to 32 MiB, tables to 256, family names to 256, coverage ranges to 65,536 and feature settings to 64. Broader image interpretation and general font-format/policy limits remain experiment-required and MUST be accepted through later media profiles before implementations claim those capabilities.

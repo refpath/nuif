@@ -371,6 +371,22 @@ experiments:
       - compare straight-alpha decode and declared scene-lowering conversion separately
       - verify image fit crop transform sampling and opacity in reference renders
       - prove decoded and GPU caches can be deleted without changing the semantic document hash
+  - id: nuif:experiment:font-resource-static-baseline
+    status: automated
+    evidence: [nuif:research:opentype-font-embedding-and-portability, nuif:research:ttf-parser, nuif:research:fontations, nuif:research:text-rendering-reproducibility]
+    implementation: [crates/nuif-font/src/lib.rs, crates/nuif-font/PROFILE.md, crates/nuif-package/src/lib.rs, crates/nuif-testing/src/bin/font-resources.rs, xtask/src/main.rs]
+    oracle: cross-parser-and-policy-metamorphic
+    acceptance:
+      - the pinned static TrueType face has identical units glyph count static-axis state and exact Unicode coverage under ttf-parser and Skrifa
+      - exact bytes face metadata and explicit policy evidence validate together and remain digest-identical through package fixpoint and an unrelated edit
+      - malformed checksum-invalid noncanonical unsupported and one-over cases fail before the resource is accepted
+      - the report distinguishes technical fsType evidence from license and embedding approval
+    tests:
+      - compare ttf-parser 0.25.1 behind independent sfnt checks against Skrifa 0.46.2 metrics axes and selected Unicode mapping
+      - reject truncated CFF-signature collection variable-table duplicate-tag bad-offset bad-search nonzero-padding trailing face-index checksum and encoded-byte one-over inputs
+      - mutate decoder fsType license review coverage axes and feature evidence and require atomic policy failure
+      - round-trip one exact font resource through deterministic package encoding and decoding
+      - archive target/font-resources-report.json from cargo xtask gate-i-font
   - id: nuif:experiment:font-resource-profile
     status: planned
     evidence: [nuif:research:opentype-font-embedding-and-portability, nuif:research:text-rendering-reproducibility]

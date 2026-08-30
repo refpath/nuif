@@ -114,7 +114,7 @@ Exit metrics:
 
 Evidence: `nuif-collab-registers-0` maps register-like NUIF semantic operations to causal multi-value registers. One implementation computes pairwise maximal changes from an operation set; the other incrementally maintains causal frontiers in per-replica logs. `cargo xtask gate-h` exhausts all 5,040 deliveries of a seven-change/three-replica history, compares both materializers and multiple merge orders, repeats duplicate delivery, requires two explicit property conflicts and proves canonical NUIF text contains no replica/context/conflict metadata. Five unit regressions cover incomplete and non-transitive context, atomic merge failure and structural rejection. This closes only the bounded property-register checkpoint: insert/remove/move, tombstones, sibling-list ordering and a foreign collaboration engine remain open.
 
-### Gate I — portable package and resources (package segment active)
+### Gate I — portable package and resources (container and narrow media segments active)
 
 Exit only when:
 
@@ -139,10 +139,17 @@ The CLI and editor write real packages and preserve embedded resources. The
 resource-aware CPU rasterization and rejects 13 unsupported/hostile cases via
 `cargo xtask gate-i-image`. Gate I does not yet pass: the general PNG colour
 and type profile, arbitrary transforms, cross-platform image reproduction,
-OpenType parser/policy fixtures, a cross-platform/external writer and
-calibrated total-resource/media allocation evidence remain required. The narrow
-image segment is separate from CPU render profile 0; general images and
-packaged fonts remain outside that profile.
+and a cross-platform/external writer remain required. The separate
+`nuif-opentype-static-single-0` segment compares exact Ahem metrics, static-axis
+state and Unicode coverage across `ttf-parser` and Skrifa, preserves the font
+through package fixpoint, requires explicit license/review evidence and rejects
+13 malformed/unsupported/one-over plus 10 policy cases through
+`cargo xtask gate-i-font`. TTC, CFF/CFF2, variable/color/bitmap/WOFF2 fonts,
+the full portability/substitution/unavailability matrix, shaping integration,
+cross-platform font reproduction and calibrated total-resource/media
+allocation evidence remain required. Both narrow media segments are separate
+from CPU render profile 0 and do not establish general images or packaged-font
+rendering.
 
 ### Gate J — source-backed browser capture (contract baseline active)
 

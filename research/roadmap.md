@@ -20,7 +20,7 @@ Gate G: bounded mechanically independent reproduction. The standard-library-only
 
 Gate H: bounded metadata-free collaboration checkpoint. Two algorithmically distinct in-repository materializers converge for every delivery of a conflict-bearing property-register history; conflicts remain explicit and canonical NUIF contains no replica state.
 
-Publication infrastructure: `docs/catalog.json` currently selects 231 canonical Markdown documents without copying their bodies. The bounded `xtask` compiler validates metadata and repository links, generates navigation and status indexes, builds a searchable mdBook site and composes a 13-module working manuscript. The Pages workflow retains pull-request artifacts and restricts deployment permission to its deployment job. This infrastructure publishes evidence; it does not promote evidence status.
+Publication infrastructure: `docs/catalog.json` currently selects 235 canonical Markdown documents without copying their bodies. The bounded `xtask` compiler validates metadata and repository links, generates navigation and status indexes, builds a searchable mdBook site and composes a 13-module working manuscript. The Pages workflow retains pull-request artifacts and restricts deployment permission to its deployment job. This infrastructure publishes evidence; it does not promote evidence status.
 
 ## Current falsifiers
 
@@ -33,9 +33,11 @@ produce `target/package-resources-report.json`. RFC 0010 remains proposed and
 Gate I remains open. `cargo xtask gate-i-image` now provides a narrow
 `nuif-png-rgba8-0` cross-decoder, exact-resource and repeatable CPU-render
 baseline; it deliberately excludes broader PNG colour/types, arbitrary
-transforms and cross-platform image reproduction. OpenType policy/parser
-budgets, cross-platform writer reproduction and total-resource allocation
-evidence are also independent requirements. Browser capture precedes
+transforms and cross-platform image reproduction. `cargo xtask gate-i-font`
+adds a deliberately narrow static TrueType cross-parser/package/policy baseline;
+TTC, CFF, variable/color/bitmap/WOFF2 fonts and the complete portability matrix
+remain separate. Cross-platform writer reproduction and total-resource
+allocation evidence are also independent requirements. Browser capture precedes
 screenshot reconstruction because it provides stronger source-backed fixtures
 and exposes which information is truly unavailable from pixels.
 
@@ -58,7 +60,7 @@ than a standing implementation commitment.
 4. Keep the tested Masonry shell attached only through the editor driver boundary; complete direct manipulation without moving semantic rules into shell code.
 5. Treat soft wrapping, gradients, strokes, paths, images and instance materialization as a separately versioned expanded profile; do not weaken profile-0 exactness to add them.
 6. Keep `cargo xtask gate-i-package` green across CLI/editor/package changes and add a recorded cross-platform/external writer before accepting the wire profile.
-7. Extend the narrow independent PNG baseline only through new declared fixtures, add cross-platform image reproduction, and complete OpenType parser/policy fixtures with calibrated allocation/time budgets; do not expand profile 0 by fallback.
+7. Extend the narrow PNG and static TrueType baselines only through new declared fixtures, add cross-platform media reproduction, and complete the broader OpenType format/policy matrix with calibrated allocation/time budgets; do not expand profile 0 by fallback.
 8. Extend the fixed-input capture contract into a pinned live-browser adapter with header/body secret canaries, multi-viewport observations and explicit unavailable evidence.
 9. Freeze the reconstruction corpus and evaluator, then compare deterministic OCR/CV, one-shot, observation-assisted, hierarchical and corrective-loop baselines through the existing typed boundary.
 10. Train or distill only if the frozen evaluation demonstrates a learnable gap and rights-cleared validated traces exist.

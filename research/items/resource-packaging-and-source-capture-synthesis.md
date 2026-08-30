@@ -27,8 +27,8 @@ links:
   spec: [spec/05-geometry-paint-text.md, spec/08-serialization.md, spec/09-provenance-and-fidelity.md, spec/11-security.md]
   adr: [adrs/0004-serialization.md]
   rfc: [rfcs/0003-authored-resolved-provenance.md, rfcs/0009-profile-zero-resource-budgets.md, rfcs/0010-portable-resource-package.md, rfcs/0011-observation-and-inference-provenance.md]
-  code: [crates/nuif-core, crates/nuif-codec, adapters/html-css/PROFILE.md]
-  experiments: [nuif:experiment:portable-package-resources, nuif:experiment:image-resource-profile, nuif:experiment:font-resource-profile, nuif:experiment:browser-source-capture]
+  code: [crates/nuif-core, crates/nuif-codec, crates/nuif-package, crates/nuif-media, crates/nuif-font, adapters/html-css/PROFILE.md]
+  experiments: [nuif:experiment:portable-package-resources, nuif:experiment:image-resource-rgba8-baseline, nuif:experiment:image-resource-profile, nuif:experiment:font-resource-static-baseline, nuif:experiment:font-resource-profile, nuif:experiment:browser-source-capture]
 ---
 
 # Summary

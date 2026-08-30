@@ -23,6 +23,7 @@ crates/
   nuif-codec               nuif-text-0, nuif-cbor-0, canonicalizer, migrations
   nuif-package             deterministic bounded .nuif ZIP package and resource policy
   nuif-media               bounded declared media decoders; narrow PNG RGBA8 profile
+  nuif-font                bounded static OpenType inspection and package policy
   nuif-reconstruct         typed observations/proposals and finite correction loop
   nuif-capture             browser-source and strict screenshot capture baselines
   nuif-query               semantic queries
@@ -92,6 +93,7 @@ Persisted expectation regeneration remains a planned extension and will use one 
 | adapter | round trip and fidelity report | `canon(Y(X(d))) = canon(d)` on the representable subset; every deviation explained by a report entry |
 | package | independent ZIP writer plus fixpoint and corruption trials | fixed member order/metadata, exact package bytes, manifest/document/resource hashes, no traversal/symlink/encryption/compression/ZIP64 ambiguity, explicit linked-resource resolver |
 | image resource | independent decoder plus package/render metamorphic checks | exact RGBA agreement across all PNG row filters, encoded-byte preservation, repeatable fit/crop/sampling/opacity CPU raster, fail-closed metadata and one-over inputs |
+| font resource | independent parser plus package/policy metamorphic checks | exact static TrueType metrics/coverage agreement, byte preservation, explicit embedding review and fail-closed sfnt/policy/one-over inputs |
 | capture/reconstruction contracts | metamorphic and policy assertions over fixed provider inputs | repeated normalized observations/packages, exact retained source resources, secret-query absence, evidence/omission truthfulness, observation codec fixpoint, typed proposal application, flat-copy rejection and finite-loop stop states; no live-capture or accuracy claim |
 | security | measured boundary and one-over cases | bare readers stop at 16 MiB plus one byte; packages stop at 80 MiB with 32 MiB per resource, 64 MiB total embedded resources and 8,192 resources; syntax depth 64 and the RFC 0009 semantic limits are enforced; release bare-codec cases fail above 2 s, 64 MiB allocated or 16 MiB retained; CPU targets remain capped at 16,777,216 pixels (`resource-bounded-serde-and-ciborium`) |
 
@@ -161,6 +163,17 @@ through package fixpoint and an unrelated edit, repeats resource-aware scene
 and CPU raster output, and rejects unsupported, corrupt and one-over cases. The
 report explicitly excludes broad PNG colour/metadata support, non-identity
 transforms, GPU/cross-platform image reproduction and non-PNG formats.
+
+The narrow font-resource experiment writes
+`target/font-resources-report.json`. `cargo xtask gate-i-font` compares the
+profile's `ttf-parser` interpretation with Skrifa metrics, static axes and
+selected Unicode mappings for the exact pinned Ahem bytes. It proves package
+byte fixpoint and resource retention, mutates metadata and embedding evidence,
+and rejects malformed directories, checksums, packing, unsupported tables,
+face indices and the encoded-byte one-over case. The report explicitly excludes
+TTC, CFF/CFF2, variable, color, bitmap, SVG and WOFF/WOFF2 fonts; it does not
+claim shaping/raster equivalence or that technical flags grant redistribution
+rights.
 
 The HTML/CSS retentive experiment writes `target/html-sync-report.json` and `target/html-sync-output.html`. It pins Tree-sitter and both grammars, exactly re-imports the declared subset, repeats synchronization, checks the complete unchanged-byte complement of six text/token/padding edits, preserves injected comments/unmapped markup and requires typed stale-span, unsupported-property and one-over-size failures. `cargo xtask gate-f` is blocking; the bounded profile and its non-claims are specified in `adapters/html-css/PROFILE.md`.
 

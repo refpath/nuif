@@ -66,7 +66,9 @@ to no training.
 
 Headless rendering MUST expose deterministic timeout/memory/resource budgets. GPU failures must not compromise process memory safety.
 
-Image, font, compressed-package, path-segment and GPU budgets are not part of executable profile 0. A later profile MUST calibrate and publish them before adding those resource classes to its conformance claim.
+Image, font, compressed-package, path-segment and GPU budgets are not part of
+executable CPU profile 0. Orthogonal resource profiles MUST calibrate and
+publish their own limits before claiming those resource classes.
 
 The orthogonal experimental `nuif-png-rgba8-0` image segment publishes a
 32 MiB encoded-byte limit, 8,192-pixel limit per dimension, 16,777,216-pixel
@@ -74,3 +76,11 @@ decoded limit and 4,096-chunk limit. Its inspector applies these bounds before
 inflation and its two decoders verify datastream integrity. These limits do not
 authorize other PNG forms, non-PNG media, GPU allocation or inclusion in CPU
 render profile 0.
+
+The orthogonal experimental `nuif-opentype-static-single-0` segment publishes
+a 32 MiB encoded-byte limit, 256-table limit, 256-family-name limit,
+65,536-coverage-range limit and 64-feature-setting limit. It validates sfnt
+search fields, sorted unique table records, exact contiguous zero-padded
+packing, per-table checksums and the whole-font checksum before accepting face
+metadata. These limits do not authorize other font containers/outlines, native
+rasterizer execution, redistribution or inclusion in CPU render profile 0.

@@ -12,8 +12,9 @@ reference implementation now provides stable assets, deterministic
 `nuif:experiment:portable-package-resources`. This RFC does not add image
 rendering or general packaged-font conformance to profile 0. The orthogonal
 `nuif-png-rgba8-0` experiment now implements a narrow cross-decoder and CPU
-image path; broader image and font profiles still have to satisfy their
-acceptance criteria.
+image path. The `nuif-opentype-static-single-0` experiment likewise implements
+one narrow package/parser/policy baseline; broader image and font profiles still
+have to satisfy their acceptance criteria.
 
 ## Motivation
 
@@ -249,10 +250,19 @@ resource and must report the transformation. SVG is imported through a safe
 declared adapter subset or retained as inert source; scripts and external
 resources never execute when a package opens.
 
-## Font profile proposal
+## Executable narrow font segment and broader proposal
 
-The first executable font-resource profile should accept exact OpenType/WOFF2
-bytes only under a declared portability policy. It must pin:
+`nuif-opentype-static-single-0` accepts exact static TrueType-outline sfnt bytes
+only under a declared portability policy. It requires face index zero,
+canonically packed and checksummed tables, matching family names and exact
+Unicode coverage, no variation axes, a matching `fsType` value, a non-empty
+license expression and explicit embedding review. Package encode/decode and
+resolved linked bytes run the same validation. The exact rules and non-claims
+are in `crates/nuif-font/PROFILE.md`; `cargo xtask gate-i-font` compares
+`ttf-parser` 0.25.1 with Skrifa 0.46.2 for the pinned Ahem fixture.
+
+This executable slice deliberately rejects TTC, CFF/CFF2, variable, color,
+bitmap, SVG and WOFF/WOFF2 fonts. The broader font-resource profile must pin:
 
 - parser and table/resource budgets;
 - face/collection selection;

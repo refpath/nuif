@@ -119,6 +119,7 @@
         "implementations/python/README.md",
         "tools/refpath/README.md",
         "crates/nuif-media/PROFILE.md",
+        "crates/nuif-font/PROFILE.md",
         "crates/nuif-collab/README.md"
       ]
     }

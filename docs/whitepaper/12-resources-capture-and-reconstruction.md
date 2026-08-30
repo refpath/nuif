@@ -21,8 +21,8 @@ The recommended direction is:
 
 1. define stable assets separately from immutable byte resources;
 2. make `.nuif` a deterministic portable package after cross-writer proof;
-3. grow the executable narrow PNG baseline and add an OpenType resource profile
-   only under measured hostile-input budgets;
+3. grow the executable narrow PNG and static TrueType resource baselines only
+   through named profiles and measured hostile-input budgets;
 4. add a pinned browser-capture adapter separate from static source sync;
 5. build screenshot reconstruction as a replaceable observation/proposal loop;
 6. freeze a structural and visual evaluation suite before training;
@@ -30,8 +30,9 @@ The recommended direction is:
    repeatable learnable error distribution.
 
 RFC 0010 and RFC 0011 remain proposed contracts. Their bounded package, narrow
-PNG and capture/reconstruction experiments are implementation evidence only for
-the named subsets; they are not published conformance or standards claims.
+PNG/static-font and capture/reconstruction experiments are implementation
+evidence only for the named subsets; they are not published conformance or
+standards claims.
 
 ## One core, two import lanes
 
@@ -172,6 +173,21 @@ The proposed policy states are `portable`, `private_authoring`, `linked`,
 readable evidence, including restricted/preview/editable/no-subsetting/bitmap
 flags, but is not treated as a complete legal license decision.
 
+The executable `nuif-opentype-static-single-0` baseline accepts only one
+canonically packed, checksummed TrueType-outline sfnt face at index zero.
+`ttf-parser` 0.25.1 supplies the package-facing metadata after NUIF validates
+the directory, ranges, packing and checksums; Skrifa 0.46.2 independently
+checks metrics, static-axis state and selected Unicode coverage. Exact bytes,
+family names, coverage, `fsType`, license expression and explicit embedding
+review must agree. Package encode/decode and caller-resolved linked bytes run
+the same validation.
+
+This is intentionally not general OpenType support. TTC, CFF/CFF2, variable,
+color, bitmap, SVG and WOFF/WOFF2 sources, historic ambiguous permission
+combinations, subsetting, substitution/unavailability outcomes, shaping and
+cross-platform raster behavior remain separate fixtures and profiles. Parser
+acceptance and `fsType` do not grant redistribution rights.
+
 Browser capture can identify platform fonts used for a node and capture
 downloaded web-font response bodies. It generally cannot retrieve arbitrary
 local font bytes. A family/PostScript name is therefore never exact resource
@@ -297,11 +313,11 @@ consent/policy decisions.
 ## Maturity boundary
 
 The current `0.1.0-alpha.3` label belongs to the developer editor application.
-It provides no evidence that the proposed image/font resource, live browser
+It provides no evidence that the broad image/font resource, live browser
 capture or screenshot reconstruction accuracy profiles are complete. A
-deterministic package/resource segment and fixed provider-input
-capture/reconstruction contract baseline are implemented, but their deliberately
-narrow evidence does not promote the broader profiles.
+deterministic package plus narrow PNG/static-font segments and fixed
+provider-input capture/reconstruction contract baseline are implemented, but
+their deliberately narrow evidence does not promote the broader profiles.
 
 Promotion requires the package/resource cross-writer fixtures, pinned capture
 reproduction, baseline/closed-loop/calibration harness, leak-resistant licensed
@@ -316,6 +332,9 @@ reconstruction promise.
 - `nuif:research:model-agnostic-screenshot-reconstruction-and-training`
 - `nuif:research:epub-ocf-package-container`
 - `nuif:research:oci-resource-descriptors`
+- `nuif:research:opentype-font-embedding-and-portability`
+- `nuif:research:ttf-parser`
+- `nuif:research:fontations`
 - `nuif:research:chromium-source-backed-ui-capture`
 - `nuif:research:design2code-real-world-benchmark`
 - `nuif:research:pix2struct-screenshot-parsing-pretraining`

@@ -54,8 +54,8 @@ areas:
     artifacts: [spec/08-serialization.md, adrs/0004-serialization.md, rfcs/0005-deterministic-numeric-and-string-canonicalization.md, rfcs/0008-cbor-data-model-preservation.md, rfcs/0010-portable-resource-package.md, crates/nuif-codec, research/items/resource-packaging-and-source-capture-synthesis.md, docs/whitepaper/12-resources-capture-and-reconstruction.md]
   resource_model_images_fonts:
     status: experiment-required
-    evidence: [nuif:research:resource-packaging-and-source-capture-synthesis, nuif:research:png-image-preservation-and-decoding, nuif:research:opentype-font-embedding-and-portability, nuif:research:text-rendering-reproducibility, nuif:research:content-addressed-versioning]
-    artifacts: [spec/05-geometry-paint-text.md, spec/08-serialization.md, spec/11-security.md, rfcs/0010-portable-resource-package.md, research/experiments/index.yaml]
+    evidence: [nuif:research:resource-packaging-and-source-capture-synthesis, nuif:research:png-image-preservation-and-decoding, nuif:research:opentype-font-embedding-and-portability, nuif:research:ttf-parser, nuif:research:fontations, nuif:research:text-rendering-reproducibility, nuif:research:content-addressed-versioning]
+    artifacts: [spec/05-geometry-paint-text.md, spec/08-serialization.md, spec/11-security.md, rfcs/0010-portable-resource-package.md, crates/nuif-media/PROFILE.md, crates/nuif-font/PROFILE.md, crates/nuif-testing/src/bin/image-resources.rs, crates/nuif-testing/src/bin/font-resources.rs, research/experiments/index.yaml]
   browser_source_capture:
     status: experiment-required
     evidence: [nuif:research:chromium-source-backed-ui-capture, nuif:research:tree-sitter, nuif:research:reverse-layout-inference, nuif:research:resource-packaging-and-source-capture-synthesis]
@@ -66,8 +66,8 @@ areas:
     artifacts: [spec/10-collaboration-profile.md, adrs/0005-collaboration-profile.md, crates/nuif-collab, conformance/src/bin/collaboration-registers.rs]
   security_trust:
     status: experiment-required
-    evidence: [nuif:research:webgpu-security, nuif:research:fuzzing-structured-inputs, nuif:research:resource-bounded-serde-and-ciborium, nuif:research:epub-ocf-package-container, nuif:research:oci-resource-descriptors, nuif:research:png-image-preservation-and-decoding, nuif:research:opentype-font-embedding-and-portability]
-    artifacts: [spec/11-security.md, rfcs/0009-profile-zero-resource-budgets.md, SECURITY.md]
+    evidence: [nuif:research:webgpu-security, nuif:research:fuzzing-structured-inputs, nuif:research:resource-bounded-serde-and-ciborium, nuif:research:epub-ocf-package-container, nuif:research:oci-resource-descriptors, nuif:research:png-image-preservation-and-decoding, nuif:research:opentype-font-embedding-and-portability, nuif:research:ttf-parser, nuif:research:fontations]
+    artifacts: [spec/11-security.md, rfcs/0009-profile-zero-resource-budgets.md, crates/nuif-media/PROFILE.md, crates/nuif-font/PROFILE.md, SECURITY.md]
   implementation_language:
     status: covered
     evidence: [nuif:research:taffy, nuif:research:vello, nuif:research:wasm-component-model]

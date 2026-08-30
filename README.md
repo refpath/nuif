@@ -123,7 +123,7 @@ Testing is designed for automated trial loops: generate or load a document, appl
 | Reference editor | Research preview; current release `0.1.0-alpha.3` | Semantic Versioning applies to the editor application only |
 | Draft specification | Pre-draft | No normative conformance profile is published |
 | Executable adapter and conformance profiles | Experimental | Results apply only to each declared profile and evaluation matrix |
-| Package/resources | Experimental implementation; Gate I incomplete | Deterministic package and a narrow independently decoded RGBA8 PNG/CPU-image path are executable; broad PNG, font policy and external/cross-platform reproduction remain open |
+| Package/resources | Experimental implementation; Gate I incomplete | Deterministic package plus narrow independently parsed RGBA8 PNG and static TrueType resource paths are executable; broad media/font matrices and external/cross-platform reproduction remain open |
 | Capture/reconstruction | Experimental contracts and deterministic baselines | Browser/screenshot normalization, typed proposals, calibration primitives and a finite loop exist; no broad accuracy or model claim |
 | Project | Open research project; not a standard | Standards status requires neutral governance and independent implementations |
 
@@ -136,9 +136,12 @@ preserve package resources. `cargo xtask gate-i-package` records cross-writer,
 fixpoint, identity, resolver and hostile/one-over evidence.
 `cargo xtask gate-i-image` independently decodes the narrow
 `nuif-png-rgba8-0` subset, preserves exact encoded resources and repeats
-resource-aware CPU rendering. Gate I still lacks the broader PNG colour/type
-profile, OpenType policy/parser profile, external writer and cross-platform
-package/image reproduction. RFC 0011/specification 14 have executable
+resource-aware CPU rendering. `cargo xtask gate-i-font` compares the narrow
+`nuif-opentype-static-single-0` subset across two Rust parser families, enforces
+exact package metadata and explicit embedding review, and rejects malformed and
+one-over resources. Gate I still lacks the broader PNG and OpenType matrices,
+external writer and cross-platform package/media reproduction. RFC
+0011/specification 14 have executable
 provider-neutral observation, browser/screenshot baseline, typed-proposal,
 flat-copy rejection, calibration and finite-loop primitives, but Gates J/K
 still require pinned live-browser, held-out accuracy and independent evaluator
@@ -175,6 +178,7 @@ cargo xtask gate-g # independent Python v0 parse/write/layout/render
 cargo xtask gate-h # exhaustive collaboration register convergence
 cargo xtask gate-i-package # deterministic package/resource evidence
 cargo xtask gate-i-image # independent RGBA8 PNG/resource/render evidence
+cargo xtask gate-i-font # independent static TrueType/resource/policy evidence
 cargo xtask capture-baselines # bounded capture/reconstruction contract evidence
 cargo run --locked -p nuif-cli -- fixture v0-responsive-card /tmp/v0.nuif
 cargo run --locked -p nuif-editor -- --headless \
@@ -183,7 +187,7 @@ cargo run --locked -p nuif-editor -- --headless \
 cargo run --locked -p nuif-editor # launch the native editor
 ```
 
-`cargo xtask all` bootstraps the pinned Python research-validator environment and Chrome for Testing under ignored `target/`, then runs research validation, Rust verification, the short full-raster trial, the 10,000-patch Gate B trial, release-mode hostile-input and performance trials, the Gate C differential layout trial, both Gate D text/render trials, complete headless/native editor trials, bounded retentive adapter bridges, the independent Gate G reproduction, exhaustive Gate H collaboration-register convergence, the Gate I package and narrow-image segments, and the bounded capture/reconstruction contract report. Each measured run leaves a JSON report or snapshot under `target/`; `target/verification-manifest.json` indexes the complete evidence set and records success or the first failed step. CI archives both the individual evidence and this manifest.
+`cargo xtask all` bootstraps the pinned Python research-validator environment and Chrome for Testing under ignored `target/`, then runs research validation, Rust verification, the short full-raster trial, the 10,000-patch Gate B trial, release-mode hostile-input and performance trials, the Gate C differential layout trial, both Gate D text/render trials, complete headless/native editor trials, bounded retentive adapter bridges, the independent Gate G reproduction, exhaustive Gate H collaboration-register convergence, the Gate I package, narrow-image and narrow-font segments, and the bounded capture/reconstruction contract report. Each measured run leaves a JSON report or snapshot under `target/`; `target/verification-manifest.json` indexes the complete evidence set and records success or the first failed step. CI archives both the individual evidence and this manifest.
 
 ## Contributing
 
