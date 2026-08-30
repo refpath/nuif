@@ -4,8 +4,8 @@ The adapter program separates an ecosystem's public interchange or source
 surface from the subset for which NUIF can provide executable round-trip laws.
 Research coverage does not imply an implemented conformance profile.
 
-The inventory contains eleven targets and four executable profiles across
-three target families. The remaining targets have no executable direction in
+The inventory contains eleven targets and five executable profiles across
+four target families. The remaining targets have no executable direction in
 `adapters/index.json`.
 
 This table is explanatory. `adapters/index.json` is the machine-audited target
@@ -19,7 +19,7 @@ gate references and writes `target/adapter-coverage-report.json`.
 | DTCG tokens | Design Tokens Format Module 2025.10 JSON | `nuif-dtcg-scalar-0` | Expand only after a token-model RFC and separate profile | Core tokens lack declared type, groups, aliases, descriptions, deprecation and token-local extensions |
 | React | JSX source and React DOM properties | Research complete; no implementation | Static intrinsic JSX with literals and retained AST spans | Components, hooks, spreads, control flow and runtime expressions require execution |
 | Svelte | `.svelte` source and compiler AST | Research complete; no implementation | Static regular elements, literal text/attributes and profile-owned CSS spans | Runes, scripts, blocks, directives, preprocessors and dynamic components require execution |
-| Penpot | `.penpot` v3 ZIP and JSON package | Research complete; no implementation | One page with frame, rectangle, ellipse and text shapes | Package/resource limits and retentive unknown-member preservation precede components, libraries and interactions |
+| Penpot | `.penpot` v3 ZIP and JSON package | `nuif-penpot-v3-0` | Add compact pages only after the opt-in representation stabilizes | Components, libraries, interactions, media, paths, layout and compact pages are excluded |
 | Figma | REST document JSON plus writable plugin API | Research complete; host report contract implemented; no live plug-in | One-page mapping in `adapters/figma/PROFILE-DRAFT.md` | `.fig` is not a public contract; live writes require user-run plug-in execution |
 | Adobe UXP | Host-specific document APIs and `.ccx` packages | Research complete; host report contract implemented; no live package | InDesign page and basic page-item subset in `adapters/adobe/PROFILE-DRAFT.md` | UXP object models and mutation rules are product-specific; Illustrator is not in the retrieved UXP host contract |
 | SwiftUI | Swift source and proposal–response layout runtime | Research complete; no implementation | Generated stack/text/shape subset with a pinned Apple toolchain | Arbitrary Swift and custom layouts are executable programs |
@@ -28,11 +28,11 @@ gate references and writes `target/adapter-coverage-report.json`.
 
 ## Implementation order
 
-The SVG basic-shape and DTCG scalar-token profiles are implemented because
-their bounded subsets map directly to the current model and run without
+The SVG basic-shape, DTCG scalar-token and Penpot v3 profiles are implemented
+because their bounded subsets map directly to the current model and run without
 credentials or platform SDKs. Full DTCG coverage requires a token-model RFC.
-Penpot is the next credential-free package adapter after ZIP resource limits
-and unknown-member retention have a shared test contract. Figma and Adobe have
+Penpot's package path enforces ZIP resource limits and unknown-member retention
+through one shared test contract. Figma and Adobe have
 bounded draft profiles and the shared `HostAdapterReport` evidence envelope;
 they remain non-integrated until a compiled plug-in and named live-host trial
 exist.

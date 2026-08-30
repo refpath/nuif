@@ -81,12 +81,19 @@
     {
       "id": "penpot",
       "surface": ".penpot v3 ZIP and JSON package",
-      "status": "researched",
+      "status": "integrated",
       "research": "penpot",
-      "directions": [],
-      "profiles": [],
-      "next_profile": "one page with frame, rectangle, ellipse and text shapes after a package-retention contract",
-      "boundary": "ZIP limits, default semantics and unknown-member retention precede components, libraries and interactions."
+      "directions": ["import", "export", "synchronize"],
+      "profiles": [
+        {
+          "name": "nuif-penpot-v3-0",
+          "crate": "crates/nuif-penpot",
+          "profile": "adapters/penpot/PROFILE.md",
+          "gate": "gate-penpot"
+        }
+      ],
+      "next_profile": "compact packages only after the opt-in representation is stable and independently fixture-tested",
+      "boundary": "One file, one page, one board and direct rectangle, ellipse and literal pinned-text children are mapped; components, libraries, interactions, media, paths, layout and compact pages are excluded."
     },
     {
       "id": "figma",

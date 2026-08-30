@@ -1,0 +1,20 @@
+[package]
+name = "nuif-penpot"
+version = "0.0.1"
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+nuif-adapter = { version = "0.0.1", path = "../nuif-adapter" }
+nuif-codec = { version = "0.0.0", path = "../nuif-codec" }
+nuif-core = { version = "0.0.1", path = "../nuif-core" }
+nuif-text = { version = "0.0.1", path = "../nuif-text" }
+serde.workspace = true
+serde_json.workspace = true
+sha2.workspace = true
+thiserror.workspace = true
+zip.workspace = true
+
+[lints]
+workspace = true

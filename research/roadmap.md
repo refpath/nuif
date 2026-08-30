@@ -33,7 +33,7 @@ Publication infrastructure: `docs/catalog.json` selects 204 canonical Markdown d
 3. Design explicit Grid track and placement fields before replacing the classified profile-0 stack fallback; do not infer Grid support from the Gate C pass.
 4. Attach any Masonry shell to the already-tested editor driver boundary; keep shell behavior outside model/layout/render conformance.
 5. Treat soft wrapping, gradients, strokes, paths, images and instance materialization as a separately versioned expanded profile; do not weaken profile-0 exactness to add them.
-6. Implement the credential-free Penpot package profile only after ZIP resource limits and unknown-member retention have a shared test contract.
+6. Maintain the credential-free Penpot package profile under its shared ZIP resource-limit, foreign-producer and unknown-member-retention gate; defer the compact representation until upstream stability and a second fixture.
 7. Run the bounded Figma and Adobe profiles in named live host versions; retain host reports and do not infer live behavior from API documentation.
 8. Package the conformance kit for externally authored reproduction; do not treat the in-repository Python path or Rust adapters as external interoperability evidence.
 9. Keep standards-development work behind the implementer-draft and external-support gates in `docs/STANDARDS-ROADMAP.md`.

@@ -19,11 +19,17 @@ same CLI synchronization contract as the source adapters. Its deliberately
 narrow boundary precedes the token-model RFC required for groups, aliases and
 composite types.
 
-The remaining researched targets are Svelte, React, Penpot, Figma, Adobe UXP,
+The [`nuif-penpot-v3-0`](penpot/PROFILE.md) profile maps one Penpot v3 package,
+file, page and board with direct rectangle, ellipse and pinned literal-text
+children. It retains unedited member payloads and unknown package data, returns
+the original archive byte-for-byte on no-op synchronization, and applies ZIP,
+expanded-data, member, compression and JSON resource limits before parsing.
+
+The remaining researched targets are Svelte, React, Figma, Adobe UXP,
 Flutter, SwiftUI and Jetpack Compose. Figma and Adobe now have bounded draft
 host profiles and a serializable host-object correspondence report, but no live
 plug-in claim. Broader HTML/CSS, SVG and DTCG profiles remain
-separate future work beyond the four executable profiles. Each adapter must
+separate future work beyond the five executable profiles. Each adapter must
 emit structured fidelity diagnostics and record provenance/correspondence
 sufficient for later synchronization and minimal source patches where feasible.
 

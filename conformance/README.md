@@ -29,8 +29,16 @@ and source limits, and a public-CLI bridge. Reports and retained sources are
 written under `target/dtcg-sync-*`; groups, aliases and composite types remain
 outside the declared profile.
 
+Run `cargo xtask gate-penpot` for the bounded `nuif-penpot-v3-0` package
+adapter. It imports a fixture from the official JavaScript library, proves
+deterministic export and exact no-op archive retention, applies eight mapped
+JSON edits while preserving opaque members, exercises hostile ZIP boundaries
+and completes an export/sync/import bridge through the public CLI. Reports and
+packages are written under `target/penpot-sync-*`; components, libraries,
+interactions, media, paths, layout and compact pages remain outside the profile.
+
 Run `cargo xtask adapter-audit` to validate the complete advertised adapter
 inventory independently of executable profile tests. It requires research and
-explicit boundaries for ten targets, checks crate/profile/gate references for
-the four integrated profiles and prevents researched or externally blocked
+explicit boundaries for eleven targets, checks crate/profile/gate references for
+the five integrated profiles and prevents researched or externally blocked
 targets from claiming executable directions.

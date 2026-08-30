@@ -164,6 +164,48 @@ pub struct SynchronizedSource {
     pub report: AdapterReport,
 }
 
+/// A byte span inside one uncompressed package member.
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct PackageCorrespondenceRecord {
+    pub target: CorrespondenceTarget,
+    pub member: String,
+    pub pointer: String,
+    pub span: SourceSpan,
+}
+
+/// Fidelity evidence for archive-based adapters whose members are the
+/// smallest retained source units.
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct PackageReport {
+    pub schema_version: u32,
+    pub source_format: String,
+    pub canonical_hash: Option<String>,
+    pub fidelity: Vec<FidelityEntry>,
+    pub correspondences: Vec<PackageCorrespondenceRecord>,
+    pub unmapped_member_payloads_preserved: bool,
+}
+
+impl PackageReport {
+    #[must_use]
+    pub fn is_lossless(&self) -> bool {
+        self.fidelity
+            .iter()
+            .all(|entry| entry.status == Fidelity::Lossless)
+    }
+}
+
+/// One semantic edit applied to an uncompressed package member.
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct PackageEdit {
+    pub target: CorrespondenceTarget,
+    pub member: String,
+    pub pointer: String,
+    pub span: SourceSpan,
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

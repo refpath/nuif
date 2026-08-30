@@ -286,6 +286,25 @@ experiments:
       - reject unsupported values token inventory changes and stale correspondence spans
       - synchronize the edited fixture through the CLI and require exact canonical re-import
       - write and archive model and CLI reports plus synchronized token files
+  - id: nuif:experiment:penpot-v3-retentive-package
+    status: completed
+    evidence: [nuif:research:penpot, nuif:research:retentive-lenses, nuif:research:resource-bounded-serde-and-ciborium]
+    implementation: [crates/nuif-penpot/src/lib.rs, crates/nuif-penpot/src/bin/penpot-sync-profile.rs, crates/nuif-cli/src/main.rs, conformance/foreign/penpot/generate.mjs, adapters/penpot/PROFILE.md, xtask/src/main.rs]
+    oracle: foreign-producer-and-metamorphic
+    acceptance:
+      - the declared Penpot v3 package subset imports from the official JavaScript library and exports to an exact canonical document
+      - an unchanged synchronization preserves the complete original archive byte-for-byte
+      - mapped edits retain every unedited member payload and re-import to edited canonical NUIF exactly
+      - unknown package members and JSON fields survive with typed fidelity
+      - hostile ZIP structure paths expansion and size cases return typed atomic failures
+      - public CLI export synchronization and import reproduce edited canonical NUIF bytes
+    tests:
+      - regenerate the foreign fixture twice with exact @penpot/library 1.1.0 and compare SHA-256
+      - repeat native package export and compare exact ZIP bytes
+      - apply eight member-qualified scalar edits and compare exact canonical re-import
+      - inject opaque binary and JSON payloads and compare the untouched bytes after synchronization
+      - reject traversal duplicate symlink directory encryption unsupported compression and one-over resource cases
+      - write and archive model and CLI reports plus synchronized Penpot packages
   - id: nuif:experiment:independent-profile-zero
     status: completed
     evidence: [nuif:research:differential-testing, nuif:research:metamorphic-testing-graphics, nuif:research:text-rendering-reproducibility]

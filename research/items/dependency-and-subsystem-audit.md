@@ -75,7 +75,7 @@ duplicating a hex adapter across the report-producing crates.
   editor graph. The complete check is a CI and release gate rather than a
   documented exception.
 - The version trial ran all workspace unit and documentation tests, the release
-  hostile-input allocation profile, text and render goldens, all four executable
+  hostile-input allocation profile, text and render goldens, all five executable
   adapter profiles, and workspace Clippy with warnings denied on rustc 1.98.0.
   The three accepted updates passed; SHA-2 0.11 failed at compile time before
   runtime evidence and was reverted (2026-08-30).

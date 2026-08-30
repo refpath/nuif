@@ -16,6 +16,10 @@ use nuif_html::{
     synchronize_v0 as synchronize_html_v0,
 };
 use nuif_layout::EvaluationContext;
+use nuif_penpot::{
+    AdapterError as PenpotAdapterError, export_document as export_penpot_document,
+    import_package as import_penpot_package, synchronize as synchronize_penpot,
+};
 use nuif_protocol::{Patch, apply_patch};
 use nuif_svg::{
     AdapterError as SvgAdapterError, export_document as export_svg_document,
@@ -387,6 +391,12 @@ fn import(args: &[String]) -> Result<(), CliError> {
     {
         return import_dtcg(args);
     }
+    if args
+        .first()
+        .is_some_and(|argument| matches!(argument.as_str(), "penpot-v3-0" | "nuif-penpot-v3-0"))
+    {
+        return import_penpot(args);
+    }
     let input = required(args, 0, "input document")?;
     let output = args.get(1).map_or("-", String::as_str);
     let document = load_document(input)?;
@@ -448,6 +458,15 @@ fn export(args: &[String]) -> Result<(), CliError> {
                 Err(error) => return dtcg_adapter_failure(&error, report_path),
             };
             write_output(output, exported.source.as_bytes())?;
+            emit_adapter_report(&exported.report, report_path)
+        }
+        "penpot-v3-0" | "nuif-penpot-v3-0" => {
+            let report_path = args.get(3).map(String::as_str);
+            let exported = match export_penpot_document(&document) {
+                Ok(exported) => exported,
+                Err(error) => return penpot_adapter_failure(&error, report_path),
+            };
+            write_output(output, &exported.bytes)?;
             emit_adapter_report(&exported.report, report_path)
         }
         _ => Err(CliError::new(
@@ -522,8 +541,28 @@ fn import_dtcg(args: &[String]) -> Result<(), CliError> {
     emit_adapter_report(&imported.retentive.report, report_path)
 }
 
+fn import_penpot(args: &[String]) -> Result<(), CliError> {
+    let input = required(args, 1, "Penpot package input")?;
+    let output = args.get(2).map_or("-", String::as_str);
+    let report_path = args.get(3).map(String::as_str);
+    let imported = match import_penpot_package(&read_input(input)?) {
+        Ok(imported) => imported,
+        Err(error) => return penpot_adapter_failure(&error, report_path),
+    };
+    write_output(
+        output,
+        &CanonicalText
+            .encode(&imported.document)
+            .map_err(codec_error)?,
+    )?;
+    emit_adapter_report(imported.retentive.report(), report_path)
+}
+
 fn sync(args: &[String]) -> Result<(), CliError> {
     let target = required(args, 0, "synchronization target")?;
+    if matches!(target, "penpot-v3-0" | "nuif-penpot-v3-0") {
+        return sync_penpot(args);
+    }
     if !matches!(
         target,
         "html-css-0"
@@ -598,6 +637,31 @@ fn sync(args: &[String]) -> Result<(), CliError> {
     emit_adapter_report(&report, report_path)
 }
 
+fn sync_penpot(args: &[String]) -> Result<(), CliError> {
+    let source_path = required(args, 1, "retentive Penpot package")?;
+    let edited_path = required(args, 2, "edited NUIF document")?;
+    let output = required(args, 3, "synchronized Penpot output")?;
+    let report_path = args.get(4).map(String::as_str);
+    let imported = match import_penpot_package(&read_input(source_path)?) {
+        Ok(imported) => imported,
+        Err(error) => return penpot_adapter_failure(&error, report_path),
+    };
+    let edited = load_document(edited_path)?;
+    let synchronized = match synchronize_penpot(&imported.retentive, &edited) {
+        Ok(synchronized) => synchronized,
+        Err(error) => return penpot_adapter_failure(&error, report_path),
+    };
+    write_output(output, &synchronized.bytes)?;
+    emit_adapter_report(
+        &serde_json::json!({
+            "status": "passed",
+            "adapter": synchronized.report,
+            "edits": synchronized.edits,
+        }),
+        report_path,
+    )
+}
+
 fn adapter_failure<T>(error: &HtmlAdapterError, report_path: Option<&str>) -> Result<T, CliError> {
     let report = match &error {
         HtmlAdapterError::UnsupportedProfile { report, .. }
@@ -632,6 +696,21 @@ fn dtcg_adapter_failure<T>(
     let report = match error {
         DtcgAdapterError::UnsupportedProfile { report, .. }
         | DtcgAdapterError::UnmappedChanges { report, .. } => Some(report.as_ref()),
+        _ => None,
+    };
+    if let Some(report) = report {
+        emit_adapter_report(report, report_path)?;
+    }
+    Err(CliError::new(1, "ADAPTER_FAILED", error.to_string()))
+}
+
+fn penpot_adapter_failure<T>(
+    error: &PenpotAdapterError,
+    report_path: Option<&str>,
+) -> Result<T, CliError> {
+    let report = match error {
+        PenpotAdapterError::UnsupportedProfile { report, .. }
+        | PenpotAdapterError::UnmappedChanges { report, .. } => Some(report.as_ref()),
         _ => None,
     };
     if let Some(report) = report {
@@ -696,6 +775,7 @@ fn fixture(args: &[String]) -> Result<(), CliError> {
         "html-css-profile" => nuif_html::profile_fixture(),
         "svg-profile" => nuif_svg::profile_fixture(),
         "dtcg-profile" => nuif_dtcg::profile_fixture(),
+        "penpot-profile" => nuif_penpot::profile_fixture(),
         _ => {
             return Err(CliError::new(
                 2,
@@ -716,7 +796,7 @@ fn print_capabilities() -> Result<(), CliError> {
         "protocol": "0.0.1",
         "status": "executable",
         "commands": COMMANDS,
-        "adapters": ["html-css-0", "html-css-v0", "svg-0", "dtcg-scalar-0"],
+        "adapters": ["html-css-0", "html-css-v0", "svg-0", "dtcg-scalar-0", "penpot-v3-0"],
         "engine": engine.capabilities(),
         "resource_limits": {
             "input_bytes": MAX_INPUT_BYTES,

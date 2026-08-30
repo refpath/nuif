@@ -175,6 +175,17 @@ jobs:
             target/dtcg-sync-edited.nuif
             target/dtcg-sync-cli-report.json
             target/dtcg-sync-cli-output.tokens.json
+      - name: Upload Penpot synchronization evidence
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: penpot-sync-report
+          path: |
+            target/penpot-sync-report.json
+            target/penpot-sync-output.penpot
+            target/penpot-sync-edited.nuif
+            target/penpot-sync-cli-report.json
+            target/penpot-sync-cli-output.penpot
       - name: Upload independent implementation evidence
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1

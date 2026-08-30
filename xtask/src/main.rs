@@ -31,6 +31,7 @@ const ALL_STEPS: &[Step] = &[
     ("gate-f-v0", gate_f_v0),
     ("gate-svg", gate_svg),
     ("gate-dtcg", gate_dtcg),
+    ("gate-penpot", gate_penpot),
     ("gate-g", gate_g),
     ("gate-h", gate_h),
 ];
@@ -67,6 +68,11 @@ const VERIFICATION_ARTIFACTS: &[&str] = &[
     "target/dtcg-sync-edited.nuif",
     "target/dtcg-sync-cli-report.json",
     "target/dtcg-sync-cli-output.tokens.json",
+    "target/penpot-sync-report.json",
+    "target/penpot-sync-output.penpot",
+    "target/penpot-sync-edited.nuif",
+    "target/penpot-sync-cli-report.json",
+    "target/penpot-sync-cli-output.penpot",
     "target/gate-g-report.json",
     "target/gate-g-independent",
     "target/collaboration-report.json",
@@ -113,6 +119,7 @@ fn run() -> Result<(), String> {
         Some("gate-f-v0") => gate_f_v0(),
         Some("gate-svg") => gate_svg(),
         Some("gate-dtcg") => gate_dtcg(),
+        Some("gate-penpot") => gate_penpot(),
         Some("gate-g") => gate_g(),
         Some("gate-h") => gate_h(),
         Some("browser-install") => browser_install(),
@@ -141,7 +148,7 @@ fn run() -> Result<(), String> {
         Some("manifest") => standalone_manifest(),
         Some("all") => all(),
         _ => Err(
-            "usage: cargo xtask <research|adapter-audit|dependency-audit|docs-check|docs-build|docs-paper|docs-serve|docs-setup|verify|trial [seed iterations snapshot-interval report-path]|gate-b|gate-c|gate-d|gate-d-text|gate-d-render|gate-f|gate-f-v0|gate-svg|gate-dtcg|gate-g|gate-h|browser-install|hostile-inputs|editor-hostile-inputs|performance|editor-trial|editor-gui-trial|editor-install-trial|editor-package|editor-launch|editor-install|editor-doctor|editor-rollback|editor-uninstall|editor-update|release-check <tag>|manifest|all>"
+            "usage: cargo xtask <research|adapter-audit|dependency-audit|docs-check|docs-build|docs-paper|docs-serve|docs-setup|verify|trial [seed iterations snapshot-interval report-path]|gate-b|gate-c|gate-d|gate-d-text|gate-d-render|gate-f|gate-f-v0|gate-svg|gate-dtcg|gate-penpot|gate-g|gate-h|browser-install|hostile-inputs|editor-hostile-inputs|performance|editor-trial|editor-gui-trial|editor-install-trial|editor-package|editor-launch|editor-install|editor-doctor|editor-rollback|editor-uninstall|editor-update|release-check <tag>|manifest|all>"
                 .to_owned(),
         ),
     }
@@ -612,6 +619,98 @@ fn gate_dtcg_cli_bridge() -> Result<(), String> {
     let report = read_json(sync_report)?;
     if report["status"] != "passed" || report["edits"].as_array().map(Vec::len) != Some(8) {
         return Err("CLI DTCG bridge did not produce the expected eight source edits".to_owned());
+    }
+    fs::remove_dir_all(&directory).map_err(|error| {
+        format!(
+            "trial passed but temporary directory {} could not be removed: {error}",
+            directory.display()
+        )
+    })
+}
+
+fn gate_penpot() -> Result<(), String> {
+    cargo(&[
+        "run",
+        "--locked",
+        "-p",
+        "nuif-penpot",
+        "--bin",
+        "penpot-sync-profile",
+        "--",
+        "--output",
+        "target/penpot-sync-report.json",
+        "--package-output",
+        "target/penpot-sync-output.penpot",
+        "--edited-output",
+        "target/penpot-sync-edited.nuif",
+    ])?;
+    gate_penpot_cli_bridge()
+}
+
+fn gate_penpot_cli_bridge() -> Result<(), String> {
+    let directory = env::temp_dir().join(format!("nuif-penpot-trial-{}", std::process::id()));
+    if directory.exists() {
+        return Err(format!(
+            "temporary path already exists: {}",
+            directory.display()
+        ));
+    }
+    fs::create_dir(&directory).map_err(|error| error.to_string())?;
+    let input = directory.join("input.nuif");
+    let exported = directory.join("exported.penpot");
+    let export_report = directory.join("export-report.json");
+    let imported = directory.join("imported.nuif");
+    let import_report = directory.join("import-report.json");
+    let reimported = directory.join("reimported.nuif");
+    let reimport_report = directory.join("reimport-report.json");
+    let synchronized = Path::new("target/penpot-sync-cli-output.penpot");
+    let sync_report = Path::new("target/penpot-sync-cli-report.json");
+    let edited = Path::new("target/penpot-sync-edited.nuif");
+    nuif(&["fixture", "penpot-profile", path(&input)?])?;
+    nuif(&[
+        "export",
+        path(&input)?,
+        "penpot-v3-0",
+        path(&exported)?,
+        path(&export_report)?,
+    ])?;
+    nuif(&[
+        "import",
+        "penpot-v3-0",
+        path(&exported)?,
+        path(&imported)?,
+        path(&import_report)?,
+    ])?;
+    if fs::read(&input).map_err(|error| error.to_string())?
+        != fs::read(&imported).map_err(|error| error.to_string())?
+    {
+        return Err("CLI Penpot export/import changed canonical NUIF bytes".to_owned());
+    }
+    nuif(&[
+        "sync",
+        "penpot-v3-0",
+        path(&exported)?,
+        path(edited)?,
+        path(synchronized)?,
+        path(sync_report)?,
+    ])?;
+    nuif(&[
+        "import",
+        "penpot-v3-0",
+        path(synchronized)?,
+        path(&reimported)?,
+        path(&reimport_report)?,
+    ])?;
+    if fs::read(edited).map_err(|error| error.to_string())?
+        != fs::read(&reimported).map_err(|error| error.to_string())?
+    {
+        return Err("CLI Penpot synchronization changed edited canonical NUIF bytes".to_owned());
+    }
+    let report = read_json(sync_report)?;
+    if report["status"] != "passed" || report["edits"].as_array().map(Vec::len) != Some(8) {
+        return Err(
+            "CLI Penpot bridge did not produce the expected eight package edits".to_owned(),
+        );
     }
     fs::remove_dir_all(&directory).map_err(|error| {
         format!(
