@@ -715,6 +715,7 @@ fn validate_proposed_operation(
         Operation::Rename { .. }
         | Operation::SetSize { .. }
         | Operation::SetLayout { .. }
+        | Operation::SetGridPlacement { .. }
         | Operation::SetPosition { .. }
         | Operation::SetFill { .. }
         | Operation::SetText { .. }

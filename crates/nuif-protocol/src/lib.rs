@@ -3,8 +3,8 @@
 use nuif_codec::canonical_hash;
 use nuif_core::{
     Asset, AssetId, Color, Document, Entity, EntityId, ExtensionDeclarations, Extensions,
-    ImagePaint, LayoutStyle, OpaquePayload, Point, PropertyValue, Relation, ResourceDigest,
-    Severity, SizeIntent, TextContent, Token, validate,
+    GridPlacement, ImagePaint, LayoutStyle, OpaquePayload, Point, PropertyValue, Relation,
+    ResourceDigest, Severity, SizeIntent, TextContent, Token, validate,
 };
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet};
@@ -53,6 +53,10 @@ pub enum Operation {
     SetLayout {
         entity: EntityId,
         value: LayoutStyle,
+    },
+    SetGridPlacement {
+        entity: EntityId,
+        value: GridPlacement,
     },
     SetPosition {
         entity: EntityId,
@@ -454,6 +458,17 @@ fn apply_operation(
                 .ok_or(ApplyError::EntityMissing { entity: *entity })?;
             let previous = std::mem::replace(&mut item.authored.layout, value.clone());
             Ok(Operation::SetLayout {
+                entity: *entity,
+                value: previous,
+            })
+        }
+        Operation::SetGridPlacement { entity, value } => {
+            let item = document
+                .entities
+                .get_mut(entity)
+                .ok_or(ApplyError::EntityMissing { entity: *entity })?;
+            let previous = std::mem::replace(&mut item.authored.grid_placement, *value);
+            Ok(Operation::SetGridPlacement {
                 entity: *entity,
                 value: previous,
             })
@@ -1010,6 +1025,71 @@ mod tests {
                 .unwrap()
                 .content,
             "Editable"
+        );
+        apply_patch(&mut document, &inverse).unwrap();
+        assert_eq!(document, original);
+    }
+
+    #[test]
+    fn grid_item_placement_is_atomic_and_invertible() {
+        let mut document = base();
+        let root = EntityId::new(2);
+        let child = EntityId::new(3);
+        document
+            .entities
+            .get_mut(&root)
+            .unwrap()
+            .authored
+            .layout
+            .family = nuif_core::LayoutFamily::Grid;
+        document
+            .entities
+            .get_mut(&root)
+            .unwrap()
+            .authored
+            .layout
+            .grid
+            .columns = vec![
+            nuif_core::GridTrack::Fraction(1.0),
+            nuif_core::GridTrack::Fraction(1.0),
+        ];
+        document
+            .entities
+            .get_mut(&root)
+            .unwrap()
+            .authored
+            .layout
+            .grid
+            .rows = vec![nuif_core::GridTrack::Fraction(1.0)];
+        document
+            .entities
+            .get_mut(&root)
+            .unwrap()
+            .children
+            .push(child);
+        document
+            .entities
+            .insert(child, Entity::new(child, EntityKind::Container));
+        let original = document.clone();
+        let patch = Patch {
+            base_revision: None,
+            transactions: vec![Transaction {
+                id: 10,
+                operations: vec![Operation::SetGridPlacement {
+                    entity: child,
+                    value: GridPlacement {
+                        column: Some(1),
+                        row: Some(0),
+                        ..GridPlacement::default()
+                    },
+                }],
+            }],
+        };
+
+        let inverse = apply_patch_with_inverse(&mut document, &patch).unwrap();
+        assert_eq!(
+            document.entities[&child].authored.grid_placement.column,
+            Some(1)
         );
         apply_patch(&mut document, &inverse).unwrap();
         assert_eq!(document, original);

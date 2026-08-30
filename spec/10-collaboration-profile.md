@@ -22,6 +22,6 @@ Semantic conflicts that cannot be merged safely remain explicit conflict objects
 
 Register-like operations use one multi-value register per entity/property pointer. Causally superseded values leave the frontier. Concurrent distinct values remain in an explicit `SemanticConflict`; a deterministic selected dot permits a provisional canonical checkpoint without discarding the candidates from the checkpoint report. The operation-set join is commutative, associative and idempotent, and incomplete causal histories fail closed.
 
-Profile 0 supports rename, size, layout, token, authored-value, extension-declaration, entity-extension and unknown-payload registers. It rejects insert, remove, move and restore-subtree. Structural collaboration requires a declared tree move/list algorithm, cycle handling and tombstone policy and MUST NOT be inferred from register convergence.
+Profile 0 supports rename, size, container layout, grid-item placement, token, authored-value, extension-declaration, entity-extension and unknown-payload registers. It rejects insert, remove, move and restore-subtree. Structural collaboration requires a declared tree move/list algorithm, cycle handling and tombstone policy and MUST NOT be inferred from register convergence.
 
 `cargo xtask gate-h` compares an operation-set maximality materializer with an incremental replica-log frontier materializer over every delivery permutation of the bounded conflict fixture. These are algorithmically separate in-repository implementations, not foreign-engine interoperability evidence.

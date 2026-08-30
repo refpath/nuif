@@ -474,6 +474,9 @@ fn register_key(operation: &Operation) -> Result<RegisterKey, CollaborationError
             },
         ),
         Operation::SetLayout { entity, .. } => entity_key(*entity, "/authored/layout"),
+        Operation::SetGridPlacement { entity, .. } => {
+            entity_key(*entity, "/authored/grid_placement")
+        }
         Operation::SetPosition { entity, .. } => entity_key(*entity, "/authored/position"),
         Operation::SetFill { entity, .. } => entity_key(*entity, "/authored/fill"),
         Operation::SetText { entity, .. } => entity_key(*entity, "/authored/text"),
@@ -538,6 +541,7 @@ fn operation_name(operation: &Operation) -> &'static str {
         Operation::Rename { .. } => "rename",
         Operation::SetSize { .. } => "set_size",
         Operation::SetLayout { .. } => "set_layout",
+        Operation::SetGridPlacement { .. } => "set_grid_placement",
         Operation::SetPosition { .. } => "set_position",
         Operation::SetFill { .. } => "set_fill",
         Operation::SetText { .. } => "set_text",
