@@ -55,6 +55,10 @@ want compiled output on a publication branch. Locator: GitHub Docs,
 a custom GitHub Actions workflow", retrieved 2026-08-30:
 https://docs.github.com/en/pages/getting-started-with-github-pages/configuring-a-publishing-source-for-your-github-pages-site.
 
+The workflow pins every action to a full commit. It grants read-only repository
+contents to the build job. Only the deployment job receives `pages: write` and
+`id-token: write`; it does not receive source or release write permission.
+
 GitHub Wiki is not a publication target. GitHub stores each wiki in a separate
 Git repository, so enabling direct edits would create a second source history.
 GitHub also documents restricted search-engine indexing for wiki content and
