@@ -1,12 +1,11 @@
 use nuif_core::{Document, Fidelity};
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::BTreeSet;
 
 use crate::{
-    AdapterError, AdapterReport, CorrespondenceRecord, CorrespondenceTarget, FidelityEntry,
-    RetentiveSource, SourceEdit, SynchronizedSource, entity_pointer,
+    AdapterError, AdapterReport, CorrespondenceTarget, FidelityEntry, RetentiveSource,
+    SynchronizedSource, entity_pointer,
 };
-
-type Key = (CorrespondenceTarget, String);
+use nuif_adapter::{ScalarSyncError, apply_scalar_edits, plan_scalar_edits};
 
 /// Applies mapped semantic changes as byte-local replacements in retained source.
 ///
@@ -44,65 +43,25 @@ pub fn synchronize(
         });
     }
 
-    let current = correspondence_map(&retentive.report.correspondences)?;
-    let before = correspondence_values(
+    let edits = match plan_scalar_edits(
+        &retentive.source,
+        &retentive.report.correspondences,
         &generated_before.source,
         &generated_before.report.correspondences,
-    )?;
-    let after = correspondence_values(
         &generated_after.source,
         &generated_after.report.correspondences,
-    )?;
-    let key_sets = (
-        current.keys().cloned().collect::<BTreeSet<_>>(),
-        before.keys().cloned().collect::<BTreeSet<_>>(),
-        after.keys().cloned().collect::<BTreeSet<_>>(),
-    );
-    if key_sets.0 != key_sets.1 || key_sets.0 != key_sets.2 {
-        let report = unmapped_key_report(edited, &key_sets.0, &key_sets.2);
-        return Err(AdapterError::UnmappedChanges {
-            issues: report.fidelity.len(),
-            report: Box::new(report),
-        });
-    }
-
-    let mut edits = Vec::new();
-    for (key, record) in current {
-        let expected = &before[&key];
-        let observed = retentive
-            .source
-            .get(record.span.start..record.span.end)
-            .ok_or_else(|| AdapterError::StaleSpan {
-                pointer: record.pointer.clone(),
-            })?;
-        if observed != expected {
-            return Err(AdapterError::StaleSpan {
-                pointer: record.pointer,
+    ) {
+        Ok(edits) => edits,
+        Err(ScalarSyncError::CorrespondenceSetMismatch) => {
+            let report = unmapped_key_report(edited);
+            return Err(AdapterError::UnmappedChanges {
+                issues: report.fidelity.len(),
+                report: Box::new(report),
             });
         }
-        let replacement = &after[&key];
-        if observed != replacement {
-            edits.push(SourceEdit {
-                target: record.target,
-                pointer: record.pointer,
-                span: record.span,
-                replacement: replacement.clone(),
-            });
-        }
-    }
-    edits.sort_by_key(|edit| std::cmp::Reverse(edit.span.start));
-    for pair in edits.windows(2) {
-        if pair[1].span.end > pair[0].span.start {
-            return Err(AdapterError::StaleSpan {
-                pointer: pair[1].pointer.clone(),
-            });
-        }
-    }
-    let mut source = retentive.source.clone();
-    for edit in &edits {
-        source.replace_range(edit.span.start..edit.span.end, &edit.replacement);
-    }
-    edits.sort_by_key(|edit| edit.span.start);
+        Err(error) => return Err(sync_error(error)),
+    };
+    let source = apply_scalar_edits(&retentive.source, &edits).map_err(sync_error)?;
     let imported = crate::import_source(&source)?;
     if imported.document != *edited {
         return Err(AdapterError::SynchronizationMismatch);
@@ -114,45 +73,6 @@ pub fn synchronize(
         edits,
         report,
     })
-}
-
-fn correspondence_map(
-    records: &[CorrespondenceRecord],
-) -> Result<BTreeMap<Key, CorrespondenceRecord>, AdapterError> {
-    let mut map = BTreeMap::new();
-    for record in records {
-        let key = (record.target.clone(), record.pointer.clone());
-        if map.insert(key, record.clone()).is_some() {
-            return Err(AdapterError::ProfileMarker(format!(
-                "correspondence {} is duplicated",
-                record.pointer
-            )));
-        }
-    }
-    Ok(map)
-}
-
-fn correspondence_values(
-    source: &str,
-    records: &[CorrespondenceRecord],
-) -> Result<BTreeMap<Key, String>, AdapterError> {
-    let mut values = BTreeMap::new();
-    for record in records {
-        let value = source
-            .get(record.span.start..record.span.end)
-            .ok_or_else(|| AdapterError::StaleSpan {
-                pointer: record.pointer.clone(),
-            })?
-            .to_owned();
-        let key = (record.target.clone(), record.pointer.clone());
-        if values.insert(key, value).is_some() {
-            return Err(AdapterError::ProfileMarker(format!(
-                "correspondence {} is duplicated",
-                record.pointer
-            )));
-        }
-    }
-    Ok(values)
 }
 
 fn structural_issues(before: &Document, after: &Document) -> Vec<FidelityEntry> {
@@ -190,35 +110,32 @@ fn structural_issues(before: &Document, after: &Document) -> Vec<FidelityEntry> 
     issues
 }
 
-fn unmapped_key_report(
-    document: &Document,
-    before: &BTreeSet<Key>,
-    after: &BTreeSet<Key>,
-) -> AdapterReport {
-    let mut fidelity = before
-        .symmetric_difference(after)
-        .map(|(target, pointer)| {
-            unsupported(
-                target.clone(),
-                pointer.clone(),
-                "edit adds or removes a mapped source property",
-            )
-        })
-        .collect::<Vec<_>>();
-    if fidelity.is_empty() {
-        fidelity.push(unsupported(
-            CorrespondenceTarget::Document { id: document.id },
-            "/".to_owned(),
-            "source correspondence sets differ",
-        ));
-    }
+fn unmapped_key_report(document: &Document) -> AdapterReport {
     AdapterReport {
         schema_version: 1,
         source_format: crate::PROFILE_NAME.to_owned(),
         canonical_hash: None,
-        fidelity,
+        fidelity: vec![unsupported(
+            CorrespondenceTarget::Document { id: document.id },
+            "/".to_owned(),
+            "source correspondence sets differ",
+        )],
         correspondences: Vec::new(),
         unmapped_source_preserved: false,
+    }
+}
+
+fn sync_error(error: ScalarSyncError) -> AdapterError {
+    match error {
+        ScalarSyncError::DuplicateCorrespondence { pointer } => {
+            AdapterError::ProfileMarker(format!("correspondence {pointer} is duplicated"))
+        }
+        ScalarSyncError::SpanOutOfBounds { pointer }
+        | ScalarSyncError::StaleSpan { pointer }
+        | ScalarSyncError::OverlappingSpans { pointer } => AdapterError::StaleSpan { pointer },
+        ScalarSyncError::CorrespondenceSetMismatch => {
+            AdapterError::ProfileMarker("source correspondence sets differ".to_owned())
+        }
     }
 }
 

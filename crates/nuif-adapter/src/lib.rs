@@ -2,6 +2,7 @@
 
 use nuif_core::{Document, EntityId, Fidelity};
 use serde::{Deserialize, Serialize};
+use std::collections::{BTreeMap, BTreeSet};
 
 #[derive(Clone, Debug, Eq, Ord, PartialEq, PartialOrd, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case", tag = "kind")]
@@ -164,6 +165,143 @@ pub struct SynchronizedSource {
     pub report: AdapterReport,
 }
 
+/// Failure while comparing retained scalar spans with canonical before/after
+/// source. Format adapters translate this small mechanical error into their
+/// public typed error vocabulary.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum ScalarSyncError {
+    DuplicateCorrespondence { pointer: String },
+    SpanOutOfBounds { pointer: String },
+    StaleSpan { pointer: String },
+    CorrespondenceSetMismatch,
+    OverlappingSpans { pointer: String },
+}
+
+type CorrespondenceKey = (CorrespondenceTarget, String);
+
+/// Plans non-overlapping scalar replacements shared by retentive source adapters.
+///
+/// The retained, canonical-before and canonical-after inventories must contain
+/// exactly one span for every `(target, pointer)` key. Returned edits are sorted
+/// by ascending source offset and do not mutate the input source.
+///
+/// # Errors
+///
+/// Rejects duplicate or mismatched correspondence inventories, invalid spans,
+/// stale retained values and overlapping changed spans.
+pub fn plan_scalar_edits(
+    retained_source: &str,
+    retained_records: &[CorrespondenceRecord],
+    canonical_before_source: &str,
+    canonical_before_records: &[CorrespondenceRecord],
+    canonical_after_source: &str,
+    canonical_after_records: &[CorrespondenceRecord],
+) -> Result<Vec<SourceEdit>, ScalarSyncError> {
+    let retained = correspondence_map(retained_records)?;
+    let before = correspondence_values(canonical_before_source, canonical_before_records)?;
+    let after = correspondence_values(canonical_after_source, canonical_after_records)?;
+    let retained_keys = retained.keys().cloned().collect::<BTreeSet<_>>();
+    let before_keys = before.keys().cloned().collect::<BTreeSet<_>>();
+    let after_keys = after.keys().cloned().collect::<BTreeSet<_>>();
+    if retained_keys != before_keys || retained_keys != after_keys {
+        return Err(ScalarSyncError::CorrespondenceSetMismatch);
+    }
+
+    let mut edits = Vec::new();
+    for (key, record) in retained {
+        let observed = retained_source
+            .get(record.span.start..record.span.end)
+            .ok_or_else(|| ScalarSyncError::SpanOutOfBounds {
+                pointer: record.pointer.clone(),
+            })?;
+        if observed != before[&key] {
+            return Err(ScalarSyncError::StaleSpan {
+                pointer: record.pointer,
+            });
+        }
+        if observed != after[&key] {
+            edits.push(SourceEdit {
+                target: record.target,
+                pointer: record.pointer,
+                span: record.span,
+                replacement: after[&key].clone(),
+            });
+        }
+    }
+    edits.sort_by_key(|edit| edit.span.start);
+    for pair in edits.windows(2) {
+        if pair[0].span.end > pair[1].span.start {
+            return Err(ScalarSyncError::OverlappingSpans {
+                pointer: pair[1].pointer.clone(),
+            });
+        }
+    }
+    Ok(edits)
+}
+
+/// Applies an ascending, non-overlapping edit plan from the end of the source.
+///
+/// # Errors
+///
+/// Rejects an out-of-bounds or overlapping edit plan without returning partial
+/// output.
+pub fn apply_scalar_edits(source: &str, edits: &[SourceEdit]) -> Result<String, ScalarSyncError> {
+    for (index, edit) in edits.iter().enumerate() {
+        if edit.span.start > edit.span.end || source.get(edit.span.start..edit.span.end).is_none() {
+            return Err(ScalarSyncError::SpanOutOfBounds {
+                pointer: edit.pointer.clone(),
+            });
+        }
+        if index > 0 && edits[index - 1].span.end > edit.span.start {
+            return Err(ScalarSyncError::OverlappingSpans {
+                pointer: edit.pointer.clone(),
+            });
+        }
+    }
+    let mut output = source.to_owned();
+    for edit in edits.iter().rev() {
+        output.replace_range(edit.span.start..edit.span.end, &edit.replacement);
+    }
+    Ok(output)
+}
+
+fn correspondence_map(
+    records: &[CorrespondenceRecord],
+) -> Result<BTreeMap<CorrespondenceKey, CorrespondenceRecord>, ScalarSyncError> {
+    let mut map = BTreeMap::new();
+    for record in records {
+        let key = (record.target.clone(), record.pointer.clone());
+        if map.insert(key, record.clone()).is_some() {
+            return Err(ScalarSyncError::DuplicateCorrespondence {
+                pointer: record.pointer.clone(),
+            });
+        }
+    }
+    Ok(map)
+}
+
+fn correspondence_values(
+    source: &str,
+    records: &[CorrespondenceRecord],
+) -> Result<BTreeMap<CorrespondenceKey, String>, ScalarSyncError> {
+    let mut values = BTreeMap::new();
+    for record in records {
+        let value = source
+            .get(record.span.start..record.span.end)
+            .ok_or_else(|| ScalarSyncError::SpanOutOfBounds {
+                pointer: record.pointer.clone(),
+            })?
+            .to_owned();
+        let key = (record.target.clone(), record.pointer.clone());
+        if values.insert(key, value).is_some() {
+            return Err(ScalarSyncError::DuplicateCorrespondence {
+                pointer: record.pointer.clone(),
+            });
+        }
+    }
+    Ok(values)
+}
+
 /// A byte span inside one uncompressed package member.
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -298,5 +436,29 @@ mod tests {
                 HostReportError::EmptyHostObjectId(0),
             ]
         );
+    }
+
+    #[test]
+    fn scalar_edit_planning_requires_fresh_equal_inventories() {
+        let target = CorrespondenceTarget::Document {
+            id: EntityId::new(1),
+        };
+        let records = vec![CorrespondenceRecord {
+            target,
+            pointer: "/id".to_owned(),
+            span: SourceSpan { start: 1, end: 2 },
+        }];
+        let edits = plan_scalar_edits("[a]", &records, "[a]", &records, "[b]", &records)
+            .expect("fresh correspondence should produce one edit");
+        assert_eq!(edits.len(), 1);
+        assert_eq!(apply_scalar_edits("[a]", &edits).unwrap(), "[b]");
+        assert!(matches!(
+            plan_scalar_edits("[x]", &records, "[a]", &records, "[b]", &records),
+            Err(ScalarSyncError::StaleSpan { .. })
+        ));
+        assert!(matches!(
+            plan_scalar_edits("[a]", &[], "[a]", &records, "[b]", &records),
+            Err(ScalarSyncError::CorrespondenceSetMismatch)
+        ));
     }
 }
