@@ -20,6 +20,13 @@
   font-variant-ligatures: none;
 }
 
+@media print {
+  .content .canonical-module {
+    break-before: avoid-page;
+    page-break-before: avoid;
+  }
+}
+
 @media (max-width: 700px) {
   .content main {
     padding-inline: 20px;

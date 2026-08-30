@@ -1061,7 +1061,7 @@ fn generated_research_manuscript(compilation: &Compilation) -> Result<String, St
         output.push_str(&demote_headings(&without_status));
         let _ = write!(
             output,
-            "\n\n[Canonical module]({}/blob/main/{}).\n",
+            "\n\n<p class=\"canonical-module\"><a href=\"{}/blob/main/{}\">Canonical module.</a></p>\n",
             compilation.config.site.repository_url,
             source.to_string_lossy()
         );
