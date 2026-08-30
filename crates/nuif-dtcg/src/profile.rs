@@ -18,6 +18,7 @@ pub(crate) fn profile_issues(document: &Document) -> Vec<FidelityEntry> {
         .collect::<Vec<_>>();
     if !document.roots.is_empty()
         || !document.entities.is_empty()
+        || !document.assets.is_empty()
         || !document.relations.is_empty()
         || document.extension_declarations != ExtensionDeclarations::default()
         || document.extensions != Extensions::default()
@@ -25,7 +26,7 @@ pub(crate) fn profile_issues(document: &Document) -> Vec<FidelityEntry> {
         unsupported_document(
             document,
             &mut issues,
-            "entities, roots, relations and document extensions are outside the scalar-token profile",
+            "entities, roots, assets, relations and document extensions are outside the scalar-token profile",
         );
     }
     for token in document.tokens.values() {

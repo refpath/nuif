@@ -45,6 +45,7 @@ pub fn profile_fixture() -> Document {
         content: "Portable authored intent".to_owned(),
         font: nuif_text::PINNED_FONT_NAME.to_owned(),
         font_sha256: nuif_text::PINNED_FONT_SHA256.to_owned(),
+        font_asset: None,
         size: 18.0,
         line_height: 24.0,
     });
@@ -76,7 +77,8 @@ pub(crate) fn profile_issues(document: &Document) -> Vec<FidelityEntry> {
             "profile requires exactly one JSX root entity",
         );
     }
-    if !document.tokens.is_empty()
+    if !document.assets.is_empty()
+        || !document.tokens.is_empty()
         || !document.relations.is_empty()
         || document.extension_declarations != ExtensionDeclarations::default()
         || document.extensions != Extensions::default()
@@ -85,7 +87,7 @@ pub(crate) fn profile_issues(document: &Document) -> Vec<FidelityEntry> {
             &mut issues,
             document,
             "/",
-            "profile does not map tokens, relations or document extensions",
+            "profile does not map assets, tokens, relations or document extensions",
         );
     }
     for entity in document.entities.values() {
@@ -183,12 +185,13 @@ fn text_issues(entity: &Entity, issues: &mut Vec<FidelityEntry>) {
         || !text.line_height.is_finite()
         || text.font != nuif_text::PINNED_FONT_NAME
         || text.font_sha256 != nuif_text::PINNED_FONT_SHA256
+        || text.font_asset.is_some()
     {
         unsupported_entity(
             issues,
             entity.id,
             "/authored/text",
-            "text requires finite metrics and the profile-pinned font identity",
+            "text requires finite metrics and the unbound profile-pinned font identity",
         );
     }
 }

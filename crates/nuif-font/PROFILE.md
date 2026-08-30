@@ -86,4 +86,6 @@ embedding-policy mutations plus six portable/private/linked/substituted/
 unavailable package outcomes are blocking. The real rejected fixtures prove
 that those categories fail closed; they do not specify how a future profile
 will accept them. Four warmed inspection-allocation trials and one warmed
-packaged-validation allocation trial are also blocking.
+packaged-validation allocation trial are also blocking. Six item-level trials
+prove substituted/unavailable text binding, layout fidelity and render-command
+behavior through a package round trip.

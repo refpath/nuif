@@ -335,6 +335,7 @@ fn editor_fixture() -> Document {
         content: "Hostile trial".to_owned(),
         font: nuif_text::PINNED_FONT_NAME.to_owned(),
         font_sha256: nuif_text::PINNED_FONT_SHA256.to_owned(),
+        font_asset: None,
         size: 16.0,
         line_height: 24.0,
     });

@@ -510,6 +510,7 @@ fn browser_entity(
             content: content.clone(),
             font: "Ahem substituted capture baseline".to_owned(),
             font_sha256: PINNED_FONT_SHA256.to_owned(),
+            font_asset: None,
             size: 16.0,
             line_height: 20.0,
         }),
@@ -886,6 +887,7 @@ fn screenshot_proposal(
             content: span.text.clone(),
             font: "Ahem substituted screenshot baseline".to_owned(),
             font_sha256: PINNED_FONT_SHA256.to_owned(),
+            font_asset: None,
             size: (span.bounds.height * 0.8).max(1.0),
             line_height: span.bounds.height.max(1.0),
         });

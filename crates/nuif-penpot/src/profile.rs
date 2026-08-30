@@ -6,7 +6,8 @@ use nuif_core::{
 
 pub(crate) fn profile_issues(document: &Document) -> Vec<FidelityEntry> {
     let mut issues = Vec::new();
-    if !document.tokens.is_empty()
+    if !document.assets.is_empty()
+        || !document.tokens.is_empty()
         || !document.relations.is_empty()
         || !document.extension_declarations.used.is_empty()
         || !document.extension_declarations.required.is_empty()
@@ -16,7 +17,7 @@ pub(crate) fn profile_issues(document: &Document) -> Vec<FidelityEntry> {
         unsupported_document(
             document,
             &mut issues,
-            "tokens, relations and extensions are outside nuif-penpot-v3-0",
+            "assets, tokens, relations and extensions are outside nuif-penpot-v3-0",
         );
     }
     if document.roots.len() != 1 {
@@ -140,6 +141,7 @@ fn graphic_issues(
         (true, Some(value))
             if value.font == nuif_text::PINNED_FONT_NAME
                 && value.font_sha256 == nuif_text::PINNED_FONT_SHA256
+                && value.font_asset.is_none()
                 && value.size.is_finite()
                 && value.size > 0.0
                 && value.line_height.is_finite()
@@ -148,7 +150,7 @@ fn graphic_issues(
             entity,
             issues,
             "/authored/text",
-            "text requires literal content and the pinned font identity",
+            "text requires literal content and an unbound pinned font identity",
         ),
         (false, None) => {}
         (false, Some(_)) => unsupported_entity(
@@ -248,6 +250,7 @@ pub fn profile_fixture() -> Document {
         content: "NUIF Penpot profile".to_owned(),
         font: nuif_text::PINNED_FONT_NAME.to_owned(),
         font_sha256: nuif_text::PINNED_FONT_SHA256.to_owned(),
+        font_asset: None,
         size: 16.0,
         line_height: 24.0,
     });

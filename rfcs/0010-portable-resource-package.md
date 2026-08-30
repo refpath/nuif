@@ -119,7 +119,11 @@ or descriptor strings.
 
 A font asset records exact byte digest when available, media type, face or
 collection index, names used for matching, axes, features, character coverage
-and policy evidence. Text shaping continues to pin its execution inputs.
+and policy evidence. Text shaping continues to pin its execution inputs. An
+optional stable text-to-font `AssetId` keeps the requested text hash distinct
+from the effective resource hash: exact bindings require equality, substituted
+bindings retain the request and select the asset resource, and unavailable
+bindings select an asset with no resource.
 
 Font portability policy is one of:
 

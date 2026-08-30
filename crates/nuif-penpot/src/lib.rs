@@ -1166,6 +1166,7 @@ fn parse_shape(
             content: raw_string(content, &member.name)?,
             font,
             font_sha256,
+            font_asset: None,
             size,
             line_height,
         });

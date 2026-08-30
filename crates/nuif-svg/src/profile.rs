@@ -7,7 +7,8 @@ use std::collections::BTreeMap;
 
 pub(crate) fn profile_issues(document: &Document) -> Vec<FidelityEntry> {
     let mut issues = Vec::new();
-    if !document.tokens.is_empty()
+    if !document.assets.is_empty()
+        || !document.tokens.is_empty()
         || !document.relations.is_empty()
         || !document.extension_declarations.used.is_empty()
         || !document.extension_declarations.required.is_empty()
@@ -17,7 +18,7 @@ pub(crate) fn profile_issues(document: &Document) -> Vec<FidelityEntry> {
         unsupported_document(
             document,
             &mut issues,
-            "tokens, relations and extensions are outside nuif-svg-0",
+            "assets, tokens, relations and extensions are outside nuif-svg-0",
         );
     }
     if document.roots.len() != 1 {
@@ -153,6 +154,7 @@ fn graphics_issues(entity: &Entity, text: bool, issues: &mut Vec<FidelityEntry>)
         (true, Some(value))
             if value.font == nuif_text::PINNED_FONT_NAME
                 && value.font_sha256 == nuif_text::PINNED_FONT_SHA256
+                && value.font_asset.is_none()
                 && value.size.is_finite()
                 && value.size > 0.0
                 && value.line_height.is_finite()
@@ -161,7 +163,7 @@ fn graphics_issues(entity: &Entity, text: bool, issues: &mut Vec<FidelityEntry>)
             entity,
             issues,
             "/authored/text",
-            "text requires the pinned font identity and positive finite metrics",
+            "text requires an unbound pinned font identity and positive finite metrics",
         ),
         (false, None) => {}
         (false, Some(_)) => unsupported_entity(
@@ -270,6 +272,7 @@ pub fn profile_fixture() -> Document {
         content: "NUIF SVG profile".to_owned(),
         font: nuif_text::PINNED_FONT_NAME.to_owned(),
         font_sha256: nuif_text::PINNED_FONT_SHA256.to_owned(),
+        font_asset: None,
         size: 16.0,
         line_height: 24.0,
     });

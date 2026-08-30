@@ -57,6 +57,7 @@ pub fn profile_fixture() -> Document {
         content: "Portable authored intent".to_owned(),
         font: "Ahem".to_owned(),
         font_sha256: "f0a92cd0cc45735591c9b5b1fa8aecd5194e8dc518895ca22af94a46c23550dc".to_owned(),
+        font_asset: None,
         size: 18.0,
         line_height: 24.0,
     });
@@ -86,6 +87,14 @@ pub(crate) fn profile_issues(document: &Document) -> Vec<FidelityEntry> {
             document,
             "/roots",
             "profile requires exactly one HTML body root",
+        );
+    }
+    if !document.assets.is_empty() {
+        unsupported_document(
+            &mut issues,
+            document,
+            "/assets",
+            "profile does not map assets",
         );
     }
     if !document.relations.is_empty() {
@@ -241,12 +250,12 @@ fn text_issues(entity: &Entity, issues: &mut Vec<FidelityEntry>) {
         );
         return;
     };
-    if !text.size.is_finite() || !text.line_height.is_finite() {
+    if !text.size.is_finite() || !text.line_height.is_finite() || text.font_asset.is_some() {
         unsupported_entity(
             issues,
             entity.id,
             "/authored/text",
-            "text size and line height must be finite",
+            "text metrics must be finite and font assets are outside this profile",
         );
     }
 }

@@ -284,6 +284,7 @@ pub fn responsive_card_fixture() -> Document {
         content: "Portable authored intent".to_owned(),
         font: nuif_text::PINNED_FONT_NAME.to_owned(),
         font_sha256: nuif_text::PINNED_FONT_SHA256.to_owned(),
+        font_asset: None,
         size: 18.0,
         line_height: 24.0,
     });
@@ -547,6 +548,7 @@ pub fn performance_fixture(entity_count: usize, mixed_text: bool) -> Document {
                 content: format!("NUIF {index}"),
                 font: nuif_text::PINNED_FONT_NAME.to_owned(),
                 font_sha256: nuif_text::PINNED_FONT_SHA256.to_owned(),
+                font_asset: None,
                 size: 14.0,
                 line_height: 20.0,
             });

@@ -1008,6 +1008,7 @@ mod tests {
                             content: "Editable".to_owned(),
                             font: "Ahem".to_owned(),
                             font_sha256: "0".repeat(64),
+                            font_asset: None,
                             size: 16.0,
                             line_height: 20.0,
                         }),

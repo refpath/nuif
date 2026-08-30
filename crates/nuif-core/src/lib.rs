@@ -812,6 +812,8 @@ pub struct TextContent {
     pub content: String,
     pub font: String,
     pub font_sha256: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub font_asset: Option<AssetId>,
     pub size: f64,
     pub line_height: f64,
 }
@@ -935,6 +937,116 @@ pub struct FontAsset {
     pub coverage: Vec<CodepointRange>,
     #[serde(default)]
     pub policy_evidence: BTreeMap<String, String>,
+}
+
+/// The effective font identity selected by a text item.
+///
+/// Unbound is the legacy profile-0 form, where the requested hash is also the
+/// effective hash. Explicit bindings keep requested and replacement identities
+/// separate and can represent an asset that intentionally has no bytes.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum TextFontBinding<'a> {
+    Unbound {
+        requested_sha256: &'a str,
+    },
+    Exact {
+        asset: AssetId,
+        sha256: &'a str,
+        portability: AssetPortability,
+    },
+    Substituted {
+        asset: AssetId,
+        requested_sha256: &'a str,
+        replacement_sha256: &'a str,
+    },
+    Unavailable {
+        asset: AssetId,
+        requested_sha256: &'a str,
+    },
+    Invalid {
+        asset: AssetId,
+        reason: &'static str,
+    },
+}
+
+impl<'a> TextFontBinding<'a> {
+    #[must_use]
+    pub fn effective_sha256(self) -> Option<&'a str> {
+        match self {
+            Self::Unbound { requested_sha256 }
+            | Self::Exact {
+                sha256: requested_sha256,
+                ..
+            } => Some(requested_sha256),
+            Self::Substituted {
+                replacement_sha256, ..
+            } => Some(replacement_sha256),
+            Self::Unavailable { .. } | Self::Invalid { .. } => None,
+        }
+    }
+}
+
+/// Resolves an optional stable text-to-font-asset binding without consulting a
+/// host font database or performing I/O.
+#[must_use]
+pub fn resolve_text_font_binding<'a>(
+    document: &'a Document,
+    text: &'a TextContent,
+) -> TextFontBinding<'a> {
+    let Some(asset_id) = text.font_asset else {
+        return TextFontBinding::Unbound {
+            requested_sha256: &text.font_sha256,
+        };
+    };
+    let Some(asset) = document.assets.get(&asset_id) else {
+        return TextFontBinding::Invalid {
+            asset: asset_id,
+            reason: "font asset does not exist",
+        };
+    };
+    if !matches!(asset.kind, AssetKind::Font(_)) {
+        return TextFontBinding::Invalid {
+            asset: asset_id,
+            reason: "font asset reference targets a non-font asset",
+        };
+    }
+    if asset.portability == AssetPortability::Unavailable {
+        return if asset.resource.is_none() {
+            TextFontBinding::Unavailable {
+                asset: asset_id,
+                requested_sha256: &text.font_sha256,
+            }
+        } else {
+            TextFontBinding::Invalid {
+                asset: asset_id,
+                reason: "unavailable font asset unexpectedly binds resource bytes",
+            }
+        };
+    }
+    let Some(sha256) = asset.resource.as_ref().and_then(ResourceDigest::sha256_hex) else {
+        return TextFontBinding::Invalid {
+            asset: asset_id,
+            reason: "bound font asset lacks a valid resource digest",
+        };
+    };
+    if asset.portability == AssetPortability::Substituted {
+        TextFontBinding::Substituted {
+            asset: asset_id,
+            requested_sha256: &text.font_sha256,
+            replacement_sha256: sha256,
+        }
+    } else if sha256 == text.font_sha256 {
+        TextFontBinding::Exact {
+            asset: asset_id,
+            sha256,
+            portability: asset.portability,
+        }
+    } else {
+        TextFontBinding::Invalid {
+            asset: asset_id,
+            reason: "exact font asset resource differs from the requested font hash",
+        }
+    }
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
@@ -1692,6 +1804,13 @@ fn validate_entity(document: &Document, entity: &Entity, diagnostics: &mut Vec<D
                 Some(entity.id),
             ));
         }
+        if let TextFontBinding::Invalid { reason, .. } = resolve_text_font_binding(document, text) {
+            diagnostics.push_capped(Diagnostic::error(
+                "TEXT_FONT_BINDING_INVALID",
+                reason,
+                Some(entity.id),
+            ));
+        }
     }
     if let Some(fill) = entity.authored.fill {
         let channels = [fill.red, fill.green, fill.blue, fill.alpha];
@@ -2305,6 +2424,7 @@ mod tests {
             content: "probe".to_owned(),
             font: "unresolved".to_owned(),
             font_sha256: "NOT-A-SHA256".to_owned(),
+            font_asset: None,
             size: 0.0,
             line_height: -1.0,
         });
@@ -2316,6 +2436,102 @@ mod tests {
             .collect::<BTreeSet<_>>();
         assert!(codes.contains("TEXT_FONT_HASH_INVALID"));
         assert!(codes.contains("TEXT_METRICS_INVALID"));
+    }
+
+    fn test_font_asset(
+        id: AssetId,
+        portability: AssetPortability,
+        resource: Option<ResourceDigest>,
+    ) -> Asset {
+        Asset {
+            schema_version: CURRENT_SCHEMA_VERSION,
+            id,
+            name: Some("test font".to_owned()),
+            resource,
+            portability,
+            kind: AssetKind::Font(FontAsset {
+                face_index: 0,
+                names: vec!["test font".to_owned()],
+                axes: BTreeMap::new(),
+                features: BTreeMap::new(),
+                coverage: Vec::new(),
+                policy_evidence: BTreeMap::new(),
+            }),
+        }
+    }
+
+    #[test]
+    fn explicit_font_bindings_separate_requested_and_effective_identity() {
+        let requested = "1".repeat(64);
+        let replacement = "2".repeat(64);
+        let asset_id = AssetId::new(0xf0);
+        let mut document = Document::empty(EntityId::new(1));
+        document.assets.insert(
+            asset_id,
+            test_font_asset(
+                asset_id,
+                AssetPortability::Substituted,
+                Some(ResourceDigest::from_sha256_hex(&replacement)),
+            ),
+        );
+        let text = TextContent {
+            content: "probe".to_owned(),
+            font: "requested".to_owned(),
+            font_sha256: requested.clone(),
+            font_asset: Some(asset_id),
+            size: 12.0,
+            line_height: 16.0,
+        };
+        assert_eq!(
+            resolve_text_font_binding(&document, &text),
+            TextFontBinding::Substituted {
+                asset: asset_id,
+                requested_sha256: &requested,
+                replacement_sha256: &replacement,
+            }
+        );
+
+        document.assets.insert(
+            asset_id,
+            test_font_asset(asset_id, AssetPortability::Unavailable, None),
+        );
+        assert_eq!(
+            resolve_text_font_binding(&document, &text),
+            TextFontBinding::Unavailable {
+                asset: asset_id,
+                requested_sha256: &requested,
+            }
+        );
+    }
+
+    #[test]
+    fn validation_rejects_ambiguous_exact_font_binding() {
+        let asset_id = AssetId::new(0xf0);
+        let mut document = Document::empty(EntityId::new(1));
+        document.assets.insert(
+            asset_id,
+            test_font_asset(
+                asset_id,
+                AssetPortability::Portable,
+                Some(ResourceDigest::from_sha256_hex("2".repeat(64))),
+            ),
+        );
+        let mut text = Entity::new(EntityId::new(2), EntityKind::Text);
+        text.authored.text = Some(TextContent {
+            content: "probe".to_owned(),
+            font: "requested".to_owned(),
+            font_sha256: "1".repeat(64),
+            font_asset: Some(asset_id),
+            size: 12.0,
+            line_height: 16.0,
+        });
+        document.roots.push(text.id);
+        document.entities.insert(text.id, text);
+        assert!(
+            validate(&document)
+                .iter()
+                .any(|diagnostic| diagnostic.code == "TEXT_FONT_BINDING_INVALID")
+        );
     }
 
     #[test]

@@ -569,6 +569,7 @@ fn parse_text(
         content: content.value.clone(),
         font: font.value.clone(),
         font_sha256: hash.value.clone(),
+        font_asset: None,
         size: parse_number(&size.value, &entity_pointer(raw.id, "/authored/text/size"))?,
         line_height: parse_number(
             &line_height.value,

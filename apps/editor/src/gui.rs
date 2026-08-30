@@ -1523,6 +1523,7 @@ impl Driver {
                 content: "Text".to_owned(),
                 font: nuif_text::PINNED_FONT_NAME.to_owned(),
                 font_sha256: nuif_text::PINNED_FONT_SHA256.to_owned(),
+                font_asset: None,
                 size: 24.0,
                 line_height: 28.0,
             });

@@ -2,7 +2,8 @@
 
 use nuif_core::{
     Align, Diagnostic, Document, Entity, EntityId, EntityKind, Fidelity, FlowDirection, GridArea,
-    GridTrack, LayoutFamily, Severity, SizeIntent, resolve_grid_placements, validate,
+    GridTrack, LayoutFamily, Severity, SizeIntent, TextFontBinding, resolve_grid_placements,
+    resolve_text_font_binding, validate,
 };
 use nuif_text::{ShapeRequest, TextDirection, hard_lines, shape_hard_lines};
 use serde::{Deserialize, Serialize};
@@ -156,7 +157,7 @@ fn layout_entity(
         return;
     };
     let resolved = resolved_authored(entity, context);
-    let intrinsic = intrinsic_size(entity, context);
+    let intrinsic = intrinsic_size(document, entity, context);
     let width = if is_root && matches!(resolved.width, SizeIntentRef::Auto | SizeIntentRef::Fill) {
         available.width
     } else {
@@ -196,18 +197,73 @@ fn record_entity_diagnostics(
     let id = entity.id;
     if let EntityKind::Text = entity.kind
         && let Some(text) = &entity.authored.text
-        && !text.font_sha256.is_empty()
-        && !context.font_hashes.contains(&text.font_sha256)
     {
+        let binding = resolve_text_font_binding(document, text);
+        let (code, message, pointer, fidelity) = match binding {
+            TextFontBinding::Substituted {
+                asset,
+                replacement_sha256,
+                ..
+            } if context.font_hashes.contains(replacement_sha256) => (
+                "TEXT_FONT_SUBSTITUTED",
+                format!(
+                    "font {} uses declared substitute asset {asset} ({replacement_sha256})",
+                    text.font
+                ),
+                format!("/entities/{id}/authored/text/font_asset"),
+                Fidelity::Approximated {
+                    reason: "layout metrics use the declared replacement font".to_owned(),
+                },
+            ),
+            TextFontBinding::Substituted {
+                asset,
+                replacement_sha256,
+                ..
+            } => (
+                "TEXT_FONT_SUBSTITUTE_NOT_PINNED",
+                format!(
+                    "declared substitute font asset {asset} ({replacement_sha256}) is absent from the evaluation context"
+                ),
+                format!("/entities/{id}/authored/text/font_asset"),
+                Fidelity::Unsupported {
+                    reason: "substitute font metrics are unavailable".to_owned(),
+                },
+            ),
+            TextFontBinding::Unavailable { asset, .. } => (
+                "TEXT_FONT_UNAVAILABLE",
+                format!("font {} is unavailable through asset {asset}", text.font),
+                format!("/entities/{id}/authored/text/font_asset"),
+                Fidelity::Unsupported {
+                    reason: "font resource is intentionally unavailable".to_owned(),
+                },
+            ),
+            TextFontBinding::Unbound { requested_sha256 }
+            | TextFontBinding::Exact {
+                sha256: requested_sha256,
+                ..
+            } if !requested_sha256.is_empty()
+                && !context.font_hashes.contains(requested_sha256) =>
+            {
+                (
+                    "TEXT_FONT_NOT_PINNED",
+                    format!("font {} is absent from the evaluation context", text.font),
+                    format!("/entities/{id}/authored/text/font_sha256"),
+                    Fidelity::Approximated {
+                        reason: "font metrics use the deterministic fallback estimate".to_owned(),
+                    },
+                )
+            }
+            TextFontBinding::Invalid { .. }
+            | TextFontBinding::Unbound { .. }
+            | TextFontBinding::Exact { .. } => return,
+        };
         snapshot.diagnostics.push(Diagnostic {
-            code: "TEXT_FONT_NOT_PINNED".to_owned(),
+            code: code.to_owned(),
             severity: Severity::Warning,
-            message: format!("font {} is absent from the evaluation context", text.font),
+            message,
             entity: Some(id),
-            pointer: Some(format!("/entities/{id}/authored/text/font_sha256")),
-            fidelity: Some(Fidelity::Approximated {
-                reason: "font metrics use the deterministic fallback estimate".to_owned(),
-            }),
+            pointer: Some(pointer),
+            fidelity: Some(fidelity),
         });
     }
     if let EntityKind::Unknown(unknown) = &entity.kind {
@@ -327,28 +383,26 @@ fn resolve_axis(intent: &SizeIntentRef, available: f64, intrinsic: f64) -> f64 {
     }
 }
 
-fn intrinsic_size(entity: &Entity, context: &EvaluationContext) -> Size {
+fn intrinsic_size(document: &Document, entity: &Entity, context: &EvaluationContext) -> Size {
     if let Some(text) = &entity.authored.text {
         let line_count = hard_lines(&text.content).len();
         let direction = match context.writing_direction {
             WritingDirection::LeftToRight => TextDirection::LeftToRight,
             WritingDirection::RightToLeft => TextDirection::RightToLeft,
         };
-        let shaped_width = context
-            .font_hashes
-            .contains(&text.font_sha256)
-            .then(|| {
+        let effective_sha256 = resolve_text_font_binding(document, text).effective_sha256();
+        let shaped_width = effective_sha256
+            .filter(|sha256| context.font_hashes.contains(*sha256))
+            .and_then(|sha256| {
                 shape_hard_lines(&ShapeRequest {
                     text: &text.content,
-                    font_sha256: &text.font_sha256,
+                    font_sha256: sha256,
                     font_size: text.size,
                     direction,
                     language: &context.locale,
                 })
+                .ok()
             })
-            .transpose()
-            .ok()
-            .flatten()
             .map(|runs| {
                 runs.into_iter().fold(0.0_f64, |maximum, run| {
                     let advance = run
@@ -464,7 +518,7 @@ fn layout_grid(
         };
         let area_bounds = grid_area_bounds(bounds, &columns, &rows, gap, *area);
         let resolved = resolved_authored(child, context);
-        let intrinsic = intrinsic_size(child, context);
+        let intrinsic = intrinsic_size(document, child, context);
         let (x_offset, width) = resolve_grid_item_axis(
             &resolved.width,
             area_bounds.width,
@@ -613,7 +667,7 @@ fn layout_flow(
         if matches!(intent, SizeIntentRef::Fill) {
             fill_count += 1;
         } else {
-            let intrinsic = intrinsic_size(item, context);
+            let intrinsic = intrinsic_size(document, item, context);
             fixed_main += resolve_axis(
                 &intent,
                 available_main,
@@ -636,7 +690,7 @@ fn layout_flow(
             continue;
         };
         let child_resolved = resolved_authored(item, context);
-        let intrinsic = intrinsic_size(item, context);
+        let intrinsic = intrinsic_size(document, item, context);
         let main_intent = if is_row {
             child_resolved.width
         } else {
@@ -743,13 +797,15 @@ mod tests {
             content: "A B\nAB".to_owned(),
             font: PINNED_FONT_NAME.to_owned(),
             font_sha256: PINNED_FONT_SHA256.to_owned(),
+            font_asset: None,
             size: 18.0,
             line_height: 24.0,
         });
         let mut context = EvaluationContext::viewport(100.0, 100.0);
         context.font_hashes.insert(PINNED_FONT_SHA256.to_owned());
+        let document = Document::empty(EntityId::new(1));
         assert_eq!(
-            intrinsic_size(&text, &context),
+            intrinsic_size(&document, &text, &context),
             Size {
                 width: 54.0,
                 height: 48.0,
@@ -916,6 +972,7 @@ mod tests {
             content: "probe".to_owned(),
             font: "missing".to_owned(),
             font_sha256: "0".repeat(64),
+            font_asset: None,
             size: 12.0,
             line_height: 16.0,
         });

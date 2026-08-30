@@ -1,7 +1,7 @@
 use nuif_codec::canonical_hash;
 use nuif_core::{
     Asset, AssetId, AssetKind, AssetPortability, CURRENT_SCHEMA_VERSION, Document, EntityId,
-    FontAsset, ResourceRole,
+    EntityKind, Fidelity, FontAsset, ResourceRole, SizeIntent, TextContent,
 };
 use nuif_font::{
     EmbeddingPermission, MAX_FONT_BYTES, MAX_FONT_COVERAGE_RANGES, MAX_FONT_FEATURES,
@@ -9,6 +9,7 @@ use nuif_font::{
     inspect_opentype_static,
 };
 use nuif_package::{NuifPackage, PackageMode, ResourceResolver};
+use nuif_render::build_scene;
 use nuif_text::{PINNED_FONT_NAME, PINNED_FONT_SHA256, pinned_font_bytes};
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
@@ -102,6 +103,7 @@ fn run() -> Result<(), String> {
     let policy_trials = policy_trials(&primary, bytes);
     let portability_trials = portability_trials(&primary, bytes)?;
     let package_trials = package_trials(&primary, bytes)?;
+    let item_fidelity_trials = item_fidelity_trials(&primary, bytes)?;
     let allocation_trials = allocation_trials(&primary, bytes)?;
     let passed = parser_trials
         .iter()
@@ -110,6 +112,7 @@ fn run() -> Result<(), String> {
         .chain(&policy_trials)
         .chain(&portability_trials)
         .chain(&package_trials)
+        .chain(&item_fidelity_trials)
         .chain(&allocation_trials)
         .all(passed_trial);
     let report = json!({
@@ -152,6 +155,7 @@ fn run() -> Result<(), String> {
         "policy_trials": policy_trials,
         "portability_trials": portability_trials,
         "package_trials": package_trials,
+        "item_fidelity_trials": item_fidelity_trials,
         "allocation_trials": allocation_trials,
         "source": source_identity(),
         "non_claims": [
@@ -169,8 +173,9 @@ fn run() -> Result<(), String> {
             "policy": policy_trials.len(),
             "portability": portability_trials.len(),
             "package": package_trials.len(),
+            "item_fidelity": item_fidelity_trials.len(),
             "allocation": allocation_trials.len(),
-            "blocking_failures": parser_trials.iter().chain(&accepted_trials).chain(&negative_trials).chain(&policy_trials).chain(&portability_trials).chain(&package_trials).chain(&allocation_trials).filter(|item| !passed_trial(item)).count(),
+            "blocking_failures": parser_trials.iter().chain(&accepted_trials).chain(&negative_trials).chain(&policy_trials).chain(&portability_trials).chain(&package_trials).chain(&item_fidelity_trials).chain(&allocation_trials).filter(|item| !passed_trial(item)).count(),
         }
     });
     if let Some(parent) = output.parent()
@@ -184,12 +189,13 @@ fn run() -> Result<(), String> {
     )
     .map_err(|error| error.to_string())?;
     println!(
-        "font resources: {} parser/accepted, {} negative, {} policy/portability/package/allocation, status {}",
+        "font resources: {} parser/accepted, {} negative, {} policy/portability/package/fidelity/allocation, status {}",
         parser_trials.len() + accepted_trials.len(),
         negative_trials.len(),
         policy_trials.len()
             + portability_trials.len()
             + package_trials.len()
+            + item_fidelity_trials.len()
             + allocation_trials.len(),
         if passed { "passed" } else { "failed" }
     );
@@ -198,6 +204,116 @@ fn run() -> Result<(), String> {
     } else {
         Err(format!("report failed; inspect {}", output.display()))
     }
+}
+
+fn item_fidelity_trials(
+    inspection: &nuif_font::FontInspection,
+    bytes: &[u8],
+) -> Result<Vec<Value>, String> {
+    let requested_sha256 = "1".repeat(64);
+    let mut substituted = font_package(
+        inspection,
+        bytes,
+        PackageMode::Portable,
+        AssetPortability::Substituted,
+        false,
+    )?;
+    add_font_text(&mut substituted, &requested_sha256);
+    let encoded = substituted.encode().map_err(|error| error.to_string())?;
+    let substituted = NuifPackage::decode(&encoded).map_err(|error| error.to_string())?;
+    let mut available = nuif_layout::EvaluationContext::viewport(100.0, 24.0);
+    available.font_hashes.insert(PINNED_FONT_SHA256.to_owned());
+    let substituted_layout = nuif_layout::evaluate(&substituted.document, &available);
+    let substituted_scene = build_scene(&substituted.document, &substituted_layout, &available)
+        .map_err(|error| error.to_string())?;
+    let missing = nuif_layout::EvaluationContext::viewport(100.0, 24.0);
+    let missing_layout = nuif_layout::evaluate(&substituted.document, &missing);
+    let missing_scene = build_scene(&substituted.document, &missing_layout, &missing)
+        .map_err(|error| error.to_string())?;
+
+    let mut unavailable = font_package(
+        inspection,
+        bytes,
+        PackageMode::Portable,
+        AssetPortability::Unavailable,
+        false,
+    )?;
+    add_font_text(&mut unavailable, &requested_sha256);
+    let unavailable =
+        NuifPackage::decode(&unavailable.encode().map_err(|error| error.to_string())?)
+            .map_err(|error| error.to_string())?;
+    let unavailable_layout = nuif_layout::evaluate(&unavailable.document, &missing);
+    let unavailable_scene = build_scene(&unavailable.document, &unavailable_layout, &missing)
+        .map_err(|error| error.to_string())?;
+
+    let text = substituted
+        .document
+        .entities
+        .get(&EntityId::new(0xf1))
+        .and_then(|entity| entity.authored.text.as_ref())
+        .ok_or_else(|| "substituted package lost the bound text fixture".to_owned())?;
+    Ok(vec![
+        trial(
+            "text_font_binding_survives_package",
+            text.font_asset == Some(AssetId::new(0xf0)) && text.font_sha256 == requested_sha256,
+        ),
+        trial(
+            "substitution_layout_is_item_level_approximated",
+            substituted_layout.diagnostics.iter().any(|diagnostic| {
+                diagnostic.entity == Some(EntityId::new(0xf1))
+                    && diagnostic.code == "TEXT_FONT_SUBSTITUTED"
+                    && matches!(diagnostic.fidelity, Some(Fidelity::Approximated { .. }))
+            }),
+        ),
+        trial(
+            "substitution_render_is_item_level_approximated",
+            substituted_scene.commands.len() == 1
+                && substituted_scene.fidelity.iter().any(|entry| {
+                    entry.entity == Some(EntityId::new(0xf1))
+                        && matches!(entry.status, Fidelity::Approximated { .. })
+                }),
+        ),
+        trial(
+            "unresolved_substitute_does_not_render",
+            missing_scene.commands.is_empty()
+                && missing_scene.fidelity.iter().any(|entry| {
+                    entry.entity == Some(EntityId::new(0xf1))
+                        && matches!(entry.status, Fidelity::Unsupported { .. })
+                }),
+        ),
+        trial(
+            "unavailable_layout_is_item_level_unsupported",
+            unavailable_layout.diagnostics.iter().any(|diagnostic| {
+                diagnostic.entity == Some(EntityId::new(0xf1))
+                    && diagnostic.code == "TEXT_FONT_UNAVAILABLE"
+                    && matches!(diagnostic.fidelity, Some(Fidelity::Unsupported { .. }))
+            }),
+        ),
+        trial(
+            "unavailable_font_does_not_render",
+            unavailable_scene.commands.is_empty()
+                && unavailable_scene.fidelity.iter().any(|entry| {
+                    entry.entity == Some(EntityId::new(0xf1))
+                        && matches!(entry.status, Fidelity::Unsupported { .. })
+                }),
+        ),
+    ])
+}
+
+fn add_font_text(package: &mut NuifPackage, requested_sha256: &str) {
+    let mut entity = nuif_core::Entity::new(EntityId::new(0xf1), EntityKind::Text);
+    entity.authored.width = SizeIntent::Fixed(100.0);
+    entity.authored.height = SizeIntent::Fixed(24.0);
+    entity.authored.text = Some(TextContent {
+        content: "A B".to_owned(),
+        font: "requested font".to_owned(),
+        font_sha256: requested_sha256.to_owned(),
+        font_asset: Some(AssetId::new(0xf0)),
+        size: 18.0,
+        line_height: 24.0,
+    });
+    package.document.roots.push(entity.id);
+    package.document.entities.insert(entity.id, entity);
 }
 
 fn allocation_trials(

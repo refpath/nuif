@@ -43,8 +43,9 @@ non-interlaced colour/depth forms that normalize to RGBA8 without sample loss;
 16-bit/interlaced/colour-managed PNG, live host/GPU affine equivalence and cross-platform
 image reproduction remain excluded. `cargo xtask gate-i-font`
 adds a deliberately narrow static TrueType external-oracle/package/policy baseline;
-TTC, CFF, variable/color/bitmap/WOFF2 acceptance and complete item-level
-portability fidelity remain separate beyond the automated package-state outcomes.
+TTC, CFF, variable/color/bitmap/WOFF2 acceptance, cluster fallback and arbitrary
+packaged-font shaping remain separate. Whole-text substituted/unavailable
+bindings now have automated package, layout and rendering outcomes.
 Package/session handoff now proves shared immutable bytes, and image scenes
 deduplicate decoded surfaces under a preflighted 64 MiB total plus measured
 allocation ceilings. Static-font inspection and packaged validation have their

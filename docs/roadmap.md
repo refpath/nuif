@@ -52,8 +52,10 @@ separate `nuif-opentype-static-single-0` baseline validates one exact static
 TrueType face through package encoding/resolution, compares Skrifa results with
 a pinned HarfBuzz metadata capture and rejects malformed/policy/one-over cases through
 `cargo xtask gate-i-font`. TTC, CFF/CFF2, variable/color/bitmap/WOFF2 fonts,
-item-level substitution/unavailability fidelity, shaping integration,
-successful hosted cross-platform evidence and external implementations remain open.
+cluster-level fallback, arbitrary packaged-font shaping, successful hosted
+cross-platform evidence and external implementations remain open. Stable
+text-to-font asset bindings now distinguish requested, replacement and
+unavailable identities with six blocking layout/render fidelity trials.
 
 ## Phase 5 — editor (complete for the headless profile-0 instrument)
 The entire v0 fixture is authored from an empty document through identity-addressed semantic actions. Direct generation, editor output and operation replay are byte-identical, and the editor writes canonical document, context, layout, scene, CPU raster and fidelity report artifacts. The Rust-native Masonry shell from ADR 0006 and the later Svelte/WASM demonstration are non-normative interface work and cannot redefine this headless result.

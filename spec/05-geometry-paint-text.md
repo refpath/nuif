@@ -83,7 +83,12 @@ bytes remain inert and preserved.
 
 ## Font assets and portability
 
-Text stores Unicode scalar content, style runs, paragraph attributes, direction/language hints and content-addressed font references. A font SHA-256 reference MUST contain 64 lowercase hexadecimal digits. Font size and line height MUST be finite and positive.
+Text stores Unicode scalar content, style runs, paragraph attributes,
+direction/language hints and a requested content-addressed font identity. A
+font SHA-256 reference MUST contain 64 lowercase hexadecimal digits. Font size
+and line height MUST be finite and positive. An optional `font_asset` binds the
+text item to a stable font asset; a family or PostScript name is never a
+substitute for that identity.
 
 A font asset additionally records media type, face or collection index, names
 used for matching, variation axes, feature selections, coverage and portability
@@ -96,6 +101,15 @@ that embedding. Linked fonts retain expected digest and explicit resolver hint;
 resolution is opt-in and digest-checked. Substitution and unavailability MUST
 produce item-level fidelity. Family/PostScript names alone MUST NOT satisfy an
 exact-font profile.
+
+For an exact binding, the asset resource SHA-256 MUST equal the requested text
+hash. For a substituted binding, the text retains the requested hash and the
+asset resource identifies the exact replacement bytes. For an unavailable
+binding, the asset MUST carry no resource. Layout and rendering MUST use an
+available declared replacement with `approximated` fidelity; if replacement
+bytes are absent, or the asset is unavailable, rendering MUST emit no text
+command and MUST report item-level `unsupported` fidelity. Resolution MUST NOT
+query a platform font database or perform I/O.
 
 The first executable resource subset, `nuif-opentype-static-single-0`, accepts
 only one canonically packed, checksummed TrueType-outline sfnt face at index

@@ -667,6 +667,7 @@ fn build_entities(
                 content: raw.text.value.clone(),
                 font: parsed.font,
                 font_sha256: parsed.font_sha256,
+                font_asset: None,
                 size: parsed.size,
                 line_height: parsed.line_height,
             });
@@ -1224,6 +1225,13 @@ fn v0_profile_issues(document: &Document) -> Vec<FidelityEntry> {
             },
         })
         .collect::<Vec<_>>();
+    if !document.assets.is_empty() {
+        issues.push(unsupported(
+            CorrespondenceTarget::Document { id: document.id },
+            "/assets".to_owned(),
+            "HTML/CSS v0 does not encode the asset table",
+        ));
+    }
     for token in document.tokens.values() {
         if !safe_token_name(&token.name) {
             issues.push(unsupported(
@@ -1246,6 +1254,18 @@ fn v0_profile_issues(document: &Document) -> Vec<FidelityEntry> {
         }
     }
     for entity in document.entities.values() {
+        if entity
+            .authored
+            .text
+            .as_ref()
+            .is_some_and(|text| text.font_asset.is_some())
+        {
+            issues.push(unsupported(
+                CorrespondenceTarget::Entity { id: entity.id },
+                entity_pointer(entity.id, "/authored/text/font_asset"),
+                "HTML/CSS v0 does not encode text font-asset bindings",
+            ));
+        }
         if entity.authored.text.is_some() && !entity.children.is_empty() {
             issues.push(unsupported(
                 CorrespondenceTarget::Entity { id: entity.id },

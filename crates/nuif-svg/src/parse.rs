@@ -378,6 +378,7 @@ impl ParseState {
             content,
             font,
             font_sha256,
+            font_asset: None,
             size,
             line_height,
         });

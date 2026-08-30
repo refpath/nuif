@@ -4,7 +4,10 @@
 mod tests {
     use nuif_api::{Session, profile_zero_context};
     use nuif_codec::{Decoder, DeterministicCbor, Encoder, canonical_hash};
-    use nuif_core::{EntityId, EntityKind, FlowDirection, OpaquePayload};
+    use nuif_core::{
+        Asset, AssetId, AssetKind, AssetPortability, CURRENT_SCHEMA_VERSION, EntityId, EntityKind,
+        FlowDirection, ImageAsset, OpaquePayload,
+    };
     use nuif_html::{export_document, import_source, profile_fixture};
     use nuif_protocol::{Operation, Patch, Transaction, apply_patch};
     use nuif_testing::{TrialConfig, responsive_card_fixture, run_trials};
@@ -102,5 +105,51 @@ mod tests {
             exported.report.correspondences.len(),
             exported.report.fidelity.len()
         );
+    }
+
+    fn add_unmapped_asset(document: &mut nuif_core::Document) {
+        let id = AssetId::new(0xa55e7);
+        document.assets.insert(
+            id,
+            Asset {
+                schema_version: CURRENT_SCHEMA_VERSION,
+                id,
+                name: Some("unmapped asset".to_owned()),
+                resource: None,
+                portability: AssetPortability::Unavailable,
+                kind: AssetKind::Image(ImageAsset {
+                    width: 1,
+                    height: 1,
+                    decoder_profile: "nuif-png-rgba8-0".to_owned(),
+                }),
+            },
+        );
+    }
+
+    #[test]
+    fn source_profiles_reject_unmapped_asset_tables() {
+        let mut html = nuif_html::profile_fixture();
+        let mut react = nuif_react::profile_fixture();
+        let mut svelte = nuif_svelte::profile_fixture();
+        let mut svg = nuif_svg::profile_fixture();
+        let mut penpot = nuif_penpot::profile_fixture();
+        let mut dtcg = nuif_dtcg::profile_fixture();
+        for document in [
+            &mut html,
+            &mut react,
+            &mut svelte,
+            &mut svg,
+            &mut penpot,
+            &mut dtcg,
+        ] {
+            add_unmapped_asset(document);
+        }
+        assert!(nuif_html::export_document(&html).is_err());
+        assert!(nuif_html::export_v0_document(&html).is_err());
+        assert!(nuif_react::export_document(&react).is_err());
+        assert!(nuif_svelte::export_document(&svelte).is_err());
+        assert!(nuif_svg::export_document(&svg).is_err());
+        assert!(nuif_penpot::export_document(&penpot).is_err());
+        assert!(nuif_dtcg::export_document(&dtcg).is_err());
     }
 }

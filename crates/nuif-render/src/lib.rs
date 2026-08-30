@@ -3,7 +3,7 @@
 use nuif_core::{
     AffineTransform, AssetId, AssetKind, Color as ModelColor, ColorSpace, Document, EntityId,
     EntityKind, Fidelity, ImageCrop, ImageFit, ImagePaint, ImageSampling, ResourceDigest,
-    ShapeKind,
+    ShapeKind, TextFontBinding, resolve_text_font_binding,
 };
 use nuif_layout::{EvaluationContext, LayoutSnapshot, Rect, WritingDirection};
 use nuif_media::{
@@ -116,6 +116,11 @@ struct ImageSurfaceRequest<'a> {
     bytes: &'a [u8],
 }
 
+enum TextFontLowering<'a> {
+    Render { sha256: &'a str, fidelity: Fidelity },
+    Skip(Fidelity),
+}
+
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct RenderFidelity {
@@ -191,6 +196,11 @@ pub enum RenderError {
         entity: EntityId,
         #[source]
         source: TextError,
+    },
+    #[error("invalid font binding for entity {entity}: {reason}")]
+    InvalidFontBinding {
+        entity: EntityId,
+        reason: &'static str,
     },
     #[error("image decoding failed for entity {entity}: {source}")]
     Image {
@@ -298,7 +308,7 @@ pub fn build_scene_with_resources<'a>(
             lower_entity_visual(&mut scene, *id, &entity.kind, rect, entity.authored.fill);
         }
         if let Some(text) = &entity.authored.text {
-            lower_text(&mut scene, *id, rect, text, context)?;
+            lower_text(&mut scene, document, *id, rect, text, context)?;
         }
     }
     Ok(scene)
@@ -527,22 +537,22 @@ fn image_fidelity(scene: &mut RenderScene, id: EntityId, reason: &str) {
 
 fn lower_text(
     scene: &mut RenderScene,
+    document: &Document,
     id: EntityId,
     rect: Rect,
     text: &nuif_core::TextContent,
     context: &EvaluationContext,
 ) -> Result<(), RenderError> {
-    if !context.font_hashes.contains(&text.font_sha256) {
-        return Err(RenderError::Text {
-            entity: id,
-            source: TextError::FontAbsentFromContext {
-                hash: text.font_sha256.clone(),
-            },
-        });
-    }
+    let (font_sha256, status) = match select_text_font(document, text, context, id)? {
+        TextFontLowering::Render { sha256, fidelity } => (sha256, fidelity),
+        TextFontLowering::Skip(fidelity) => {
+            text_fidelity(scene, id, fidelity);
+            return Ok(());
+        }
+    };
     let runs = shape_hard_lines(&ShapeRequest {
         text: &text.content,
-        font_sha256: &text.font_sha256,
+        font_sha256,
         font_size: text.size,
         direction: match context.writing_direction {
             WritingDirection::LeftToRight => TextDirection::LeftToRight,
@@ -551,11 +561,7 @@ fn lower_text(
         language: &context.locale,
     })
     .map_err(|source| RenderError::Text { entity: id, source })?;
-    scene.fidelity.push(RenderFidelity {
-        entity: Some(id),
-        pointer: format!("/entities/{id}/authored/text"),
-        status: Fidelity::Lossless,
-    });
+    text_fidelity(scene, id, status);
     for (line_index, run) in runs.into_iter().enumerate() {
         let mut outlines = BTreeMap::new();
         for glyph in &run.glyphs {
@@ -591,6 +597,75 @@ fn lower_text(
         });
     }
     Ok(())
+}
+
+fn select_text_font<'a>(
+    document: &'a Document,
+    text: &'a nuif_core::TextContent,
+    context: &EvaluationContext,
+    id: EntityId,
+) -> Result<TextFontLowering<'a>, RenderError> {
+    Ok(match resolve_text_font_binding(document, text) {
+        TextFontBinding::Unbound { requested_sha256 } => {
+            if !context.font_hashes.contains(requested_sha256) {
+                return Err(RenderError::Text {
+                    entity: id,
+                    source: TextError::FontAbsentFromContext {
+                        hash: requested_sha256.to_owned(),
+                    },
+                });
+            }
+            TextFontLowering::Render {
+                sha256: requested_sha256,
+                fidelity: Fidelity::Lossless,
+            }
+        }
+        TextFontBinding::Exact { sha256, .. } => {
+            if !context.font_hashes.contains(sha256) {
+                return Ok(TextFontLowering::Skip(Fidelity::Unsupported {
+                    reason: "bound exact font is absent from the render context".to_owned(),
+                }));
+            }
+            TextFontLowering::Render {
+                sha256,
+                fidelity: Fidelity::Lossless,
+            }
+        }
+        TextFontBinding::Substituted {
+            requested_sha256,
+            replacement_sha256,
+            ..
+        } => {
+            if !context.font_hashes.contains(replacement_sha256) {
+                return Ok(TextFontLowering::Skip(Fidelity::Unsupported {
+                    reason: "declared replacement font is absent from the render context"
+                        .to_owned(),
+                }));
+            }
+            TextFontLowering::Render {
+                sha256: replacement_sha256,
+                fidelity: Fidelity::Approximated {
+                    reason: format!(
+                        "requested font {requested_sha256} was rendered with declared replacement {replacement_sha256}"
+                    ),
+                },
+            }
+        }
+        TextFontBinding::Unavailable { .. } => TextFontLowering::Skip(Fidelity::Unsupported {
+            reason: "font resource is intentionally unavailable".to_owned(),
+        }),
+        TextFontBinding::Invalid { reason, .. } => {
+            return Err(RenderError::InvalidFontBinding { entity: id, reason });
+        }
+    })
+}
+
+fn text_fidelity(scene: &mut RenderScene, id: EntityId, status: Fidelity) {
+    scene.fidelity.push(RenderFidelity {
+        entity: Some(id),
+        pointer: format!("/entities/{id}/authored/text"),
+        status,
+    });
 }
 
 /// Deterministic profile-0 rasterizer for bounded solid paint, pinned unhinted
@@ -1281,8 +1356,8 @@ fn blend_pixel(image: &mut RasterImage, x: u32, y: u32, source: [u8; 4]) {
 mod tests {
     use super::*;
     use nuif_core::{
-        AffineTransform, Asset, AssetPortability, CURRENT_SCHEMA_VERSION, Entity, ImageAsset,
-        Point, SizeIntent, TextContent,
+        AffineTransform, Asset, AssetPortability, CURRENT_SCHEMA_VERSION, Entity, FontAsset,
+        ImageAsset, Point, SizeIntent, TextContent,
     };
     use nuif_text::{PINNED_FONT_NAME, PINNED_FONT_SHA256};
 
@@ -1295,6 +1370,7 @@ mod tests {
             content: "A B".to_owned(),
             font: PINNED_FONT_NAME.to_owned(),
             font_sha256: PINNED_FONT_SHA256.to_owned(),
+            font_asset: None,
             size: 18.0,
             line_height: 20.0,
         });
@@ -1319,6 +1395,37 @@ mod tests {
                 .unwrap();
         }
         output
+    }
+
+    fn bind_text_font(document: &mut Document, portability: AssetPortability) {
+        let asset_id = AssetId::new(0xf0);
+        let resource = (portability != AssetPortability::Unavailable)
+            .then(|| ResourceDigest::from_sha256_hex(PINNED_FONT_SHA256));
+        document.assets.insert(
+            asset_id,
+            Asset {
+                schema_version: CURRENT_SCHEMA_VERSION,
+                id: asset_id,
+                name: Some(PINNED_FONT_NAME.to_owned()),
+                resource,
+                portability,
+                kind: AssetKind::Font(FontAsset {
+                    face_index: 0,
+                    names: vec![PINNED_FONT_NAME.to_owned()],
+                    axes: BTreeMap::new(),
+                    features: BTreeMap::new(),
+                    coverage: Vec::new(),
+                    policy_evidence: BTreeMap::new(),
+                }),
+            },
+        );
+        let text = document
+            .entities
+            .get_mut(&EntityId::new(2))
+            .and_then(|entity| entity.authored.text.as_mut())
+            .expect("text fixture");
+        text.font_sha256 = "1".repeat(64);
+        text.font_asset = Some(asset_id);
     }
 
     fn image_document() -> (Document, ResourceDigest, Vec<u8>) {
@@ -1412,6 +1519,54 @@ mod tests {
         assert_eq!(pixel(5, 5), [0, 0, 0, 255]);
         assert_eq!(pixel(25, 5), [255, 255, 255, 255]);
         assert_eq!(pixel(40, 5), [0, 0, 0, 255]);
+    }
+
+    #[test]
+    fn substituted_and_unavailable_fonts_have_item_level_fidelity() {
+        let (mut substituted, _) = text_document_and_layout();
+        bind_text_font(&mut substituted, AssetPortability::Substituted);
+        let mut available = EvaluationContext::viewport(100.0, 20.0);
+        available.font_hashes.insert(PINNED_FONT_SHA256.to_owned());
+        let layout = nuif_layout::evaluate(&substituted, &available);
+        assert!(layout.diagnostics.iter().any(|diagnostic| {
+            diagnostic.entity == Some(EntityId::new(2))
+                && diagnostic.code == "TEXT_FONT_SUBSTITUTED"
+                && matches!(diagnostic.fidelity, Some(Fidelity::Approximated { .. }))
+        }));
+        let scene = build_scene(&substituted, &layout, &available).unwrap();
+        assert_eq!(scene.commands.len(), 1);
+        assert!(matches!(
+            scene.fidelity.as_slice(),
+            [RenderFidelity {
+                entity: Some(entity),
+                status: Fidelity::Approximated { .. },
+                ..
+            }] if *entity == EntityId::new(2)
+        ));
+
+        let missing = EvaluationContext::viewport(100.0, 20.0);
+        let layout = nuif_layout::evaluate(&substituted, &missing);
+        let scene = build_scene(&substituted, &layout, &missing).unwrap();
+        assert!(scene.commands.is_empty());
+        assert!(matches!(
+            scene.fidelity[0].status,
+            Fidelity::Unsupported { .. }
+        ));
+
+        let (mut unavailable, _) = text_document_and_layout();
+        bind_text_font(&mut unavailable, AssetPortability::Unavailable);
+        let layout = nuif_layout::evaluate(&unavailable, &missing);
+        assert!(layout.diagnostics.iter().any(|diagnostic| {
+            diagnostic.entity == Some(EntityId::new(2))
+                && diagnostic.code == "TEXT_FONT_UNAVAILABLE"
+                && matches!(diagnostic.fidelity, Some(Fidelity::Unsupported { .. }))
+        }));
+        let scene = build_scene(&unavailable, &layout, &missing).unwrap();
+        assert!(scene.commands.is_empty());
+        assert!(matches!(
+            scene.fidelity[0].status,
+            Fidelity::Unsupported { .. }
+        ));
     }
 
     #[test]
@@ -1560,6 +1715,10 @@ mod tests {
     }
 
     #[test]
+    #[expect(
+        clippy::too_many_lines,
+        reason = "one raster regression keeps the complete crop, fit, sampling and opacity matrix auditable"
+    )]
     fn image_sampling_crop_fit_and_opacity_are_fixed() {
         let source = Rgba8Image {
             width: 2,

@@ -212,10 +212,14 @@ trials distinguish portable, private-authoring, linked, substituted and
 unavailable outcomes. Each accepted inspection and packaged-font validation is
 also measured after warmup against a 4 MiB allocator-traffic and 2 MiB retained
 reference ceiling; these are implementation regressions, not format semantics.
+Six additional trials retain requested identity separately from a stable font
+asset, render with an available declared replacement as `approximated`, and
+emit no text command with item-level `unsupported` fidelity when replacement
+bytes or the font are unavailable.
 
 This is intentionally not general OpenType support. TTC, CFF/CFF2, variable,
 color, bitmap, SVG and WOFF/WOFF2 sources, historic ambiguous permission
-combinations, subsetting, item-level substitution/unavailability fidelity,
+combinations, subsetting, cluster-level fallback, arbitrary packaged-font
 shaping and cross-platform raster behavior remain separate fixtures and
 profiles. The configured three-OS parser/package matrix does not establish
 cross-platform raster behavior. Parser acceptance and `fsType` do not grant
