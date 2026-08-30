@@ -25,6 +25,11 @@ mdBook server. `docs-paper` builds the site and prints the generated technical
 manuscript to `target/docs-site/downloads/nuif-research-manuscript.pdf` through
 the repository's pinned Chrome for Testing binary.
 
+`docs-paper` keeps Chrome's process sandbox enabled by default. A disposable,
+externally isolated CI runner that cannot create Chrome's Linux namespace may
+set `NUIF_CHROME_NO_SANDBOX=1`; do not use that override for routine local
+rendering.
+
 The pinned renderer can be installed through:
 
 ```sh

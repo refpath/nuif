@@ -192,16 +192,30 @@ pub(crate) fn paper() -> Result<(), String> {
         "--print-to-pdf={}",
         absolute_path(output)?.to_string_lossy()
     );
-    let status = Command::new(chrome_for_testing()?)
-        .args([
-            "--headless=new",
-            "--disable-gpu",
-            "--disable-dev-shm-usage",
-            "--hide-scrollbars",
-            "--no-pdf-header-footer",
-            output_argument.as_str(),
-            source_url.as_str(),
-        ])
+    let mut command = Command::new(chrome_for_testing()?);
+    command.args([
+        "--headless=new",
+        "--disable-gpu",
+        "--disable-dev-shm-usage",
+        "--hide-scrollbars",
+        "--no-pdf-header-footer",
+    ]);
+    match std::env::var("NUIF_CHROME_NO_SANDBOX") {
+        Ok(value) if value == "1" => {
+            command.arg("--no-sandbox");
+        }
+        Ok(value) => {
+            return Err(format!(
+                "NUIF_CHROME_NO_SANDBOX must be 1 when set, got {value:?}"
+            ));
+        }
+        Err(std::env::VarError::NotPresent) => {}
+        Err(std::env::VarError::NotUnicode(_)) => {
+            return Err("NUIF_CHROME_NO_SANDBOX must be valid UTF-8".to_owned());
+        }
+    }
+    let status = command
+        .args([output_argument.as_str(), source_url.as_str()])
         .status()
         .map_err(|error| format!("could not start Chrome for Testing: {error}"))?;
     if !status.success() {

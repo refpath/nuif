@@ -30,6 +30,9 @@ jobs:
       - name: Install the pinned browser renderer
         run: cargo xtask browser-install
       - name: Compile and validate the site and technical manuscript
+        env:
+          # The disposable hosted runner cannot use Chrome's Linux namespace sandbox.
+          NUIF_CHROME_NO_SANDBOX: "1"
         run: cargo xtask docs-paper
       - name: Retain the compiled site and validation report
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
