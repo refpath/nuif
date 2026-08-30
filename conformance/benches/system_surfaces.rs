@@ -157,6 +157,44 @@ fn benchmark_dtcg_adapter(criterion: &mut Criterion) {
     group.finish();
 }
 
+fn benchmark_penpot_adapter(criterion: &mut Criterion) {
+    const FOREIGN_PACKAGE: &[u8] = include_bytes!("../foreign/penpot/fixture.penpot");
+    let document = nuif_penpot::profile_fixture();
+    let exported = nuif_penpot::export_document(&document).unwrap();
+    let imported = nuif_penpot::import_package(&exported.bytes).unwrap();
+    let mut edited = document.clone();
+    edited.entities.get_mut(&EntityId::new(0x21)).unwrap().name =
+        Some("Edited package benchmark".to_owned());
+    edited
+        .entities
+        .get_mut(&EntityId::new(0x21))
+        .unwrap()
+        .authored
+        .width = SizeIntent::Fixed(280.0);
+    let mut group = criterion.benchmark_group("adapter/penpot_v3_0");
+    group.throughput(Throughput::Bytes(exported.bytes.len() as u64));
+    group.bench_function("export", |bencher| {
+        bencher.iter(|| nuif_penpot::export_document(black_box(&document)).unwrap());
+    });
+    group.bench_function("import", |bencher| {
+        bencher.iter(|| nuif_penpot::import_package(black_box(&exported.bytes)).unwrap());
+    });
+    group.bench_function("foreign_import", |bencher| {
+        bencher.iter(|| nuif_penpot::import_package(black_box(FOREIGN_PACKAGE)).unwrap());
+    });
+    group.bench_function("synchronize_noop", |bencher| {
+        bencher.iter(|| {
+            nuif_penpot::synchronize(black_box(&imported.retentive), black_box(&document)).unwrap()
+        });
+    });
+    group.bench_function("synchronize_edit", |bencher| {
+        bencher.iter(|| {
+            nuif_penpot::synchronize(black_box(&imported.retentive), black_box(&edited)).unwrap()
+        });
+    });
+    group.finish();
+}
+
 fn criterion_config() -> Criterion {
     Criterion::default()
         .sample_size(20)
@@ -172,6 +210,7 @@ criterion_group! {
         benchmark_collaboration,
         benchmark_html_adapter,
         benchmark_svg_adapter,
-        benchmark_dtcg_adapter
+        benchmark_dtcg_adapter,
+        benchmark_penpot_adapter
 }
 criterion_main!(system_surfaces);

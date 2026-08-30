@@ -35,7 +35,9 @@ For a document and package inside the profile:
 
 1. `import_package(export_document(document).bytes).document == document`.
 2. Repeated export produces identical ZIP bytes. Exported member timestamps are
-   fixed to the earliest ZIP date and file permissions are fixed.
+   fixed to the earliest ZIP date and file permissions are fixed. Native JSON
+   members below 4 KiB are stored without compression; larger members use
+   Deflate. Imported packages retain each member's original method.
 3. An unchanged synchronization returns the original archive byte-for-byte,
    including central-directory representation.
 4. Mapped JSON scalars carry member-qualified UTF-8 byte spans. A change patches

@@ -94,6 +94,12 @@ although ZIP container metadata can change after a rebuild. The rebuilt package
 is imported again and must equal the requested canonical document before it is
 returned. Structural and out-of-profile edits fail without partial output.
 
+Native output stores JSON members below 4 KiB and deflates larger members;
+foreign packages retain each member's original method. The threshold follows a
+same-machine profile comparison that reduced small-package writer allocation
+without changing semantic or retentive laws. It is not part of the Penpot format
+and can change only with deterministic-output fixtures and a recorded benchmark.
+
 The foreign producer fixture exercises a path independent of NUIF's writer.
 The profile runner adds an opaque binary member and unknown JSON object, applies
 eight mapped changes, checks untouched payload identity and exact canonical

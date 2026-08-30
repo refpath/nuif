@@ -19,7 +19,7 @@ not treated as comparable baselines.
 | CPU raster and API snapshot | 360x640, 768x640, 1,440x900 | Raster an interactive card fixture; snapshot includes hash, layout, scene and raster |
 | Semantic query | 128, 1,024, 4,096, 8,192 entities | Stable-ID lookup and kind scan over the authored model |
 | Collaboration | 2, 32, 256, 1,024 concurrent register writers | Materialize identical conflict checkpoints through the operation-set and replica-log algorithms |
-| Integrated adapters | Declared HTML/CSS, SVG and DTCG fixtures | Export, import and byte-local synchronization measured separately |
+| Integrated adapters | Declared HTML/CSS, SVG, DTCG and Penpot fixtures | Export, import and retentive synchronization measured separately; Penpot also measures official-foreign import and the byte-exact no-op path |
 
 `nuif_testing::performance_fixture` is deterministic, valid, bounded by the
 profile-zero 8,192-entity resource limit and uses the repository-pinned font.
@@ -70,6 +70,23 @@ budgets.
   scan measured 19.2–19.5 µs.
 - HTML/CSS, SVG and DTCG synchronization measured 226.7–228.0 µs,
   189.7–190.5 µs and 55.5–55.8 µs respectively for their declared fixtures.
+- Penpot native export measured 108.3–109.2 µs, native import 79.3–80.2 µs,
+  official-library import 98.3–99.1 µs, a two-scalar synchronized
+  rebuild/re-import 93.9–94.6 µs, and byte-exact no-op synchronization
+  2.85–2.87 µs. These figures use the 7,855-byte native and 5,439-byte foreign
+  fixtures rather than a large production design.
+- The matching allocation-instrumented smoke run covered 26 cases. Penpot
+  native export and edited synchronization allocated 291 KiB and 246 KiB per
+  invocation; native and foreign imports allocated 215 KiB and 665 KiB, and the
+  no-op path allocated 35 KiB. Every adapter case retained zero bytes after the
+  measured invocation.
+- An initial all-Deflate native export was 4,688 bytes and allocated about
+  4.04 MiB; edited synchronization allocated about 3.99 MiB. Storing native
+  JSON members below 4 KiB increased this small package by 3,167 bytes while
+  reducing those allocations by about 93% and the two Criterion times by about
+  49% and 52%. Imported compression methods remain retentive, so foreign-package
+  behaviour did not change. The threshold is a profile workload decision, not a
+  general claim that ZIP storage is preferable to Deflate.
 - The 1,024-writer operation-set checkpoint measured 4.08–4.15 ms before
   replacing an all-pairs causal-maximality search with per-replica maximum
   observed vector contexts. The algorithmically independent replica-log

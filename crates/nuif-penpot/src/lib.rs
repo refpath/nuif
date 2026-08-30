@@ -31,6 +31,7 @@ pub const MAX_EXPANDED_BYTES: usize = 32 * 1024 * 1024;
 pub const MAX_JSON_DEPTH: usize = 64;
 pub const MAX_JSON_VALUES: usize = 131_072;
 pub const MAX_COMPRESSION_RATIO: u64 = 1_000;
+const MIN_DEFLATE_BYTES: usize = 4 * 1024;
 
 const SOURCE_FORMAT: &str = "Penpot v3 manifest version 1 / data version 67";
 const ROOT_UUID: &str = "00000000-0000-0000-0000-000000000000";
@@ -786,8 +787,12 @@ fn push_json(
     })?;
     members.push(PackageMember {
         name,
+        compression: if payload.len() >= MIN_DEFLATE_BYTES {
+            CompressionMethod::Deflated
+        } else {
+            CompressionMethod::Stored
+        },
         payload,
-        compression: CompressionMethod::Deflated,
     });
     Ok(())
 }
@@ -1942,5 +1947,24 @@ mod tests {
         writer.start_file("manifest.json", options).unwrap();
         writer.write_all(b"{}").unwrap();
         assert!(writer.start_file("manifest.json", options).is_err());
+    }
+
+    #[test]
+    fn native_writer_deflates_only_larger_json_members() {
+        let mut members = Vec::new();
+        push_json(
+            &mut members,
+            "small.json".to_owned(),
+            &serde_json::json!({"value": "small"}),
+        )
+        .unwrap();
+        push_json(
+            &mut members,
+            "large.json".to_owned(),
+            &serde_json::json!({"value": "x".repeat(MIN_DEFLATE_BYTES)}),
+        )
+        .unwrap();
+        assert_eq!(members[0].compression, CompressionMethod::Stored);
+        assert_eq!(members[1].compression, CompressionMethod::Deflated);
     }
 }

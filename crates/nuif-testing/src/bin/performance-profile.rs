@@ -1,6 +1,6 @@
 use nuif_api::{Session, profile_zero_context};
 use nuif_codec::{CanonicalText, Decoder, DeterministicCbor, Encoder};
-use nuif_core::{EntityId, validate};
+use nuif_core::{EntityId, PropertyValue, SizeIntent, validate};
 use nuif_layout::evaluate;
 use nuif_protocol::{Operation, Patch, Transaction, apply_patch};
 use nuif_render::{RenderTarget, build_scene, render_cpu};
@@ -20,6 +20,8 @@ static GLOBAL: &StatsAlloc<System> = &INSTRUMENTED_SYSTEM;
 const SAMPLES: usize = 15;
 const WARMUP_INVOCATIONS: usize = 3;
 const MAX_ALLOCATED_BYTES_PER_INVOCATION: usize = 256 * 1024 * 1024;
+const FOREIGN_PENPOT: &[u8] =
+    include_bytes!("../../../../conformance/foreign/penpot/fixture.penpot");
 
 #[derive(Debug, Serialize)]
 struct CaseReport {
@@ -92,6 +94,49 @@ fn main() {
             }],
         )
         .unwrap_or_else(|error| fail(&error.to_string()));
+
+    let html_document = nuif_html::profile_fixture();
+    let html_exported = nuif_html::export_document(&html_document).unwrap();
+    let html_imported = nuif_html::import_source(&html_exported.source).unwrap();
+    let mut html_edited = html_document.clone();
+    html_edited
+        .tokens
+        .get_mut(&EntityId::new(0x100))
+        .unwrap()
+        .value = PropertyValue::Real(32.0);
+
+    let svg_document = nuif_svg::profile_fixture();
+    let svg_exported = nuif_svg::export_document(&svg_document).unwrap();
+    let svg_imported = nuif_svg::import_source(&svg_exported.source).unwrap();
+    let mut svg_edited = svg_document.clone();
+    svg_edited
+        .entities
+        .get_mut(&EntityId::new(0x21))
+        .unwrap()
+        .authored
+        .position
+        .x = 22.0;
+
+    let dtcg_document = nuif_dtcg::profile_fixture();
+    let dtcg_exported = nuif_dtcg::export_document(&dtcg_document).unwrap();
+    let dtcg_imported = nuif_dtcg::import_source(&dtcg_exported.source).unwrap();
+    let mut dtcg_edited = dtcg_document.clone();
+    dtcg_edited
+        .tokens
+        .get_mut(&EntityId::new(0x102))
+        .unwrap()
+        .value = PropertyValue::Integer(8);
+
+    let penpot_document = nuif_penpot::profile_fixture();
+    let penpot_exported = nuif_penpot::export_document(&penpot_document).unwrap();
+    let penpot_imported = nuif_penpot::import_package(&penpot_exported.bytes).unwrap();
+    let mut penpot_edited = penpot_document.clone();
+    penpot_edited
+        .entities
+        .get_mut(&EntityId::new(0x21))
+        .unwrap()
+        .authored
+        .width = SizeIntent::Fixed(280.0);
 
     let mut cases = vec![
         measure("validate", 1_024, 3, 500_000_000, || {
@@ -167,6 +212,101 @@ fn main() {
             );
             snapshot.raster.rgba.len() as u64 ^ snapshot.canonical_hash.len() as u64
         }),
+        measure("adapter_html_export", 2, 20, 500_000_000, || {
+            nuif_html::export_document(black_box(&html_document))
+                .unwrap()
+                .source
+                .len() as u64
+        }),
+        measure("adapter_html_import", 2, 20, 500_000_000, || {
+            nuif_html::import_source(black_box(&html_exported.source))
+                .unwrap()
+                .document
+                .entities
+                .len() as u64
+        }),
+        measure("adapter_html_sync", 2, 20, 500_000_000, || {
+            nuif_html::synchronize(black_box(&html_imported.retentive), black_box(&html_edited))
+                .unwrap()
+                .source
+                .len() as u64
+        }),
+        measure("adapter_svg_export", 4, 20, 500_000_000, || {
+            nuif_svg::export_document(black_box(&svg_document))
+                .unwrap()
+                .source
+                .len() as u64
+        }),
+        measure("adapter_svg_import", 4, 20, 500_000_000, || {
+            nuif_svg::import_source(black_box(&svg_exported.source))
+                .unwrap()
+                .document
+                .entities
+                .len() as u64
+        }),
+        measure("adapter_svg_sync", 4, 20, 500_000_000, || {
+            nuif_svg::synchronize(black_box(&svg_imported.retentive), black_box(&svg_edited))
+                .unwrap()
+                .source
+                .len() as u64
+        }),
+        measure("adapter_dtcg_export", 3, 20, 500_000_000, || {
+            nuif_dtcg::export_document(black_box(&dtcg_document))
+                .unwrap()
+                .source
+                .len() as u64
+        }),
+        measure("adapter_dtcg_import", 3, 20, 500_000_000, || {
+            nuif_dtcg::import_source(black_box(&dtcg_exported.source))
+                .unwrap()
+                .document
+                .tokens
+                .len() as u64
+        }),
+        measure("adapter_dtcg_sync", 3, 20, 500_000_000, || {
+            nuif_dtcg::synchronize(black_box(&dtcg_imported.retentive), black_box(&dtcg_edited))
+                .unwrap()
+                .source
+                .len() as u64
+        }),
+        measure("adapter_penpot_export", 4, 20, 500_000_000, || {
+            nuif_penpot::export_document(black_box(&penpot_document))
+                .unwrap()
+                .bytes
+                .len() as u64
+        }),
+        measure("adapter_penpot_import", 4, 20, 500_000_000, || {
+            nuif_penpot::import_package(black_box(&penpot_exported.bytes))
+                .unwrap()
+                .document
+                .entities
+                .len() as u64
+        }),
+        measure("adapter_penpot_foreign_import", 4, 20, 500_000_000, || {
+            nuif_penpot::import_package(black_box(FOREIGN_PENPOT))
+                .unwrap()
+                .document
+                .entities
+                .len() as u64
+        }),
+        measure("adapter_penpot_sync_noop", 4, 50, 500_000_000, || {
+            nuif_penpot::synchronize(
+                black_box(&penpot_imported.retentive),
+                black_box(&penpot_document),
+            )
+            .unwrap()
+            .bytes
+            .len() as u64
+        }),
+        measure("adapter_penpot_sync_edit", 4, 20, 500_000_000, || {
+            nuif_penpot::synchronize(
+                black_box(&penpot_imported.retentive),
+                black_box(&penpot_edited),
+            )
+            .unwrap()
+            .bytes
+            .len() as u64
+        }),
     ];
     cases.sort_by_key(|case| case.name);
     let passed = cases.iter().all(|case| case.passed);
@@ -180,7 +320,7 @@ fn main() {
             "warmup_invocations": WARMUP_INVOCATIONS,
             "latency_statistic": "median and nearest-rank p95 of per-invocation wall-clock nanoseconds",
             "allocation_statistic": "one warmed invocation through stats_alloc",
-            "criterion_suite": "cargo bench -p nuif-conformance --bench profile_zero",
+            "criterion_suites": ["cargo bench -p nuif-conformance --bench profile_zero", "cargo bench -p nuif-conformance --bench system_surfaces"],
             "interpretation": "budgets detect catastrophic regressions; Criterion comparisons on controlled hardware detect smaller changes"
         },
         "toolchain": rustc_version(),
@@ -198,6 +338,13 @@ fn main() {
             "layout_boxes": layout.boxes.len(),
             "scene_commands": scene.commands.len(),
             "scene_fidelity_records": scene.fidelity.len()
+        },
+        "adapter_fixtures": {
+            "html_css_bytes": html_exported.source.len(),
+            "svg_bytes": svg_exported.source.len(),
+            "dtcg_bytes": dtcg_exported.source.len(),
+            "penpot_bytes": penpot_exported.bytes.len(),
+            "foreign_penpot_bytes": FOREIGN_PENPOT.len()
         },
         "limits": {
             "allocated_bytes_per_invocation": MAX_ALLOCATED_BYTES_PER_INVOCATION

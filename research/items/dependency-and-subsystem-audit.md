@@ -197,8 +197,8 @@ it advertises more format coverage.
 - Whether future JSON5 grammar expansion needs an explicit accepted-source
   corpus in addition to the existing canonical, malformed, non-finite, byte and
   depth cases.
-- Whether adapter import/export/synchronization and collaboration convergence
-  should gain portable allocation ceilings after Criterion establishes their
-  representative stable workloads.
+- Whether collaboration convergence should gain a portable allocation ceiling;
+  adapter import/export/synchronization now runs inside the allocation-aware
+  smoke profile after its Criterion fixtures were calibrated.
 - Whether a future Masonry release incorporates the refpath wgpu, resvg/usvg and
   UI Events feature corrections, allowing both fork pins to be removed.
