@@ -23,9 +23,9 @@ relations:
   - type: related_to
     target: nuif:research:accessibility-semantics
 links:
-  spec: [spec/04-layout.md, spec/09-provenance-and-fidelity.md, spec/11-security.md, spec/13-semantics-accessibility-and-behavior.md]
+  spec: [spec/04-layout.md, spec/09-provenance-and-fidelity.md, spec/11-security.md, spec/13-semantics-accessibility-and-behavior.md, spec/14-observation-capture-and-reconstruction.md]
   adr: []
-  rfc: [rfcs/0003-authored-resolved-provenance.md]
+  rfc: [rfcs/0003-authored-resolved-provenance.md, rfcs/0011-observation-and-inference-provenance.md]
   code: [adapters/html-css/PROFILE.md]
   experiments: [nuif:experiment:browser-source-capture]
 ---

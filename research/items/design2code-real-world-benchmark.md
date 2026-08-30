@@ -17,9 +17,9 @@ relations:
   - type: supports
     target: nuif:research:ui-code-generation-boundaries
 links:
-  spec: [spec/09-provenance-and-fidelity.md]
+  spec: [spec/09-provenance-and-fidelity.md, spec/14-observation-capture-and-reconstruction.md]
   adr: []
-  rfc: [rfcs/0003-authored-resolved-provenance.md]
+  rfc: [rfcs/0003-authored-resolved-provenance.md, rfcs/0011-observation-and-inference-provenance.md]
   code: []
   experiments: [nuif:experiment:screenshot-reconstruction-baseline, nuif:experiment:reconstruction-closed-loop]
 ---

@@ -25,6 +25,7 @@ requirements are published through the governance process.
 - Operations, transactions, diff, patch, and reconciliation
 - Extensions/dialects and capability negotiation
 - Serialization and package format
+- Observation, capture, reconstruction, confidence, and inference provenance
 - Conformance, diagnostics, fidelity, and security
 
 A specification statement becomes normative only when its module explicitly declares normative status and the conformance suite contains corresponding executable tests.

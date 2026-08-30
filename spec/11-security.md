@@ -42,6 +42,28 @@ The reference conformance run measures each boundary and one-over case in a warm
 
 Fonts, images, SVG/imported data, adapters and plugins require sandbox-aware handling. Script/data-binding extensions are non-core and MUST NOT execute merely by opening a document.
 
+Package readers MUST reject duplicate/traversal/absolute/backslash paths,
+symlinks, directory entries, encryption, split archives, unsupported
+compression and inconsistent local/central metadata. Implementations MUST
+verify declared resource size and digest before image/font/media decoding and
+MUST NOT extract untrusted members to a filesystem.
+
+Loading a package MUST NOT initiate network access. Linked resources require an
+explicit caller-supplied resolver and exact digest verification. Resource
+locators and provenance MUST NOT carry cookies, authorization values or other
+credentials.
+
+Observation providers and model output are untrusted inputs. Reconstruction
+profiles MUST bound screenshots, observations, candidates, operations,
+iterations, model/tool calls, renders, time, memory and GPU use. Generated URLs
+and scripts are inert. Text visible in an image is input data and cannot alter
+tool authority, security policy or operation grammar.
+
+Screenshot/capture records can contain personal, credential or proprietary
+information. Retention, remote inference, telemetry and training are separate
+purposes requiring explicit policy. Private/authenticated captures MUST default
+to no training.
+
 Headless rendering MUST expose deterministic timeout/memory/resource budgets. GPU failures must not compromise process memory safety.
 
 Image, font, compressed-package, path-segment and GPU budgets are not part of executable profile 0. A later profile MUST calibrate and publish them before adding those resource classes to its conformance claim.

@@ -15,7 +15,14 @@ Initial profiles:
 - `nuif-text-0` — deterministic human-readable canonical form for fixtures/review.
 - `nuif-cbor-0` — deterministic CBOR following draft-ietf-cbor-serialization §4.1 (preferred serialization) and §5.1 (bytewise-lexicographic map key order), with the narrowing rules of RFC 0005 stated by value.
 
-A `.nuif` package is a container with a manifest, document records, optional resolved caches/correspondence records, and content-addressed assets. Exact archive/container technology remains experimental.
+The proposed `nuif-package-0` profile assigns `.nuif` to a deterministic ZIP
+container. Bare encodings use `.nuif.json` and `.nuif.cbor`. Historical alpha
+files that used `.nuif` for bare bytes MAY be recognized read-only through
+content detection, but new `.nuif` output MUST be a package once this profile is
+accepted.
+
+`nuif-package-0` is proposed by RFC 0010 and is not an executable conformance
+claim until its cross-writer/resource experiments pass.
 
 ## Numeric and string rules (RFC 0005)
 
@@ -29,8 +36,55 @@ A `.nuif` package is a container with a manifest, document records, optional res
 
 The canonical hash of a document is SHA-256 over its `nuif-cbor-0` bytes. The text profile has no separate hash: `hash(text) = hash(cbor(parse(text)))`. Published content identifiers carry the profile identifier. Canonical hashes MUST exclude transport-only compression differences.
 
+Package, resource and semantic hashes are distinct:
+
+- `document_hash` is SHA-256 of canonical `document.cbor` and covers semantic
+  asset bindings;
+- `resource_digest` is SHA-256 of exact resource bytes;
+- `package_hash` is SHA-256 of the complete deterministic package bytes.
+
+Package-only caches or reports may change `package_hash` without changing
+`document_hash`. Replacing a resource bound to an asset changes the resource
+digest and semantic document hash while preserving stable `AssetId`.
+
+## Proposed package profile 0
+
+The package member set is:
+
+```text
+mimetype
+manifest.cbor
+document.cbor
+blobs/sha256/<digest-hex>
+```
+
+The first member is stored `mimetype` with exact ASCII value
+`application/nuif+zip`. This media type remains provisional until registration.
+`manifest.cbor` and `document.cbor` are canonical `nuif-cbor-0`.
+
+The manifest declares package profile/version, the canonical document
+descriptor, required capabilities, stable assets and every immutable resource
+descriptor. A descriptor includes media type, SHA-256 digest, size, role and an
+embedded or explicit linked locator. The manifest is not self-addressed.
+
+Profile 0 proposes stored ZIP members only; `mimetype` is first and other names
+are bytewise sorted. Names are exact ASCII registered paths. Writers use fixed
+timestamps/header attributes, no comments/extra fields/data descriptors,
+encryption, directories, ZIP64 or split archives. Exact header fixture values
+remain provisional until two independent writers reproduce them.
+
+Readers MUST reject duplicate decoded names, non-ASCII/backslash/absolute/dot
+paths, directories, symlinks, encryption, unsupported compression, inconsistent
+headers, unknown members, undeclared blobs, missing required blobs and
+size/digest mismatches. Readers MUST NOT extract package members to a filesystem.
+
+Portable packages embed every resource required by their declared profile.
+Linked resources are explicit and never fetched implicitly; a caller-supplied
+resolver verifies expected size and digest before use. Credentials MUST NOT be
+stored in resource locators.
+
 ## Schema versions
 
 Every serialized record kind carries a schema version. Migrations are registered pure functions per kind; reading a record whose version is newer than the implementation knows is an error with a diagnostic, never silent loss.
 
-Parsers MUST enforce resource limits and reject cycles where the relevant graph is specified acyclic.
+Parsers MUST enforce resource limits and reject cycles where the relevant graph is specified acyclic. Package/image/font limits remain experiment-required and MUST be accepted through a later resource profile before implementations claim them as executable conformance.

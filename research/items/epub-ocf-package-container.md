@@ -22,7 +22,7 @@ relations:
 links:
   spec: [spec/08-serialization.md, spec/11-security.md]
   adr: [adrs/0004-serialization.md]
-  rfc: [rfcs/0009-profile-zero-resource-budgets.md]
+  rfc: [rfcs/0009-profile-zero-resource-budgets.md, rfcs/0010-portable-resource-package.md]
   code: []
   experiments: [nuif:experiment:portable-package-resources]
 ---

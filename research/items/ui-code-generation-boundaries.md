@@ -20,9 +20,9 @@ relations:
   - type: related_to
     target: nuif:research:model-agnostic-screenshot-reconstruction-and-training
 links:
-  spec: [spec/09-provenance-and-fidelity.md]
+  spec: [spec/09-provenance-and-fidelity.md, spec/14-observation-capture-and-reconstruction.md]
   adr: []
-  rfc: [rfcs/0003-authored-resolved-provenance.md]
+  rfc: [rfcs/0003-authored-resolved-provenance.md, rfcs/0011-observation-and-inference-provenance.md]
   code: [adapters/README.md]
   experiments: [nuif:experiment:layout-inference]
 ---
