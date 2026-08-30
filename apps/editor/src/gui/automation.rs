@@ -150,7 +150,7 @@ pub fn run() -> Result<(), String> {
         opened.document,
         Some(options.document.clone()),
         opened.package,
-    );
+    )?;
 
     for action in &scenario.actions {
         execute_action(&mut driver, scenario.window, action)?;

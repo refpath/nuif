@@ -264,11 +264,13 @@ impl Driver {
         document: Document,
         document_path: Option<PathBuf>,
         package: Option<NuifPackage>,
-    ) -> Self {
-        Self {
+    ) -> Result<Self, String> {
+        let editor = EditorDriver::new_with_package(document, package.as_ref())
+            .map_err(|error| error.to_string())?;
+        Ok(Self {
             window_id,
             root_widget_id: None,
-            editor: EditorDriver::new(document),
+            editor,
             package,
             document_path,
             dirty: false,
@@ -289,7 +291,7 @@ impl Driver {
             control_widgets: HashMap::new(),
             text_fields: HashMap::new(),
             drafts: HashMap::new(),
-        }
+        })
     }
 
     fn build_view(&mut self) -> NewWidget<dyn Widget> {
@@ -1840,7 +1842,8 @@ impl Driver {
         let bytes =
             read_bounded_stream(&mut file, MAX_PACKAGE_BYTES).map_err(|error| error.to_string())?;
         let opened = decode_editor_file(&bytes)?;
-        self.editor = EditorDriver::new(opened.document);
+        self.editor = EditorDriver::new_with_package(opened.document, opened.package.as_ref())
+            .map_err(|error| error.to_string())?;
         self.package = opened.package;
         self.document_path = Some(path.to_path_buf());
         self.dirty = false;
@@ -2163,7 +2166,7 @@ pub fn run() -> Result<(), String> {
         return Ok(());
     };
     let window_id = WindowId::next();
-    let mut driver = Driver::new(window_id, options.document, options.path, options.package);
+    let mut driver = Driver::new(window_id, options.document, options.path, options.package)?;
     let initial_view = driver.build_view();
     let root = SizedBox::new(initial_view).prepare();
     driver.root_widget_id = Some(root.id());
@@ -2445,7 +2448,8 @@ mod tests {
 
     fn harness() -> (TestHarness<SizedBox>, Driver) {
         let window_id = WindowId::next();
-        let mut driver = Driver::new(window_id, new_native_document(EntityId::new(1)), None, None);
+        let mut driver =
+            Driver::new(window_id, new_native_document(EntityId::new(1)), None, None).unwrap();
         let harness = harness_from_driver(&mut driver);
         (harness, driver)
     }

@@ -7,16 +7,21 @@ use nuif_codec::{
     CanonicalText, Canonicalizer, Decoder, DeterministicCbor, Encoder, canonical_hash,
 };
 use nuif_core::{
-    Align, Color, ColorSpace, ContextPredicate, Diagnostic, Document, Edges, Entity, EntityId,
-    EntityKind, ExtensionDeclarations, Fidelity, FlowDirection, LayoutFamily, LayoutStyle,
-    OpaqueEncoding, OpaquePayload, PropertyValue, ResponsiveOverride, Severity, ShapeKind,
-    SizeIntent, TextContent, Token, UnknownKind, validate,
+    AffineTransform, Align, Asset, AssetId, AssetKind, AssetPortability, CURRENT_SCHEMA_VERSION,
+    Color, ColorSpace, ContextPredicate, Diagnostic, Document, Edges, Entity, EntityId, EntityKind,
+    ExtensionDeclarations, Fidelity, FlowDirection, ImageAsset, ImageCrop, ImageFit, ImagePaint,
+    ImageSampling, LayoutFamily, LayoutStyle, OpaqueEncoding, OpaquePayload, PropertyValue,
+    ResourceRole, ResponsiveOverride, Severity, ShapeKind, SizeIntent, TextContent, Token,
+    UnknownKind, validate,
 };
 use nuif_layout::EvaluationContext;
+use nuif_media::PNG_RGBA8_PROFILE;
+use nuif_package::{NuifPackage, PackageMode};
 use nuif_protocol::{Axis, Operation, Patch, Transaction, apply_patch, apply_patch_with_inverse};
 use nuif_render::{RenderTarget, render_cpu};
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet};
+use std::io::Cursor;
 use std::path::Path;
 use std::process::Command;
 
@@ -350,6 +355,79 @@ pub fn responsive_card_fixture() -> Document {
         document.entities.insert(entity.id, entity);
     }
     document
+}
+
+/// Produces a minimal portable package containing a 2x2 RGBA8 image and one
+/// image entity. Shared surface tests use this instead of inventing subtly
+/// different resource bindings.
+///
+/// # Panics
+///
+/// Panics only if the fixed in-memory PNG fixture cannot be encoded or added
+/// to a package, which indicates a dependency or fixture regression.
+#[must_use]
+pub fn rgba8_image_package_fixture() -> NuifPackage {
+    let pixels = [
+        255_u8, 0, 0, 255, 0, 255, 0, 255, 0, 0, 255, 255, 255, 255, 0, 128,
+    ];
+    let mut bytes = Vec::new();
+    {
+        let mut encoder = png::Encoder::new(Cursor::new(&mut bytes), 2, 2);
+        encoder.set_color(png::ColorType::Rgba);
+        encoder.set_depth(png::BitDepth::Eight);
+        encoder.set_filter(png::Filter::Paeth);
+        encoder.set_source_srgb(png::SrgbRenderingIntent::Perceptual);
+        let mut writer = encoder.write_header().expect("fixture PNG header");
+        writer.write_image_data(&pixels).expect("fixture PNG data");
+    }
+
+    let mut package = NuifPackage::new(Document::empty(EntityId::new(1)), PackageMode::Portable);
+    let resource = package
+        .add_embedded(bytes, "image/png", ResourceRole::Authoring, None)
+        .expect("fixture image resource");
+    let asset_id = AssetId::new(1);
+    package.document.assets.insert(
+        asset_id,
+        Asset {
+            schema_version: CURRENT_SCHEMA_VERSION,
+            id: asset_id,
+            name: Some("RGBA8 surface fixture".to_owned()),
+            resource: Some(resource),
+            portability: AssetPortability::Portable,
+            kind: AssetKind::Image(ImageAsset {
+                width: 2,
+                height: 2,
+                decoder_profile: PNG_RGBA8_PROFILE.to_owned(),
+            }),
+        },
+    );
+    let mut image = Entity::new(EntityId::new(2), EntityKind::Image);
+    image.authored.width = SizeIntent::Fixed(2.0);
+    image.authored.height = SizeIntent::Fixed(2.0);
+    image.authored.image = Some(ImagePaint {
+        asset: asset_id,
+        fit: ImageFit::Fill,
+        crop: ImageCrop {
+            x: 0.0,
+            y: 0.0,
+            width: 1.0,
+            height: 1.0,
+        },
+        transform: AffineTransform {
+            a: 1.0,
+            b: 0.0,
+            c: 0.0,
+            d: 1.0,
+            tx: 0.0,
+            ty: 0.0,
+        },
+        sampling: ImageSampling::Nearest,
+        opacity: 1.0,
+        color_conversion: "srgb".to_owned(),
+    });
+    package.document.roots.push(image.id);
+    package.document.entities.insert(image.id, image);
+    package
 }
 
 /// Builds a deterministic, valid, flat profile-zero document for throughput

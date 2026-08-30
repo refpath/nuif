@@ -124,7 +124,8 @@ fn run() -> Result<(), String> {
         "editor script",
     )?)
     .map_err(|error| format!("editor script is not UTF-8: {error}"))?;
-    let mut driver = EditorDriver::new(document);
+    let mut driver = EditorDriver::new_with_package(document, package.as_ref())
+        .map_err(|error| error.to_string())?;
     let events = execute_script(&mut driver, &commands)?;
     let mut replayed = replay_base;
     for patch in driver.operation_log() {

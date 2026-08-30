@@ -10,8 +10,10 @@ use nuif_core::{
 };
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
+use std::borrow::Cow;
 use std::collections::{BTreeMap, BTreeSet};
 use std::fmt::Write as _;
+use std::sync::Arc;
 use thiserror::Error;
 
 pub const PROFILE: &str = "nuif-package-0";
@@ -74,7 +76,7 @@ pub struct NuifPackage {
     pub mode: PackageMode,
     pub required_capabilities: BTreeSet<String>,
     pub resources: BTreeMap<ResourceDigest, ResourceDescriptor>,
-    embedded: BTreeMap<ResourceDigest, Vec<u8>>,
+    embedded: BTreeMap<ResourceDigest, Arc<[u8]>>,
 }
 
 impl NuifPackage {
@@ -125,7 +127,7 @@ impl NuifPackage {
             return Err(PackageError::DescriptorConflict { digest });
         }
         self.resources.insert(digest.clone(), descriptor);
-        self.embedded.insert(digest.clone(), bytes);
+        self.embedded.insert(digest.clone(), Arc::from(bytes));
         self.check_resource_collection()?;
         Ok(digest)
     }
@@ -165,7 +167,15 @@ impl NuifPackage {
 
     #[must_use]
     pub fn embedded(&self, digest: &ResourceDigest) -> Option<&[u8]> {
-        self.embedded.get(digest).map(Vec::as_slice)
+        self.embedded.get(digest).map(Arc::as_ref)
+    }
+
+    /// Clones shared handles to the already verified embedded-resource set for
+    /// an in-process evaluator, without copying each immutable byte buffer.
+    /// The returned map grants no linked-resource or network authority.
+    #[must_use]
+    pub fn embedded_resources(&self) -> BTreeMap<ResourceDigest, Arc<[u8]>> {
+        self.embedded.clone()
     }
 
     /// Resolves a resource without granting the package network authority.
@@ -188,7 +198,7 @@ impl NuifPackage {
                 })?;
         if let Some(bytes) = self.embedded.get(digest) {
             verify_resource(descriptor, bytes)?;
-            return Ok(bytes.clone());
+            return Ok(bytes.to_vec());
         }
         let resolver = resolver.ok_or_else(|| PackageError::ResolutionRequired {
             digest: digest.clone(),
@@ -254,9 +264,9 @@ impl NuifPackage {
                 observed: manifest.len(),
             });
         }
-        let mut members = vec![Member::new(MIME_PATH, MIME_TYPE.to_vec())];
+        let mut members = vec![Member::new(MIME_PATH, MIME_TYPE)];
         for (digest, bytes) in &self.embedded {
-            members.push(Member::new(&blob_path(digest)?, bytes.clone()));
+            members.push(Member::new(&blob_path(digest)?, bytes.as_ref()));
         }
         members.push(Member::new(DOCUMENT_PATH, document));
         members.push(Member::new(MANIFEST_PATH, manifest));
@@ -292,7 +302,10 @@ impl NuifPackage {
         let mut embedded = BTreeMap::new();
         for (name, value) in &members {
             if let Some(hex) = name.strip_prefix(BLOB_PREFIX) {
-                embedded.insert(ResourceDigest::from_sha256_hex(hex), value.clone());
+                embedded.insert(
+                    ResourceDigest::from_sha256_hex(hex),
+                    Arc::from(value.clone()),
+                );
             }
         }
         validate_manifest(&manifest, &document, &embedded)?;
@@ -416,7 +429,7 @@ fn validate_document(document: &Document) -> Result<(), PackageError> {
 fn validate_manifest(
     manifest: &PackageManifest,
     document: &Document,
-    embedded: &BTreeMap<ResourceDigest, Vec<u8>>,
+    embedded: &BTreeMap<ResourceDigest, Arc<[u8]>>,
 ) -> Result<(), PackageError> {
     if manifest.schema_version != 1
         || manifest.profile != PROFILE
@@ -451,7 +464,7 @@ fn validate_manifest(
 fn validate_resources(
     manifest: &PackageManifest,
     document: &Document,
-    embedded: &BTreeMap<ResourceDigest, Vec<u8>>,
+    embedded: &BTreeMap<ResourceDigest, Arc<[u8]>>,
 ) -> Result<(), PackageError> {
     if manifest.resources.len() > MAX_RESOURCES {
         return Err(PackageError::ResourceLimit {
@@ -681,16 +694,16 @@ fn required_member<'a>(
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-struct Member {
+struct Member<'a> {
     name: String,
-    bytes: Vec<u8>,
+    bytes: Cow<'a, [u8]>,
 }
 
-impl Member {
-    fn new(name: &str, bytes: Vec<u8>) -> Self {
+impl<'a> Member<'a> {
+    fn new(name: &str, bytes: impl Into<Cow<'a, [u8]>>) -> Self {
         Self {
             name: name.to_owned(),
-            bytes,
+            bytes: bytes.into(),
         }
     }
 }
@@ -703,7 +716,7 @@ struct CentralEntry {
     offset: u32,
 }
 
-fn write_zip(members: &[Member]) -> Result<Vec<u8>, PackageError> {
+fn write_zip(members: &[Member<'_>]) -> Result<Vec<u8>, PackageError> {
     validate_member_sequence(members)?;
     let mut output = Vec::new();
     let mut entries = Vec::with_capacity(members.len());
@@ -773,7 +786,7 @@ fn write_zip(members: &[Member]) -> Result<Vec<u8>, PackageError> {
     Ok(output)
 }
 
-fn validate_member_sequence(members: &[Member]) -> Result<(), PackageError> {
+fn validate_member_sequence(members: &[Member<'_>]) -> Result<(), PackageError> {
     if members.len() > MAX_MEMBERS {
         return Err(PackageError::ResourceLimit {
             resource: "package members",
@@ -1242,7 +1255,7 @@ mod tests {
         let manifest = encode_canonical_record(&package.manifest().unwrap()).unwrap();
         let mut members = vec![Member::new(MIME_PATH, MIME_TYPE.to_vec())];
         for (digest, bytes) in &package.embedded {
-            members.push(Member::new(&blob_path(digest).unwrap(), bytes.clone()));
+            members.push(Member::new(&blob_path(digest).unwrap(), bytes.as_ref()));
         }
         members.push(Member::new(DOCUMENT_PATH, document));
         members.push(Member::new(MANIFEST_PATH, manifest));

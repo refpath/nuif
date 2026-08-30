@@ -30,6 +30,31 @@ The portable contract is canonical NUIF plus the report. Rust is optional for a
 vendor implementation. A TypeScript or JavaScript plug-in may implement the
 same mapping directly from the specification and conformance fixtures.
 
+## Local package evaluation
+
+A Rust host that opens a package passes only its verified embedded resources to
+the in-process session:
+
+```rust
+let package = NuifPackage::decode(bytes)?;
+let session = Session::with_resources(
+    package.document.clone(),
+    package.embedded_resources(),
+)?;
+let snapshot = session.snapshot(&context)?;
+```
+
+`Session::with_resources` rechecks every SHA-256 binding and enforces count,
+single-resource and total-byte limits before it can render. It grants no linked
+resource or network authority. Package/session handoff shares immutable byte
+buffers, so cloning a package or opening a render session does not duplicate the
+complete embedded-resource payload. The CLI and reference editor use this path,
+so opening a package containing a `nuif-png-rgba8-0` image resolves it locally;
+a bare document or unresolved link continues to emit item-level fidelity.
+Hosts that need authenticated or remote resources keep that policy outside the
+session, resolve explicitly, verify against the descriptor, and then create a
+new bounded session.
+
 ## Figma path
 
 The first profile is `adapters/figma/PROFILE-DRAFT.md`.

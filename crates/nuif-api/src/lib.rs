@@ -1,13 +1,24 @@
 #![doc = "Stable headless engine and editor-session contract shared by every client."]
 
 use nuif_codec::{CodecError, canonical_hash};
-use nuif_core::{Diagnostic, Document, EntityId, Severity, validate};
+use nuif_core::{Diagnostic, Document, EntityId, ResourceDigest, Severity, validate};
 use nuif_layout::{EvaluationContext, LayoutSnapshot, evaluate};
 use nuif_protocol::{ApplyError, Operation, Patch, Transaction, apply_patch_with_inverse};
-use nuif_render::{RasterImage, RenderError, RenderScene, RenderTarget, build_scene, render_cpu};
+use nuif_render::{
+    RasterImage, RenderError, RenderScene, RenderTarget, build_scene, build_scene_with_resources,
+    render_cpu,
+};
 use nuif_text::PINNED_FONT_SHA256;
 use serde::{Deserialize, Serialize};
+use sha2::{Digest, Sha256};
+use std::collections::BTreeMap;
+use std::sync::Arc;
 use thiserror::Error;
+
+pub const MAX_SESSION_RESOURCES: usize = 8_192;
+pub const MAX_SESSION_RESOURCE_BYTES: usize = 32 * 1024 * 1024;
+pub const MAX_SESSION_TOTAL_RESOURCE_BYTES: usize = 64 * 1024 * 1024;
+pub type SessionResources = BTreeMap<ResourceDigest, Arc<[u8]>>;
 
 const CAPABILITIES: &[Capability] = &[
     Capability::Inspect,
@@ -178,6 +189,19 @@ pub enum EngineError {
     InvalidContext { reason: &'static str },
     #[error("document validation failed with {errors} error diagnostics")]
     DocumentInvalid { errors: usize },
+    #[error("session resource limit exceeded for {resource}: limit {limit}, observed {observed}")]
+    ResourceLimit {
+        resource: &'static str,
+        limit: usize,
+        observed: usize,
+    },
+    #[error(
+        "session resource bytes do not match declared digest {expected}; observed sha256:{actual}"
+    )]
+    ResourceDigestMismatch {
+        expected: ResourceDigest,
+        actual: String,
+    },
 }
 
 fn validate_context(context: &EvaluationContext) -> Result<(), EngineError> {
@@ -214,6 +238,7 @@ fn validate_context(context: &EvaluationContext) -> Result<(), EngineError> {
 pub struct Session {
     engine: ReferenceEngine,
     document: Document,
+    resources: SessionResources,
     revision: Option<String>,
     selection: Vec<EntityId>,
     undo: Vec<Patch>,
@@ -226,11 +251,31 @@ impl Session {
         Self {
             engine: ReferenceEngine,
             document,
+            resources: BTreeMap::new(),
             revision: None,
             selection: Vec::new(),
             undo: Vec::new(),
             redo: Vec::new(),
         }
+    }
+
+    /// Creates a session with an explicit, local set of immutable resources.
+    ///
+    /// Every byte sequence is digest-checked before the session becomes
+    /// available. This grants no linked-resource or network authority.
+    ///
+    /// # Errors
+    ///
+    /// Rejects an invalid digest binding or a resource collection above the
+    /// session count, per-resource or total-byte limit.
+    pub fn with_resources(
+        document: Document,
+        resources: SessionResources,
+    ) -> Result<Self, EngineError> {
+        validate_session_resources(&resources)?;
+        let mut session = Self::new(document);
+        session.resources = resources;
+        Ok(session)
     }
 
     #[must_use]
@@ -352,9 +397,9 @@ impl Session {
     /// Returns an engine error if hashing or rasterization fails.
     pub fn snapshot(&self, context: &EvaluationContext) -> Result<Snapshot, EngineError> {
         let layout = self.engine.layout(&self.document, context)?;
-        let scene = self
-            .engine
-            .build_render_scene(&self.document, &layout, context)?;
+        let scene = build_scene_with_resources(&self.document, &layout, context, |digest| {
+            self.resources.get(digest).map(Arc::as_ref)
+        })?;
         let target = RenderTarget {
             width: target_dimension(context.viewport.width * context.scale_factor),
             height: target_dimension(context.viewport.height * context.scale_factor),
@@ -401,6 +446,42 @@ impl Session {
         self.revision.clone_from(&inverse.base_revision);
         Ok(inverse)
     }
+}
+
+fn validate_session_resources(resources: &SessionResources) -> Result<(), EngineError> {
+    if resources.len() > MAX_SESSION_RESOURCES {
+        return Err(EngineError::ResourceLimit {
+            resource: "resource count",
+            limit: MAX_SESSION_RESOURCES,
+            observed: resources.len(),
+        });
+    }
+    let mut total = 0_usize;
+    for (expected, bytes) in resources {
+        if bytes.len() > MAX_SESSION_RESOURCE_BYTES {
+            return Err(EngineError::ResourceLimit {
+                resource: "single resource bytes",
+                limit: MAX_SESSION_RESOURCE_BYTES,
+                observed: bytes.len(),
+            });
+        }
+        total = total.saturating_add(bytes.len());
+        if total > MAX_SESSION_TOTAL_RESOURCE_BYTES {
+            return Err(EngineError::ResourceLimit {
+                resource: "total resource bytes",
+                limit: MAX_SESSION_TOTAL_RESOURCE_BYTES,
+                observed: total,
+            });
+        }
+        let actual = format!("{:x}", Sha256::digest(bytes));
+        if expected.sha256_hex() != Some(actual.as_str()) {
+            return Err(EngineError::ResourceDigestMismatch {
+                expected: expected.clone(),
+                actual,
+            });
+        }
+    }
+    Ok(())
 }
 
 #[expect(
@@ -574,6 +655,19 @@ mod tests {
         assert!(matches!(
             Session::new(invalid).snapshot(&EvaluationContext::viewport(10.0, 12.0)),
             Err(EngineError::DocumentInvalid { errors: 1 })
+        ));
+    }
+
+    #[test]
+    fn session_rejects_resource_bytes_under_the_wrong_digest() {
+        let resources = BTreeMap::from([(
+            ResourceDigest::from_sha256_hex("0".repeat(64)),
+            Arc::from(b"different bytes".as_slice()),
+        )]);
+
+        assert!(matches!(
+            Session::with_resources(document(), resources),
+            Err(EngineError::ResourceDigestMismatch { .. })
         ));
     }
 }

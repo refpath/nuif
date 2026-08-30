@@ -243,6 +243,25 @@ impl EditorDriver {
         }
     }
 
+    /// Creates an editor session with the exact embedded resources from an
+    /// already decoded package. Linked resources remain unresolved.
+    ///
+    /// # Errors
+    ///
+    /// Returns an engine error if the package's local resource collection no
+    /// longer satisfies the session digest or resource limits.
+    pub fn new_with_package(
+        document: Document,
+        package: Option<&NuifPackage>,
+    ) -> Result<Self, EditorError> {
+        let resources = package.map_or_else(Default::default, NuifPackage::embedded_resources);
+        Ok(Self {
+            session: Session::with_resources(document, resources)?,
+            next_transaction: 1,
+            operation_log: Vec::new(),
+        })
+    }
+
     #[must_use]
     pub const fn document(&self) -> &Document {
         self.session.document()
@@ -791,7 +810,7 @@ mod tests {
     use nuif_codec::{Decoder, canonical_hash};
     use nuif_core::ResourceRole;
     use nuif_protocol::apply_patch;
-    use nuif_testing::responsive_card_fixture;
+    use nuif_testing::{responsive_card_fixture, rgba8_image_package_fixture};
 
     fn insert_fixture_entity(
         driver: &mut EditorDriver,
@@ -1074,6 +1093,39 @@ mod tests {
             Some(b"inert source evidence".as_slice())
         );
         assert_eq!(decoded.mode, PackageMode::Portable);
+    }
+
+    #[test]
+    fn editor_snapshot_resolves_images_from_an_open_package() {
+        let package = rgba8_image_package_fixture();
+        let opened = decode_editor_file(&package.encode().unwrap()).unwrap();
+        let mut driver =
+            EditorDriver::new_with_package(opened.document, opened.package.as_ref()).unwrap();
+        let event = driver
+            .execute(EditorCommand::Snapshot {
+                width: 2,
+                height: 2,
+            })
+            .unwrap();
+        let EditorEvent::Snapshot { snapshot } = event else {
+            panic!("snapshot command must return a snapshot");
+        };
+
+        assert!(matches!(
+            snapshot.scene.commands.as_slice(),
+            [nuif_render::DrawCommand::Image { .. }]
+        ));
+        assert_eq!(
+            snapshot.raster.rgba,
+            [
+                255, 0, 0, 255, 0, 255, 0, 255, 0, 0, 255, 255, 255, 255, 127, 255,
+            ]
+        );
+        assert_eq!(snapshot.scene.fidelity.len(), 1);
+        assert_eq!(
+            snapshot.scene.fidelity[0].status,
+            nuif_core::Fidelity::Lossless
+        );
     }
 
     #[test]

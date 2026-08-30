@@ -312,7 +312,7 @@ fn layout(args: &[String]) -> Result<(), CliError> {
 }
 
 fn render(args: &[String]) -> Result<(), CliError> {
-    let document = load_document(required(args, 0, "input document")?)?;
+    let loaded = load_nuif(required(args, 0, "input document")?)?;
     let output = required(args, 1, "output PNG")?;
     if output == "-" {
         return Err(CliError::new(
@@ -323,7 +323,7 @@ fn render(args: &[String]) -> Result<(), CliError> {
     }
     let width = number(args, 2, 360.0)?;
     let height = number(args, 3, 640.0)?;
-    let session = Session::new(document);
+    let session = session_for_loaded(&loaded)?;
     let snapshot = session
         .snapshot(&profile_zero_context(width, height))
         .map_err(|error| CliError::new(1, "RENDER_FAILED", error.to_string()))?;
@@ -350,7 +350,7 @@ fn snapshot(args: &[String]) -> Result<(), CliError> {
     let height = number(args, 3, 640.0)?;
     fs::create_dir_all(&directory)
         .map_err(|error| CliError::new(1, "WRITE_FAILED", error.to_string()))?;
-    let session = Session::new(document.clone());
+    let session = session_for_loaded(&loaded)?;
     let snapshot = session
         .snapshot(&profile_zero_context(width, height))
         .map_err(|error| CliError::new(1, "SNAPSHOT_FAILED", error.to_string()))?;
@@ -991,6 +991,7 @@ fn print_capabilities() -> Result<(), CliError> {
         "commands": COMMANDS,
         "adapters": ["html-css-0", "html-css-v0", "svg-0", "dtcg-scalar-0", "penpot-v3-0"],
         "containers": ["nuif-package-0", "nuif-cbor-0", "nuif-text-0"],
+        "image_profiles": ["nuif-png-rgba8-0"],
         "capture_profiles": ["nuif-browser-capture-0", "nuif-screenshot-baseline-0"],
         "engine": engine.capabilities(),
         "resource_limits": {
@@ -1024,6 +1025,15 @@ struct LoadedNuif {
     document: Document,
     package: Option<NuifPackage>,
     profile: &'static str,
+}
+
+fn session_for_loaded(loaded: &LoadedNuif) -> Result<Session, CliError> {
+    let resources = loaded
+        .package
+        .as_ref()
+        .map_or_else(Default::default, NuifPackage::embedded_resources);
+    Session::with_resources(loaded.document.clone(), resources)
+        .map_err(|error| CliError::new(1, "RESOURCE_SESSION_FAILED", error.to_string()))
 }
 
 fn load_nuif(path: &str) -> Result<LoadedNuif, CliError> {
@@ -1085,6 +1095,7 @@ fn read_bounded_with_limit(reader: &mut impl Read, limit: usize) -> Result<Vec<u
 #[cfg(test)]
 mod tests {
     use super::*;
+    use nuif_testing::rgba8_image_package_fixture;
     use std::io::Cursor;
 
     #[test]
@@ -1096,6 +1107,30 @@ mod tests {
         assert_eq!(
             read_bounded_with_limit(&mut Cursor::new([0_u8; 3]), 3).unwrap(),
             [0_u8; 3]
+        );
+    }
+
+    #[test]
+    fn loaded_package_session_resolves_embedded_images() {
+        let package = rgba8_image_package_fixture();
+        let loaded = LoadedNuif {
+            document: package.document.clone(),
+            package: Some(package),
+            profile: nuif_package::PROFILE,
+        };
+        let snapshot = session_for_loaded(&loaded)
+            .unwrap()
+            .snapshot(&profile_zero_context(2.0, 2.0))
+            .unwrap();
+
+        assert!(matches!(
+            snapshot.scene.commands.as_slice(),
+            [nuif_render::DrawCommand::Image { .. }]
+        ));
+        assert_eq!(snapshot.scene.fidelity.len(), 1);
+        assert_eq!(
+            snapshot.scene.fidelity[0].status,
+            nuif_core::Fidelity::Lossless
         );
     }
 }
