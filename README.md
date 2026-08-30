@@ -5,7 +5,8 @@
 [![CI](https://github.com/refpath/nuif/actions/workflows/ci.yml/badge.svg)](https://github.com/refpath/nuif/actions/workflows/ci.yml)
 [![License](https://img.shields.io/badge/license-Apache--2.0%20OR%20MIT-blue.svg)](#license)
 [![MSRV](https://img.shields.io/badge/MSRV-1.96-orange.svg)](Cargo.toml)
-[![Specification](https://img.shields.io/badge/specification-draft-yellow.svg)](spec/README.md)
+[![Editor](https://img.shields.io/badge/editor-research%20preview-orange.svg)](apps/editor/README.md)
+[![Specification](https://img.shields.io/badge/specification-pre--draft-yellow.svg)](spec/README.md)
 [![Research](https://img.shields.io/badge/research-corpus-8a2be2.svg)](research/README.md)
 
 [Problem](#problem) ·
@@ -112,6 +113,13 @@ Testing is designed for automated trial loops: generate or load a document, appl
 
 ## Status
 
+| Surface | Maturity | Boundary |
+|---------|----------|----------|
+| Reference editor | Research preview; current release `0.1.0-alpha.2` | Semantic Versioning applies to the editor application only |
+| Draft specification | Pre-draft | No normative conformance profile is published |
+| Executable adapter and conformance profiles | Experimental | Results apply only to each declared profile and evaluation matrix |
+| Project | Open research project; not a standard | Standards status requires neutral governance and independent implementations |
+
 Gates B through H are complete under the bounded, quantified criteria in `research/AUDIT.md`. The workspace executes structural validation, anchored atomic operations, replay/inversion, canonical text and deterministic CBOR, measured hostile-input limits, responsive profile-0 layout, exact CPU rasterization, pinned NUIF/Taffy/Chrome layout trials, seeded reports and headless and native-shell editor drivers. Gate C explicitly reports the still-missing Grid track/placement schema. Gate D pins shaping, outlines, hard-line layout, encoded-sRGB paint and integer composition; scene/PNG hashes reproduce on macOS/aarch64, Linux/aarch64 and Linux/x86_64, while paths, images, instances and extension paint remain property-attributed fidelity records. Four retentive adapter profiles are integrated across HTML/CSS, SVG 2 and DTCG 2025.10, with import, export, synchronization, hostile-input checks and CLI conformance. A machine-audited inventory separates these executable profiles from seven researched or externally bounded targets. Complete fixture authoring, AccessKit-driven deterministic GUI trials, standard-library-only Python v0 reproduction, a metadata-free collaboration register checkpoint, hostile editor interaction trials, a scaling benchmark suite and native host packaging are automated. The native shell exposes the complete model-backed profile-zero editing surface while leaving future-profile sections of the draft UI specification explicit; structural tree collaboration, a foreign collaboration engine, a general-purpose second implementation, signed release distribution and external interoperability review remain incomplete. Specifications are drafts; no conformance profile is published.
 
 Run the automated baseline:
@@ -156,4 +164,7 @@ Research, specification, conformance, implementation and adapter contributions a
 
 ## License
 
-Reference code is dual-licensed under Apache-2.0 or MIT (`LICENSE-APACHE`, `LICENSE-MIT`). Specification and research licensing for standards-track publication is defined in `docs/whitepaper/08-governance-and-standardization.md`.
+Reference code is dual-licensed under Apache-2.0 or MIT (`LICENSE-APACHE`,
+`LICENSE-MIT`). The repository has not adopted specification-wide copyright or
+patent terms. `docs/whitepaper/08-governance-and-standardization.md` records the
+licensing requirements that precede standards-track publication.

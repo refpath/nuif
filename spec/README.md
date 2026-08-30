@@ -1,6 +1,12 @@
 # NUIF specification
 
-This directory is the future normative specification. Research documents can motivate semantics but cannot silently define them.
+Status: pre-draft. No module or conformance profile is published as an
+accredited standard.
+
+This directory contains the candidate normative text. Research documents can
+motivate semantics but cannot silently define them. The current modules remain
+draft inputs until their status, licensing terms and corresponding conformance
+requirements are published through the governance process.
 
 ## Planned modules
 

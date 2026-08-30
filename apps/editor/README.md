@@ -1,6 +1,10 @@
-# Reference editor
+# Reference editor research preview
 
-The editor is an executable conformance/research instrument, not the owner of the NUIF data model. Its native Masonry shell and headless driver edit NUIF through the same semantic operation API available to the CLI and automated agents.
+The editor is an executable conformance and research instrument, not the owner
+of the NUIF data model. Its `0.1.0-alpha.N` versions describe application
+maturity and do not assign a maturity level to the draft specification. The
+native Masonry shell and headless driver edit NUIF through the same semantic
+operation API available to the CLI and automated clients.
 
 The executable profile-zero shell provides a file menu for native document import/save, PNG export, and the repository's declared SVG, HTML/CSS and DTCG profile adapters. A foreign import is bounded before parsing, presents its fidelity summary before opening as a new unsaved NUIF document, and leaves the active document untouched when parsing or confirmation fails. A foreign export writes a sibling `.report.json` fidelity record. The shell also provides page creation, layer and component browsing, identity-backed canvas selection, frame/rectangle/ellipse/path/text insertion, subtree duplication and deletion, undo/redo, evaluation-width presets, zoom, panel visibility and a command palette. The canvas opens with a document-aligned background grid, pixel rulers and explicit `px` measurement labels; grid and rulers can be toggled independently. Its inspector authors names, positions, sizing intents, stack/flex layout, gaps, four-edge padding, alignment, solid fills and pinned-font text. Multi-field Apply is one atomic transaction.
 
