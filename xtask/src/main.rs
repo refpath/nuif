@@ -12,6 +12,7 @@ mod editor_install;
 type Step = (&'static str, fn() -> Result<(), String>);
 
 const ALL_STEPS: &[Step] = &[
+    ("workflow-audit", workflow_audit),
     ("research", research),
     ("adapter-audit", adapter_audit),
     ("dependency-audit", dependency_audit),
@@ -45,6 +46,7 @@ const ALL_STEPS: &[Step] = &[
 ];
 
 const VERIFICATION_ARTIFACTS: &[&str] = &[
+    "target/workflow-audit-report.json",
     "target/adapter-coverage-report.json",
     "target/dependency-audit-report.json",
     "target/documentation-catalog.json",
@@ -164,6 +166,7 @@ fn run() -> Result<(), String> {
         Some("editor-hostile-inputs") => editor_hostile_inputs(),
         Some("performance") => performance(),
         Some("research") => research(),
+        Some("workflow-audit") => workflow_audit(),
         Some("adapter-audit") => adapter_audit(),
         Some("dependency-audit") => dependency_audit(),
         Some("docs-check") => documentation::check(),
@@ -185,7 +188,7 @@ fn run() -> Result<(), String> {
         Some("manifest") => standalone_manifest(),
         Some("all") => all(),
         _ => Err(
-            "usage: cargo xtask <research|adapter-audit|dependency-audit|docs-check|docs-build|docs-paper|docs-serve|docs-setup|verify|trial [seed iterations snapshot-interval report-path]|gate-b|gate-c|gate-d|gate-d-text|gate-d-render|gate-f|gate-f-v0|gate-svg|gate-dtcg|gate-penpot|gate-react|gate-svelte|gate-wasm|gate-mcp|gate-g|gate-h|gate-i-package|gate-i-image|gate-i-font|capture-baselines|browser-install|wasm-install|wasm-package|mcp-package|hostile-inputs|editor-hostile-inputs|performance|editor-trial|editor-gui-trial|editor-install-trial|editor-package|editor-launch|editor-install|editor-doctor|editor-rollback|editor-uninstall|editor-update|release-check <tag>|manifest|all>"
+            "usage: cargo xtask <research|workflow-audit|adapter-audit|dependency-audit|docs-check|docs-build|docs-paper|docs-serve|docs-setup|verify|trial [seed iterations snapshot-interval report-path]|gate-b|gate-c|gate-d|gate-d-text|gate-d-render|gate-f|gate-f-v0|gate-svg|gate-dtcg|gate-penpot|gate-react|gate-svelte|gate-wasm|gate-mcp|gate-g|gate-h|gate-i-package|gate-i-image|gate-i-font|capture-baselines|browser-install|wasm-install|wasm-package|mcp-package|hostile-inputs|editor-hostile-inputs|performance|editor-trial|editor-gui-trial|editor-install-trial|editor-package|editor-launch|editor-install|editor-doctor|editor-rollback|editor-uninstall|editor-update|release-check <tag>|manifest|all>"
                 .to_owned(),
         ),
     }
@@ -1662,6 +1665,195 @@ fn gate_h() -> Result<(), String> {
     ])
 }
 
+const MAX_WORKFLOW_BYTES: u64 = 1_048_576;
+const MAX_WORKFLOW_DEPTH: usize = 64;
+
+fn workflow_audit() -> Result<(), String> {
+    let directory = Path::new(".github/workflows");
+    let mut entries = fs::read_dir(directory)
+        .map_err(|error| format!("cannot read {}: {error}", directory.display()))?
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|error| format!("cannot enumerate {}: {error}", directory.display()))?;
+    entries.sort_by_key(std::fs::DirEntry::file_name);
+
+    let mut failures = Vec::new();
+    let mut workflows = Vec::new();
+    let mut action_references = Vec::new();
+    let mut artifact_paths = 0usize;
+    for entry in entries {
+        let path = entry.path();
+        let extension = path.extension().and_then(|value| value.to_str());
+        if !matches!(extension, Some("yml" | "yaml")) {
+            continue;
+        }
+        let display = path.display().to_string();
+        workflows.push(display.clone());
+        let metadata = fs::symlink_metadata(&path)
+            .map_err(|error| format!("cannot inspect {display}: {error}"))?;
+        if metadata.file_type().is_symlink() || !metadata.is_file() {
+            failures.push(format!("{display}: workflow must be a regular file"));
+            continue;
+        }
+        if metadata.len() > MAX_WORKFLOW_BYTES {
+            failures.push(format!(
+                "{display}: {} bytes exceeds the {MAX_WORKFLOW_BYTES} byte limit",
+                metadata.len()
+            ));
+            continue;
+        }
+        let bytes = fs::read(&path).map_err(|error| format!("cannot read {display}: {error}"))?;
+        let source = match std::str::from_utf8(&bytes) {
+            Ok(source) => source,
+            Err(error) => {
+                failures.push(format!("{display}: workflow is not UTF-8: {error}"));
+                continue;
+            }
+        };
+        let value = match serde_saphyr::from_str::<serde_json::Value>(source) {
+            Ok(serde_json::Value::Object(value)) => serde_json::Value::Object(value),
+            Ok(_) => {
+                failures.push(format!("{display}: workflow root must be a mapping"));
+                continue;
+            }
+            Err(error) => {
+                failures.push(format!("{display}: strict YAML parse failed: {error}"));
+                continue;
+            }
+        };
+        audit_workflow_value(
+            &value,
+            &display,
+            0,
+            &mut action_references,
+            &mut artifact_paths,
+            &mut failures,
+        );
+    }
+    if workflows.is_empty() {
+        failures.push(".github/workflows contains no YAML workflows".to_owned());
+    }
+
+    let report = serde_json::json!({
+        "schema_version": 1,
+        "status": if failures.is_empty() { "passed" } else { "failed" },
+        "limits": {
+            "workflow_bytes": MAX_WORKFLOW_BYTES,
+            "workflow_depth": MAX_WORKFLOW_DEPTH,
+        },
+        "summary": {
+            "workflows": workflows.len(),
+            "external_action_references": action_references.len(),
+            "artifact_paths": artifact_paths,
+            "blocking_failures": failures.len(),
+        },
+        "workflows": workflows,
+        "action_references": action_references,
+        "failures": failures,
+    });
+    fs::create_dir_all("target").map_err(|error| error.to_string())?;
+    fs::write(
+        "target/workflow-audit-report.json",
+        serde_json::to_vec_pretty(&report).map_err(|error| error.to_string())?,
+    )
+    .map_err(|error| error.to_string())?;
+    if report["status"] == "passed" {
+        Ok(())
+    } else {
+        Err("workflow audit failed; inspect target/workflow-audit-report.json".to_owned())
+    }
+}
+
+fn audit_workflow_value(
+    value: &serde_json::Value,
+    location: &str,
+    depth: usize,
+    action_references: &mut Vec<serde_json::Value>,
+    artifact_paths: &mut usize,
+    failures: &mut Vec<String>,
+) {
+    if depth > MAX_WORKFLOW_DEPTH {
+        failures.push(format!(
+            "{location}: workflow nesting exceeds {MAX_WORKFLOW_DEPTH}"
+        ));
+        return;
+    }
+    match value {
+        serde_json::Value::Object(object) => {
+            if let Some(uses) = object.get("uses").and_then(serde_json::Value::as_str) {
+                if !uses.starts_with("./") {
+                    action_references.push(serde_json::json!({
+                        "location": location,
+                        "uses": uses,
+                    }));
+                    if !immutable_action_reference(uses) {
+                        failures.push(format!(
+                            "{location}/uses: external action must use a full commit SHA: {uses}"
+                        ));
+                    }
+                }
+                if uses.starts_with("actions/upload-artifact@")
+                    && let Some(path) = object
+                        .get("with")
+                        .and_then(serde_json::Value::as_object)
+                        .and_then(|with| with.get("path"))
+                        .and_then(serde_json::Value::as_str)
+                {
+                    let mut seen = BTreeSet::new();
+                    for path in path.lines().map(str::trim).filter(|path| !path.is_empty()) {
+                        *artifact_paths += 1;
+                        if !seen.insert(path) {
+                            failures.push(format!(
+                                "{location}/with/path: duplicate artifact path {path:?}"
+                            ));
+                        }
+                    }
+                }
+            }
+            for (key, child) in object {
+                audit_workflow_value(
+                    child,
+                    &format!("{location}/{key}"),
+                    depth + 1,
+                    action_references,
+                    artifact_paths,
+                    failures,
+                );
+            }
+        }
+        serde_json::Value::Array(array) => {
+            for (index, child) in array.iter().enumerate() {
+                audit_workflow_value(
+                    child,
+                    &format!("{location}/{index}"),
+                    depth + 1,
+                    action_references,
+                    artifact_paths,
+                    failures,
+                );
+            }
+        }
+        _ => {}
+    }
+}
+
+fn immutable_action_reference(reference: &str) -> bool {
+    if let Some(image) = reference.strip_prefix("docker://") {
+        return image.rsplit_once("@sha256:").is_some_and(|(name, digest)| {
+            !name.is_empty()
+                && digest.len() == 64
+                && digest.bytes().all(|byte| byte.is_ascii_hexdigit())
+        });
+    }
+    reference
+        .rsplit_once('@')
+        .is_some_and(|(action, revision)| {
+            action.contains('/')
+                && !action.contains('@')
+                && revision.len() == 40
+                && revision.bytes().all(|byte| byte.is_ascii_hexdigit())
+        })
+}
+
 fn research() -> Result<(), String> {
     let environment = Path::new("target/research-validator-venv");
     #[cfg(windows)]
@@ -2677,5 +2869,40 @@ mod tests {
     fn macos_short_version_excludes_the_prerelease_suffix() {
         assert_eq!(short_version("0.1.0-alpha.1"), "0.1.0");
         assert_eq!(short_version("1.2.3"), "1.2.3");
+    }
+
+    #[test]
+    fn workflow_action_references_require_immutable_digests() {
+        assert!(immutable_action_reference(
+            "actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1"
+        ));
+        assert!(immutable_action_reference(
+            "docker://example.invalid/tool@sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+        ));
+        assert!(!immutable_action_reference("actions/checkout@v7"));
+        assert!(!immutable_action_reference(
+            "actions/checkout@owner@3d3c42e5aac5ba805825da76410c181273ba90b1"
+        ));
+    }
+
+    #[test]
+    fn workflow_artifact_paths_must_be_unique_per_upload() {
+        let value = serde_json::json!({
+            "uses": "actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a",
+            "with": { "path": "target/report.json\ntarget/report.json\n" }
+        });
+        let mut references = Vec::new();
+        let mut paths = 0;
+        let mut failures = Vec::new();
+        audit_workflow_value(
+            &value,
+            "fixture",
+            0,
+            &mut references,
+            &mut paths,
+            &mut failures,
+        );
+        assert_eq!(paths, 2);
+        assert_eq!(failures.len(), 1);
     }
 }

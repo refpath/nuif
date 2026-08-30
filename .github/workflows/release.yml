@@ -56,11 +56,16 @@ jobs:
           path: |
             target/dist/release-check.json
             target/verification-manifest.json
+            target/workflow-audit-report.json
+            target/adapter-coverage-report.json
+            target/dependency-audit-report.json
             target/performance-profile-report.json
             target/package-resources-report.json
             target/image-resources-report.json
             target/font-resources-report.json
             target/react-sync-report.json
+            target/svelte-sync-report.json
+            target/svelte-compiler-oracle-report.json
             target/wasm-conformance-report.json
             target/mcp-conformance-report.json
             target/editor-gui-trial/report.json

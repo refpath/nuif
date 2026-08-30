@@ -90,6 +90,12 @@ jobs:
         with:
           name: dependency-audit-report
           path: target/dependency-audit-report.json
+      - name: Upload workflow metadata audit
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: workflow-audit-report
+          path: target/workflow-audit-report.json
       - name: Upload hostile-input measurements
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
