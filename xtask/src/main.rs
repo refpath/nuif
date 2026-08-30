@@ -6,6 +6,8 @@ use std::process::{Command, ExitStatus};
 
 use sha2::{Digest, Sha256};
 
+mod editor_install;
+
 type Step = (&'static str, fn() -> Result<(), String>);
 
 const ALL_STEPS: &[Step] = &[
@@ -118,11 +120,15 @@ fn run() -> Result<(), String> {
         Some("editor-gui-trial") => editor_gui_trial(),
         Some("editor-package") => editor_package(),
         Some("editor-launch") => editor_launch(),
+        Some("editor-install") => editor_install::install(&args.collect::<Vec<_>>()),
+        Some("editor-doctor") => editor_install::doctor(&args.collect::<Vec<_>>()),
+        Some("editor-rollback") => editor_install::rollback(&args.collect::<Vec<_>>()),
+        Some("editor-uninstall") => editor_install::uninstall(&args.collect::<Vec<_>>()),
         Some("release-check") => release_check(args.next().as_deref()),
         Some("manifest") => standalone_manifest(),
         Some("all") => all(),
         _ => Err(
-            "usage: cargo xtask <research|adapter-audit|dependency-audit|verify|trial [seed iterations snapshot-interval report-path]|gate-b|gate-c|gate-d|gate-d-text|gate-d-render|gate-f|gate-f-v0|gate-svg|gate-dtcg|gate-g|gate-h|browser-install|hostile-inputs|editor-hostile-inputs|performance|editor-trial|editor-gui-trial|editor-package|editor-launch|release-check <tag>|manifest|all>"
+            "usage: cargo xtask <research|adapter-audit|dependency-audit|verify|trial [seed iterations snapshot-interval report-path]|gate-b|gate-c|gate-d|gate-d-text|gate-d-render|gate-f|gate-f-v0|gate-svg|gate-dtcg|gate-g|gate-h|browser-install|hostile-inputs|editor-hostile-inputs|performance|editor-trial|editor-gui-trial|editor-package|editor-launch|editor-install|editor-doctor|editor-rollback|editor-uninstall|release-check <tag>|manifest|all>"
                 .to_owned(),
         ),
     }
@@ -1226,11 +1232,11 @@ fn run_editor_gui_automation(input: &Path, artifacts: &Path) -> Result<(), Strin
 }
 
 #[derive(Debug)]
-struct EditorPackage {
-    package_root: std::path::PathBuf,
-    binary: std::path::PathBuf,
-    app_bundle: Option<std::path::PathBuf>,
-    archive: std::path::PathBuf,
+pub(crate) struct EditorPackage {
+    pub(crate) package_root: std::path::PathBuf,
+    pub(crate) binary: std::path::PathBuf,
+    pub(crate) app_bundle: Option<std::path::PathBuf>,
+    pub(crate) archive: std::path::PathBuf,
 }
 
 fn editor_package() -> Result<(), String> {
@@ -1239,7 +1245,7 @@ fn editor_package() -> Result<(), String> {
     Ok(())
 }
 
-fn build_editor_package() -> Result<EditorPackage, String> {
+pub(crate) fn build_editor_package() -> Result<EditorPackage, String> {
     cargo(&[
         "build",
         "--release",
@@ -1505,7 +1511,7 @@ fn package_linux(
     Ok((binary.clone(), None, vec![binary.display().to_string()]))
 }
 
-fn editor_version() -> Result<String, String> {
+pub(crate) fn editor_version() -> Result<String, String> {
     let output = Command::new("cargo")
         .args(["metadata", "--locked", "--format-version", "1", "--no-deps"])
         .output()
@@ -1674,7 +1680,7 @@ fn command(program: &str, arguments: &[&str]) -> Result<(), String> {
     check_status(status, program, arguments)
 }
 
-fn command_text(program: &str, arguments: &[&str]) -> Option<String> {
+pub(crate) fn command_text(program: &str, arguments: &[&str]) -> Option<String> {
     let output = Command::new(program).args(arguments).output().ok()?;
     output
         .status
