@@ -77,6 +77,12 @@ questions:
     status: decided
     decided_by: adrs/0006-rust-native-editor.md
     evidence: [nuif:research:masonry-xilem-and-linebender-test-harness, nuif:research:iced-slint-gpui-makepad-floem, nuif:research:masonry-editor-stack-decision, nuif:research:rust-toolchain-and-msrv-policy]
+  - id: nuif:question:editor-developer-distribution
+    topic: editor
+    question: How is the permanent developer editor installed without making Apple or Microsoft marketplace publication a prerequisite?
+    status: decided
+    decided_by: adrs/0009-developer-source-installation.md
+    evidence: [nuif:research:developer-source-installation-and-os-trust, nuif:research:github-release-delivery-and-provenance]
   - id: nuif:question:unknown-kind-preservation
     topic: extensions
     question: How are entities of unknown kind represented in memory and re-emitted so that their original kind and properties survive edits by an implementation that does not understand them?

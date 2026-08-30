@@ -66,8 +66,8 @@ areas:
     artifacts: [docs/whitepaper/06-language-and-runtime-choice.md, adrs/0001-rust-reference-core.md]
   reference_editor:
     status: experiment-required
-    evidence: [nuif:research:openpencil, nuif:research:penpot, nuif:research:figma-ui3-editor-layout, nuif:research:figma-tools-and-keyboard-shortcuts, nuif:research:penpot-editor-ui-and-automation, nuif:research:design-editor-ui-conventions-synthesis, nuif:research:masonry-xilem-and-linebender-test-harness, nuif:research:egui-and-egui-kittest, nuif:research:iced-slint-gpui-makepad-floem, nuif:research:accesskit-semantic-ui-testing]
-    artifacts: [apps/editor/ARCHITECTURE.md, apps/editor/UI-SPEC.md, adrs/0006-rust-native-editor.md]
+    evidence: [nuif:research:openpencil, nuif:research:penpot, nuif:research:figma-ui3-editor-layout, nuif:research:figma-tools-and-keyboard-shortcuts, nuif:research:penpot-editor-ui-and-automation, nuif:research:design-editor-ui-conventions-synthesis, nuif:research:masonry-xilem-and-linebender-test-harness, nuif:research:egui-and-egui-kittest, nuif:research:iced-slint-gpui-makepad-floem, nuif:research:accesskit-semantic-ui-testing, nuif:research:developer-source-installation-and-os-trust]
+    artifacts: [apps/editor/ARCHITECTURE.md, apps/editor/UI-SPEC.md, adrs/0006-rust-native-editor.md, adrs/0009-developer-source-installation.md]
   cli_api_ai_qa:
     status: experiment-required
     evidence: [nuif:research:openpencil, nuif:research:wasm-component-model, nuif:research:figma-plugin-and-rest-api-as-automation-surface, nuif:research:blender-dna-rna-and-headless, nuif:research:unreal-asset-versioning-and-automation, nuif:research:gltf-validator-and-sample-assets]
