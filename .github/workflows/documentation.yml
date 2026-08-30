@@ -54,8 +54,8 @@ jobs:
     needs: build
     runs-on: ubuntu-24.04
     permissions:
-      pages: write
-      id-token: write
+      pages: write # publish the compiled documentation artifact
+      id-token: write # mint the OIDC identity used by GitHub Pages
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
