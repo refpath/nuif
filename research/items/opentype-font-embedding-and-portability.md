@@ -94,10 +94,12 @@ SVG and WOFF/WOFF2 sources. Package validation compares face, family names,
 static axis state and exact Unicode coverage, then requires matching `fsType`,
 a non-empty license expression and an explicit `approved` embedding review.
 
-`cargo xtask gate-i-font` compares `ttf-parser` 0.25.1 against Skrifa 0.46.2 on
-the pinned Ahem resource, proves package byte fixpoint and resource retention,
-and runs malformed, checksum, directory, policy and one-over trials. This is an
-automated baseline, not completion of the broader font-resource experiment.
+`cargo xtask gate-i-font` accepts four static TrueType fixtures, compares
+`ttf-parser` 0.25.1 against Skrifa 0.46.2 on the pinned Ahem resource, proves
+package byte fixpoint and resource retention, and runs 20 malformed/unsupported,
+10 policy and six portability trials. Real TTC, CFF, variable, COLR, embedded
+bitmap, CBDT and sbix fixtures prove fail-closed exclusion. This is an automated
+baseline, not completion of the broader font-resource experiment.
 
 ## Open questions
 

@@ -167,10 +167,11 @@ transforms, GPU/cross-platform image reproduction and non-PNG formats.
 The narrow font-resource experiment writes
 `target/font-resources-report.json`. `cargo xtask gate-i-font` compares the
 profile's `ttf-parser` interpretation with Skrifa metrics, static axes and
-selected Unicode mappings for the exact pinned Ahem bytes. It proves package
-byte fixpoint and resource retention, mutates metadata and embedding evidence,
-and rejects malformed directories, checksums, packing, unsupported tables,
-face indices and the encoded-byte one-over case. The report explicitly excludes
+selected Unicode mappings for the exact pinned Ahem bytes, while three more
+static TrueType fixtures exercise acceptance. It proves package byte fixpoint
+and resource retention, mutates metadata and embedding evidence, distinguishes
+six portability outcomes, and rejects synthetic malformed cases plus real TTC,
+CFF, variable, COLR, bitmap, CBDT and sbix inputs. The report explicitly excludes
 TTC, CFF/CFF2, variable, color, bitmap, SVG and WOFF/WOFF2 fonts; it does not
 claim shaping/raster equivalence or that technical flags grant redistribution
 rights.

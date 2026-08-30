@@ -543,6 +543,19 @@ mod tests {
     }
 
     #[test]
+    fn real_static_truetype_corpus_satisfies_the_profile() {
+        for (name, bytes) in [
+            ("ahem", font_test_data::AHEM),
+            ("tinos", font_test_data::TINOS_SUBSET),
+            ("cousine", font_test_data::COUSINE_HINT_SUBSET),
+            ("tthint", font_test_data::TTHINT_SUBSET),
+        ] {
+            let result = inspect_opentype_static(bytes, 0);
+            assert!(result.is_ok(), "{name}: {:?}", result.err());
+        }
+    }
+
+    #[test]
     fn malformed_and_out_of_profile_fonts_fail_closed() {
         assert!(inspect_opentype_static(&font_test_data::AHEM[..64], 0).is_err());
         assert!(inspect_opentype_static(font_test_data::AHEM, 1).is_err());

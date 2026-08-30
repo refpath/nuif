@@ -64,3 +64,15 @@ sandbox and work budgets.
 This baseline does not yet prove shaping equivalence, glyph-outline
 equivalence, subsetting, variable-axis behavior, color-font behavior, browser
 font decoding, layout fidelity, or licensing compliance.
+
+## Evidence boundary
+
+`cargo xtask gate-i-font` accepts four static TrueType fixtures from
+`font-test-data` 0.9.1 and compares the exact pinned Ahem metrics, static-axis
+state and Unicode coverage across `ttf-parser` and Skrifa. It rejects 20
+synthetic and real cases spanning malformed/checksum-invalid sfnt data, TTC,
+CFF, variable, COLR, embedded bitmap, CBDT and sbix categories. Ten metadata and
+embedding-policy mutations plus six portable/private/linked/substituted/
+unavailable package outcomes are blocking. The real rejected fixtures prove
+that those categories fail closed; they do not specify how a future profile
+will accept them.

@@ -180,13 +180,15 @@ the directory, ranges, packing and checksums; Skrifa 0.46.2 independently
 checks metrics, static-axis state and selected Unicode coverage. Exact bytes,
 family names, coverage, `fsType`, license expression and explicit embedding
 review must agree. Package encode/decode and caller-resolved linked bytes run
-the same validation.
+the same validation. Four static TrueType fixtures are accepted, while six
+package trials distinguish portable, private-authoring, linked, substituted and
+unavailable outcomes.
 
 This is intentionally not general OpenType support. TTC, CFF/CFF2, variable,
 color, bitmap, SVG and WOFF/WOFF2 sources, historic ambiguous permission
-combinations, subsetting, substitution/unavailability outcomes, shaping and
-cross-platform raster behavior remain separate fixtures and profiles. Parser
-acceptance and `fsType` do not grant redistribution rights.
+combinations, subsetting, item-level substitution/unavailability fidelity,
+shaping and cross-platform raster behavior remain separate fixtures and
+profiles. Parser acceptance and `fsType` do not grant redistribution rights.
 
 Browser capture can identify platform fonts used for a node and capture
 downloaded web-font response bodies. It generally cannot retrieve arbitrary

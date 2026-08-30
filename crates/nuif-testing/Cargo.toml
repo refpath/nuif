@@ -7,6 +7,7 @@ repository.workspace = true
 
 [dependencies]
 ciborium.workspace = true
+font-test-data.workspace = true
 nuif-api = { version = "0.0.0", path = "../nuif-api" }
 nuif-capture = { version = "0.0.1", path = "../nuif-capture" }
 nuif-codec = { version = "0.0.0", path = "../nuif-codec" }

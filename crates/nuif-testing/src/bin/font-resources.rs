@@ -8,7 +8,7 @@ use nuif_font::{
     MAX_FONT_NAMES, MAX_FONT_TABLES, OPENTYPE_STATIC_PROFILE, classify_fs_type,
     inspect_opentype_static,
 };
-use nuif_package::{NuifPackage, PackageMode};
+use nuif_package::{NuifPackage, PackageMode, ResourceResolver};
 use nuif_text::{PINNED_FONT_NAME, PINNED_FONT_SHA256, pinned_font_bytes};
 use serde_json::{Value, json};
 use sha2::{Digest, Sha256};
@@ -72,13 +72,17 @@ fn run() -> Result<(), String> {
                 && primary.fs_type == 0,
         ),
     ];
+    let accepted_trials = accepted_static_trials();
     let negative_trials = negative_trials(bytes);
     let policy_trials = policy_trials(&primary, bytes);
+    let portability_trials = portability_trials(&primary, bytes)?;
     let package_trials = package_trials(&primary, bytes)?;
     let passed = parser_trials
         .iter()
+        .chain(&accepted_trials)
         .chain(&negative_trials)
         .chain(&policy_trials)
+        .chain(&portability_trials)
         .chain(&package_trials)
         .all(passed_trial);
     let report = json!({
@@ -89,6 +93,7 @@ fn run() -> Result<(), String> {
             "name": OPENTYPE_STATIC_PROFILE,
             "primary_parser": "ttf-parser 0.25.1 behind NUIF sfnt range and checksum validation",
             "independent_parser": "Skrifa 0.46.2 / read-fonts",
+            "fixture_corpus": "font-test-data 0.9.1",
             "container": "single-face TrueType-outline sfnt at face index zero",
             "policy": "exact bytes plus matching metadata, fsType evidence, license expression and explicit embedding review",
         },
@@ -111,12 +116,14 @@ fn run() -> Result<(), String> {
         "inspection": primary,
         "independent": independent.to_json(),
         "parser_trials": parser_trials,
+        "accepted_trials": accepted_trials,
         "negative_trials": negative_trials,
         "policy_trials": policy_trials,
+        "portability_trials": portability_trials,
         "package_trials": package_trials,
         "source": source_identity(),
         "non_claims": [
-            "one Ahem static TrueType fixture is not broad OpenType conformance",
+            "four accepted static TrueType fixtures with only Ahem cross-parser comparison are not broad OpenType conformance",
             "no TTC CFF CFF2 variable color bitmap SVG WOFF WOFF2 or subsetting support",
             "no shaping outline raster browser or cross-platform font reproduction is established by this gate",
             "fsType and a recorded review are policy evidence, not an automated license decision or redistribution grant",
@@ -124,10 +131,12 @@ fn run() -> Result<(), String> {
         ],
         "summary": {
             "parser": parser_trials.len(),
+            "accepted": accepted_trials.len(),
             "negative": negative_trials.len(),
             "policy": policy_trials.len(),
+            "portability": portability_trials.len(),
             "package": package_trials.len(),
-            "blocking_failures": parser_trials.iter().chain(&negative_trials).chain(&policy_trials).chain(&package_trials).filter(|item| !passed_trial(item)).count(),
+            "blocking_failures": parser_trials.iter().chain(&accepted_trials).chain(&negative_trials).chain(&policy_trials).chain(&portability_trials).chain(&package_trials).filter(|item| !passed_trial(item)).count(),
         }
     });
     if let Some(parent) = output.parent()
@@ -141,10 +150,10 @@ fn run() -> Result<(), String> {
     )
     .map_err(|error| error.to_string())?;
     println!(
-        "font resources: {} parser, {} negative, {} policy/package, status {}",
-        parser_trials.len(),
+        "font resources: {} parser/accepted, {} negative, {} policy/portability/package, status {}",
+        parser_trials.len() + accepted_trials.len(),
         negative_trials.len(),
-        policy_trials.len() + package_trials.len(),
+        policy_trials.len() + portability_trials.len() + package_trials.len(),
         if passed { "passed" } else { "failed" }
     );
     if passed {
@@ -152,6 +161,21 @@ fn run() -> Result<(), String> {
     } else {
         Err(format!("report failed; inspect {}", output.display()))
     }
+}
+
+fn accepted_static_trials() -> Vec<Value> {
+    [
+        ("ahem_static_truetype", font_test_data::AHEM),
+        ("tinos_static_truetype", font_test_data::TINOS_SUBSET),
+        (
+            "cousine_hint_static_truetype",
+            font_test_data::COUSINE_HINT_SUBSET,
+        ),
+        ("tthint_static_truetype", font_test_data::TTHINT_SUBSET),
+    ]
+    .into_iter()
+    .map(|(name, bytes)| trial(name, inspect_opentype_static(bytes, 0).is_ok()))
+    .collect()
 }
 
 #[derive(Debug)]
@@ -271,10 +295,165 @@ fn negative_trials(canonical: &[u8]) -> Vec<Value> {
     let mut oversized = vec![0; MAX_FONT_BYTES + 1];
     oversized[..4].copy_from_slice(&canonical[..4]);
     cases.push(("encoded_byte_one_over", oversized, 0));
+    cases.extend([
+        ("real_ttc_collection", font_test_data::ttc::TTC.to_vec(), 0),
+        ("real_cff_otf", font_test_data::NOTO_SANS_JP_CFF.to_vec(), 0),
+        (
+            "real_variable_truetype",
+            font_test_data::VAZIRMATN_VAR.to_vec(),
+            0,
+        ),
+        ("real_colrv1", font_test_data::COLRV0V1.to_vec(), 0),
+        (
+            "real_embedded_bitmap",
+            font_test_data::EMBEDDED_BITMAPS.to_vec(),
+            0,
+        ),
+        ("real_cbdt_bitmap", font_test_data::CBDT.to_vec(), 0),
+        (
+            "real_sbix_bitmap",
+            font_test_data::NOTO_HANDWRITING_SBIX.to_vec(),
+            0,
+        ),
+    ]);
     cases
         .into_iter()
         .map(|(name, bytes, face)| trial(name, inspect_opentype_static(&bytes, face).is_err()))
         .collect()
+}
+
+fn portability_trials(
+    inspection: &nuif_font::FontInspection,
+    bytes: &[u8],
+) -> Result<Vec<Value>, String> {
+    let private_authoring = font_package(
+        inspection,
+        bytes,
+        PackageMode::Authoring,
+        AssetPortability::PrivateAuthoring,
+        false,
+    )?;
+    let private_portable = font_package(
+        inspection,
+        bytes,
+        PackageMode::Portable,
+        AssetPortability::PrivateAuthoring,
+        false,
+    )?;
+    let substituted = font_package(
+        inspection,
+        bytes,
+        PackageMode::Portable,
+        AssetPortability::Substituted,
+        false,
+    )?;
+    let unavailable = font_package(
+        inspection,
+        bytes,
+        PackageMode::Portable,
+        AssetPortability::Unavailable,
+        false,
+    )?;
+    let linked = font_package(
+        inspection,
+        bytes,
+        PackageMode::Authoring,
+        AssetPortability::Linked,
+        true,
+    )?;
+    let linked_portable = font_package(
+        inspection,
+        bytes,
+        PackageMode::Portable,
+        AssetPortability::Linked,
+        true,
+    )?;
+    let digest = linked
+        .document
+        .assets
+        .get(&AssetId::new(0xf0))
+        .and_then(|asset| asset.resource.clone())
+        .ok_or_else(|| "linked fixture lacks resource digest".to_owned())?;
+    let mut resolver = FixedResolver(bytes.to_vec());
+    Ok(vec![
+        trial(
+            "private_authoring_embedded_in_authoring_package",
+            private_authoring.encode().is_ok(),
+        ),
+        trial(
+            "private_authoring_rejected_from_portable_package",
+            private_portable.encode().is_err(),
+        ),
+        trial(
+            "substituted_exact_bytes_allowed_in_portable_package",
+            substituted.encode().is_ok(),
+        ),
+        trial(
+            "unavailable_asset_has_no_false_resource_claim",
+            unavailable.encode().is_ok()
+                && unavailable
+                    .document
+                    .assets
+                    .get(&AssetId::new(0xf0))
+                    .is_some_and(|asset| asset.resource.is_none()),
+        ),
+        trial(
+            "linked_authoring_requires_explicit_resolution",
+            linked.manifest().is_ok()
+                && linked.resolve_resource(&digest, None).is_err()
+                && linked
+                    .resolve_resource(&digest, Some(&mut resolver))
+                    .is_ok(),
+        ),
+        trial(
+            "linked_resource_rejected_from_portable_package",
+            linked_portable.encode().is_err(),
+        ),
+    ])
+}
+
+struct FixedResolver(Vec<u8>);
+
+impl ResourceResolver for FixedResolver {
+    fn resolve(&mut self, _: &nuif_core::ResourceDescriptor) -> Result<Vec<u8>, String> {
+        Ok(self.0.clone())
+    }
+}
+
+fn font_package(
+    inspection: &nuif_font::FontInspection,
+    bytes: &[u8],
+    mode: PackageMode,
+    portability: AssetPortability,
+    linked: bool,
+) -> Result<NuifPackage, String> {
+    let mut package = NuifPackage::new(Document::empty(EntityId::new(1)), mode);
+    let resource = if portability == AssetPortability::Unavailable {
+        None
+    } else if linked {
+        let digest = nuif_core::ResourceDigest::from_sha256_hex(sha256(bytes));
+        package
+            .add_linked(
+                digest.clone(),
+                bytes.len() as u64,
+                "font/ttf",
+                ResourceRole::Authoring,
+                "https://example.invalid/font.ttf",
+                None,
+            )
+            .map_err(|error| error.to_string())?;
+        Some(digest)
+    } else {
+        Some(
+            package
+                .add_embedded(bytes.to_vec(), "font/ttf", ResourceRole::Authoring, None)
+                .map_err(|error| error.to_string())?,
+        )
+    };
+    let mut asset = font_asset(inspection, resource);
+    asset.portability = portability;
+    package.document.assets.insert(asset.id, asset);
+    Ok(package)
 }
 
 fn policy_trials(inspection: &nuif_font::FontInspection, bytes: &[u8]) -> Vec<Value> {

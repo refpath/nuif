@@ -382,9 +382,10 @@ experiments:
       - malformed checksum-invalid noncanonical unsupported and one-over cases fail before the resource is accepted
       - the report distinguishes technical fsType evidence from license and embedding approval
     tests:
-      - compare ttf-parser 0.25.1 behind independent sfnt checks against Skrifa 0.46.2 metrics axes and selected Unicode mapping
-      - reject truncated CFF-signature collection variable-table duplicate-tag bad-offset bad-search nonzero-padding trailing face-index checksum and encoded-byte one-over inputs
+      - accept four real static TrueType fixtures and compare the pinned Ahem resource across ttf-parser 0.25.1 and Skrifa 0.46.2 metrics axes and selected Unicode mapping
+      - reject synthetic malformed cases plus real TTC CFF variable COLR embedded-bitmap CBDT and sbix fixtures
       - mutate decoder fsType license review coverage axes and feature evidence and require atomic policy failure
+      - distinguish portable private-authoring linked substituted and unavailable package outcomes without implicit resolution
       - round-trip one exact font resource through deterministic package encoding and decoding
       - archive target/font-resources-report.json from cargo xtask gate-i-font
   - id: nuif:experiment:font-resource-profile

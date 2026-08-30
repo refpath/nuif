@@ -141,11 +141,13 @@ resource-aware CPU rasterization and rejects 13 unsupported/hostile cases via
 and type profile, arbitrary transforms, cross-platform image reproduction,
 and a cross-platform/external writer remain required. The separate
 `nuif-opentype-static-single-0` segment compares exact Ahem metrics, static-axis
-state and Unicode coverage across `ttf-parser` and Skrifa, preserves the font
-through package fixpoint, requires explicit license/review evidence and rejects
-13 malformed/unsupported/one-over plus 10 policy cases through
-`cargo xtask gate-i-font`. TTC, CFF/CFF2, variable/color/bitmap/WOFF2 fonts,
-the full portability/substitution/unavailability matrix, shaping integration,
+state and Unicode coverage across `ttf-parser` and Skrifa, accepts four static
+TrueType fixtures, preserves the font through package fixpoint, requires
+explicit license/review evidence and rejects 20 synthetic/real malformed or
+out-of-profile cases plus 10 policy cases through `cargo xtask gate-i-font`.
+Six additional trials distinguish package-level portable/private/linked/
+substituted/unavailable outcomes. TTC, CFF/CFF2, variable/color/bitmap/WOFF2
+acceptance, item-level substitution/unavailability fidelity, shaping integration,
 cross-platform font reproduction and calibrated total-resource/media
 allocation evidence remain required. Both narrow media segments are separate
 from CPU render profile 0 and do not establish general images or packaged-font

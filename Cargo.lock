@@ -2532,6 +2532,7 @@ name = "nuif-testing"
 version = "0.0.1"
 dependencies = [
  "ciborium",
+ "font-test-data",
  "nuif-api",
  "nuif-capture",
  "nuif-codec",

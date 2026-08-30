@@ -35,9 +35,10 @@ Gate I remains open. `cargo xtask gate-i-image` now provides a narrow
 baseline; it deliberately excludes broader PNG colour/types, arbitrary
 transforms and cross-platform image reproduction. `cargo xtask gate-i-font`
 adds a deliberately narrow static TrueType cross-parser/package/policy baseline;
-TTC, CFF, variable/color/bitmap/WOFF2 fonts and the complete portability matrix
-remain separate. Cross-platform writer reproduction and total-resource
-allocation evidence are also independent requirements. Browser capture precedes
+TTC, CFF, variable/color/bitmap/WOFF2 acceptance and complete item-level
+portability fidelity remain separate beyond the automated package-state outcomes.
+Cross-platform writer reproduction and total-resource allocation evidence are
+also independent requirements. Browser capture precedes
 screenshot reconstruction because it provides stronger source-backed fixtures
 and exposes which information is truly unavailable from pixels.
 
