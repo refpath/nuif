@@ -22,6 +22,7 @@ nuif-penpot = { version = "0.0.1", path = "../nuif-penpot" }
 nuif-protocol = { version = "0.0.1", path = "../nuif-protocol" }
 nuif-render = { version = "0.0.0", path = "../nuif-render" }
 nuif-reconstruct = { version = "0.0.1", path = "../nuif-reconstruct" }
+nuif-react = { version = "0.0.1", path = "../nuif-react" }
 nuif-svg = { version = "0.0.1", path = "../nuif-svg" }
 nuif-testing = { version = "0.0.1", path = "../nuif-testing" }
 serde.workspace = true

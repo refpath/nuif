@@ -36,7 +36,7 @@ links:
 
 # Summary
 
-Cargo metadata reports 28 distinct direct external crates across the workspace.
+Cargo metadata reports 29 distinct direct external crates across the workspace.
 Each is now registered with a role, a current decision, at least one considered
 alternative and repository evidence. The executable audit fails when a direct
 crate is added without ownership or when a stale registration remains. Cargo
@@ -76,7 +76,7 @@ duplicating a hex adapter across the report-producing crates.
   package parser, not through the editor toolkit fork. The complete check is a
   CI and release gate rather than a documented exception.
 - The version trial ran all workspace unit and documentation tests, the release
-  hostile-input allocation profile, text and render goldens, all five executable
+  hostile-input allocation profile, text and render goldens, all six executable
   adapter profiles, and workspace Clippy with warnings denied on rustc 1.98.0.
   The three accepted updates passed; SHA-2 0.11 failed at compile time before
   runtime evidence and was reverted (2026-08-30).
@@ -125,6 +125,12 @@ Source adapters
   postcondition of the declared adapter. Locators:
   https://tree-sitter.github.io/tree-sitter/using-parsers/ and
   https://github.com/servo/html5ever, retrieved 2026-08-30.
+- The official Tree-sitter JavaScript grammar includes JSX in the same concrete
+  syntax tree and therefore extends the existing retained-byte contract to the
+  static React profile. SWC and Oxc are stronger choices for semantic JavaScript
+  transforms, but their normalized AST boundary does not improve a profile that
+  explicitly refuses evaluation and patches exact source ranges. Locator:
+  https://github.com/tree-sitter/tree-sitter-javascript, retrieved 2026-08-30.
 - roxmltree represents XML as a read-only tree and exposes original byte
   positions. Quick XML is an almost-zero-copy pull parser and a better candidate
   for very large streaming documents, while usvg is a better renderer-facing

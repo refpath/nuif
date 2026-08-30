@@ -134,6 +134,18 @@ fn main() {
         .unwrap()
         .value = PropertyValue::Integer(8);
 
+    let react_document = nuif_react::profile_fixture();
+    let react_exported = nuif_react::export_document(&react_document).unwrap();
+    let react_imported = nuif_react::import_source(&react_exported.source).unwrap();
+    let mut react_edited = react_document.clone();
+    react_edited
+        .entities
+        .get_mut(&EntityId::new(0x10))
+        .unwrap()
+        .authored
+        .layout
+        .gap = 20.0;
+
     let penpot_document = nuif_penpot::profile_fixture();
     let penpot_exported = nuif_penpot::export_document(&penpot_document).unwrap();
     let penpot_imported = nuif_penpot::import_package(&penpot_exported.bytes).unwrap();
@@ -416,6 +428,28 @@ fn main() {
                 .source
                 .len() as u64
         }),
+        measure("adapter_react_export", 2, 20, 500_000_000, || {
+            nuif_react::export_document(black_box(&react_document))
+                .unwrap()
+                .source
+                .len() as u64
+        }),
+        measure("adapter_react_import", 2, 20, 500_000_000, || {
+            nuif_react::import_source(black_box(&react_exported.source))
+                .unwrap()
+                .document
+                .entities
+                .len() as u64
+        }),
+        measure("adapter_react_sync", 2, 20, 500_000_000, || {
+            nuif_react::synchronize(
+                black_box(&react_imported.retentive),
+                black_box(&react_edited),
+            )
+            .unwrap()
+            .source
+            .len() as u64
+        }),
         measure("adapter_penpot_export", 4, 20, 500_000_000, || {
             nuif_penpot::export_document(black_box(&penpot_document))
                 .unwrap()
@@ -491,6 +525,7 @@ fn main() {
             "html_css_bytes": html_exported.source.len(),
             "svg_bytes": svg_exported.source.len(),
             "dtcg_bytes": dtcg_exported.source.len(),
+            "react_jsx_bytes": react_exported.source.len(),
             "penpot_bytes": penpot_exported.bytes.len(),
             "foreign_penpot_bytes": FOREIGN_PENPOT.len()
         },

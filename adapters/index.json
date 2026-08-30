@@ -61,11 +61,18 @@
     {
       "id": "react",
       "surface": "JSX source and React DOM properties",
-      "status": "researched",
+      "status": "integrated",
       "research": "react-jsx-adapter-surface",
-      "directions": [],
-      "profiles": [],
-      "next_profile": "static intrinsic JSX with literal attributes, text and profile-owned style objects",
+      "directions": ["import", "export", "synchronize"],
+      "profiles": [
+        {
+          "name": "nuif-react-jsx-0",
+          "crate": "crates/nuif-react",
+          "profile": "adapters/react/PROFILE.md",
+          "gate": "gate-react"
+        }
+      ],
+      "next_profile": "TSX or CSS-class support only under a separate grammar and runtime-validation matrix",
       "boundary": "Components, hooks, spreads, control flow and runtime expressions require JavaScript execution."
     },
     {

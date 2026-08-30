@@ -196,6 +196,17 @@ jobs:
             target/penpot-sync-edited.nuif
             target/penpot-sync-cli-report.json
             target/penpot-sync-cli-output.penpot
+      - name: Upload React JSX synchronization evidence
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: react-jsx-sync-report
+          path: |
+            target/react-sync-report.json
+            target/react-sync-output.jsx
+            target/react-sync-edited.nuif.json
+            target/react-sync-cli-report.json
+            target/react-sync-cli-output.jsx
       - name: Upload independent implementation evidence
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1

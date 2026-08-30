@@ -114,10 +114,17 @@ enum ExternalFormat {
     HtmlCss,
     Dtcg,
     Penpot,
+    React,
 }
 
 impl ExternalFormat {
-    const ALL: [Self; 4] = [Self::Svg, Self::HtmlCss, Self::Dtcg, Self::Penpot];
+    const ALL: [Self; 5] = [
+        Self::Svg,
+        Self::HtmlCss,
+        Self::Dtcg,
+        Self::Penpot,
+        Self::React,
+    ];
 
     const fn name(self) -> &'static str {
         match self {
@@ -125,6 +132,7 @@ impl ExternalFormat {
             Self::HtmlCss => "HTML/CSS",
             Self::Dtcg => "DTCG tokens",
             Self::Penpot => "Penpot",
+            Self::React => "React JSX",
         }
     }
 
@@ -134,6 +142,7 @@ impl ExternalFormat {
             Self::HtmlCss => ("HTML/CSS profile", &["html", "htm"]),
             Self::Dtcg => ("DTCG token profile", &["json"]),
             Self::Penpot => ("Penpot package profile", &["penpot"]),
+            Self::React => ("React JSX profile", &["jsx"]),
         }
     }
 
@@ -143,6 +152,7 @@ impl ExternalFormat {
             Self::HtmlCss => "nuif-export.html",
             Self::Dtcg => "nuif-export.tokens.json",
             Self::Penpot => "nuif-export.penpot",
+            Self::React => "nuif-export.jsx",
         }
     }
 
@@ -152,6 +162,7 @@ impl ExternalFormat {
             Self::HtmlCss => nuif_html::MAX_SOURCE_BYTES,
             Self::Dtcg => nuif_dtcg::MAX_SOURCE_BYTES,
             Self::Penpot => nuif_penpot::MAX_PACKAGE_BYTES,
+            Self::React => nuif_react::MAX_SOURCE_BYTES,
         }
     }
 }
@@ -912,6 +923,10 @@ impl Driver {
                 UiAction::ImportExternal(ExternalFormat::Penpot),
             ),
             (
+                "Import React JSX profile…",
+                UiAction::ImportExternal(ExternalFormat::React),
+            ),
+            (
                 "Export SVG profile…",
                 UiAction::ExportExternal(ExternalFormat::Svg),
             ),
@@ -926,6 +941,10 @@ impl Driver {
             (
                 "Export Penpot package profile…",
                 UiAction::ExportExternal(ExternalFormat::Penpot),
+            ),
+            (
+                "Export React JSX profile…",
+                UiAction::ExportExternal(ExternalFormat::React),
             ),
         ] {
             document = document
@@ -2017,6 +2036,9 @@ fn import_external_bytes(format: ExternalFormat, bytes: &[u8]) -> Result<Importe
             nuif_dtcg::import_source(source).map_err(|error| error.to_string())?
         }
         ExternalFormat::Penpot => unreachable!("Penpot was handled above"),
+        ExternalFormat::React => {
+            nuif_react::import_source(source).map_err(|error| error.to_string())?
+        }
     };
     Ok(ImportedExternal {
         document: imported.document,
@@ -2057,6 +2079,14 @@ fn export_external_document(
             let exported =
                 nuif_penpot::export_document(document).map_err(|error| error.to_string())?;
             (exported.bytes, ExternalReport::Package(exported.report))
+        }
+        ExternalFormat::React => {
+            let exported =
+                nuif_react::export_document(document).map_err(|error| error.to_string())?;
+            (
+                exported.source.into_bytes(),
+                ExternalReport::Source(exported.report),
+            )
         }
     };
     Ok(ExportedExternal { bytes, report })
@@ -2529,6 +2559,7 @@ mod tests {
             (ExternalFormat::HtmlCss, nuif_html::profile_fixture()),
             (ExternalFormat::Dtcg, nuif_dtcg::profile_fixture()),
             (ExternalFormat::Penpot, nuif_penpot::profile_fixture()),
+            (ExternalFormat::React, nuif_react::profile_fixture()),
         ];
         for (format, document) in fixtures {
             let exported = export_external_document(format, &document).unwrap();

@@ -2289,6 +2289,7 @@ dependencies = [
  "nuif-package",
  "nuif-penpot",
  "nuif-protocol",
+ "nuif-react",
  "nuif-reconstruct",
  "nuif-render",
  "nuif-svg",
@@ -2340,6 +2341,7 @@ dependencies = [
  "nuif-penpot",
  "nuif-protocol",
  "nuif-query",
+ "nuif-react",
  "nuif-render",
  "nuif-svg",
  "nuif-testing",
@@ -2384,6 +2386,7 @@ dependencies = [
  "nuif-package",
  "nuif-penpot",
  "nuif-protocol",
+ "nuif-react",
  "nuif-render",
  "nuif-svg",
  "nuif-testing",
@@ -2489,6 +2492,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "nuif-react"
+version = "0.0.1"
+dependencies = [
+ "nuif-adapter",
+ "nuif-codec",
+ "nuif-core",
+ "nuif-text",
+ "serde_json",
+ "sha2",
+ "thiserror 2.0.20",
+ "tree-sitter",
+ "tree-sitter-javascript",
+]
+
+[[package]]
 name = "nuif-reconstruct"
 version = "0.0.1"
 dependencies = [
@@ -2547,6 +2565,7 @@ dependencies = [
  "nuif-package",
  "nuif-penpot",
  "nuif-protocol",
+ "nuif-react",
  "nuif-reconstruct",
  "nuif-render",
  "nuif-svg",
@@ -4354,6 +4373,16 @@ name = "tree-sitter-html"
 version = "0.23.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "261b708e5d92061ede329babaaa427b819329a9d427a1d710abb0f67bbef63ee"
+dependencies = [
+ "cc",
+ "tree-sitter-language",
+]
+
+[[package]]
+name = "tree-sitter-javascript"
+version = "0.25.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "68204f2abc0627a90bdf06e605f5c470aa26fdcb2081ea553a04bdad756693f5"
 dependencies = [
  "cc",
  "tree-sitter-language",

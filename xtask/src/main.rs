@@ -32,6 +32,7 @@ const ALL_STEPS: &[Step] = &[
     ("gate-svg", gate_svg),
     ("gate-dtcg", gate_dtcg),
     ("gate-penpot", gate_penpot),
+    ("gate-react", gate_react),
     ("gate-g", gate_g),
     ("gate-h", gate_h),
     ("gate-i-package", gate_i_package),
@@ -77,6 +78,11 @@ const VERIFICATION_ARTIFACTS: &[&str] = &[
     "target/penpot-sync-edited.nuif.json",
     "target/penpot-sync-cli-report.json",
     "target/penpot-sync-cli-output.penpot",
+    "target/react-sync-report.json",
+    "target/react-sync-output.jsx",
+    "target/react-sync-edited.nuif.json",
+    "target/react-sync-cli-report.json",
+    "target/react-sync-cli-output.jsx",
     "target/gate-g-report.json",
     "target/gate-g-independent",
     "target/collaboration-report.json",
@@ -128,6 +134,7 @@ fn run() -> Result<(), String> {
         Some("gate-svg") => gate_svg(),
         Some("gate-dtcg") => gate_dtcg(),
         Some("gate-penpot") => gate_penpot(),
+        Some("gate-react") => gate_react(),
         Some("gate-g") => gate_g(),
         Some("gate-h") => gate_h(),
         Some("gate-i-package") => gate_i_package(),
@@ -160,7 +167,7 @@ fn run() -> Result<(), String> {
         Some("manifest") => standalone_manifest(),
         Some("all") => all(),
         _ => Err(
-            "usage: cargo xtask <research|adapter-audit|dependency-audit|docs-check|docs-build|docs-paper|docs-serve|docs-setup|verify|trial [seed iterations snapshot-interval report-path]|gate-b|gate-c|gate-d|gate-d-text|gate-d-render|gate-f|gate-f-v0|gate-svg|gate-dtcg|gate-penpot|gate-g|gate-h|gate-i-package|gate-i-image|gate-i-font|capture-baselines|browser-install|hostile-inputs|editor-hostile-inputs|performance|editor-trial|editor-gui-trial|editor-install-trial|editor-package|editor-launch|editor-install|editor-doctor|editor-rollback|editor-uninstall|editor-update|release-check <tag>|manifest|all>"
+            "usage: cargo xtask <research|adapter-audit|dependency-audit|docs-check|docs-build|docs-paper|docs-serve|docs-setup|verify|trial [seed iterations snapshot-interval report-path]|gate-b|gate-c|gate-d|gate-d-text|gate-d-render|gate-f|gate-f-v0|gate-svg|gate-dtcg|gate-penpot|gate-react|gate-g|gate-h|gate-i-package|gate-i-image|gate-i-font|capture-baselines|browser-install|hostile-inputs|editor-hostile-inputs|performance|editor-trial|editor-gui-trial|editor-install-trial|editor-package|editor-launch|editor-install|editor-doctor|editor-rollback|editor-uninstall|editor-update|release-check <tag>|manifest|all>"
                 .to_owned(),
         ),
     }
@@ -537,6 +544,96 @@ fn gate_svg() -> Result<(), String> {
         "target/svg-sync-edited.nuif.json",
     ])?;
     gate_svg_cli_bridge()
+}
+
+fn gate_react() -> Result<(), String> {
+    cargo(&[
+        "run",
+        "--release",
+        "--locked",
+        "-p",
+        "nuif-react",
+        "--bin",
+        "react-sync-profile",
+        "--",
+        "target/react-sync-report.json",
+        "target/react-sync-output.jsx",
+        "target/react-sync-edited.nuif.json",
+    ])?;
+    gate_react_cli_bridge()
+}
+
+fn gate_react_cli_bridge() -> Result<(), String> {
+    let directory = env::temp_dir().join(format!("nuif-react-trial-{}", std::process::id()));
+    if directory.exists() {
+        return Err(format!(
+            "temporary path already exists: {}",
+            directory.display()
+        ));
+    }
+    fs::create_dir(&directory).map_err(|error| error.to_string())?;
+    let input = directory.join("input.nuif.json");
+    let exported = directory.join("exported.jsx");
+    let export_report = directory.join("export-report.json");
+    let imported = directory.join("imported.nuif.json");
+    let import_report = directory.join("import-report.json");
+    let reimported = directory.join("reimported.nuif.json");
+    let reimport_report = directory.join("reimport-report.json");
+    let synchronized = Path::new("target/react-sync-cli-output.jsx");
+    let sync_report = Path::new("target/react-sync-cli-report.json");
+    let edited = Path::new("target/react-sync-edited.nuif.json");
+    nuif(&["fixture", "react-profile", path(&input)?])?;
+    nuif(&[
+        "export",
+        path(&input)?,
+        "react-jsx-0",
+        path(&exported)?,
+        path(&export_report)?,
+    ])?;
+    nuif(&[
+        "import",
+        "react-jsx-0",
+        path(&exported)?,
+        path(&imported)?,
+        path(&import_report)?,
+    ])?;
+    if fs::read(&input).map_err(|error| error.to_string())?
+        != fs::read(&imported).map_err(|error| error.to_string())?
+    {
+        return Err("CLI React JSX export/import changed canonical NUIF bytes".to_owned());
+    }
+    nuif(&[
+        "sync",
+        "react-jsx-0",
+        path(&exported)?,
+        path(edited)?,
+        path(synchronized)?,
+        path(sync_report)?,
+    ])?;
+    nuif(&[
+        "import",
+        "react-jsx-0",
+        path(synchronized)?,
+        path(&reimported)?,
+        path(&reimport_report)?,
+    ])?;
+    if fs::read(edited).map_err(|error| error.to_string())?
+        != fs::read(&reimported).map_err(|error| error.to_string())?
+    {
+        return Err(
+            "CLI React JSX synchronization changed edited canonical document bytes".to_owned(),
+        );
+    }
+    let report = read_json(sync_report)?;
+    if report["status"] != "passed" || report["edits"].as_array().map(Vec::len) != Some(11) {
+        return Err("CLI React JSX bridge did not produce the expected 11 source edits".to_owned());
+    }
+    fs::remove_dir_all(&directory).map_err(|error| {
+        format!(
+            "trial passed but temporary directory {} could not be removed: {error}",
+            directory.display()
+        )
+    })
 }
 
 fn gate_svg_cli_bridge() -> Result<(), String> {
@@ -1385,7 +1482,7 @@ fn editor_gui_trial() -> Result<(), String> {
     if first["status"] != "passed"
         || first["window"] != serde_json::json!([1280, 800])
         || first["semantic_nodes"] != 19
-        || first["file_menu_routes"].as_array().map(Vec::len) != Some(13)
+        || first["file_menu_routes"].as_array().map(Vec::len) != Some(15)
         || first["operations"] != 7
     {
         return Err("native editor trial report failed its evidence assertions".to_owned());

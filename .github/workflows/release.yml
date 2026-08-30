@@ -60,6 +60,7 @@ jobs:
             target/package-resources-report.json
             target/image-resources-report.json
             target/font-resources-report.json
+            target/react-sync-report.json
             target/editor-gui-trial/report.json
 
   package:

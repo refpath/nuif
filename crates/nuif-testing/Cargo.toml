@@ -21,6 +21,7 @@ nuif-package = { version = "0.0.1", path = "../nuif-package" }
 nuif-penpot = { version = "0.0.1", path = "../nuif-penpot" }
 nuif-protocol = { version = "0.0.1", path = "../nuif-protocol" }
 nuif-reconstruct = { version = "0.0.1", path = "../nuif-reconstruct" }
+nuif-react = { version = "0.0.1", path = "../nuif-react" }
 nuif-render = { version = "0.0.0", path = "../nuif-render" }
 nuif-svg = { version = "0.0.1", path = "../nuif-svg" }
 nuif-text = { version = "0.0.1", path = "../nuif-text" }

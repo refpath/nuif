@@ -186,6 +186,15 @@ The DTCG scalar-token experiment writes `target/dtcg-sync-report.json`, a direct
 
 The Penpot v3 package experiment writes `target/penpot-sync-report.json`, a synchronized Penpot package and edited canonical NUIF document at `target/penpot-sync-edited.nuif.json`, plus separate public-CLI synchronization report and Penpot package. `cargo xtask gate-penpot` imports the fixture produced by official `@penpot/library` 1.1.0, checks deterministic export and byte-exact no-op archive retention, applies eight mapped JSON scalar edits, preserves untouched member payloads plus injected opaque binary/JSON data, and requires exact canonical document re-import. Unsafe paths and one-over package/member limits are typed failures. The library importer additionally rejects excessive count/expansion/ratio/depth/value cases, duplicate names, directories, symlinks, encryption and unsupported compression. The mapped package subset and compact/components/libraries/interactions non-claims are specified in `adapters/penpot/PROFILE.md`.
 
+The static React JSX experiment writes `target/react-sync-report.json`, a
+synchronized JSX module, an edited canonical document and separate CLI bridge
+artifacts. `cargo xtask gate-react` uses Tree-sitter JavaScript byte ranges but
+never evaluates JavaScript. It checks 21 correspondences, 11 mapped edits, the
+exact unchanged-byte complement, repeated output, typed stale/structural/profile
+failures and eleven excluded or hostile sources, including the one-over mapped
+JSX depth case. The intrinsic-only mapping and
+runtime non-claims are specified in `adapters/react/PROFILE.md`.
+
 The collaboration register experiment writes `target/collaboration-report.json`. `cargo xtask gate-h` exhausts all 5,040 deliveries through operation-set and replica-log materializers, checks multiple merge orders and duplicate delivery, requires property-attributed multi-value conflicts and inspects canonical text for leaked replica state. Structural operations fail before ingestion; the executable boundary is specified in `crates/nuif-collab/README.md` and `spec/10-collaboration-profile.md`.
 
 The capture/reconstruction contract experiment writes

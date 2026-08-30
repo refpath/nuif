@@ -1,6 +1,6 @@
 # Conformance
 
-The profile-0 baseline is executable through the `nuif-conformance` package and xtask gates. It covers structural validation, canonicalization, parser/serializer round trips, unknown-extension preservation, operations/replay/inversion, responsive stack/flex layout, pinned shaping and hard-line text, deterministic solid rectangle/ellipse and bounded RGBA8 image CPU rendering, measured codec/model/resource limits, pinned browser/Taffy differential layout, editor-driver parity, four bounded retentive adapter profiles and machine reports. Grid track/placement semantics, paths/instances, broader image and paint profiles, broader adapters and perceptual tiers remain planned and are not claimed as implemented.
+The profile-0 baseline is executable through the `nuif-conformance` package and xtask gates. It covers structural validation, canonicalization, parser/serializer round trips, unknown-extension preservation, operations/replay/inversion, responsive stack/flex layout, pinned shaping and hard-line text, deterministic solid rectangle/ellipse and bounded RGBA8 image CPU rendering, measured codec/model/resource limits, pinned browser/Taffy differential layout, editor-driver parity, six bounded retentive adapter profiles and machine reports. Grid track/placement semantics, paths/instances, broader image and paint profiles, broader adapters and perceptual tiers remain planned and are not claimed as implemented.
 
 Install the locked Chrome for Testing build once with `cargo xtask browser-install`, then run `cargo xtask gate-c`. The report at `target/layout-differential-report.json` contains the raw NUIF, Taffy and browser boxes, engine versions, source revision, fixture-local calibration and every classified divergence. Schema-loss entries are visible passing evidence, not a Grid-conformance claim; unclassified or evaluator differences fail the command.
 
@@ -36,6 +36,14 @@ JSON edits while preserving opaque members, exercises hostile ZIP boundaries
 and completes an export/sync/import bridge through the public CLI. Reports and
 packages are written under `target/penpot-sync-*`; components, libraries,
 interactions, media, paths, layout and compact pages remain outside the profile.
+
+Run `cargo xtask gate-react` for the bounded `nuif-react-jsx-0` source profile.
+It extracts one directly returned marked intrinsic subtree without executing
+JavaScript, applies 11 byte-local scalar edits, preserves unrelated module
+source, rejects ten dynamic/hostile cases and exercises the public CLI bridge.
+Reports and synchronized JSX are written under `target/react-sync-*`;
+components, hooks, spreads, handlers, runtime expressions, TSX and browser
+runtime equivalence remain outside the profile.
 
 Run `cargo xtask adapter-audit` to validate the complete advertised adapter
 inventory independently of executable profile tests. It requires research and

@@ -93,10 +93,25 @@ experiments:
     tests:
       - validate canonical text deterministic CBOR protocol layout and scene work at 1024 entities
       - measure CPU raster and end-to-end snapshot latency at representative viewport sizes
-      - measure HTML CSS SVG DTCG and Penpot adapter boundaries including official-foreign Penpot import and exact no-op package synchronization
+      - measure HTML CSS SVG DTCG Penpot and static React JSX adapter boundaries including official-foreign Penpot import and exact no-op package synchronization
       - measure bounded PNG inspection and decode static TrueType inspection image and font package encode decode and resource-aware scene raster paths
       - retain statistical baselines under target for controlled before-and-after comparisons
       - write and archive target/performance-profile-report.json
+  - id: nuif:experiment:react-jsx-retentive-sync
+    status: automated
+    evidence: [nuif:research:react-jsx-adapter-surface, nuif:research:tree-sitter]
+    implementation: [crates/nuif-react/src/lib.rs, crates/nuif-react/src/bin/react-sync-profile.rs, adapters/react/PROFILE.md, xtask/src/main.rs]
+    oracle: roundtrip-and-metamorphic
+    acceptance:
+      - export and import reproduce the exact declared NUIF document
+      - synchronization changes only mapped scalar byte spans and reparses to the edited document
+      - arbitrary JavaScript is never evaluated during import or synchronization
+      - excluded dynamic JSX and hostile size node identity and syntax cases fail atomically
+    tests:
+      - map fixed intrinsic flex containers literal pinned-font text and stable identifiers
+      - preserve module comments and unrelated declarations outside every returned source edit
+      - reject spreads components event handlers runtime style expressions extra properties duplicate identities and malformed syntax
+      - write and archive target/react-sync-report.json and synchronized JSX/NUIF artifacts
   - id: nuif:experiment:crdt-checkpoint
     status: completed
     evidence: [nuif:research:automerge-yjs, nuif:research:crdt-tree-move-operation, nuif:research:operational-transformation-vs-crdt]

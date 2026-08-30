@@ -4,8 +4,8 @@ The adapter program separates an ecosystem's public interchange or source
 surface from the subset for which NUIF can provide executable round-trip laws.
 Research coverage does not imply an implemented conformance profile.
 
-The inventory contains eleven targets and five executable profiles across
-four target families. The remaining targets have no executable direction in
+The inventory contains eleven targets and six executable profiles across
+five target families. The remaining targets have no executable direction in
 `adapters/index.json`.
 
 This table is explanatory. `adapters/index.json` is the machine-audited target
@@ -17,7 +17,7 @@ gate references and writes `target/adapter-coverage-report.json`.
 | HTML/CSS | DOM and CSS source | `nuif-html-css-0` and `nuif-html-css-v0` | Extend only with separately tested CSS/layout features | Arbitrary cascade, script and unmarked DOM are not imported |
 | SVG | SVG 2 XML | `nuif-svg-0` | Add paths or transforms only under separately declared geometry laws | Paths, transforms, CSS cascade, paint servers, effects, animation, scripts and external resources are excluded |
 | DTCG tokens | Design Tokens Format Module 2025.10 JSON | `nuif-dtcg-scalar-0` | Expand only after a token-model RFC and separate profile | Core tokens lack declared type, groups, aliases, descriptions, deprecation and token-local extensions |
-| React | JSX source and React DOM properties | Research complete; no implementation | Static intrinsic JSX with literals and retained AST spans | Components, hooks, spreads, control flow and runtime expressions require execution |
+| React | JSX source and React DOM properties | `nuif-react-jsx-0` | TSX or CSS-class support only under a separate grammar/runtime matrix | Components, hooks, spreads, control flow and runtime expressions require execution |
 | Svelte | `.svelte` source and compiler AST | Research complete; no implementation | Static regular elements, literal text/attributes and profile-owned CSS spans | Runes, scripts, blocks, directives, preprocessors and dynamic components require execution |
 | Penpot | `.penpot` v3 ZIP and JSON package | `nuif-penpot-v3-0` | Add compact pages only after the opt-in representation stabilizes | Components, libraries, interactions, media, paths, layout and compact pages are excluded |
 | Figma | REST document JSON plus writable plugin API | Research complete; host report contract implemented; no live plug-in | One-page mapping in `adapters/figma/PROFILE-DRAFT.md` | `.fig` is not a public contract; live writes require user-run plug-in execution |
@@ -37,8 +37,9 @@ bounded draft profiles and the shared `HostAdapterReport` evidence envelope;
 they remain non-integrated until a compiled plug-in and named live-host trial
 exist.
 
-React and Svelte require a common retentive source-edit layer rather than whole
-file generation. Native declarative UI targets begin as one-way lowerings with
+React now uses the common byte-span correspondence contract for one marked
+static intrinsic JSX subtree. Svelte requires the same retentive source-edit
+discipline rather than whole-file generation. Native declarative UI targets begin as one-way lowerings with
 foreign-runtime layout and screenshot comparisons. Bidirectional claims remain
 out of scope until a static, profile-owned source subset has exact import and
 edit-locality tests.

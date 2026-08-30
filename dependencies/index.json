@@ -194,6 +194,14 @@
       "evidence": ["research/items/tree-sitter.md", "research/items/dependency-and-subsystem-audit.md"]
     },
     {
+      "name": "tree-sitter-javascript",
+      "role": "concrete JavaScript and JSX syntax grammar for the bounded React source adapter",
+      "decision": "retain",
+      "alternatives": ["SWC parser", "Oxc parser"],
+      "rationale": "The adapter needs retained UTF-8 byte ranges and syntax recovery but must not evaluate JavaScript; sharing the Tree-sitter correspondence boundary avoids an AST normalization layer while the profile rejects dynamic constructs explicitly.",
+      "evidence": ["research/items/react-jsx-adapter-surface.md", "research/items/tree-sitter.md"]
+    },
+    {
       "name": "ttf-parser",
       "role": "bounded static OpenType package metadata parser",
       "decision": "retain",

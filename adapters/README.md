@@ -25,11 +25,17 @@ children. It retains unedited member payloads and unknown package data, returns
 the original archive byte-for-byte on no-op synchronization, and applies ZIP,
 expanded-data, member, compression and JSON resource limits before parsing.
 
-The remaining researched targets are Svelte, React, Figma, Adobe UXP,
+The [`nuif-react-jsx-0`](react/PROFILE.md) profile extracts one directly
+returned, marked intrinsic JSX subtree without executing JavaScript. It maps
+fixed flex containers and literal pinned-font text through byte spans, retains
+unrelated module source and rejects components, spreads, handlers and runtime
+expressions.
+
+The remaining researched or externally bounded targets are Svelte, Figma, Adobe UXP,
 Flutter, SwiftUI and Jetpack Compose. Figma and Adobe now have bounded draft
 host profiles and a serializable host-object correspondence report, but no live
 plug-in claim. Broader HTML/CSS, SVG and DTCG profiles remain
-separate future work beyond the five executable profiles. Each adapter must
+separate future work beyond the six executable profiles. Each adapter must
 emit structured fidelity diagnostics and record provenance/correspondence
 sufficient for later synchronization and minimal source patches where feasible.
 
