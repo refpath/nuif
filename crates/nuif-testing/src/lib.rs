@@ -9,11 +9,12 @@ use nuif_codec::{
 use nuif_core::{
     AffineTransform, Align, Asset, AssetId, AssetKind, AssetPortability, CURRENT_SCHEMA_VERSION,
     Color, ColorSpace, ContextPredicate, Diagnostic, Document, Edges, Entity, EntityId, EntityKind,
-    ExtensionDeclarations, Fidelity, FlowDirection, ImageAsset, ImageCrop, ImageFit, ImagePaint,
-    ImageSampling, LayoutFamily, LayoutStyle, OpaqueEncoding, OpaquePayload, PropertyValue,
-    ResourceRole, ResponsiveOverride, Severity, ShapeKind, SizeIntent, TextContent, Token,
-    UnknownKind, validate,
+    ExtensionDeclarations, Fidelity, FlowDirection, FontAsset, ImageAsset, ImageCrop, ImageFit,
+    ImagePaint, ImageSampling, LayoutFamily, LayoutStyle, OpaqueEncoding, OpaquePayload,
+    PropertyValue, ResourceRole, ResponsiveOverride, Severity, ShapeKind, SizeIntent, TextContent,
+    Token, UnknownKind, validate,
 };
+use nuif_font::{OPENTYPE_STATIC_PROFILE, inspect_opentype_static};
 use nuif_layout::EvaluationContext;
 use nuif_media::PNG_RGBA8_PROFILE;
 use nuif_package::{NuifPackage, PackageMode};
@@ -427,6 +428,54 @@ pub fn rgba8_image_package_fixture() -> NuifPackage {
     });
     package.document.roots.push(image.id);
     package.document.entities.insert(image.id, image);
+    package
+}
+
+/// Produces a minimal portable package containing the exact pinned static
+/// TrueType font and its profile-derived metadata.
+///
+/// # Panics
+///
+/// Panics only if the pinned fixture stops satisfying the declared font or
+/// package profile, which indicates a conformance regression.
+#[must_use]
+pub fn static_font_package_fixture() -> NuifPackage {
+    let bytes = nuif_text::pinned_font_bytes();
+    let inspection = inspect_opentype_static(bytes, 0).expect("pinned static font profile");
+    let mut package = NuifPackage::new(Document::empty(EntityId::new(1)), PackageMode::Portable);
+    let resource = package
+        .add_embedded(bytes.to_vec(), "font/ttf", ResourceRole::Authoring, None)
+        .expect("fixture font resource");
+    let asset_id = AssetId::new(0xf0);
+    package.document.assets.insert(
+        asset_id,
+        Asset {
+            schema_version: CURRENT_SCHEMA_VERSION,
+            id: asset_id,
+            name: Some(nuif_text::PINNED_FONT_NAME.to_owned()),
+            resource: Some(resource),
+            portability: AssetPortability::Portable,
+            kind: AssetKind::Font(FontAsset {
+                face_index: 0,
+                names: inspection.names,
+                axes: BTreeMap::new(),
+                features: BTreeMap::new(),
+                coverage: inspection.coverage,
+                policy_evidence: BTreeMap::from([
+                    (
+                        "font.decoder_profile".to_owned(),
+                        OPENTYPE_STATIC_PROFILE.to_owned(),
+                    ),
+                    (
+                        "opentype.fs_type".to_owned(),
+                        format!("0x{:04x}", inspection.fs_type),
+                    ),
+                    ("license.expression".to_owned(), "CC0-1.0".to_owned()),
+                    ("license.embedding_review".to_owned(), "approved".to_owned()),
+                ]),
+            }),
+        },
+    );
     package
 }
 
@@ -927,6 +976,16 @@ mod tests {
                     .all(|diagnostic| diagnostic.severity != Severity::Error),
                 "{count}-entity performance fixture must be valid"
             );
+        }
+    }
+
+    #[test]
+    fn resource_package_fixtures_reach_byte_fixpoints() {
+        for package in [rgba8_image_package_fixture(), static_font_package_fixture()] {
+            let encoded = package.encode().unwrap();
+            let decoded = NuifPackage::decode(&encoded).unwrap();
+            assert_eq!(decoded.encode().unwrap(), encoded);
+            assert_eq!(decoded.resources.len(), 1);
         }
     }
 

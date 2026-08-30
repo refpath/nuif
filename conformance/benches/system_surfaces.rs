@@ -88,6 +88,55 @@ fn benchmark_package(criterion: &mut Criterion) {
     group.finish();
 }
 
+fn benchmark_resource_profiles(criterion: &mut Criterion) {
+    let image_package = nuif_testing::rgba8_image_package_fixture();
+    let image_digest = image_package
+        .resources
+        .keys()
+        .next()
+        .expect("image benchmark resource");
+    let image_bytes = image_package
+        .embedded(image_digest)
+        .expect("embedded image benchmark resource")
+        .to_vec();
+    let image_package_bytes = image_package.encode().unwrap();
+    let font_package = nuif_testing::static_font_package_fixture();
+    let font_digest = font_package
+        .resources
+        .keys()
+        .next()
+        .expect("font benchmark resource");
+    let font_bytes = font_package
+        .embedded(font_digest)
+        .expect("embedded font benchmark resource")
+        .to_vec();
+    let font_package_bytes = font_package.encode().unwrap();
+
+    let mut group = criterion.benchmark_group("resource/profile_baselines");
+    group.bench_function("png_inspect", |bencher| {
+        bencher.iter(|| nuif_media::inspect_png_rgba8(black_box(&image_bytes)).unwrap());
+    });
+    group.bench_function("png_decode", |bencher| {
+        bencher.iter(|| nuif_media::decode_png_rgba8(black_box(&image_bytes)).unwrap());
+    });
+    group.bench_function("font_inspect", |bencher| {
+        bencher.iter(|| nuif_font::inspect_opentype_static(black_box(&font_bytes), 0).unwrap());
+    });
+    group.bench_function("image_package_encode", |bencher| {
+        bencher.iter(|| black_box(&image_package).encode().unwrap());
+    });
+    group.bench_function("image_package_decode", |bencher| {
+        bencher.iter(|| NuifPackage::decode(black_box(&image_package_bytes)).unwrap());
+    });
+    group.bench_function("font_package_encode", |bencher| {
+        bencher.iter(|| black_box(&font_package).encode().unwrap());
+    });
+    group.bench_function("font_package_decode", |bencher| {
+        bencher.iter(|| NuifPackage::decode(black_box(&font_package_bytes)).unwrap());
+    });
+    group.finish();
+}
+
 fn benchmark_html_adapter(criterion: &mut Criterion) {
     let document = nuif_html::profile_fixture();
     let exported = nuif_html::export_document(&document).unwrap();
@@ -227,6 +276,7 @@ criterion_group! {
     targets = benchmark_queries,
         benchmark_collaboration,
         benchmark_package,
+        benchmark_resource_profiles,
         benchmark_html_adapter,
         benchmark_svg_adapter,
         benchmark_dtcg_adapter,

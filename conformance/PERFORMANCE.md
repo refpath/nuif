@@ -17,6 +17,7 @@ not treated as comparable baselines.
 | Layout | 8, 128, 1,024, 4,096 entities | Evaluate a flat mixed shape/text document |
 | Scene lowering | 8, 128, 1,024 entities | Lower evaluated entities to deterministic render commands |
 | CPU raster and API snapshot | 360x640, 768x640, 1,440x900 | Raster an interactive card fixture; snapshot includes hash, layout, scene and raster |
+| Embedded image and font resources | RGBA8 image plus pinned static TrueType font | Inspect and decode the media profiles; encode and decode exact-resource packages; lower a resolved image scene and raster it at 256x256 |
 | Semantic query | 128, 1,024, 4,096, 8,192 entities | Stable-ID lookup and kind scan over the authored model |
 | Collaboration | 2, 32, 256, 1,024 concurrent register writers | Materialize identical conflict checkpoints through the operation-set and replica-log algorithms |
 | Integrated adapters | Declared HTML/CSS, SVG, DTCG and Penpot fixtures | Export, import and retentive synchronization measured separately; Penpot also measures official-foreign import and the byte-exact no-op path |
@@ -75,7 +76,15 @@ budgets.
   rebuild/re-import 93.9–94.6 µs, and byte-exact no-op synchronization
   2.85–2.87 µs. These figures use the 7,855-byte native and 5,439-byte foreign
   fixtures rather than a large production design.
-- The matching allocation-instrumented smoke run covered 26 cases. Penpot
+- The matching allocation-instrumented smoke run now covers 37 cases. The nine
+  resource-path cases add PNG structure/decode, static-font inspection, image
+  and font package encode/decode, resolved scene lowering and a 256x256 image
+  raster. On the same machine, font inspection measured a 0.67 ms median and
+  about 1.12 MiB allocated; font package encode/decode measured 1.05/0.89 ms
+  and about 1.41/1.38 MiB. The 96-byte image fixture is deliberately a boundary
+  smoke case rather than a throughput claim; Criterion owns controlled
+  comparisons and larger media corpus work remains explicit.
+- Penpot
   native export and edited synchronization allocated 291 KiB and 246 KiB per
   invocation; native and foreign imports allocated 215 KiB and 665 KiB, and the
   no-op path allocated 35 KiB. Every adapter case retained zero bytes after the

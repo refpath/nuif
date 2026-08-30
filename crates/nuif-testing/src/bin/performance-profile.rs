@@ -1,10 +1,12 @@
 use nuif_api::{Session, profile_zero_context};
 use nuif_codec::{CanonicalText, Decoder, DeterministicCbor, Encoder};
 use nuif_core::{EntityId, PropertyValue, SizeIntent, validate};
+use nuif_font::inspect_opentype_static;
 use nuif_layout::evaluate;
+use nuif_media::{decode_png_rgba8, inspect_png_rgba8};
 use nuif_package::{NuifPackage, PackageMode};
 use nuif_protocol::{Operation, Patch, Transaction, apply_patch};
-use nuif_render::{RenderTarget, build_scene, render_cpu};
+use nuif_render::{RenderTarget, build_scene, build_scene_with_resources, render_cpu};
 use serde::Serialize;
 use stats_alloc::{INSTRUMENTED_SYSTEM, Region, Stats, StatsAlloc};
 use std::alloc::System;
@@ -143,6 +145,51 @@ fn main() {
         .authored
         .width = SizeIntent::Fixed(280.0);
 
+    let mut image_package = nuif_testing::rgba8_image_package_fixture();
+    let image_entity = image_package
+        .document
+        .entities
+        .get_mut(&EntityId::new(2))
+        .expect("image performance fixture entity");
+    image_entity.authored.width = SizeIntent::Fixed(256.0);
+    image_entity.authored.height = SizeIntent::Fixed(256.0);
+    let image_digest = image_package
+        .resources
+        .keys()
+        .next()
+        .expect("image performance fixture resource")
+        .clone();
+    let image_resource = image_package
+        .embedded(&image_digest)
+        .expect("embedded image performance fixture")
+        .to_vec();
+    let image_package_bytes = image_package.encode().unwrap();
+    let image_context = profile_zero_context(256.0, 256.0);
+    let image_layout = evaluate(&image_package.document, &image_context);
+    let image_scene = build_scene_with_resources(
+        &image_package.document,
+        &image_layout,
+        &image_context,
+        |digest| image_package.embedded(digest),
+    )
+    .unwrap();
+    let image_target = RenderTarget {
+        width: 256,
+        height: 256,
+        scale_factor: 1.0,
+    };
+    let font_package = nuif_testing::static_font_package_fixture();
+    let font_digest = font_package
+        .resources
+        .keys()
+        .next()
+        .expect("font performance fixture resource")
+        .clone();
+    let font_resource = font_package
+        .embedded(&font_digest)
+        .expect("embedded font performance fixture");
+    let font_package_bytes = font_package.encode().unwrap();
+
     let mut cases = vec![
         measure("validate", 1_024, 3, 500_000_000, || {
             black_box(validate(black_box(&large))).len() as u64
@@ -225,6 +272,92 @@ fn main() {
                     .unwrap(),
             );
             snapshot.raster.rgba.len() as u64 ^ snapshot.canonical_hash.len() as u64
+        }),
+        measure(
+            "media_png_inspect",
+            image_resource.len(),
+            50,
+            500_000_000,
+            || {
+                let header = inspect_png_rgba8(black_box(&image_resource)).unwrap();
+                (u64::from(header.width) * u64::from(header.height)) ^ header.chunks as u64
+            },
+        ),
+        measure(
+            "media_png_decode",
+            image_resource.len(),
+            20,
+            500_000_000,
+            || {
+                let image = decode_png_rgba8(black_box(&image_resource)).unwrap();
+                image.rgba.len() as u64 ^ u64::from(image.rgba[0])
+            },
+        ),
+        measure(
+            "font_static_inspect",
+            font_resource.len(),
+            20,
+            500_000_000,
+            || {
+                let font = inspect_opentype_static(black_box(font_resource), 0).unwrap();
+                u64::from(font.glyph_count)
+                    ^ font.table_tags.len() as u64
+                    ^ font.coverage.len() as u64
+            },
+        ),
+        measure(
+            "image_package_encode",
+            image_package.document.assets.len(),
+            5,
+            1_000_000_000,
+            || black_box(image_package.encode().unwrap()).len() as u64,
+        ),
+        measure(
+            "image_package_decode",
+            image_package.document.assets.len(),
+            5,
+            1_000_000_000,
+            || {
+                let decoded = NuifPackage::decode(black_box(&image_package_bytes)).unwrap();
+                decoded.resources.len() as u64 ^ decoded.document.entities.len() as u64
+            },
+        ),
+        measure(
+            "font_package_encode",
+            font_package.document.assets.len(),
+            5,
+            1_000_000_000,
+            || black_box(font_package.encode().unwrap()).len() as u64,
+        ),
+        measure(
+            "font_package_decode",
+            font_package.document.assets.len(),
+            5,
+            1_000_000_000,
+            || {
+                let decoded = NuifPackage::decode(black_box(&font_package_bytes)).unwrap();
+                decoded.resources.len() as u64 ^ decoded.document.assets.len() as u64
+            },
+        ),
+        measure(
+            "resource_scene_lowering",
+            256 * 256,
+            10,
+            1_000_000_000,
+            || {
+                let scene = build_scene_with_resources(
+                    black_box(&image_package.document),
+                    black_box(&image_layout),
+                    black_box(&image_context),
+                    |digest| image_package.embedded(digest),
+                )
+                .unwrap();
+                scene.commands.len() as u64 ^ scene.fidelity.len() as u64
+            },
+        ),
+        measure("resource_cpu_raster", 256 * 256, 2, 1_000_000_000, || {
+            let image = render_cpu(black_box(&image_scene), image_target).unwrap();
+            image.rgba.len() as u64 ^ u64::from(image.rgba[0])
         }),
         measure("adapter_html_export", 2, 20, 500_000_000, || {
             nuif_html::export_document(black_box(&html_document))
@@ -360,6 +493,13 @@ fn main() {
             "dtcg_bytes": dtcg_exported.source.len(),
             "penpot_bytes": penpot_exported.bytes.len(),
             "foreign_penpot_bytes": FOREIGN_PENPOT.len()
+        },
+        "resource_fixtures": {
+            "image_resource_bytes": image_resource.len(),
+            "image_package_bytes": image_package_bytes.len(),
+            "font_resource_bytes": font_resource.len(),
+            "font_package_bytes": font_package_bytes.len(),
+            "resource_scene_commands": image_scene.commands.len()
         },
         "limits": {
             "allocated_bytes_per_invocation": MAX_ALLOCATED_BYTES_PER_INVOCATION
