@@ -100,6 +100,20 @@ pinned UniFFI Swift/Kotlin consumers and real XCFramework/AAR packages before
 that surface becomes integrated. This is a promotion gate, not missing logic
 that should be guessed into the core.
 
+## Phase 5f — standalone developer CLI package (complete locally)
+
+`nuif-cli-tools-0` is packaged for the same Linux x86-64, Linux AArch64,
+Windows x86-64, macOS Apple Silicon and macOS Intel release matrix as the native
+tools. Each archive contains the binary, licenses, developer instructions and a
+smoke report produced by that release binary. The gate requires version and
+capability identity, then generates, validates, canonicalizes and inspects a
+real profile-0 document before the archive can be indexed. Sibling manifests
+bind the source revision, platform, binary/archive digests, command inventory
+and explicit filesystem/standard-stream authority; the release index records
+the packages under `tools` and includes a separate CycloneDX SBOM. Local
+macOS/AArch64 packaging passes. Successful hosted jobs and attestations remain
+release-time evidence, not a claim made from workflow configuration.
+
 ## Phase 6a — first adapters/sync falsifier (complete for bounded HTML/CSS profile 0)
 `nuif-html-css-0` maps a declared container/text/finite-token subset through real DOM/CSS syntax with byte-span correspondence. Text, token and four-edge padding edits change only their six spans; comments and unmapped markup survive exactly; unsupported semantics have target/property fidelity. HTML/CSS was intentionally tested before SVG because Gate F and the architecture stop condition concern minimal source patches. This narrow profile remains independently automated even after the full-v0 follow-on; arbitrary HTML/CSS and SVG remain broader adapter work.
 

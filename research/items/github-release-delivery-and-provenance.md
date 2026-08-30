@@ -135,12 +135,15 @@ platform manifest containing the source revision, binary digest, archive
 digest, smoke-test result, and signing status. `actions/attest@v4` records
 provenance for both files. Five additional native jobs build and exercise the
 separately versioned stateless MCP binary, then attest its archive and manifest.
-The publication job downloads all editor, binding and MCP artifacts, requires
-five editor archives/manifests and five MCP archives/manifests, and runs the attested
+A second five-host matrix packages the standalone CLI only after its release
+binary creates, validates, canonicalizes and inspects a reference document.
+The publication job downloads all editor, binding, MCP and CLI artifacts,
+requires five archives/manifests for each native product, and runs the attested
 cargo-cyclonedx 0.5.9 binary with the tagged commit time as
 `SOURCE_DATE_EPOCH`. It replaces the checkout path with `/src`, writes
-`SHA256SUMS`, and combines editor packages, browser bindings and MCP services
-into `release-manifest.json`. It attests both software bills of materials and both
+`SHA256SUMS`, and combines editor packages, browser bindings, MCP services and
+CLI tools into `release-manifest.json`. It attests all software bills of
+materials and both
 index files before using GitHub CLI to create or resume a draft, upload the
 assets, and publish the prerelease.
 

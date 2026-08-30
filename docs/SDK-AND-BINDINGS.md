@@ -109,8 +109,11 @@ ABI, not a substitute for the currently deployed browser module.
 
 ## Release boundary
 
-The editor, WASM binding, MCP service and eventual FFI packages have independent
-versions. A tag for the editor may attach tested developer artifacts, but it
-does not promote `nuif-api` or promise a stable ABI. Publishing a crate, npm
-package, Swift package, AAR or vendor plug-in requires an explicit policy and
-authenticated release operation for that ecosystem.
+The editor, CLI, WASM binding, MCP service and eventual FFI packages have
+independent versions. A tag for the editor may attach tested developer
+artifacts, but it does not promote `nuif-api` or promise a stable ABI. The CLI
+archive is the explicit no-store process integration for automation that does
+not need MCP; its package smoke report exercises real generation, validation,
+canonicalization and inspection through the release binary. Publishing a crate,
+npm package, Swift package, AAR or vendor plug-in requires an explicit policy
+and authenticated release operation for that ecosystem.

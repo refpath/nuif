@@ -35,7 +35,8 @@ and source evidence are recorded in ADR 0007 and
    release-check <tag>` followed by the complete verification harness.
 5. Native jobs build, test, package, and attest five editor host architectures;
    a separate job builds, cross-checks, packages and attests the browser
-   binding, and five host jobs do the same for the MCP developer binary.
+   binding, and two five-host matrices do the same for the MCP service and
+   standalone CLI developer binaries.
 6. The publication job writes checksums and a combined release manifest,
    creates a draft release, uploads all assets, and publishes the prerelease.
 
@@ -77,6 +78,16 @@ These independently versioned developer-service records appear under
 live stdio conformance gate before packaging. The crate remains unpublished;
 developers may either use an attested archive or build it from a reviewed
 checkout with `cargo install --path crates/nuif-mcp --locked`.
+
+Five `nuif-cli-0.0.1-<os>-<architecture>` archives, sibling manifests and a
+separate CLI SBOM provide the no-store command-line path. Before packaging,
+each release binary reports its version and capabilities, creates the profile-0
+fixture, validates and canonicalizes it, and inspects the canonical result.
+The records appear under `tools` in the release manifest. The CLI has only
+caller-selected path and standard-stream authority; it has no background
+service or implicit network access. Developers may instead build the same
+binary from a reviewed checkout with
+`cargo install --path crates/nuif-cli --locked`.
 
 SHA-256 verification on Linux uses `sha256sum -c SHA256SUMS`. macOS uses
 `shasum -a 256 -c SHA256SUMS`. PowerShell users can compare

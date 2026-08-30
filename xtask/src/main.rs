@@ -163,6 +163,7 @@ fn run() -> Result<(), String> {
         Some("wasm-install") => wasm_install(),
         Some("wasm-package") => wasm_package(),
         Some("mcp-package") => mcp_package(),
+        Some("cli-package") => cli_package(),
         Some("gate-g") => gate_g(),
         Some("gate-h") => gate_h(),
         Some("gate-i-package") => gate_i_package(),
@@ -199,7 +200,7 @@ fn run() -> Result<(), String> {
         Some("manifest") => standalone_manifest(),
         Some("all") => all(),
         _ => Err(
-            "usage: cargo xtask <research|workflow-audit|adapter-audit|dependency-audit|docs-check|docs-build|docs-paper|docs-serve|docs-setup|verify|trial [seed iterations snapshot-interval report-path]|gate-b|gate-c|gate-d|gate-d-text|gate-d-render|gate-f|gate-f-v0|gate-svg|gate-dtcg|gate-penpot|gate-react|gate-svelte|gate-wasm|gate-mcp|gate-g|gate-h|gate-i-package|gate-i-image|gate-i-font|gate-j-live|capture-baselines|browser-install|wasm-install|wasm-package|mcp-package|hostile-inputs|reduction-profile|editor-hostile-inputs|fuzz-smoke|performance|editor-trial|editor-gui-trial|editor-install-trial|editor-package|editor-launch|editor-install|editor-doctor|editor-rollback|editor-uninstall|editor-update|release-check <tag>|manifest|all>"
+            "usage: cargo xtask <research|workflow-audit|adapter-audit|dependency-audit|docs-check|docs-build|docs-paper|docs-serve|docs-setup|verify|trial [seed iterations snapshot-interval report-path]|gate-b|gate-c|gate-d|gate-d-text|gate-d-render|gate-f|gate-f-v0|gate-svg|gate-dtcg|gate-penpot|gate-react|gate-svelte|gate-wasm|gate-mcp|gate-g|gate-h|gate-i-package|gate-i-image|gate-i-font|gate-j-live|capture-baselines|browser-install|wasm-install|wasm-package|mcp-package|cli-package|hostile-inputs|reduction-profile|editor-hostile-inputs|fuzz-smoke|performance|editor-trial|editor-gui-trial|editor-install-trial|editor-package|editor-launch|editor-install|editor-doctor|editor-rollback|editor-uninstall|editor-update|release-check <tag>|manifest|all>"
                 .to_owned(),
         ),
     }
@@ -998,6 +999,225 @@ fn mcp_package() -> Result<(), String> {
     )?;
     println!("packaged MCP developer tool: {}", archive.display());
     Ok(())
+}
+
+fn cli_package() -> Result<(), String> {
+    cargo(&[
+        "build",
+        "--release",
+        "--locked",
+        "-p",
+        "nuif-cli",
+        "--bin",
+        "nuif",
+    ])?;
+    let target_root =
+        env::var_os("CARGO_TARGET_DIR").map_or_else(|| PathBuf::from("target"), PathBuf::from);
+    let executable_suffix = if cfg!(windows) { ".exe" } else { "" };
+    let source_binary = target_root
+        .join("release")
+        .join(format!("nuif{executable_suffix}"));
+    if !source_binary.is_file() {
+        return Err(format!(
+            "release CLI binary is absent: {}",
+            source_binary.display()
+        ));
+    }
+
+    let version = workspace_package_version("nuif-cli")?;
+    let (version_report, capabilities, command_names) =
+        inspect_cli_package_identity(&source_binary, &version)?;
+    let (validation, inspection) = exercise_cli_package(&source_binary, &target_root)?;
+
+    let package_name = format!(
+        "nuif-cli-{version}-{}-{}",
+        env::consts::OS,
+        env::consts::ARCH
+    );
+    let dist = target_root.join("dist");
+    let package_root = dist.join(&package_name);
+    if package_root.exists() {
+        fs::remove_dir_all(&package_root).map_err(|error| error.to_string())?;
+    }
+    let binary_directory = package_root.join("bin");
+    fs::create_dir_all(&binary_directory).map_err(|error| error.to_string())?;
+    let binary = binary_directory.join(format!("nuif{executable_suffix}"));
+    fs::copy(&source_binary, &binary).map_err(|error| error.to_string())?;
+    for license in ["LICENSE-APACHE", "LICENSE-MIT"] {
+        fs::copy(license, package_root.join(license)).map_err(|error| error.to_string())?;
+    }
+    fs::copy("crates/nuif-cli/README.md", package_root.join("README.md"))
+        .map_err(|error| error.to_string())?;
+    let smoke = serde_json::json!({
+        "schema_version": 1,
+        "status": "passed",
+        "version": version_report,
+        "capabilities": capabilities,
+        "fixture": "v0-responsive-card",
+        "validation": validation,
+        "inspection": inspection,
+    });
+    let archive = write_cli_package_manifest(
+        &dist,
+        &package_root,
+        &binary,
+        &package_name,
+        &version,
+        &smoke,
+        &command_names,
+    )?;
+    println!("packaged NUIF CLI: {}", archive.display());
+    Ok(())
+}
+
+fn write_cli_package_manifest(
+    dist: &Path,
+    package_root: &Path,
+    binary: &Path,
+    package_name: &str,
+    version: &str,
+    smoke: &serde_json::Value,
+    command_names: &BTreeSet<String>,
+) -> Result<PathBuf, String> {
+    let smoke_bytes = serde_json::to_vec_pretty(&smoke).map_err(|error| error.to_string())?;
+    fs::write(package_root.join("smoke-report.json"), &smoke_bytes)
+        .map_err(|error| error.to_string())?;
+
+    let binary_bytes = fs::read(binary).map_err(|error| error.to_string())?;
+    let mut manifest = serde_json::json!({
+        "schema_version": 1,
+        "status": "passed",
+        "name": "nuif-cli",
+        "version": version,
+        "api_profile": "nuif-cli-tools-0",
+        "protocol_version": smoke["version"]["protocol"],
+        "platform": env::consts::OS,
+        "architecture": env::consts::ARCH,
+        "source_revision": command_text("git", &["rev-parse", "HEAD"]),
+        "source_dirty": command_text("git", &["status", "--porcelain"])
+            .map(|value| !value.is_empty()),
+        "binary": {
+            "path": binary.strip_prefix(package_root).unwrap_or(binary),
+            "bytes": binary_bytes.len(),
+            "sha256": format!("{:x}", Sha256::digest(&binary_bytes))
+        },
+        "smoke": {
+            "path": "smoke-report.json",
+            "sha256": format!("{:x}", Sha256::digest(&smoke_bytes)),
+            "status": "passed"
+        },
+        "commands": command_names,
+        "authorities": ["caller-selected-filesystem-paths", "stdin-stdout-stderr"],
+        "publication": {
+            "crates_io": "not-published",
+            "github_release": "downloadable-developer-package"
+        },
+        "signing": {
+            "status": "unsigned",
+            "note": "checksums and GitHub attestations do not provide an operating-system publisher identity"
+        }
+    });
+    fs::write(
+        package_root.join("manifest.json"),
+        serde_json::to_vec_pretty(&manifest).map_err(|error| error.to_string())?,
+    )
+    .map_err(|error| error.to_string())?;
+    let archive = create_editor_archive(dist, package_root, package_name)?;
+    let archive_bytes = fs::read(&archive).map_err(|error| error.to_string())?;
+    manifest["archive"] = serde_json::json!({
+        "name": archive.file_name().and_then(|name| name.to_str()),
+        "bytes": archive_bytes.len(),
+        "sha256": format!("{:x}", Sha256::digest(&archive_bytes))
+    });
+    fs::write(
+        dist.join(format!("{package_name}.manifest.json")),
+        serde_json::to_vec_pretty(&manifest).map_err(|error| error.to_string())?,
+    )
+    .map_err(|error| error.to_string())?;
+    Ok(archive)
+}
+
+fn cli_json(binary: &Path, arguments: &[&str], purpose: &str) -> Result<serde_json::Value, String> {
+    let output = Command::new(binary)
+        .args(arguments)
+        .output()
+        .map_err(|error| format!("could not execute packaged CLI {purpose}: {error}"))?;
+    check_status(output.status, path(binary)?, arguments)?;
+    serde_json::from_slice(&output.stdout)
+        .map_err(|error| format!("packaged CLI {purpose} output is not JSON: {error}"))
+}
+
+fn inspect_cli_package_identity(
+    binary: &Path,
+    expected_version: &str,
+) -> Result<(serde_json::Value, serde_json::Value, BTreeSet<String>), String> {
+    let version = cli_json(binary, &["version"], "version command")?;
+    if version["name"] != "nuif" || version["version"] != expected_version {
+        return Err("packaged CLI version output does not match its Cargo package".to_owned());
+    }
+    let capabilities = cli_json(binary, &["capabilities"], "capabilities command")?;
+    let command_names = capabilities["commands"]
+        .as_array()
+        .ok_or("packaged CLI capabilities omit the command inventory")?
+        .iter()
+        .filter_map(serde_json::Value::as_str)
+        .map(str::to_owned)
+        .collect::<BTreeSet<_>>();
+    let required_commands = [
+        "capabilities",
+        "canonicalize",
+        "export",
+        "import",
+        "inspect",
+        "layout",
+        "pack",
+        "patch",
+        "render",
+        "snapshot",
+        "unpack",
+        "validate",
+        "version",
+    ]
+    .into_iter()
+    .map(str::to_owned)
+    .collect::<BTreeSet<_>>();
+    if capabilities["status"] != "executable"
+        || capabilities["protocol"] != version["protocol"]
+        || version["protocol"].as_str().is_none()
+        || !required_commands.is_subset(&command_names)
+    {
+        return Err("packaged CLI failed its declared capability profile".to_owned());
+    }
+    Ok((version, capabilities, command_names))
+}
+
+fn exercise_cli_package(
+    binary: &Path,
+    target_root: &Path,
+) -> Result<(serde_json::Value, serde_json::Value), String> {
+    let smoke_input = target_root.join("cli-package-smoke-input.nuif.json");
+    let smoke_canonical = target_root.join("cli-package-smoke-canonical.nuif.json");
+    command(
+        path(binary)?,
+        &["fixture", "v0-responsive-card", path(&smoke_input)?],
+    )?;
+    let validation = cli_json(binary, &["validate", path(&smoke_input)?], "validation")?;
+    if validation["status"] != "passed" || validation["issues"]["errors"] != 0 {
+        return Err("packaged CLI could not validate its own reference fixture".to_owned());
+    }
+    command(
+        path(binary)?,
+        &["canonicalize", path(&smoke_input)?, path(&smoke_canonical)?],
+    )?;
+    let inspection = cli_json(binary, &["inspect", path(&smoke_canonical)?], "inspection")?;
+    if inspection["status"] != "passed"
+        || inspection["errors"] != 0
+        || inspection["entities"].as_u64().unwrap_or_default() == 0
+        || inspection["canonical_hash"].as_str().is_none()
+    {
+        return Err("packaged CLI fixture inspection did not prove a valid document".to_owned());
+    }
+    Ok((validation, inspection))
 }
 
 fn write_mcp_package_manifest(
