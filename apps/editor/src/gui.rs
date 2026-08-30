@@ -21,7 +21,7 @@ use masonry::widgets::{
 };
 use masonry_winit::app::{AppDriver, DriverCtx, NewWindow, WindowId};
 use masonry_winit::winit::window::Window;
-use nuif_adapter::{AdapterReport, ExportedSource, ImportedSource};
+use nuif_adapter::{AdapterReport, PackageReport};
 use nuif_codec::{
     CanonicalText, Decoder, Encoder, MAX_INPUT_BYTES, read_bounded as read_bounded_stream,
 };
@@ -111,16 +111,18 @@ enum ExternalFormat {
     Svg,
     HtmlCss,
     Dtcg,
+    Penpot,
 }
 
 impl ExternalFormat {
-    const ALL: [Self; 3] = [Self::Svg, Self::HtmlCss, Self::Dtcg];
+    const ALL: [Self; 4] = [Self::Svg, Self::HtmlCss, Self::Dtcg, Self::Penpot];
 
     const fn name(self) -> &'static str {
         match self {
             Self::Svg => "SVG",
             Self::HtmlCss => "HTML/CSS",
             Self::Dtcg => "DTCG tokens",
+            Self::Penpot => "Penpot",
         }
     }
 
@@ -129,6 +131,7 @@ impl ExternalFormat {
             Self::Svg => ("SVG profile", &["svg"]),
             Self::HtmlCss => ("HTML/CSS profile", &["html", "htm"]),
             Self::Dtcg => ("DTCG token profile", &["json"]),
+            Self::Penpot => ("Penpot package profile", &["penpot"]),
         }
     }
 
@@ -137,6 +140,7 @@ impl ExternalFormat {
             Self::Svg => "nuif-export.svg",
             Self::HtmlCss => "nuif-export.html",
             Self::Dtcg => "nuif-export.tokens.json",
+            Self::Penpot => "nuif-export.penpot",
         }
     }
 
@@ -145,8 +149,56 @@ impl ExternalFormat {
             Self::Svg => nuif_svg::MAX_SOURCE_BYTES,
             Self::HtmlCss => nuif_html::MAX_SOURCE_BYTES,
             Self::Dtcg => nuif_dtcg::MAX_SOURCE_BYTES,
+            Self::Penpot => nuif_penpot::MAX_PACKAGE_BYTES,
         }
     }
+}
+
+enum ExternalReport {
+    Source(AdapterReport),
+    Package(PackageReport),
+}
+
+impl ExternalReport {
+    fn fidelity(&self) -> &[nuif_adapter::FidelityEntry] {
+        match self {
+            Self::Source(report) => &report.fidelity,
+            Self::Package(report) => &report.fidelity,
+        }
+    }
+
+    fn correspondence_count(&self) -> usize {
+        match self {
+            Self::Source(report) => report.correspondences.len(),
+            Self::Package(report) => report.correspondences.len(),
+        }
+    }
+
+    #[cfg(test)]
+    fn is_lossless(&self) -> bool {
+        match self {
+            Self::Source(report) => report.is_lossless(),
+            Self::Package(report) => report.is_lossless(),
+        }
+    }
+
+    fn to_pretty_json(&self) -> Result<Vec<u8>, String> {
+        match self {
+            Self::Source(report) => serde_json::to_vec_pretty(report),
+            Self::Package(report) => serde_json::to_vec_pretty(report),
+        }
+        .map_err(|error| error.to_string())
+    }
+}
+
+struct ImportedExternal {
+    document: Document,
+    report: ExternalReport,
+}
+
+struct ExportedExternal {
+    bytes: Vec<u8>,
+    report: ExternalReport,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -370,7 +422,7 @@ impl Driver {
     }
 
     fn build_file_menu_anchor(&mut self) -> NewWidget<dyn Widget> {
-        let mut menu = Flex::column()
+        let mut imports = Flex::column()
             .with_fixed(label("FILE", 10.0, MUTED, true))
             .with_fixed_spacer(8.px());
         for (caption, action) in [
@@ -379,16 +431,16 @@ impl Driver {
             ("Save", UiAction::Save),
             ("Save as…", UiAction::SaveAs),
         ] {
-            menu = menu
+            imports = imports
                 .with_fixed(self.button(caption, action, false))
                 .with_fixed_spacer(4.px());
         }
-        menu = menu
+        imports = imports
             .with_fixed_spacer(5.px())
             .with_fixed(label("IMPORT PROFILE", 10.0, MUTED, true))
             .with_fixed_spacer(5.px());
         for format in ExternalFormat::ALL {
-            menu = menu
+            imports = imports
                 .with_fixed(self.button(
                     &format!("Import {}…", format.name()),
                     UiAction::ImportExternal(format),
@@ -396,14 +448,13 @@ impl Driver {
                 ))
                 .with_fixed_spacer(4.px());
         }
-        menu = menu
-            .with_fixed_spacer(5.px())
+        let mut exports = Flex::column()
             .with_fixed(label("EXPORT", 10.0, MUTED, true))
-            .with_fixed_spacer(5.px())
+            .with_fixed_spacer(8.px())
             .with_fixed(self.button("Export PNG…", UiAction::ExportSnapshot, false))
             .with_fixed_spacer(4.px());
         for format in ExternalFormat::ALL {
-            menu = menu
+            exports = exports
                 .with_fixed(self.button(
                     &format!("Export {}…", format.name()),
                     UiAction::ExportExternal(format),
@@ -411,8 +462,20 @@ impl Driver {
                 ))
                 .with_fixed_spacer(4.px());
         }
-        menu = menu.with_fixed(self.button("Close menu", UiAction::ToggleFileMenu, false));
-        let menu = NewWidget::new(SizedBox::new(menu.prepare()).width(Length::const_px(220.0)))
+        exports = exports.with_fixed_spacer(9.px()).with_fixed(self.button(
+            "Close menu",
+            UiAction::ToggleFileMenu,
+            false,
+        ));
+        let menu = Flex::row()
+            .with_fixed(NewWidget::new(
+                SizedBox::new(imports.prepare()).width(Length::const_px(205.0)),
+            ))
+            .with_fixed_spacer(12.px())
+            .with_fixed(NewWidget::new(
+                SizedBox::new(exports.prepare()).width(Length::const_px(205.0)),
+            ));
+        let menu = NewWidget::new(SizedBox::new(menu.prepare()).width(Length::const_px(422.0)))
             .with_props((
                 Background::Color(PANEL),
                 BorderColor::new(ACCENT),
@@ -833,6 +896,10 @@ impl Driver {
                 UiAction::ImportExternal(ExternalFormat::Dtcg),
             ),
             (
+                "Import Penpot package profile…",
+                UiAction::ImportExternal(ExternalFormat::Penpot),
+            ),
+            (
                 "Export SVG profile…",
                 UiAction::ExportExternal(ExternalFormat::Svg),
             ),
@@ -843,6 +910,10 @@ impl Driver {
             (
                 "Export DTCG token profile…",
                 UiAction::ExportExternal(ExternalFormat::Dtcg),
+            ),
+            (
+                "Export Penpot package profile…",
+                UiAction::ExportExternal(ExternalFormat::Penpot),
             ),
             ("Fit canvas", UiAction::ZoomFit),
             ("Hide interface", UiAction::ToggleUi),
@@ -1745,9 +1816,9 @@ impl Driver {
         else {
             return Ok(());
         };
-        let source = read_external_source(&path, format.source_limit())?;
-        let imported = import_external_source(format, &source)?;
-        let summary = adapter_report_summary(format, &imported.retentive.report);
+        let bytes = read_external_bytes(&path, format.source_limit())?;
+        let imported = import_external_bytes(format, &bytes)?;
+        let summary = adapter_report_summary(format, &imported.report);
         let result = rfd::MessageDialog::new()
             .set_level(rfd::MessageLevel::Info)
             .set_title(format!("Import {} profile", format.name()))
@@ -1834,10 +1905,9 @@ impl Driver {
             return Ok(());
         };
         let report_path = adapter_report_path(&path)?;
-        let report =
-            serde_json::to_vec_pretty(&exported.report).map_err(|error| error.to_string())?;
+        let report = exported.report.to_pretty_json()?;
         fs::write(&report_path, report).map_err(|error| error.to_string())?;
-        fs::write(&path, exported.source.as_bytes()).map_err(|error| error.to_string())?;
+        fs::write(&path, exported.bytes).map_err(|error| error.to_string())?;
         self.status = format!(
             "Exported {} and fidelity report {}",
             path.display(),
@@ -1878,46 +1948,84 @@ impl AppDriver for Driver {
     }
 }
 
-fn read_external_source(path: &Path, limit: usize) -> Result<String, String> {
+fn read_external_bytes(path: &Path, limit: usize) -> Result<Vec<u8>, String> {
     let mut file = fs::File::open(path).map_err(|error| error.to_string())?;
-    let bytes = read_bounded_stream(&mut file, limit).map_err(|error| error.to_string())?;
-    String::from_utf8(bytes).map_err(|error| format!("source is not valid UTF-8: {error}"))
+    read_bounded_stream(&mut file, limit).map_err(|error| error.to_string())
 }
 
-fn import_external_source(format: ExternalFormat, source: &str) -> Result<ImportedSource, String> {
-    match format {
-        ExternalFormat::Svg => nuif_svg::import_source(source).map_err(|error| error.to_string()),
-        ExternalFormat::HtmlCss => {
-            nuif_html::import_source(source).map_err(|error| error.to_string())
-        }
-        ExternalFormat::Dtcg => nuif_dtcg::import_source(source).map_err(|error| error.to_string()),
+fn import_external_bytes(format: ExternalFormat, bytes: &[u8]) -> Result<ImportedExternal, String> {
+    if format == ExternalFormat::Penpot {
+        let imported = nuif_penpot::import_package(bytes).map_err(|error| error.to_string())?;
+        return Ok(ImportedExternal {
+            document: imported.document,
+            report: ExternalReport::Package(imported.retentive.report().clone()),
+        });
     }
+    let source = std::str::from_utf8(bytes)
+        .map_err(|error| format!("source is not valid UTF-8: {error}"))?;
+    let imported = match format {
+        ExternalFormat::Svg => {
+            nuif_svg::import_source(source).map_err(|error| error.to_string())?
+        }
+        ExternalFormat::HtmlCss => {
+            nuif_html::import_source(source).map_err(|error| error.to_string())?
+        }
+        ExternalFormat::Dtcg => {
+            nuif_dtcg::import_source(source).map_err(|error| error.to_string())?
+        }
+        ExternalFormat::Penpot => unreachable!("Penpot was handled above"),
+    };
+    Ok(ImportedExternal {
+        document: imported.document,
+        report: ExternalReport::Source(imported.retentive.report),
+    })
 }
 
 fn export_external_document(
     format: ExternalFormat,
     document: &Document,
-) -> Result<ExportedSource, String> {
-    match format {
+) -> Result<ExportedExternal, String> {
+    let (bytes, report) = match format {
         ExternalFormat::Svg => {
-            nuif_svg::export_document(document).map_err(|error| error.to_string())
+            let exported =
+                nuif_svg::export_document(document).map_err(|error| error.to_string())?;
+            (
+                exported.source.into_bytes(),
+                ExternalReport::Source(exported.report),
+            )
         }
         ExternalFormat::HtmlCss => {
-            nuif_html::export_document(document).map_err(|error| error.to_string())
+            let exported =
+                nuif_html::export_document(document).map_err(|error| error.to_string())?;
+            (
+                exported.source.into_bytes(),
+                ExternalReport::Source(exported.report),
+            )
         }
         ExternalFormat::Dtcg => {
-            nuif_dtcg::export_document(document).map_err(|error| error.to_string())
+            let exported =
+                nuif_dtcg::export_document(document).map_err(|error| error.to_string())?;
+            (
+                exported.source.into_bytes(),
+                ExternalReport::Source(exported.report),
+            )
         }
-    }
+        ExternalFormat::Penpot => {
+            let exported =
+                nuif_penpot::export_document(document).map_err(|error| error.to_string())?;
+            (exported.bytes, ExternalReport::Package(exported.report))
+        }
+    };
+    Ok(ExportedExternal { bytes, report })
 }
 
-fn adapter_report_summary(format: ExternalFormat, report: &AdapterReport) -> String {
+fn adapter_report_summary(format: ExternalFormat, report: &ExternalReport) -> String {
     let mut lossless = 0;
     let mut representable = 0;
     let mut approximated = 0;
     let mut preserved = 0;
     let mut unsupported = 0;
-    for entry in &report.fidelity {
+    for entry in report.fidelity() {
         match entry.status {
             Fidelity::Lossless => lossless += 1,
             Fidelity::Representable => representable += 1,
@@ -1929,7 +2037,7 @@ fn adapter_report_summary(format: ExternalFormat, report: &AdapterReport) -> Str
     format!(
         "{} · lossless {lossless} · representable {representable} · approximated {approximated} · preserved {preserved} · unsupported {unsupported} · {} correspondences",
         format.name(),
-        report.correspondences.len()
+        report.correspondence_count()
     )
 }
 
@@ -2375,10 +2483,11 @@ mod tests {
             (ExternalFormat::Svg, nuif_svg::profile_fixture()),
             (ExternalFormat::HtmlCss, nuif_html::profile_fixture()),
             (ExternalFormat::Dtcg, nuif_dtcg::profile_fixture()),
+            (ExternalFormat::Penpot, nuif_penpot::profile_fixture()),
         ];
         for (format, document) in fixtures {
             let exported = export_external_document(format, &document).unwrap();
-            let imported = import_external_source(format, &exported.source).unwrap();
+            let imported = import_external_bytes(format, &exported.bytes).unwrap();
             assert_eq!(imported.document, document);
             assert!(exported.report.is_lossless());
             assert!(adapter_report_summary(format, &exported.report).contains("unsupported 0"));
