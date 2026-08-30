@@ -215,6 +215,7 @@ jobs:
             target/dist/*.zip
             target/editor-gui-trial/report.json
             target/editor-gui-trial/editor-shell.png
+            target/editor-gui-trial/editor-file-menu.png
             target/editor-gui-trial/semantics.json
 
   msrv:

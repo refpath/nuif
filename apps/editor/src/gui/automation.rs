@@ -1,7 +1,7 @@
 //! Deterministic whole-editor semantic and visual trial runner.
 
 use super::widgets::AuthorAction;
-use super::{Driver, UiAction};
+use super::{Driver, ExternalFormat, UiAction};
 use crate::EditorEvent;
 use masonry::accesskit::{Action, ActionData, ActionRequest, TreeId};
 use masonry::core::{Widget, WidgetId};
@@ -108,6 +108,7 @@ struct SemanticNode {
 #[derive(Debug, Serialize)]
 struct ArtifactPaths {
     screenshot: String,
+    file_menu_screenshot: String,
     document: String,
     semantics: String,
 }
@@ -122,11 +123,13 @@ struct Report {
     canonical_hash: String,
     replay_hash: String,
     shell_rgba_sha256: String,
+    file_menu_rgba_sha256: String,
     document_rgba_sha256: String,
     selection: Vec<EntityId>,
     entities: usize,
     operations: usize,
     semantic_nodes: usize,
+    file_menu_routes: Vec<String>,
     actions: Vec<TrialAction>,
     artifacts: ArtifactPaths,
 }
@@ -167,6 +170,16 @@ pub fn run() -> Result<(), String> {
     let mut harness = build_harness(&mut driver, scenario.window);
     let screenshot = harness.render();
     let semantics = collect_semantics(&harness, &driver)?;
+    let mut menu_toggle_harness = build_harness(&mut driver, scenario.window);
+    let _ = menu_toggle_harness.redraw();
+    press_command(
+        &mut driver,
+        &mut menu_toggle_harness,
+        UiAction::ToggleFileMenu,
+    )?;
+    let mut file_menu_harness = build_harness(&mut driver, scenario.window);
+    let file_menu_routes = verify_file_menu_routes(&driver)?;
+    let file_menu_screenshot = file_menu_harness.render();
     let event = driver
         .editor
         .execute(crate::EditorCommand::Snapshot {
@@ -180,11 +193,15 @@ pub fn run() -> Result<(), String> {
 
     fs::create_dir_all(&options.artifact_directory).map_err(|error| error.to_string())?;
     let screenshot_path = options.artifact_directory.join("editor-shell.png");
+    let file_menu_screenshot_path = options.artifact_directory.join("editor-file-menu.png");
     let document_path = options.artifact_directory.join("output.nuif");
     let semantics_path = options.artifact_directory.join("semantics.json");
     let report_path = options.artifact_directory.join("report.json");
     screenshot
         .save(&screenshot_path)
+        .map_err(|error| error.to_string())?;
+    file_menu_screenshot
+        .save(&file_menu_screenshot_path)
         .map_err(|error| error.to_string())?;
     let canonical_document = CanonicalText
         .encode(driver.editor.document())
@@ -201,14 +218,17 @@ pub fn run() -> Result<(), String> {
         canonical_hash: observed_hash,
         replay_hash,
         shell_rgba_sha256: format!("{:x}", Sha256::digest(screenshot.as_raw())),
+        file_menu_rgba_sha256: format!("{:x}", Sha256::digest(file_menu_screenshot.as_raw())),
         document_rgba_sha256: snapshot.raster.rgba_sha256.clone(),
         selection: driver.editor.selection().to_vec(),
         entities: driver.editor.document().entities.len(),
         operations: driver.editor.operation_log().len(),
         semantic_nodes: semantics.len(),
+        file_menu_routes,
         actions: scenario.actions,
         artifacts: ArtifactPaths {
             screenshot: screenshot_path.display().to_string(),
+            file_menu_screenshot: file_menu_screenshot_path.display().to_string(),
             document: document_path.display().to_string(),
             semantics: semantics_path.display().to_string(),
         },
@@ -404,6 +424,41 @@ fn process_click(harness: &mut TestHarness<SizedBox>, widget_id: WidgetId) {
         target_node: widget_id.to_raw().into(),
         data: None,
     });
+}
+
+fn verify_file_menu_routes(driver: &Driver) -> Result<Vec<String>, String> {
+    let mut routes = Vec::new();
+    for (name, action) in [
+        ("new", UiAction::New),
+        ("import_nuif", UiAction::ImportNative),
+        ("save", UiAction::Save),
+        ("save_as", UiAction::SaveAs),
+        ("export_png", UiAction::ExportSnapshot),
+    ] {
+        require_visible_action(driver, action, name)?;
+        routes.push(name.to_owned());
+    }
+    for (format, profile) in [
+        (ExternalFormat::Svg, "svg"),
+        (ExternalFormat::HtmlCss, "html_css"),
+        (ExternalFormat::Dtcg, "dtcg"),
+    ] {
+        let import = format!("import_{profile}");
+        require_visible_action(driver, UiAction::ImportExternal(format), &import)?;
+        routes.push(import);
+        let export = format!("export_{profile}");
+        require_visible_action(driver, UiAction::ExportExternal(format), &export)?;
+        routes.push(export);
+    }
+    Ok(routes)
+}
+
+fn require_visible_action(driver: &Driver, action: UiAction, name: &str) -> Result<(), String> {
+    if driver.actions.values().any(|observed| *observed == action) {
+        Ok(())
+    } else {
+        Err(format!("file menu route {name:?} is absent"))
+    }
 }
 
 fn verify_assertions(driver: &Driver, assertions: &Assertions) -> Result<(), String> {

@@ -1178,6 +1178,7 @@ fn editor_gui_trial() -> Result<(), String> {
         "canonical_hash",
         "replay_hash",
         "shell_rgba_sha256",
+        "file_menu_rgba_sha256",
         "document_rgba_sha256",
     ] {
         if first[field] != second[field] {
@@ -1190,6 +1191,7 @@ fn editor_gui_trial() -> Result<(), String> {
     if first["status"] != "passed"
         || first["window"] != serde_json::json!([1280, 800])
         || first["semantic_nodes"] != 19
+        || first["file_menu_routes"].as_array().map(Vec::len) != Some(11)
         || first["operations"] != 7
     {
         return Err("native editor trial report failed its evidence assertions".to_owned());
