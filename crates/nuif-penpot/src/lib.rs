@@ -699,7 +699,7 @@ fn render_members(
     let manifest = serde_json::json!({
         "type": "penpot/export-files",
         "version": 1,
-        "generatedBy": "nuif/0.1.0-alpha.2",
+        "generatedBy": format!("nuif-penpot/{}", env!("CARGO_PKG_VERSION")),
         "referer": "nuif",
         "files": [{"id": file_uuid, "name": "NUIF Penpot profile", "features": FEATURES}],
         "relations": [],
@@ -1855,6 +1855,19 @@ mod tests {
         assert_eq!(first.bytes, second.bytes);
         assert_eq!(import_package(&first.bytes).unwrap().document, fixture);
         assert!(first.report.is_lossless());
+        let members = read_archive(&first.bytes).unwrap();
+        let manifest: Value = serde_json::from_slice(
+            &members
+                .iter()
+                .find(|member| member.name == "manifest.json")
+                .unwrap()
+                .payload,
+        )
+        .unwrap();
+        assert_eq!(
+            manifest["generatedBy"],
+            format!("nuif-penpot/{}", env!("CARGO_PKG_VERSION"))
+        );
     }
 
     #[test]

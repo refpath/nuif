@@ -37,7 +37,9 @@ For a document and package inside the profile:
 2. Repeated export produces identical ZIP bytes. Exported member timestamps are
    fixed to the earliest ZIP date and file permissions are fixed. Native JSON
    members below 4 KiB are stored without compression; larger members use
-   Deflate. Imported packages retain each member's original method.
+   Deflate. Imported packages retain each member's original method. The
+   manifest identifies the independently versioned adapter crate as
+   `nuif-penpot/<crate-version>`; it does not borrow the editor version.
 3. An unchanged synchronization returns the original archive byte-for-byte,
    including central-directory representation.
 4. Mapped JSON scalars carry member-qualified UTF-8 byte spans. A change patches
