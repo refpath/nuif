@@ -7,7 +7,7 @@ source:
   url: https://github.com/gfx-rs/wgpu/pull/5641
   repository: https://github.com/gfx-rs/wgpu
   authors: [gfx-rs developers, Linebender developers, refpath maintainers]
-  published_at: "wgpu pull request 5641 merged 2026-01-28; refpath/xilem commit eabfe0a created 2026-08-30"
+  published_at: "wgpu pull request 5641 merged 2026-01-28; refpath/xilem commits eabfe0a and 1b96eb8 created 2026-08-30"
   license: "wgpu MIT OR Apache-2.0; Xilem Apache-2.0"
 retrieved_at: 2026-08-30
 tags: [rust, macos, metal, wgpu, dependency, future-incompatibility, release-risk]
@@ -36,9 +36,11 @@ that graph but reported `block` as future-incompatible. wgpu pull request 5641
 replaced metal-rs with `objc2-metal` and `block2`; wgpu 29 contains that
 migration. The reviewed `refpath/xilem` commit `eabfe0a` updates the NUIF
 Masonry revision to the wgpu 29 API without patching the Objective-C blocks ABI.
+NUIF pins its immediate descendant `1b96eb8` by full SHA; that descendant
+replaces abandoned font dependencies without changing the graphics migration.
 
-NUIF pins the reviewed fork commit by full SHA. The active editor graph resolves
-`imaging_wgpu 0.0.2 -> wgpu 29.0.4 -> objc2-metal 0.3.2 -> block2 0.6.2`.
+The active editor graph resolves `imaging_wgpu 0.0.2 -> wgpu 29.0.4 ->
+objc2-metal 0.3.2 -> block2 0.6.2`.
 `block 0.1.6` and metal-rs are absent from the lock file and active dependency
 graph. The fork remains a maintenance boundary until the equivalent migration
 is available from the selected upstream Xilem revision.
@@ -57,10 +59,13 @@ is available from the selected upstream Xilem revision.
   updates the imaging dependencies and the three affected wgpu API call sites.
   Locator: commit diff, retrieved 2026-08-30:
   https://github.com/refpath/xilem/commit/eabfe0a92ff5ab0e26515383fdeaf288672b3e88.
+- The active pin `1b96eb8db3f88f85db1a3594d80d3480b29392fb` has `eabfe0a`
+  as its sole parent and replaces abandoned font dependencies. Locator: commit
+  metadata and diff, retrieved 2026-08-30:
+  https://github.com/refpath/xilem/commit/1b96eb8db3f88f85db1a3594d80d3480b29392fb.
 - `cargo tree -p nuif-editor -i block` reports no matching package after the
   migration. `cargo tree -p nuif-editor` resolves wgpu 29.0.4, objc2-metal
-  0.3.2, and block2 0.6.2 at NUIF revision `897211f` plus the uncommitted
-  dependency migration (2026-08-30).
+  0.3.2, and block2 0.6.2 from the active lock file (2026-08-30).
 - `cargo report future-incompatibilities` reports that no reports are available
   after rebuilding `nuif-editor` against the migrated graph with rustc 1.98.0
   (2026-08-30).

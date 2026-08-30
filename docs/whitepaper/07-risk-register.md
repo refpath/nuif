@@ -24,11 +24,11 @@
 ## Current implementation risks
 
 - **The macOS graphics fork is a maintenance boundary.** The editor pins
-  `refpath/xilem` commit `eabfe0a`, which moves the active renderer from wgpu 28
-  and metal-rs to wgpu 29 and the objc2 Metal bindings. The fork changes public
-  API call sites and does not patch the Objective-C blocks ABI. Each fork update
-  requires the editor tests, reverse dependency trace, and macOS Metal window
-  smoke test recorded in
+  `refpath/xilem` commit `1b96eb8`; its parent `eabfe0a` moves the active
+  renderer from wgpu 28 and metal-rs to wgpu 29 and the objc2 Metal bindings.
+  The fork changes public API call sites and does not patch the Objective-C
+  blocks ABI. Each fork update requires the editor tests, reverse dependency
+  trace, and macOS Metal window smoke test recorded in
   `nuif:research:macos-metal-block-future-incompatibility`. A separate
   `refpath/metal-rs` `move-to-block2` branch exists only for review; NUIF does
   not depend on the deprecated binding or that experimental patch.
