@@ -45,6 +45,8 @@ NUIF must define the missing combination: authored UI semantics + resolved state
 5. **Behavior layer** — interactions, states, animation and data bindings.
 6. **Resolved layer** — computed layout, shaped text, flattened paint/effect plans for a declared evaluation context.
 7. **Provenance layer** — source/destination correspondence and fidelity diagnostics.
+8. **Resource layer** — stable semantic assets bound to content-addressed bytes,
+   package/resolver locators and derivation records.
 
 No lower layer is permitted to silently erase a higher-level authored construct. Lowerings that cannot represent a construct must emit fidelity records.
 
@@ -52,6 +54,26 @@ No lower layer is permitted to silently erase a higher-level authored construct.
 
 Identity is semantic and independent of path, order and display name. Moving an entity does not change its ID. Content hashes identify immutable resources and canonical snapshots, not editable semantic entities.
 
+## Compiler and reconstruction ports
+
+Deterministic source adapters and probabilistic screenshot reconstruction meet
+at the operation boundary:
+
+```text
+retained source + resolved host observations ─┐
+                                              ├─> typed operations -> core
+pixels + OCR/CV/model hypotheses ─────────────┘                    -> render/evaluate
+```
+
+Source-backed and screenshot-only inputs retain distinct evidence classes. A
+model/provider is replaceable and cannot redefine the operation grammar,
+validator, layout semantics, resource identity or fidelity ceilings.
+
 ## Falsifiability
 
 The architecture fails if the v0 experiment cannot preserve a non-trivial responsive component through editor→HTML→NUIF→editor while retaining component identity, token bindings, layout intent, an opaque foreign extension and a minimal source patch after an edit.
+
+The resource/reconstruction extension fails if independent package writers
+cannot reproduce the proposed bytes, if browser capture cannot be pinned without
+secret leakage, if visual objectives reward flat screenshot copies, or if
+adaptation fails to beat the untuned tool-assisted baseline on a frozen holdout.

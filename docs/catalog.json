@@ -24,12 +24,12 @@
   ],
   "manuscript": {
     "title": "NUIF authored-interface interchange research manuscript",
-    "subtitle": "Architecture, executable profiles, prior art and open risks",
+    "subtitle": "Architecture, executable profiles, resource packaging, reconstruction research and open risks",
     "authors": ["Refpath contributors"],
     "version": "working-2026-08-30",
     "date": "2026-08-30",
     "status": "working technical manuscript; not peer reviewed",
-    "abstract": "This manuscript evaluates a layered authored-interface interchange model through prior-art synthesis, bounded adapter profiles and executable conformance experiments. It records the architectural hypothesis, implemented evidence, unresolved risks and governance conditions without claiming specification stability or universal format coverage.",
+    "abstract": "This manuscript evaluates a layered authored-interface interchange model through prior-art synthesis, bounded adapter profiles and executable conformance experiments. It also separates proposed resource packaging, source-backed capture and screenshot reconstruction from the narrower implemented alpha evidence. It records the architectural hypothesis, implemented evidence, unresolved risks and governance conditions without claiming specification stability, reconstruction accuracy or universal format coverage.",
     "sources": [
       "docs/whitepaper/00-foundation.md",
       "docs/whitepaper/01-architecture.md",
@@ -42,7 +42,8 @@
       "docs/whitepaper/08-governance-and-standardization.md",
       "docs/whitepaper/09-naming-and-identity.md",
       "docs/whitepaper/10-research-coverage.md",
-      "docs/whitepaper/11-cross-industry-patterns.md"
+      "docs/whitepaper/11-cross-industry-patterns.md",
+      "docs/whitepaper/12-resources-capture-and-reconstruction.md"
     ]
   },
   "sections": [

@@ -25,6 +25,10 @@ A useful portable interface specification must coordinate several representation
 9. extension payloads that can survive unknown intermediaries;
 10. deterministic operations, diff, patch, and reconciliation.
 
+Portable resources add a second identity boundary: editable semantic assets
+retain stable IDs, while exact image/font bytes use immutable content digests.
+Package paths and source URLs are locators/provenance, not identity.
+
 NUIF therefore treats portability as a synchronization problem as much as a serialization problem.
 
 ## Architectural hypothesis
@@ -48,6 +52,11 @@ Silent loss is a conformance failure.
 ## Explicit non-goals
 
 NUIF does not promise to infer the unique original source program from pixels, reproduce arbitrary JavaScript execution, make every platform text renderer bit-identical, or force every target to support every capability. The draft specification should make such boundaries inspectable and machine-readable.
+
+Screenshot reconstruction is therefore an optional inference client, not a new
+canonical truth. It may propose a validated editable hypothesis and calibrated
+alternatives, but screenshot-only evidence cannot be classified as lossless
+authored source.
 
 ## Reference implementation role
 

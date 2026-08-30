@@ -14,6 +14,9 @@ and source evidence are recorded in ADR 0007 and
   moved or reused.
 - The draft specification's profile-zero identifier is not an application
   version and does not change when the editor prerelease increments.
+- Editor alpha maturity does not transfer to proposed package, resource,
+  capture, reconstruction or model artifacts. Each of those requires its own
+  profile identifier, conformance evidence and release record.
 - Library crate versions remain independent until a crate publication policy
   is adopted.
 

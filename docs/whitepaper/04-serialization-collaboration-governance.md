@@ -10,7 +10,18 @@ A canonical, reviewable representation is required for examples, fixtures, diffs
 ### Binary form
 Deterministic CBOR is the initial recommendation because RFC 8949 specifies deterministic encoding without coupling NUIF to a generated-code schema system. A schema-based high-performance encoding may later become a profile after benchmarks.
 
-The package form separates manifest/document records from content-addressed assets and permits partial loading. Unknown extension payloads are explicit typed bytes/values and must not depend on accidental codec unknown-field behavior.
+The proposed package form separates manifest/document records from
+content-addressed resources. RFC 0010 selects a candidate deterministic ZIP
+profile with fixed `mimetype`, canonical manifest/document records and
+SHA-256-addressed blobs. Bare encodings use explicit `.nuif.json` and
+`.nuif.cbor` names. The proposal remains experiment-required: exact ZIP header
+fixtures, two independent writers, image/font budgets and resource profiles do
+not yet exist.
+
+Semantic document, resource and package hashes have different scopes. Stable
+asset identity is not content addressing. Unknown extension payloads remain
+explicit typed bytes/values and must not depend on accidental codec unknown-
+field behavior.
 
 ## Collaboration
 

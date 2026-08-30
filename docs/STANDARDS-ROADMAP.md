@@ -3,7 +3,8 @@
 NUIF remains a pre-standard research project with a draft specification and
 reference implementation. The editor version `0.1.0-alpha.3` identifies an
 application prerelease. It does not establish specification stability,
-interoperability or external review.
+interoperability, resource-package conformance, reconstruction accuracy or
+external review.
 
 ## Current publication boundary
 
@@ -53,8 +54,14 @@ An implementer draft requires all of the following evidence:
   by qualified counsel.
 
 The present repository has an independent Python profile-zero evaluator and
-three executable adapter profiles. These results cover bounded subsets. They do
+five executable adapter profiles. These results cover bounded subsets. They do
 not constitute two independent implementations of the complete draft.
+
+RFCs 0010 and 0011 are proposed research inputs. Their package, resource,
+capture and reconstruction profiles are not prerequisites for a small core
+implementer draft unless the selected charter includes them. If included, each
+requires its own independent implementation/evaluator report; a model demo or
+editor alpha does not satisfy interoperability.
 
 ## Incubation gate
 

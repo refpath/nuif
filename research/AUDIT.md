@@ -25,6 +25,9 @@ The research base is solid enough to continue only under the gates below. It is 
 | Layout thresholds | A global `< 0.1 px` browser threshold and fixed visual thresholds were copied from prior systems without a NUIF calibration dataset. | Gate C now stores a bound per fixture: the measured Taffy/browser maximum rounded upward to 0.01 px and capped at 0.1 px. Exact foreign agreement retains a zero bound. These empirical bounds apply only to the pinned browser/platform report and are not normative across platforms. |
 | CPU exactness | “CPU `f32`, tolerance 0 across operating systems” was asserted before a pinned math, font and raster pipeline existed. | Exactness is limited to the declared CPU profile 0. It pins color, coverage, composition, font, shaping, hard-line layout, outlines and grayscale masks; rectangle, ellipse and text hashes agree on the recorded macOS/aarch64, Linux/aarch64 and Linux/x86_64 matrix. Untested platforms and future visual operations are not covered. |
 | Resource limits | Depth 1024 and one million nodes were listed without memory/time measurements. | RFC 0009 replaces them with measured profile-0 byte, syntax, semantic, diagnostic, allocation and time bounds. Image/font/path/GPU budgets remain future-profile work. |
+| Package/assets claim | The roadmap called package/assets complete although `.nuif` fixtures are bare canonical documents and profile 0 rejects images. | Phase 4 is split. RFC 0010 is proposed; package, image and font profiles require independent experiments before acceptance. |
+| Capture versus inference | Static source synchronization, browser observation and screenshot reconstruction were described under one broad inference front. | RFC 0011/specification 14 define separate evidence classes, fidelity ceilings, typed-operation boundaries and planned capture/reconstruction/calibration gates. |
+| Training proposal | Distillation and low-rank adaptation had no frozen evaluator, rights-cleared trace contract or untuned baseline. | Training is conditional Gate L work. Baseline, closed-loop, calibration and artifact/data governance precede any model adaptation. |
 | Editor stack | ADR 0006 selects an unreleased Masonry revision with acknowledged API churn. The choice is plausible but not yet verified in this repository. | The stable boundary is the headless `EditorDriver` and accessibility action contract. Masonry is a replaceable shell client and cannot change document semantics. |
 | Scope and adoption | The prior plan attempted model, layout, rendering, text, source synchronization, adapters, collaboration and a full editor before proving the hard round trip. | Work is gated by the v0 falsifier. No collaboration or broad GUI expansion precedes codec, responsive layout, opaque preservation and one minimal source patch. |
 
@@ -111,9 +114,82 @@ Exit metrics:
 
 Evidence: `nuif-collab-registers-0` maps register-like NUIF semantic operations to causal multi-value registers. One implementation computes pairwise maximal changes from an operation set; the other incrementally maintains causal frontiers in per-replica logs. `cargo xtask gate-h` exhausts all 5,040 deliveries of a seven-change/three-replica history, compares both materializers and multiple merge orders, repeats duplicate delivery, requires two explicit property conflicts and proves canonical NUIF text contains no replica/context/conflict metadata. Five unit regressions cover incomplete and non-transitive context, atomic merge failure and structural rejection. This closes only the bounded property-register checkpoint: insert/remove/move, tombstones, sibling-list ordering and a foreign collaboration engine remain open.
 
+### Gate I — portable package and resources (planned)
+
+Exit only when:
+
+- two independently implemented writers produce identical `nuif-package-0`
+  bytes from one normative document/resource fixture;
+- document, asset, resource and package identity changes obey RFC 0010 fixtures;
+- package read/write reaches a byte fixpoint and no implicit resource fetch occurs;
+- duplicate, traversal, symlink, directory, encryption, split, compression,
+  missing/extra member, size and digest failures are atomic and typed;
+- archive/member/descriptor/image/font boundary and one-over cases pass measured
+  time/allocation limits;
+- PNG interpretation and font policy/shaping inputs reproduce through
+  independent implementations for their declared subsets.
+
+Until Gate I passes, `.nuif` package layout, image assets and packaged general
+fonts remain proposed. Existing raw canonical fixtures are not retroactive proof.
+
+### Gate J — source-backed browser capture (planned)
+
+Exit only when:
+
+- a pinned browser/protocol/OS/context produces repeat-equivalent normalized DOM,
+  layout, style, resource, font-use, accessibility and screenshot observations;
+- downloaded source-resource bodies retain exact size/digest identity;
+- multiple input viewports predict a held-out responsive context better than a
+  one-screenshot/freeform baseline for the declared subset;
+- cross-origin, local-font, canvas, video, worklet and behavior gaps are explicit;
+- cookies, authorization, credentials, storage and secret canaries never enter
+  exported evidence;
+- captured scripts/resources remain inert in every package reader.
+
+This gate creates a new runtime adapter; it does not enlarge the existing
+Tree-sitter source-synchronization profile by implication.
+
+### Gate K — screenshot reconstruction and calibrated abstention (planned)
+
+Exit only when:
+
+- deterministic OCR/CV, one-shot, observation-assisted, hierarchical-crop,
+  multi-context and corrective-loop baselines run through one frozen harness;
+- every outcome is a validated document/transaction or explicit no-result;
+- source-backed and screenshot-only cases remain separate evidence classes;
+- reports include text, elements, tree, properties, geometry, resources,
+  held-out contexts, provenance/fidelity, accessibility, visual diagnostics,
+  confidence, latency, RAM/VRAM, iterations and cost;
+- editable reconstruction rejects a flat screenshot cover as success;
+- confidence is calibrated per decision type on disjoint data and review/abstain
+  thresholds reproduce their declared risk/coverage;
+- an independent evaluator reproduces the principal held-out result and one
+  real editing task benefits from the reconstructed semantics.
+
+No editor prerelease or visually selected demo can substitute for this gate.
+
+### Gate L — conditional adaptation and distillation (blocked on Gate K)
+
+This gate is skipped unless Gate K reveals repeatable learnable errors and a
+rights-cleared validated trace corpus exists. If opened, exit only when:
+
+- the dataset has digest-pinned lineage, consent/rights/privacy/retention policy,
+  leak-resistant splits and a datasheet;
+- every base model, processor, task adapter and run has a digest-pinned manifest
+  and model card;
+- prompt/tool, retrieval, supervised, LoRA, QLoRA where architecture-compatible
+  and sequence-distillation candidates are compared on identical frozen data,
+  budgets and evaluator versions;
+- the selected candidate improves predeclared quality or efficiency without an
+  unacceptable validity, calibration, privacy, license or maintenance regression;
+- rollback to the untuned baseline remains possible.
+
+LoRA/QLoRA/distillation are methods tested inside the gate, not predetermined
+architecture or evidence that the gate should exist.
+
 ## Thesis stop conditions
 
-Stop or narrow the architecture if the v0 source patch routinely becomes whole-file regeneration, an ignorant implementation cannot preserve opaque bytes during neighboring edits, operation convergence requires collaboration metadata in canonical documents, tolerance tiers hide systematic semantic divergence, or a second implementation cannot reproduce the profile without reading reference code.
+Stop or narrow the architecture if the v0 source patch routinely becomes whole-file regeneration, an ignorant implementation cannot preserve opaque bytes during neighboring edits, operation convergence requires collaboration metadata in canonical documents, tolerance tiers hide systematic semantic divergence, or a second implementation cannot reproduce the profile without reading reference code. Narrow the proposed resource/reconstruction path if independent package writers cannot agree, browser capture cannot exclude secrets reproducibly, correction loops improve pixels by deleting semantics, confidence cannot achieve useful risk/coverage, or tuned systems fail to beat the untuned tool-assisted baseline fairly.
 
 ## Executable baseline after this audit
 
@@ -130,3 +206,9 @@ Gate F remains complete for `nuif-html-css-0`, a deliberately bounded two-entity
 Gate G is complete for the bounded v0 profile. The Python implementation independently validates and canonicalizes the full fixture, preserves the opaque `vendor.probe` payload across an unrelated edit, implements the profile-0 layout algorithm and rasterizes the fixture's solid rectangles and pinned Ahem text. All 24 context/entity boxes and all three decoded RGBA buffers match exactly, with the fidelity list also byte-for-value equivalent. Its unsupported visual scope remains explicit, and an external implementation/reviewer is still required before a standards-readiness claim.
 
 Gate H is complete for collaboration property registers. The operation-set and replica-log materializers converge to hash `nuif-cbor-0:sha256:29f24d0cb9613b7a6adaf1f57760031d12271c0eb06084e3807115ef869941ab` across all 5,040 deliveries and tested merge orders. Concurrent card-name and variant values remain two explicit conflicts with deterministic provisional selections, a causal size overwrite selects only its maximal value, and the opaque entity stays exact. The checkpoint document contains no collaboration metadata. Structural tree collaboration and foreign-engine reproduction remain required before any general collaboration-profile claim.
+
+RFCs 0010 and 0011 plus specification 14 are research-aligned proposals only.
+No package writer, asset/resource model, PNG profile, general font package,
+browser capture or screenshot reconstruction runtime is present in this
+executable baseline. The editor version `0.1.0-alpha.3` identifies the developer
+application and must not be cited as maturity evidence for those proposals.

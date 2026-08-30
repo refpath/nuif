@@ -17,8 +17,18 @@ Define authored track sizing, auto-flow and item placement before wiring Taffy G
 ## Phase 3 — visual/text (complete for profile 0)
 Pinned Ahem/HarfRust shaping matches HarfBuzz glyph goldens; unhinted Skrifa 0.46.2 outlines match normalized `hb-vector` goldens; hard-line layout, rectangles, ellipses, encoded-sRGB color and integer composition have normative scene/raw-RGBA baselines across macOS/aarch64, Linux/aarch64 and Linux/x86_64. PNG hashes remain deterministic artifact diagnostics but are not pixel-conformance boundaries. Path, image, instance and extension paint remain explicit unsupported/preserved fidelity rather than hidden fallbacks. Full UAX #14 soft wrapping and expanded vector paints belong to a future profile.
 
-## Phase 4 — serialization/protocol (complete for profile 0)
-Canonical text + deterministic CBOR; package/assets; patch/diff/query CLI. Exit: byte-stable cycles and hostile-input limits.
+## Phase 4a — bare serialization/protocol (complete for profile 0)
+Canonical text + deterministic CBOR plus patch/diff/query CLI. Exit: byte-stable
+cycles and measured hostile-input limits. This phase does not include the
+portable `.nuif` package, images or general font resources.
+
+## Phase 4b — portable package and resources (proposed)
+Implement RFC 0010 through a package layer above `nuif-codec`, stable assets in
+the core and independent PNG/OpenType profiles. Exit: two independent writers
+produce identical package bytes; semantic/resource/package hashes obey distinct
+fixtures; all embedded resources are size/digest verified; archive, image and
+font boundary/one-over cases pass calibrated limits. Existing raw `.nuif`
+inputs migrate read-only; new bare forms use `.nuif.json`/`.nuif.cbor`.
 
 ## Phase 5 — editor (complete for the headless profile-0 instrument)
 The entire v0 fixture is authored from an empty document through identity-addressed semantic actions. Direct generation, editor output and operation replay are byte-identical, and the editor writes canonical document, context, layout, scene, CPU raster and fidelity report artifacts. The Rust-native Masonry shell from ADR 0006 and the later Svelte/WASM demonstration are non-normative interface work and cannot redefine this headless result.
@@ -54,10 +64,40 @@ The standard-library-only Python implementation reads, writes, lays out and rast
 Package the schema/conformance kit and obtain reproduction by an externally authored implementation. External provenance, interoperability review, neutral governance and a published conformance profile remain prerequisites for credible standards status; the in-repository mechanical reproduction and source adapter do not establish them.
 
 ## Phase 9a — canonical research publication (complete)
-`cargo xtask docs-check` compiles the repository Markdown into one machine-readable catalog. `cargo xtask docs-build` renders that catalog without a second editable documentation source. `cargo xtask docs-paper` composes the twelve canonical whitepaper modules into a working technical manuscript and a verified PDF. Pull requests build retained artifacts, while default-branch workflow runs deploy the static site through GitHub Pages. `CITATION.cff` describes the tagged alpha.3 software release; no DOI or peer-review claim is present.
+`cargo xtask docs-check` compiles the repository Markdown into one machine-readable catalog. `cargo xtask docs-build` renders that catalog without a second editable documentation source. `cargo xtask docs-paper` composes the thirteen canonical whitepaper modules into a working technical manuscript and a verified PDF. Pull requests build retained artifacts, while default-branch workflow runs deploy the static site through GitHub Pages. `CITATION.cff` describes the tagged alpha.3 software release; no DOI or peer-review claim is present.
 
 ## Phase 9b — implementer draft and incubation (blocked on external evidence)
 Meet the implementer-draft gate in `docs/STANDARDS-ROADMAP.md`, including a general-purpose externally maintained implementation, requirement-to-test traceability, legal review of specification and patent terms and organizational supporters. Venue selection follows the resulting scope: W3C for Web and design-tool incubation, Khronos for graphics/content-tool conformance, or OASIS for a governed document protocol. Application alpha versions do not advance this phase.
 
+## Phase 10 — source-backed browser capture (proposed)
+
+Create a dedicated browser-capture adapter instead of expanding the retentive
+Tree-sitter adapter into a runtime. Pin browser/protocol/OS/context and collect
+bounded source, DOM/layout/style, downloaded-resource, font-use, accessibility
+and screenshot observations. Exit: repeated normalized observations/resource
+hashes reproduce; multi-viewport evidence predicts a held-out context; canvas,
+video, cross-origin and local-font gaps remain explicit; secret canaries never
+enter exported evidence.
+
+## Phase 11 — screenshot reconstruction baseline (research)
+
+Implement the vendor/model-neutral observation and typed-operation boundary from
+RFC 0011/specification 14. Compare deterministic OCR/CV, one-shot proposal,
+observation-assisted proposal, hierarchical crops, multi-viewport ranking and a
+bounded render/difference correction loop. Exit: one harness reports validity,
+text, element, tree, geometry, resources, held-out layout, provenance, visual,
+confidence, latency and memory/cost; flat screenshot copies fail the editable
+profile; an independent evaluator reproduces the main result.
+
+## Phase 12 — calibration and conditional adaptation (blocked on Phase 11)
+
+Calibrate decision-level confidence and establish review/abstain risk thresholds
+on disjoint data. Only if a stable learnable error distribution remains, create
+rights-cleared validated operation traces and compare prompt/tool changes,
+retrieval, supervised tuning, LoRA, QLoRA where compatible and sequence-level
+distillation. Exit: a candidate beats the untuned closed-loop baseline under the
+same frozen holdout/budget without validity, calibration, privacy, licensing or
+maintenance regression. Training is skipped if that gate is not met.
+
 ## Early falsifiers
-Stop/rethink if: semantic model requires pervasive vendor-specific exceptions; opaque extensions cannot survive common operations; source synchronization routinely requires whole-file regeneration; or independent implementation cannot reproduce normative layout/visual behavior from the spec.
+Stop/rethink if: semantic model requires pervasive vendor-specific exceptions; opaque extensions cannot survive common operations; source synchronization routinely requires whole-file regeneration; independent implementation cannot reproduce normative layout/visual behavior from the spec; deterministic packages do not reproduce across writers; reconstruction optimizes pixels by discarding semantics; or tuning cannot beat the untuned tool-assisted baseline fairly.

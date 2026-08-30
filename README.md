@@ -37,7 +37,8 @@ NUIF treats portability as a synchronization problem. One canonical document kee
 | A draft specification for a vendor-neutral authored-interface document model: identity, containment, relationship graphs, layout intent, resolved geometry, paint, text, components, tokens, behavior, provenance, extensions | A Figma clone or a Figma file format; vendor formats are adapters |
 | A Rust reference engine (model, protocol, layout, render scene, codecs, query, headless API and CLI) that falsifies the specification | A renderer specification; GPU command streams are implementation detail behind a scene boundary |
 | A reference test editor that replicates a conventional design-editor layout and authors NUIF state directly | A product editor; its feature set is fixed to what conformance testing, import and export require |
-| An executable conformance kit: fixtures, operation replay, layout matrices, reference rasterization, fidelity diagnostics | A code generator that infers program semantics from pixels |
+| An executable conformance kit: fixtures, operation replay, layout matrices, reference rasterization, fidelity diagnostics | A claim that pixels uniquely recover an original program, resource or behavior |
+| A proposed model-neutral observation/reconstruction contract using typed operations, validation and explicit inference provenance | A required AI model, provider, training framework or promise of screenshot-lossless import |
 | A machine-readable research corpus with claims, questions and experiments | A standard; that status requires conformance profiles, neutral governance and independent implementations |
 
 ## Architecture
@@ -101,7 +102,7 @@ Principles that the diagram encodes:
 |------|---------|
 | `docs/whitepaper/` | Research synthesis, architecture thesis, risk register, cross-industry patterns |
 | `research/` | Evidence records, claims, open questions, experiment registry, coverage contract, schema |
-| `spec/` | Draft normative modules (model, identity, components, layout, paint and text, operations, extensions, serialization, provenance, collaboration, security, automation, semantics) |
+| `spec/` | Draft normative modules (model, identity, components, layout, paint/resources/text, operations, extensions, serialization/package, provenance, collaboration, security, automation, semantics, observation/reconstruction) |
 | `rfcs/` · `adrs/` | Proposals for the specification · decisions for the reference implementation |
 | `crates/` | Rust workspace: model, protocol, layout, pinned text shaping, render, codecs, query, API, CLI and shared seeded testing |
 | `apps/editor/` | Reference test editor: architecture, source installation, headless contract, UI specification |
@@ -122,9 +123,18 @@ Testing is designed for automated trial loops: generate or load a document, appl
 | Reference editor | Research preview; current release `0.1.0-alpha.3` | Semantic Versioning applies to the editor application only |
 | Draft specification | Pre-draft | No normative conformance profile is published |
 | Executable adapter and conformance profiles | Experimental | Results apply only to each declared profile and evaluation matrix |
+| Package/resources and capture/reconstruction | Proposed research | RFCs 0010/0011 and specification 14 have planned Gates I–L; no implementation or accuracy claim |
 | Project | Open research project; not a standard | Standards status requires neutral governance and independent implementations |
 
-Gates B through H are complete under the bounded, quantified criteria in `research/AUDIT.md`. The workspace executes structural validation, anchored atomic operations, replay/inversion, canonical text and deterministic CBOR, measured hostile-input limits, responsive profile-0 layout, exact CPU rasterization, pinned NUIF/Taffy/Chrome layout trials, seeded reports and headless and native-shell editor drivers. Gate C explicitly reports the still-missing Grid track/placement schema. Gate D pins shaping, outlines, hard-line layout, encoded-sRGB paint and integer composition; scene and raw-RGBA hashes reproduce on macOS/aarch64, Linux/aarch64 and Linux/x86_64, while PNG encoding is non-normative and paths, images, instances and extension paint remain property-attributed fidelity records. Five retentive adapter profiles are integrated across HTML/CSS, SVG 2, DTCG 2025.10 and Penpot v3 packages, with import, export, synchronization, hostile-input checks and CLI conformance. A machine-audited inventory separates these executable profiles from seven researched or externally bounded targets. Complete fixture authoring, AccessKit-driven deterministic GUI trials, standard-library-only Python v0 reproduction, a metadata-free collaboration register checkpoint, hostile editor interaction trials, a scaling benchmark suite and native host packaging are automated. The native shell exposes the complete model-backed profile-zero editing surface while leaving future-profile sections of the draft UI specification explicit; structural tree collaboration, a foreign collaboration engine, a general-purpose second implementation, signed release distribution and external interoperability review remain incomplete. Specifications are drafts; no conformance profile is published.
+Gates B through H are complete under the bounded, quantified criteria in `research/AUDIT.md`. The workspace executes structural validation, anchored atomic operations, replay/inversion, canonical text and deterministic CBOR, measured hostile-input limits, responsive profile-0 layout, exact CPU rasterization, pinned NUIF/Taffy/Chrome layout trials, seeded reports and headless and native-shell editor drivers. Gate C explicitly reports the still-missing Grid track/placement schema. Gate D pins shaping, outlines, hard-line layout, encoded-sRGB paint and integer composition; scene and raw-RGBA hashes reproduce on macOS/aarch64, Linux/aarch64 and Linux/x86_64, while PNG encoding is non-normative and paths, images, instances and extension paint remain property-attributed fidelity records. Five retentive adapter profiles are integrated across HTML/CSS, SVG 2, DTCG 2025.10 and Penpot v3 packages, with import, export, synchronization, hostile-input checks and CLI conformance. A machine-audited inventory separates these executable profiles from seven researched or externally bounded targets. Complete fixture authoring, AccessKit-driven deterministic GUI trials, standard-library-only Python v0 reproduction, a metadata-free collaboration register checkpoint, hostile editor interaction trials, a scaling benchmark suite and native host packaging are automated. The native shell exposes the complete model-backed profile-zero editing surface while leaving future-profile sections of the draft UI specification explicit; structural tree collaboration, a foreign collaboration engine, a general-purpose second implementation, signed release distribution and external interoperability review remain incomplete.
+
+Gates I through L are planned, not complete. RFC 0010 proposes the portable
+package/resource boundary; RFC 0011 and specification 14 propose source-backed
+capture and screenshot reconstruction evidence contracts. The repository does
+not yet implement the `.nuif` package profile, general image/font resources,
+browser capture, reconstruction models, LoRA/QLoRA artifacts or distillation.
+The editor's `0.1.0-alpha.3` version is not maturity evidence for those fronts.
+Specifications are drafts; no conformance profile is published.
 
 Run the automated baseline:
 
