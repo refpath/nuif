@@ -25,7 +25,7 @@ relations:
     note: Benchmark and allocation tools are compared as part of the verification subsystem.
   - type: related_to
     target: nuif:research:macos-metal-block-future-incompatibility
-    note: The audit includes the reviewed fork chain that removed metal-rs, rust-block, rustybuzz and ttf-parser.
+    note: The audit includes the reviewed editor-toolkit fork chain that removed metal-rs, rust-block, rustybuzz and its transitive ttf-parser copy.
 links:
   spec: [spec/08-serialization.md, spec/09-provenance-and-fidelity.md, spec/11-security.md]
   adr: [adrs/0002-layout-engine.md, adrs/0003-reference-renderer.md, adrs/0006-rust-native-editor.md]
@@ -36,7 +36,7 @@ links:
 
 # Summary
 
-Cargo metadata reports 24 distinct direct external crates across the workspace.
+Cargo metadata reports 28 distinct direct external crates across the workspace.
 Each is now registered with a role, a current decision, at least one considered
 alternative and repository evidence. The executable audit fails when a direct
 crate is added without ownership or when a stale registration remains. Cargo
@@ -63,17 +63,18 @@ duplicating a hex adapter across the report-producing crates.
   reference defines the JSON output as stable when consumers ignore unknown
   fields. Locator: Cargo `cargo metadata` documentation, retrieved 2026-08-30:
   https://doc.rust-lang.org/cargo/commands/cargo-metadata.html.
-- `cargo search` on 2026-08-30 reports current stable lines for all 21 direct
-  crates.io names. NUIF is already on the current stable line for Ciborium,
+- `cargo search` on 2026-08-30 reports current stable lines for the registered
+  crates.io dependencies. NUIF is already on the current stable line for Ciborium,
   Criterion, Harfrust, PNG, RFD, roxmltree, serde, serde-bytes, serde-json,
   Skrifa, stats_alloc, Taffy, thiserror, tracing, the HTML and CSS grammars, and
-  Zeno. The four trial candidates are listed in the summary. The three Masonry
+  Zeno. The version-trial candidates are listed in the summary. The three Masonry
   packages are full-SHA Git dependencies and are therefore evaluated as one
   forked toolkit boundary rather than by crates.io maximum version.
 - `cargo deny check` passes after the reviewed Xilem and UI Events fork pins.
-  `rustybuzz`, `ttf-parser`, metal-rs and rust-block are absent from the active
-  editor graph. The complete check is a CI and release gate rather than a
-  documented exception.
+  `rustybuzz`, metal-rs and rust-block remain absent from the active editor
+  graph. `ttf-parser` was later reintroduced only as the bounded `nuif-font`
+  package parser, not through the editor toolkit fork. The complete check is a
+  CI and release gate rather than a documented exception.
 - The version trial ran all workspace unit and documentation tests, the release
   hostile-input allocation profile, text and render goldens, all five executable
   adapter profiles, and workspace Clippy with warnings denied on rustc 1.98.0.
@@ -138,10 +139,18 @@ Layout, text and rendering
   engines as independent differential oracles. Substituting Taffy into the
   reference would erase one of the two implementations being compared; Yoga
   has the same self-oracle problem and adds a foreign-function boundary.
-- Harfrust and Skrifa are retained over abandoned Rustybuzz and ttf-parser. The
-  Fontations project describes `read-fonts` as a no-allocation, no-copy parser
-  suitable for shaping and subjects the stack to OSS-Fuzz. Locator:
-  https://github.com/googlefonts/fontations, retrieved 2026-08-30.
+- Harfrust and Skrifa remain the shaping/outline stack. The separate narrow
+  package-font profile uses `ttf-parser` behind NUIF-owned sfnt/checksum checks
+  and compares its results with Skrifa, avoiding a single-library oracle.
+  Fontations describes `read-fonts` as a no-allocation, no-copy parser suitable
+  for shaping and subjects the stack to OSS-Fuzz. `ttf-parser` likewise forbids
+  unsafe code and allocations in its parser API. Locators:
+  https://github.com/googlefonts/fontations and
+  https://github.com/harfbuzz/ttf-parser, retrieved 2026-08-30.
+- The `png` crate owns the production RGBA8 decoding path; test-only `zune-png`
+  supplies independent exact-pixel evidence with unsafe paths disabled and
+  integrity checks enabled. Replacing production decoding with the oracle would
+  erase that differential boundary.
 - Zeno stays the small deterministic glyph-mask rasterizer. Tiny-skia or resvg
   would add broader path and SVG behavior that is outside the current reference
   commands, while Vello remains the interactive renderer and its CPU path is a

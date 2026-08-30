@@ -19,11 +19,11 @@
     },
     {
       "name": "font-test-data",
-      "role": "pinned Ahem conformance font bytes",
+      "role": "pinned accepted and rejected OpenType conformance fixtures",
       "decision": "retain",
       "alternatives": ["repository-vendored font fixture", "system font discovery"],
-      "rationale": "A version-pinned upstream fixture is reproducible and avoids host font substitution; system discovery is intentionally excluded from normative output.",
-      "evidence": ["research/items/text-rendering-reproducibility.md"]
+      "rationale": "A version-pinned permissively licensed corpus supplies exact Ahem shaping bytes plus static, collection, CFF, variable, color and bitmap resource fixtures without host font discovery.",
+      "evidence": ["research/items/text-rendering-reproducibility.md", "research/items/fontations.md"]
     },
     {
       "name": "harfrust",
@@ -194,12 +194,28 @@
       "evidence": ["research/items/tree-sitter.md", "research/items/dependency-and-subsystem-audit.md"]
     },
     {
+      "name": "ttf-parser",
+      "role": "bounded static OpenType package metadata parser",
+      "decision": "retain",
+      "alternatives": ["Skrifa/read-fonts", "FreeType"],
+      "rationale": "Its safe immutable zero-allocation API is a small production boundary for the narrow static sfnt profile; NUIF owns directory, checksum, budget and policy validation while Skrifa remains the independent oracle.",
+      "evidence": ["research/items/ttf-parser.md", "research/items/opentype-font-embedding-and-portability.md"]
+    },
+    {
       "name": "zip",
       "role": "bounded Penpot package container reading and deterministic writing",
       "decision": "retain",
       "alternatives": ["async_zip", "format-specific ZIP implementation"],
       "rationale": "The synchronous adapter needs member limits, duplicate-name checks, compression-method retention and deterministic metadata without an async runtime; NUIF owns those package policies around the maintained zip-rs implementation.",
       "evidence": ["research/items/penpot.md", "research/items/dependency-and-subsystem-audit.md"]
+    },
+    {
+      "name": "zune-png",
+      "role": "independent PNG RGBA8 differential decoder",
+      "decision": "retain",
+      "alternatives": ["image", "libspng"],
+      "rationale": "The test-only decoder has separately implemented PNG logic, safe options and explicit CRC/Adler controls; keeping it out of the production decoder preserves a meaningful cross-library oracle.",
+      "evidence": ["research/items/png-image-preservation-and-decoding.md", "research/items/differential-testing.md"]
     },
     {
       "name": "zeno",
