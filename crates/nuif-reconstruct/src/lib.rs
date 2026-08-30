@@ -540,6 +540,7 @@ pub struct ProposalPolicy {
     pub max_transactions: usize,
     pub max_operations: usize,
     pub allow_remove: bool,
+    pub allow_flattened_screenshot: bool,
     pub protected_entities: BTreeSet<EntityId>,
 }
 
@@ -549,6 +550,7 @@ impl Default for ProposalPolicy {
             max_transactions: MAX_PROPOSAL_TRANSACTIONS,
             max_operations: MAX_PROPOSAL_OPERATIONS,
             allow_remove: false,
+            allow_flattened_screenshot: false,
             protected_entities: BTreeSet::new(),
         }
     }
@@ -615,21 +617,41 @@ fn validate_proposal(
         return Err(ReconstructionError::BudgetExceeded("operations"));
     }
     let observed_resources = observations.observed_resource_digests();
+    let screenshot_resources = observations
+        .observations
+        .iter()
+        .filter(|observation| observation.evidence == EvidenceClass::ObservedPixels)
+        .filter_map(|observation| match &observation.value {
+            ObservationValue::Resource {
+                digest: Some(digest),
+                ..
+            } => Some(digest.clone()),
+            _ => None,
+        })
+        .collect::<BTreeSet<_>>();
     for operation in proposal
         .patch
         .transactions
         .iter()
         .flat_map(|transaction| &transaction.operations)
     {
-        validate_proposed_operation(operation, policy, &observed_resources)?;
+        validate_proposed_operation(
+            operation,
+            document,
+            policy,
+            &observed_resources,
+            &screenshot_resources,
+        )?;
     }
     Ok(())
 }
 
 fn validate_proposed_operation(
     operation: &Operation,
+    document: &Document,
     policy: &ProposalPolicy,
     observed_resources: &BTreeSet<ResourceDigest>,
+    screenshot_resources: &BTreeSet<ResourceDigest>,
 ) -> Result<(), ReconstructionError> {
     match operation {
         Operation::Insert { entity, .. } => {
@@ -657,6 +679,16 @@ fn validate_proposed_operation(
             {
                 return Err(ReconstructionError::UnobservedResource);
             }
+            if !policy.allow_flattened_screenshot
+                && asset
+                    .resource
+                    .as_ref()
+                    .is_some_and(|digest| screenshot_resources.contains(digest))
+            {
+                return Err(ReconstructionError::ForbiddenOperation(
+                    "flattened_screenshot_asset",
+                ));
+            }
         }
         Operation::BindAssetResource {
             digest: Some(digest),
@@ -664,6 +696,11 @@ fn validate_proposed_operation(
         } => {
             if !observed_resources.contains(digest) {
                 return Err(ReconstructionError::UnobservedResource);
+            }
+            if !policy.allow_flattened_screenshot && screenshot_resources.contains(digest) {
+                return Err(ReconstructionError::ForbiddenOperation(
+                    "flattened_screenshot_binding",
+                ));
             }
         }
         Operation::SetExtensionDeclarations { .. }
@@ -688,6 +725,20 @@ fn validate_proposed_operation(
         | Operation::SetValue { .. }
         | Operation::RemoveValue { .. }
         | Operation::BindAssetResource { digest: None, .. } => {}
+    }
+    if let Operation::SetImage {
+        value: Some(image), ..
+    } = operation
+        && !policy.allow_flattened_screenshot
+        && document
+            .assets
+            .get(&image.asset)
+            .and_then(|asset| asset.resource.as_ref())
+            .is_some_and(|digest| screenshot_resources.contains(digest))
+    {
+        return Err(ReconstructionError::ForbiddenOperation(
+            "flattened_screenshot_image",
+        ));
     }
     Ok(())
 }
@@ -1038,7 +1089,7 @@ pub fn selective_decision(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use nuif_core::{Entity, EntityKind};
+    use nuif_core::{Asset, AssetId, AssetKind, AssetPortability, Entity, EntityKind, ImageAsset};
     use nuif_protocol::{Anchor, Transaction};
 
     fn observations() -> ObservationBundle {
@@ -1121,6 +1172,84 @@ mod tests {
         )
         .unwrap();
         assert_eq!(document.roots, [EntityId::new(2)]);
+    }
+
+    #[test]
+    fn editable_policy_rejects_flattened_screenshot_resources() {
+        let digest = ResourceDigest::from_sha256_hex("a".repeat(64));
+        let mut evidence = observations();
+        evidence.observations.push(Observation {
+            id: ObservationId("screenshot-resource".to_owned()),
+            evidence: EvidenceClass::ObservedPixels,
+            subject: Some(Subject::Resource {
+                digest: digest.clone(),
+            }),
+            coordinate_space: None,
+            transform: None,
+            value: ObservationValue::Resource {
+                digest: Some(digest.clone()),
+                media_type: Some("image/png".to_owned()),
+                size: Some(4),
+            },
+            confidence: Some(Confidence::raw(1.0)),
+            source: "screenshot-bytes".to_owned(),
+        });
+        let asset = Asset {
+            schema_version: 1,
+            id: AssetId::new(1),
+            name: Some("flat screenshot".to_owned()),
+            resource: Some(digest),
+            portability: AssetPortability::PrivateAuthoring,
+            kind: AssetKind::Image(ImageAsset {
+                width: 1,
+                height: 1,
+                decoder_profile: "nuif-png-rgba8-0".to_owned(),
+            }),
+        };
+        let mut document = Document::empty(EntityId::new(1));
+        let proposal = Proposal {
+            schema_version: 1,
+            provenance: InferenceProvenance {
+                method: "flat-copy".to_owned(),
+                artifact: None,
+                observations: BTreeSet::from([ObservationId("screenshot-resource".to_owned())]),
+                confidence: Confidence::raw(1.0),
+            },
+            patch: Patch {
+                base_revision: Some(canonical_hash(&document).unwrap()),
+                transactions: vec![Transaction {
+                    id: 1,
+                    operations: vec![Operation::SetAsset {
+                        asset: asset.clone(),
+                    }],
+                }],
+            },
+        };
+
+        assert!(matches!(
+            apply_proposal(
+                &mut document,
+                &evidence,
+                &proposal,
+                &ProposalPolicy::default()
+            ),
+            Err(ReconstructionError::ForbiddenOperation(
+                "flattened_screenshot_asset"
+            ))
+        ));
+        assert!(document.assets.is_empty());
+
+        apply_proposal(
+            &mut document,
+            &evidence,
+            &proposal,
+            &ProposalPolicy {
+                allow_flattened_screenshot: true,
+                ..ProposalPolicy::default()
+            },
+        )
+        .unwrap();
+        assert_eq!(document.assets[&asset.id], asset);
     }
 
     #[test]
