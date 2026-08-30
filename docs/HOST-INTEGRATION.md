@@ -107,7 +107,7 @@ the snapshot tests does not justify a live integration claim.
 
 ## Release operation
 
-The native editor release remains `v0.1.0-alpha.1`. A future Figma plug-in and
+The native editor release is versioned independently. A future Figma plug-in and
 each Adobe `.ccx` use their own semantic versions and changelogs. CI should
 build deterministic review bundles, checksums, an SBOM where applicable and
 fixture reports. Publication to a vendor marketplace is never inferred from a
