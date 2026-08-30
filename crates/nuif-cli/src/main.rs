@@ -1131,7 +1131,7 @@ fn print_capabilities() -> Result<(), CliError> {
         "commands": COMMANDS,
         "adapters": ["html-css-0", "html-css-v0", "svg-0", "dtcg-scalar-0", "penpot-v3-0", "react-jsx-0", "svelte-static-0"],
         "containers": ["nuif-package-0", "nuif-cbor-0", "nuif-text-0"],
-        "image_profiles": ["nuif-png-rgba8-0"],
+        "image_profiles": ["nuif-png-rgba8-0", "nuif-png-basic-rgba8-1"],
         "capture_profiles": ["nuif-browser-capture-0", "nuif-screenshot-baseline-0"],
         "engine": engine.capabilities(),
         "resource_limits": {

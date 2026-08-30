@@ -139,11 +139,13 @@ separate document/resource/package identities, explicit resolver authority and
 15 hostile/archive/one-over cases run through `cargo xtask gate-i-package`.
 The CLI and editor write real packages and preserve embedded resources. The
 `nuif-png-rgba8-0` segment additionally agrees across `png` and `zune-png` on
-12 filter/colour-marker fixtures, retains exact encoded bytes, repeats
-resource-aware CPU rasterization and rejects 13 unsupported/hostile cases via
-`cargo xtask gate-i-image`. Gate I does not yet pass: the general PNG colour
-and type profile, arbitrary transforms, cross-platform image reproduction,
-and a cross-platform/external writer remain required. The separate
+12 filter/colour-marker fixtures. The separate
+`nuif-png-basic-rgba8-1` profile adds thirteen fixtures spanning every admitted
+greyscale/indexed/RGB/greyscale-alpha/RGBA type and transparency form. Together
+they retain exact encoded bytes, repeat resource-aware CPU rasterization and
+reject 20 unsupported/hostile cases via `cargo xtask gate-i-image`. Gate I does
+not yet pass: 16-bit/interlaced/colour-managed PNG, arbitrary transforms,
+cross-platform image reproduction, and a cross-platform/external writer remain required. The separate
 `nuif-opentype-static-single-0` segment compares exact Ahem metrics, family,
 tables and Unicode coverage between Skrifa and a pinned HarfBuzz metadata
 capture, accepts four static TrueType fixtures, preserves the font through

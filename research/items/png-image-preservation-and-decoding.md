@@ -78,15 +78,18 @@ discarding color metadata, or calling a screenshot crop the original asset.
 Screenshot crops are derived resources with screenshot digest and crop region
 in their provenance.
 
-## Open questions
+## Resolved policy decisions
 
-- Which PNG animation subset, if any, belongs in the first image profile?
-- Should conflicting color chunks be rejected even where PNG defines a
-  precedence, to avoid surprising cross-decoder behavior?
-- Which decoder implementation/version becomes the independent reference and
-  how will malformed-image differential testing be bounded?
+- Animation remains outside static decoder profiles; accepting APNG requires a
+  separate time/frame/composition contract.
+- Profiles zero and one reject conflicting or undeclared colour metadata even
+  where PNG defines precedence. This makes encoded-sRGB interpretation explicit
+  and prevents decoder-specific colour conversion.
+- Rust `png` 0.18.1 is the implementation decoder and independently implemented
+  `zune-png` 0.5.2 is the differential oracle. Both run with explicit
+  allocation bounds and integrity checks.
 
-## Executable narrow baseline
+## Executable profiles
 
 `nuif-png-rgba8-0` answers the ambiguity question by accepting only
 non-interlaced RGBA8 with no colour metadata or one valid pre-image `sRGB`
@@ -97,7 +100,18 @@ pixels, decoded bytes and chunk count. `cargo xtask gate-i-image` compares
 row filter, then exercises exact package retention, resource-aware lowering,
 repeatable CPU rendering and hostile one-over cases.
 
-This is evidence for the named narrow baseline only. The broader experiment
-remains planned for palette/grayscale/RGB/16-bit inputs, the complete PNG Third
-Edition colour precedence model, orientation, a real-world corpus, arbitrary
-image transforms, GPU comparison and cross-platform image-raster reproduction.
+`nuif-png-basic-rgba8-1` is a separate compatible expansion. It admits all
+non-interlaced PNG colour/depth combinations that normalize to RGBA8 without
+sample-precision loss: 1/2/4/8-bit greyscale and indexed colour, RGB8,
+greyscale-alpha8 and RGBA8. Required palettes and valid `tRNS` transparency are
+expanded exactly. Thirteen fixtures span every admitted colour/depth
+combination and both colour-key and indexed transparency; both decoders
+produce identical normalized RGBA bytes. The original bytes remain the asset
+identity, and a profile-one RGB resource passes the same scene/raster path.
+
+The wider profile deliberately rejects 16-bit samples rather than truncating
+precision, and still rejects interlace, the complete PNG Third Edition colour
+precedence model, orientation, animation and arbitrary ancillary metadata.
+A real-world corpus, affine image transforms, GPU comparison and hosted
+cross-platform image-raster reproduction remain open evidence—not implied by
+decoder agreement on the generated fixtures.

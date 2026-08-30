@@ -37,9 +37,11 @@ package/resource/count one-over cases are blocking through
 `cargo xtask gate-i-package`. Existing raw `.nuif` inputs migrate read-only and
 new bare forms use `.nuif.json`/`.nuif.cbor`. The executable
 `nuif-png-rgba8-0` baseline independently decodes a deliberately narrow PNG
-subset, retains encoded bytes and repeats package-aware CPU image rendering
-through `cargo xtask gate-i-image`. Gate I remains open for broad PNG
-colour/type handling, arbitrary image transforms and calibrated
+subset. The separately named `nuif-png-basic-rgba8-1` expansion now covers
+non-interlaced lossless-to-RGBA8 greyscale, indexed, RGB, greyscale-alpha and
+RGBA forms plus valid transparency; both retain encoded bytes and repeat
+package-aware CPU image rendering through `cargo xtask gate-i-image`. Gate I
+remains open for 16-bit/interlaced/colour-managed PNG, arbitrary image transforms and calibrated
 total-resource/media allocation evidence. A Linux/Windows/macOS resource-gate
 matrix is configured; successful hosted artifacts are still required before a
 cross-platform reproduction claim. The

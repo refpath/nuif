@@ -38,8 +38,10 @@ relations and explicit resolution are exercised, and 15 hostile/one-over cases
 produce `target/package-resources-report.json`. RFC 0010 remains proposed and
 Gate I remains open. `cargo xtask gate-i-image` now provides a narrow
 `nuif-png-rgba8-0` cross-decoder, exact-resource and repeatable CPU-render
-baseline; it deliberately excludes broader PNG colour/types, arbitrary
-transforms and cross-platform image reproduction. `cargo xtask gate-i-font`
+baseline. The separate `nuif-png-basic-rgba8-1` profile covers the
+non-interlaced colour/depth forms that normalize to RGBA8 without sample loss;
+16-bit/interlaced/colour-managed PNG, arbitrary transforms and cross-platform
+image reproduction remain excluded. `cargo xtask gate-i-font`
 adds a deliberately narrow static TrueType external-oracle/package/policy baseline;
 TTC, CFF, variable/color/bitmap/WOFF2 acceptance and complete item-level
 portability fidelity remain separate beyond the automated package-state outcomes.

@@ -5,7 +5,9 @@ use nuif_core::{
     ImageCrop, ImageFit, ImagePaint, ImageSampling, ResourceDigest, ShapeKind,
 };
 use nuif_layout::{EvaluationContext, LayoutSnapshot, Rect, WritingDirection};
-use nuif_media::{MediaError, PNG_RGBA8_PROFILE, Rgba8Image, decode_png_rgba8};
+use nuif_media::{
+    MediaError, PNG_BASIC_RGBA8_PROFILE, PNG_RGBA8_PROFILE, Rgba8Image, decode_png_profile,
+};
 use nuif_text::{
     CLUSTER_UNIT, GlyphOutline, MAX_SHAPING_CODEPOINTS, OUTLINE_COORDINATE_DENOMINATOR,
     OUTLINE_EXTRACTOR_NAME, OUTLINE_EXTRACTOR_VERSION, OutlineCommand, OutlinePoint,
@@ -341,7 +343,7 @@ fn lower_image<'a>(
     let AssetKind::Image(metadata) = &asset.kind else {
         return Err(RenderError::InvalidImage { entity: id });
     };
-    if metadata.decoder_profile != PNG_RGBA8_PROFILE {
+    if !image_decoder_profile_is_supported(&metadata.decoder_profile) {
         image_fidelity(scene, id, "image decoder profile is not supported");
         return Ok(());
     }
@@ -353,8 +355,8 @@ fn lower_image<'a>(
         image_fidelity(scene, id, "image resource was not explicitly resolved");
         return Ok(());
     };
-    let image =
-        decode_png_rgba8(bytes).map_err(|source| RenderError::Image { entity: id, source })?;
+    let image = decode_png_profile(&metadata.decoder_profile, bytes)
+        .map_err(|source| RenderError::Image { entity: id, source })?;
     if image.width != metadata.width || image.height != metadata.height {
         return Err(RenderError::InvalidImage { entity: id });
     }
@@ -385,6 +387,10 @@ fn image_transform_is_identity(paint: &ImagePaint) -> bool {
         && paint.transform.d.to_bits() == 1.0_f64.to_bits()
         && paint.transform.tx.to_bits() == 0.0_f64.to_bits()
         && paint.transform.ty.to_bits() == 0.0_f64.to_bits()
+}
+
+fn image_decoder_profile_is_supported(profile: &str) -> bool {
+    matches!(profile, PNG_RGBA8_PROFILE | PNG_BASIC_RGBA8_PROFILE)
 }
 
 fn image_fidelity(scene: &mut RenderScene, id: EntityId, reason: &str) {
@@ -514,7 +520,7 @@ pub fn render_cpu(scene: &RenderScene, target: RenderTarget) -> Result<RasterIma
             } => (
                 *entity,
                 command_rect_is_valid(*rect, target.scale_factor)
-                    && decoder_profile == PNG_RGBA8_PROFILE
+                    && image_decoder_profile_is_supported(decoder_profile)
                     && image_command_is_valid(image, *crop, *opacity),
             ),
         };

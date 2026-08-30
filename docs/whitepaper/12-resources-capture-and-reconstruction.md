@@ -144,7 +144,13 @@ declared fit/crop/sampling/opacity and bounded integer CPU composition. `png`
 fixtures; encoded resources remain digest-identical through package edits.
 
 This avoids pretending that decoder agreement on simple images settles PNG
-Third Edition. A broader profile still has to pin:
+Third Edition. The compatible `nuif-png-basic-rgba8-1` profile now admits the
+lossless-to-RGBA8 subset: 1/2/4/8-bit greyscale and indexed images, RGB8,
+greyscale-alpha8, RGBA8 and valid palette/colour-key transparency. It preserves
+encoded bytes and requires exact normalized RGBA agreement between both
+decoders. It is separately named so profile zero never changes meaning.
+
+Any broader profile still has to pin:
 
 - accepted chunks and metadata conflicts;
 - color-space precedence and output space;
@@ -154,8 +160,8 @@ Third Edition. A broader profile still has to pin:
 - encoded, pixel, decoded-byte, chunk and metadata limits;
 - independent decoder and malformed-input fixtures.
 
-Palette, grayscale, RGB-only, 16-bit, CICP/ICC/gamma/chromaticity, Exif,
-animation and arbitrary transforms are not claimed by the narrow baseline. A
+16-bit/interlaced PNG, CICP/ICC/gamma/chromaticity, Exif, animation and
+arbitrary transforms are not claimed by either executable profile. A
 Linux/Windows/macOS CI matrix runs the profile, but the cross-platform claim
 remains withheld until its hosted artifacts pass. JPEG, WebP, AVIF, video and
 SVG follow as separate profiles.
