@@ -194,6 +194,14 @@
       "evidence": ["research/items/tree-sitter.md", "research/items/dependency-and-subsystem-audit.md"]
     },
     {
+      "name": "zip",
+      "role": "bounded Penpot package container reading and deterministic writing",
+      "decision": "retain",
+      "alternatives": ["async_zip", "format-specific ZIP implementation"],
+      "rationale": "The synchronous adapter needs member limits, duplicate-name checks, compression-method retention and deterministic metadata without an async runtime; NUIF owns those package policies around the maintained zip-rs implementation.",
+      "evidence": ["research/items/penpot.md", "research/items/dependency-and-subsystem-audit.md"]
+    },
+    {
       "name": "zeno",
       "role": "deterministic CPU glyph mask rasterization",
       "decision": "retain",
