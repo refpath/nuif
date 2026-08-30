@@ -131,6 +131,13 @@ Source adapters
   transforms, but their normalized AST boundary does not improve a profile that
   explicitly refuses evaluation and patches exact source ranges. Locator:
   https://github.com/tree-sitter/tree-sitter-javascript, retrieved 2026-08-30.
+- Svelte uses the same split boundary: `tree-sitter-svelte-next` 0.1.1 supplies
+  concrete byte spans for the bounded static adapter, while exact official
+  `svelte/compiler` is a test-only foreign parser/compiler oracle. The
+  unofficial Rust `svelte-compiler` is rejected because its broader compiler
+  graph and documented manual recovery debt do not improve retentive scalar
+  patching. Locator: `nuif:research:svelte-source-adapter-surface`, retrieved
+  2026-08-30.
 - wasm-bindgen 0.2.127 is the current browser/Node ABI generator and already
   resolves transitively in the native editor graph. Making it direct only in
   `nuif-wasm` adds no second resolved version. WIT is the stronger long-term
