@@ -1,9 +1,12 @@
 use nuif_codec::{
-    CanonicalText, Decoder, Encoder, MAX_INPUT_BYTES, canonical_hash,
-    read_bounded as read_bounded_stream,
+    CanonicalText, Decoder, Encoder, canonical_hash, read_bounded as read_bounded_stream,
 };
 use nuif_core::{Document, EntityId};
-use nuif_editor::{EditorDriver, EditorEvent, EditorInput, SnapshotRaster};
+use nuif_editor::{
+    EditorDriver, EditorEvent, EditorFile, EditorInput, SnapshotRaster, decode_editor_file,
+    encode_editor_file,
+};
+use nuif_package::MAX_PACKAGE_BYTES;
 use nuif_protocol::apply_patch;
 use serde::Serialize;
 use sha2::{Digest, Sha256};
@@ -93,15 +96,16 @@ fn parse_options() -> Result<HeadlessOptions, String> {
     })
 }
 
-fn load_initial_document(options: &HeadlessOptions) -> Result<Document, String> {
+fn load_initial_document(options: &HeadlessOptions) -> Result<EditorFile, String> {
     match (&options.document, options.new_document) {
         (Some(path), None) => decode_document(path, "document"),
-        (None, Some(id)) => Ok(Document::empty(id)),
+        (None, Some(id)) => Ok(EditorFile {
+            document: Document::empty(id),
+            package: None,
+        }),
         (None, None) => {
-            let input = read_bounded(&mut io::stdin(), MAX_INPUT_BYTES, "document")?;
-            CanonicalText
-                .decode(&input)
-                .map_err(|error| error.to_string())
+            let input = read_bounded(&mut io::stdin(), MAX_PACKAGE_BYTES, "document")?;
+            decode_editor_file(&input)
         }
         (Some(_), Some(_)) => unreachable!("mutual exclusion checked above"),
     }
@@ -109,7 +113,9 @@ fn load_initial_document(options: &HeadlessOptions) -> Result<Document, String> 
 
 fn run() -> Result<(), String> {
     let options = parse_options()?;
-    let document = load_initial_document(&options)?;
+    let opened = load_initial_document(&options)?;
+    let document = opened.document;
+    let mut package = opened.package;
     let replay_base = document.clone();
     let mut script_file = fs::File::open(&options.script).map_err(|error| error.to_string())?;
     let commands = String::from_utf8(read_bounded(
@@ -135,9 +141,9 @@ fn run() -> Result<(), String> {
         .encode(driver.document())
         .map_err(|error| error.to_string())?;
     let (expected_hash, expected_exact_match) = if let Some(path) = &options.expected_document {
-        let expected_bytes = read_file_bounded(path, "expected document")?;
-        let expected = CanonicalText
-            .decode(&expected_bytes)
+        let expected = decode_document(path, "expected document")?.document;
+        let expected_bytes = CanonicalText
+            .encode(&expected)
             .map_err(|error| format!("expected document: {error}"))?;
         let expected_hash = canonical_hash(&expected).map_err(|error| error.to_string())?;
         let exact_match = expected_bytes == canonical_document;
@@ -153,12 +159,17 @@ fn run() -> Result<(), String> {
         (None, None)
     };
     if let Some(path) = &options.output {
-        fs::write(path, &canonical_document).map_err(|error| error.to_string())?;
+        let bytes = if path.extension().and_then(|value| value.to_str()) == Some("nuif") {
+            encode_editor_file(driver.document(), &mut package)?
+        } else {
+            canonical_document.clone()
+        };
+        fs::write(path, bytes).map_err(|error| error.to_string())?;
     }
-    let snapshot_artifacts = options
-        .snapshot_directory
-        .as_deref()
-        .map_or_else(|| Ok(Vec::new()), |path| write_snapshots(path, &events))?;
+    let snapshot_artifacts = options.snapshot_directory.as_deref().map_or_else(
+        || Ok(Vec::new()),
+        |path| write_snapshots(path, &events, package.as_ref()),
+    )?;
     let summaries = events
         .iter()
         .map(|event| match event {
@@ -198,15 +209,13 @@ fn required_argument(
         .ok_or_else(|| format!("{option} requires a value"))
 }
 
-fn decode_document(path: &Path, label: &str) -> Result<Document, String> {
-    CanonicalText
-        .decode(&read_file_bounded(path, label)?)
-        .map_err(|error| error.to_string())
+fn decode_document(path: &Path, label: &str) -> Result<EditorFile, String> {
+    decode_editor_file(&read_file_bounded(path, label)?)
 }
 
 fn read_file_bounded(path: &Path, label: &str) -> Result<Vec<u8>, String> {
     let mut file = fs::File::open(path).map_err(|error| error.to_string())?;
-    read_bounded(&mut file, MAX_INPUT_BYTES, label)
+    read_bounded(&mut file, MAX_PACKAGE_BYTES, label)
 }
 
 fn first_difference(left: &[u8], right: &[u8]) -> Option<usize> {
@@ -229,6 +238,7 @@ fn raster_summary(raster: &SnapshotRaster) -> serde_json::Value {
 fn write_snapshots(
     directory: &Path,
     events: &[EditorEvent],
+    package: Option<&nuif_package::NuifPackage>,
 ) -> Result<Vec<serde_json::Value>, String> {
     let snapshots = events
         .iter()
@@ -245,8 +255,12 @@ fn write_snapshots(
             directory.join(format!("snapshot-{:04}", index + 1))
         };
         fs::create_dir_all(&output).map_err(|error| error.to_string())?;
-        fs::write(output.join("input.nuif"), &snapshot.canonical_document)
+        let document = CanonicalText
+            .decode(snapshot.canonical_document.as_bytes())
             .map_err(|error| error.to_string())?;
+        let mut snapshot_package = package.cloned();
+        let package_bytes = encode_editor_file(&document, &mut snapshot_package)?;
+        fs::write(output.join("input.nuif"), package_bytes).map_err(|error| error.to_string())?;
         write_json(&output.join("context.json"), &snapshot.context)?;
         write_json(&output.join("expected.layout.json"), &snapshot.layout)?;
         write_json(&output.join("expected.scene.json"), &snapshot.scene)?;

@@ -3,12 +3,13 @@
 pub mod gui;
 
 use nuif_api::{EngineError, Session, profile_zero_context};
-use nuif_codec::{CanonicalText, Encoder};
+use nuif_codec::{CanonicalText, Decoder, DeterministicCbor, Encoder};
 use nuif_core::{
     Color, Document, Entity, EntityId, EntityKind, ExtensionDeclarations, LayoutStyle, Point,
     SizeIntent, TextContent, Token,
 };
 use nuif_layout::{EvaluationContext, LayoutSnapshot};
+use nuif_package::{NuifPackage, PackageMode};
 use nuif_protocol::{Anchor, Axis, Operation, Patch};
 use nuif_render::RenderScene;
 use serde::{Deserialize, Serialize};
@@ -17,6 +18,58 @@ use thiserror::Error;
 
 pub const MAX_SNAPSHOT_EDGE: u32 = 4_096;
 pub const MAX_SNAPSHOT_PIXELS: u64 = 16_777_216;
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct EditorFile {
+    pub document: Document,
+    pub package: Option<NuifPackage>,
+}
+
+/// Decodes a deterministic package or a historical alpha bare document.
+///
+/// # Errors
+///
+/// Returns a package or canonical-codec error string.
+pub fn decode_editor_file(bytes: &[u8]) -> Result<EditorFile, String> {
+    if bytes.starts_with(b"PK\x03\x04") {
+        let package = NuifPackage::decode(bytes).map_err(|error| error.to_string())?;
+        return Ok(EditorFile {
+            document: package.document.clone(),
+            package: Some(package),
+        });
+    }
+    if let Ok(document) = CanonicalText.decode(bytes) {
+        return Ok(EditorFile {
+            document,
+            package: None,
+        });
+    }
+    Ok(EditorFile {
+        document: DeterministicCbor
+            .decode(bytes)
+            .map_err(|error| error.to_string())?,
+        package: None,
+    })
+}
+
+/// Encodes editor state as a deterministic `.nuif` package while preserving
+/// resources and authoring-mode policy from an opened package.
+///
+/// # Errors
+///
+/// Returns a package validation or encoding error string.
+pub fn encode_editor_file(
+    document: &Document,
+    package: &mut Option<NuifPackage>,
+) -> Result<Vec<u8>, String> {
+    let mut value = package
+        .clone()
+        .unwrap_or_else(|| NuifPackage::new(document.clone(), PackageMode::Portable));
+    value.document.clone_from(document);
+    let bytes = value.encode().map_err(|error| error.to_string())?;
+    *package = Some(value);
+    Ok(bytes)
+}
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -736,6 +789,7 @@ fn size_label(intent: &SizeIntent) -> String {
 mod tests {
     use super::*;
     use nuif_codec::{Decoder, canonical_hash};
+    use nuif_core::ResourceRole;
     use nuif_protocol::apply_patch;
     use nuif_testing::responsive_card_fixture;
 
@@ -991,5 +1045,43 @@ mod tests {
             apply_patch(&mut replayed, patch).unwrap();
         }
         assert_eq!(&replayed, driver.document());
+    }
+
+    #[test]
+    fn editor_file_round_trip_preserves_package_resources() {
+        let document = responsive_card_fixture();
+        let mut original = NuifPackage::new(document.clone(), PackageMode::Portable);
+        let digest = original
+            .add_embedded(
+                b"inert source evidence".to_vec(),
+                "text/plain",
+                ResourceRole::Source,
+                None,
+            )
+            .unwrap();
+        let bytes = original.encode().unwrap();
+        let mut opened = decode_editor_file(&bytes).unwrap();
+
+        let root = opened.document.roots[0];
+        opened.document.entities.get_mut(&root).unwrap().name =
+            Some("Edited without dropping resources".to_owned());
+        let saved = encode_editor_file(&opened.document, &mut opened.package).unwrap();
+        let decoded = NuifPackage::decode(&saved).unwrap();
+
+        assert_eq!(decoded.document, opened.document);
+        assert_eq!(
+            decoded.embedded(&digest),
+            Some(b"inert source evidence".as_slice())
+        );
+        assert_eq!(decoded.mode, PackageMode::Portable);
+    }
+
+    #[test]
+    fn editor_file_accepts_historical_bare_documents() {
+        let document = responsive_card_fixture();
+        let bytes = CanonicalText.encode(&document).unwrap();
+        let opened = decode_editor_file(&bytes).unwrap();
+        assert_eq!(opened.document, document);
+        assert!(opened.package.is_none());
     }
 }

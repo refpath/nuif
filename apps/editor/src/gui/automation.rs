@@ -2,18 +2,16 @@
 
 use super::widgets::AuthorAction;
 use super::{Driver, ExternalFormat, UiAction};
-use crate::EditorEvent;
+use crate::{EditorEvent, EditorFile, decode_editor_file, encode_editor_file};
 use masonry::accesskit::{Action, ActionData, ActionRequest, TreeId};
 use masonry::core::{Widget, WidgetId};
 use masonry::theme::default_property_set;
 use masonry::widgets::{ButtonPress, SizedBox};
 use masonry_testing::{TestHarness, TestHarnessParams};
 use masonry_winit::app::WindowId;
-use nuif_codec::{
-    CanonicalText, Decoder, Encoder, MAX_INPUT_BYTES, canonical_hash,
-    read_bounded as read_bounded_stream,
-};
-use nuif_core::{Document, EntityId};
+use nuif_codec::{canonical_hash, read_bounded as read_bounded_stream};
+use nuif_core::EntityId;
+use nuif_package::MAX_PACKAGE_BYTES;
 use nuif_protocol::apply_patch;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
@@ -144,10 +142,15 @@ pub fn run() -> Result<(), String> {
     let options = parse_options()?;
     let scenario = load_scenario(&options.scenario)?;
     validate_scenario(&scenario)?;
-    let document = load_document(&options.document)?;
-    let replay_base = document.clone();
+    let opened = load_document(&options.document)?;
+    let replay_base = opened.document.clone();
     let window_id = WindowId::next();
-    let mut driver = Driver::new(window_id, document, Some(options.document.clone()));
+    let mut driver = Driver::new(
+        window_id,
+        opened.document,
+        Some(options.document.clone()),
+        opened.package,
+    );
 
     for action in &scenario.actions {
         execute_action(&mut driver, scenario.window, action)?;
@@ -203,10 +206,8 @@ pub fn run() -> Result<(), String> {
     file_menu_screenshot
         .save(&file_menu_screenshot_path)
         .map_err(|error| error.to_string())?;
-    let canonical_document = CanonicalText
-        .encode(driver.editor.document())
-        .map_err(|error| error.to_string())?;
-    fs::write(&document_path, canonical_document).map_err(|error| error.to_string())?;
+    let package = encode_editor_file(driver.editor.document(), &mut driver.package)?;
+    fs::write(&document_path, package).map_err(|error| error.to_string())?;
     write_json(&semantics_path, &semantics)?;
 
     let report = Report {
@@ -273,13 +274,11 @@ fn required_argument(
         .ok_or_else(|| format!("{name} requires a value; {USAGE}"))
 }
 
-fn load_document(path: &Path) -> Result<Document, String> {
+fn load_document(path: &Path) -> Result<EditorFile, String> {
     let mut file = fs::File::open(path).map_err(|error| error.to_string())?;
     let bytes =
-        read_bounded_stream(&mut file, MAX_INPUT_BYTES).map_err(|error| error.to_string())?;
-    CanonicalText
-        .decode(&bytes)
-        .map_err(|error| error.to_string())
+        read_bounded_stream(&mut file, MAX_PACKAGE_BYTES).map_err(|error| error.to_string())?;
+    decode_editor_file(&bytes)
 }
 
 fn load_scenario(path: &Path) -> Result<Scenario, String> {

@@ -6,7 +6,10 @@ mod widgets;
 pub mod automation;
 
 use self::widgets::{AuthorAction, AuthorContainer, CanvasAction, CanvasShortcut, DocumentCanvas};
-use crate::{AccessibilityAction, EditorCommand, EditorDriver, EditorEvent};
+use crate::{
+    AccessibilityAction, EditorCommand, EditorDriver, EditorEvent, decode_editor_file,
+    encode_editor_file,
+};
 use masonry::core::{ErasedAction, NewWidget, StyleProperty, Widget, WidgetId};
 use masonry::dpi::LogicalSize;
 use masonry::layout::{AsUnit, Length, UnitPoint};
@@ -22,13 +25,12 @@ use masonry::widgets::{
 use masonry_winit::app::{AppDriver, DriverCtx, NewWindow, WindowId};
 use masonry_winit::winit::window::Window;
 use nuif_adapter::{AdapterReport, PackageReport};
-use nuif_codec::{
-    CanonicalText, Decoder, Encoder, MAX_INPUT_BYTES, read_bounded as read_bounded_stream,
-};
+use nuif_codec::read_bounded as read_bounded_stream;
 use nuif_core::{
     Align, Color, Document, Entity, EntityId, EntityKind, Fidelity, FlowDirection, LayoutFamily,
     Point, ShapeKind, SizeIntent, TextContent, validate,
 };
+use nuif_package::{MAX_PACKAGE_BYTES, NuifPackage};
 use nuif_protocol::{Anchor, Axis as ProtocolAxis, Operation};
 use std::collections::{BTreeMap, HashMap};
 use std::env;
@@ -234,6 +236,7 @@ struct Driver {
     window_id: WindowId,
     root_widget_id: Option<WidgetId>,
     editor: EditorDriver,
+    package: Option<NuifPackage>,
     document_path: Option<PathBuf>,
     dirty: bool,
     status: String,
@@ -256,11 +259,17 @@ struct Driver {
 }
 
 impl Driver {
-    fn new(window_id: WindowId, document: Document, document_path: Option<PathBuf>) -> Self {
+    fn new(
+        window_id: WindowId,
+        document: Document,
+        document_path: Option<PathBuf>,
+        package: Option<NuifPackage>,
+    ) -> Self {
         Self {
             window_id,
             root_widget_id: None,
             editor: EditorDriver::new(document),
+            package,
             document_path,
             dirty: false,
             status: "Ready · profile 0 · px · 768 × 640".to_owned(),
@@ -1137,6 +1146,7 @@ impl Driver {
         match action {
             UiAction::New => {
                 self.editor = EditorDriver::new(new_native_document(EntityId::new(1)));
+                self.package = None;
                 self.document_path = None;
                 self.dirty = false;
                 self.drafts.clear();
@@ -1828,11 +1838,10 @@ impl Driver {
     fn open_path(&mut self, path: &Path) -> Result<(), String> {
         let mut file = fs::File::open(path).map_err(|error| error.to_string())?;
         let bytes =
-            read_bounded_stream(&mut file, MAX_INPUT_BYTES).map_err(|error| error.to_string())?;
-        let document = CanonicalText
-            .decode(&bytes)
-            .map_err(|error| error.to_string())?;
-        self.editor = EditorDriver::new(document);
+            read_bounded_stream(&mut file, MAX_PACKAGE_BYTES).map_err(|error| error.to_string())?;
+        let opened = decode_editor_file(&bytes)?;
+        self.editor = EditorDriver::new(opened.document);
+        self.package = opened.package;
         self.document_path = Some(path.to_path_buf());
         self.dirty = false;
         self.drafts.clear();
@@ -1873,6 +1882,7 @@ impl Driver {
         }
 
         self.editor = EditorDriver::new(imported.document);
+        self.package = None;
         self.document_path = None;
         self.dirty = true;
         self.drafts.clear();
@@ -1893,9 +1903,7 @@ impl Driver {
         } else {
             self.document_path.clone().unwrap()
         };
-        let bytes = CanonicalText
-            .encode(self.editor.document())
-            .map_err(|error| error.to_string())?;
+        let bytes = encode_editor_file(self.editor.document(), &mut self.package)?;
         fs::write(&path, bytes).map_err(|error| error.to_string())?;
         self.document_path = Some(path.clone());
         self.dirty = false;
@@ -2083,6 +2091,7 @@ fn adapter_report_path(path: &Path) -> Result<PathBuf, String> {
 
 struct NativeOptions {
     document: Document,
+    package: Option<NuifPackage>,
     path: Option<PathBuf>,
 }
 
@@ -2127,17 +2136,17 @@ fn parse_native_options() -> Result<Option<NativeOptions>, String> {
     if let Some(path) = path {
         let mut file = fs::File::open(&path).map_err(|error| error.to_string())?;
         let bytes =
-            read_bounded_stream(&mut file, MAX_INPUT_BYTES).map_err(|error| error.to_string())?;
-        let document = CanonicalText
-            .decode(&bytes)
-            .map_err(|error| error.to_string())?;
+            read_bounded_stream(&mut file, MAX_PACKAGE_BYTES).map_err(|error| error.to_string())?;
+        let opened = decode_editor_file(&bytes)?;
         Ok(Some(NativeOptions {
-            document,
+            document: opened.document,
+            package: opened.package,
             path: Some(path),
         }))
     } else {
         Ok(Some(NativeOptions {
             document: new_native_document(new_document.unwrap_or(EntityId::new(1))),
+            package: None,
             path: None,
         }))
     }
@@ -2154,7 +2163,7 @@ pub fn run() -> Result<(), String> {
         return Ok(());
     };
     let window_id = WindowId::next();
-    let mut driver = Driver::new(window_id, options.document, options.path);
+    let mut driver = Driver::new(window_id, options.document, options.path, options.package);
     let initial_view = driver.build_view();
     let root = SizedBox::new(initial_view).prepare();
     driver.root_widget_id = Some(root.id());
@@ -2436,7 +2445,7 @@ mod tests {
 
     fn harness() -> (TestHarness<SizedBox>, Driver) {
         let window_id = WindowId::next();
-        let mut driver = Driver::new(window_id, new_native_document(EntityId::new(1)), None);
+        let mut driver = Driver::new(window_id, new_native_document(EntityId::new(1)), None, None);
         let harness = harness_from_driver(&mut driver);
         (harness, driver)
     }
