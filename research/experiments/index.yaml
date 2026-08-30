@@ -340,6 +340,22 @@ experiments:
       - reject duplicate traversal symlink directory encrypted split unsupported-compression undeclared and digest-mismatched members
       - measure compressed expanded per-member descriptor-count and total-resource budgets before accepting the profile
       - archive target/package-resources-report.json from cargo xtask gate-i-package
+  - id: nuif:experiment:image-resource-rgba8-baseline
+    status: automated
+    evidence: [nuif:research:png-image-preservation-and-decoding, nuif:research:oci-resource-descriptors, nuif:research:text-rendering-reproducibility]
+    implementation: [crates/nuif-media/src/lib.rs, crates/nuif-media/PROFILE.md, crates/nuif-render/src/lib.rs, crates/nuif-testing/src/bin/image-resources.rs, xtask/src/main.rs]
+    oracle: cross-decoder-and-metamorphic-render
+    acceptance:
+      - the declared RGBA8 non-interlaced PNG subset decodes to identical dimensions and bytes in two independently implemented libraries
+      - original encoded bytes remain digest-identical through package fixpoint and an unrelated semantic edit
+      - fit crop identity transform nearest and fixed bilinear sampling opacity straight alpha and encoded-sRGB composition are explicit and repeatable
+      - malformed unsupported and one-over image cases fail before unbounded allocation
+    tests:
+      - exercise all five PNG row filters and adaptive encoding with absent or valid sRGB intent
+      - compare png 0.18.1 against zune-png 0.5.2 with unsafe paths disabled and integrity checks enabled
+      - repeat resource-aware scene lowering and CPU rasterization while unresolved and transformed images fail closed
+      - reject grayscale RGB 16-bit conflicting metadata Exif animation corrupt trailing and bounded one-over inputs
+      - archive target/image-resources-report.json from cargo xtask gate-i-image
   - id: nuif:experiment:image-resource-profile
     status: planned
     evidence: [nuif:research:png-image-preservation-and-decoding, nuif:research:text-rendering-reproducibility]

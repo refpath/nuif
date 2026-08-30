@@ -118,6 +118,7 @@
         "bindings/wasm/README.md",
         "implementations/python/README.md",
         "tools/refpath/README.md",
+        "crates/nuif-media/PROFILE.md",
         "crates/nuif-collab/README.md"
       ]
     }

@@ -29,9 +29,13 @@ The manual writer and an independent ZIP writer produce identical bytes;
 semantic/resource/package hashes obey distinct fixtures; hostile archives and
 package/resource/count one-over cases are blocking through
 `cargo xtask gate-i-package`. Existing raw `.nuif` inputs migrate read-only and
-new bare forms use `.nuif.json`/`.nuif.cbor`. Gate I remains open for the
-independent PNG render profile, OpenType policy/parser profile, cross-platform
-writer matrix and calibrated total-resource/media allocation evidence.
+new bare forms use `.nuif.json`/`.nuif.cbor`. The executable
+`nuif-png-rgba8-0` baseline independently decodes a deliberately narrow PNG
+subset, retains encoded bytes and repeats package-aware CPU image rendering
+through `cargo xtask gate-i-image`. Gate I remains open for broad PNG
+colour/type handling, arbitrary image transforms, cross-platform image
+reproduction, the OpenType policy/parser profile, a cross-platform writer
+matrix and calibrated total-resource/media allocation evidence.
 
 ## Phase 5 — editor (complete for the headless profile-0 instrument)
 The entire v0 fixture is authored from an empty document through identity-addressed semantic actions. Direct generation, editor output and operation replay are byte-identical, and the editor writes canonical document, context, layout, scene, CPU raster and fidelity report artifacts. The Rust-native Masonry shell from ADR 0006 and the later Svelte/WASM demonstration are non-normative interface work and cannot redefine this headless result.

@@ -10,8 +10,10 @@ Status: proposed, with an executable experimental container subset. The
 reference implementation now provides stable assets, deterministic
 `nuif-package-0`, explicit verified resolution and the package segment of
 `nuif:experiment:portable-package-resources`. This RFC does not add image
-rendering or general packaged-font conformance to profile 0; the independent
-image and font profiles still have to satisfy their acceptance criteria.
+rendering or general packaged-font conformance to profile 0. The orthogonal
+`nuif-png-rgba8-0` experiment now implements a narrow cross-decoder and CPU
+image path; broader image and font profiles still have to satisfy their
+acceptance criteria.
 
 ## Motivation
 
@@ -217,9 +219,19 @@ A resource digest is SHA-256 of exact resource bytes. An asset binding is
 semantic and therefore participates in the semantic document hash. Package
 locations and deletable caches do not.
 
-## Image profile proposal
+## Executable narrow image segment and broader proposal
 
-The first executable image profile should be PNG-only. It must pin:
+`nuif-png-rgba8-0` now executes the smallest unambiguous subset: bounded,
+non-interlaced RGBA8; no ancillary metadata or one valid pre-image `sRGB`
+intent; encoded samples interpreted as sRGB; straight decoded alpha; identity
+image transform; declared fit/crop, nearest or fixed-bilinear sampling, opacity
+and encoded-sRGB integer source-over. It rejects every other colour type,
+bit-depth, colour signal, Exif/animation chunk and arbitrary metadata. Two
+independent decoder libraries must agree on exact RGBA bytes. Exact rules and
+non-claims are versioned in `crates/nuif-media/PROFILE.md`, and
+`cargo xtask gate-i-image` emits its machine evidence.
+
+The broader PNG experiment remains separate. It must pin:
 
 - accepted PNG conformance and ancillary chunks;
 - decoder library/version or independent semantic rules;
@@ -290,7 +302,9 @@ interprets them.
 - no implicit external resolution occurs;
 - boundary and one-over archive/resource cases pass measured limits.
 
-The PNG and font experiments must pass before those resource kinds are claimed.
+The narrow PNG experiment and package experiment must pass before claiming
+`nuif-png-rgba8-0`. The broader PNG and font experiments must pass before those
+resource classes are claimed generally.
 
 ## Rejected alternatives
 
@@ -313,8 +327,6 @@ The PNG and font experiments must pass before those resource kinds are claimed.
 
 ## Unresolved questions
 
-- Exact fixed ZIP creator/external-attribute values pending the independent
-  writer fixture.
 - Whether future packages add deterministic compression or rely on outer
   transport compression.
 - Whether correspondence/capture/report records are canonical-adjacent members

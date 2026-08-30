@@ -22,8 +22,8 @@ links:
   spec: [spec/05-geometry-paint-text.md, spec/08-serialization.md, spec/11-security.md]
   adr: [adrs/0003-reference-renderer.md]
   rfc: [rfcs/0010-portable-resource-package.md]
-  code: [crates/nuif-render]
-  experiments: [nuif:experiment:image-resource-profile]
+  code: [crates/nuif-media, crates/nuif-render]
+  experiments: [nuif:experiment:image-resource-rgba8-baseline, nuif:experiment:image-resource-profile]
 ---
 
 # Summary
@@ -85,3 +85,19 @@ in their provenance.
   precedence, to avoid surprising cross-decoder behavior?
 - Which decoder implementation/version becomes the independent reference and
   how will malformed-image differential testing be bounded?
+
+## Executable narrow baseline
+
+`nuif-png-rgba8-0` answers the ambiguity question by accepting only
+non-interlaced RGBA8 with no colour metadata or one valid pre-image `sRGB`
+chunk. It interprets both cases as encoded sRGB, rejects every other ancillary
+chunk and orientation/animation metadata, and caps encoded bytes, dimensions,
+pixels, decoded bytes and chunk count. `cargo xtask gate-i-image` compares
+`png` 0.18.1 with independently implemented `zune-png` 0.5.2 across every PNG
+row filter, then exercises exact package retention, resource-aware lowering,
+repeatable CPU rendering and hostile one-over cases.
+
+This is evidence for the named narrow baseline only. The broader experiment
+remains planned for palette/grayscale/RGB/16-bit inputs, the complete PNG Third
+Edition colour precedence model, orientation, a real-world corpus, arbitrary
+image transforms, GPU comparison and cross-platform image-raster reproduction.

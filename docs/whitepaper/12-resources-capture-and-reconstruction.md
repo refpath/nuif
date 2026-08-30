@@ -21,15 +21,17 @@ The recommended direction is:
 
 1. define stable assets separately from immutable byte resources;
 2. make `.nuif` a deterministic portable package after cross-writer proof;
-3. add PNG and OpenType resource profiles under measured hostile-input budgets;
+3. grow the executable narrow PNG baseline and add an OpenType resource profile
+   only under measured hostile-input budgets;
 4. add a pinned browser-capture adapter separate from static source sync;
 5. build screenshot reconstruction as a replaceable observation/proposal loop;
 6. freeze a structural and visual evaluation suite before training;
 7. consider adaptation or distillation only after the untuned loop exposes a
    repeatable learnable error distribution.
 
-RFC 0010 and RFC 0011 are proposed contracts. They are not implementation or
-conformance claims.
+RFC 0010 and RFC 0011 remain proposed contracts. Their bounded package, narrow
+PNG and capture/reconstruction experiments are implementation evidence only for
+the named subsets; they are not published conformance or standards claims.
 
 ## One core, two import lanes
 
@@ -131,19 +133,30 @@ resource digest and intrinsic interpretation; each image paint records fit,
 crop, transform, sampling, opacity and color conversion. Derived decoded pixels
 and GPU textures are caches.
 
-PNG is the correct first profile because its current W3C specification covers
-lossless encoded pixels, alpha and explicit color metadata. The NUIF profile
-still has to pin:
+PNG is the correct first format because its current W3C specification covers
+lossless encoded pixels, alpha and explicit colour metadata. The executable
+`nuif-png-rgba8-0` baseline chooses an intentionally smaller contract:
+non-interlaced RGBA8, no ancillary metadata or one valid `sRGB` chunk, encoded
+samples interpreted as sRGB, straight decoded alpha, identity transform,
+declared fit/crop/sampling/opacity and bounded integer CPU composition. `png`
+0.18.1 and `zune-png` 0.5.2 must emit identical RGBA bytes for the accepted
+fixtures; encoded resources remain digest-identical through package edits.
+
+This avoids pretending that decoder agreement on simple images settles PNG
+Third Edition. A broader profile still has to pin:
 
 - accepted chunks and metadata conflicts;
 - color-space precedence and output space;
 - Exif orientation;
-- straight-alpha decoding and premultiplication point;
+- conversion and premultiplication points for every accepted colour signal;
 - sampling and compositing;
 - encoded, pixel, decoded-byte, chunk and metadata limits;
 - independent decoder and malformed-input fixtures.
 
-JPEG, WebP, AVIF, animated images, video and SVG follow as separate profiles.
+Palette, grayscale, RGB-only, 16-bit, CICP/ICC/gamma/chromaticity, Exif,
+animation, arbitrary transforms and cross-platform image reproduction are not
+claimed by the narrow baseline. JPEG, WebP, AVIF, video and SVG follow as
+separate profiles.
 Freezing a frame or tracing a screenshot crop is a derived approximation, not
 recovery of the original asset. Generative upscaling/inpainting requires an
 explicit user policy and cannot silently become canonical source evidence.

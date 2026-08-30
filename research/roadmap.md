@@ -30,9 +30,12 @@ The package segment of `nuif:experiment:portable-package-resources` is active:
 the manual writer agrees byte-for-byte with an independent ZIP writer, identity
 relations and explicit resolution are exercised, and 15 hostile/one-over cases
 produce `target/package-resources-report.json`. RFC 0010 remains proposed and
-Gate I remains open because PNG interpretation, image rendering, OpenType
-policy/parser budgets, cross-platform writer reproduction and total-resource
-allocation evidence are independent requirements. Browser capture precedes
+Gate I remains open. `cargo xtask gate-i-image` now provides a narrow
+`nuif-png-rgba8-0` cross-decoder, exact-resource and repeatable CPU-render
+baseline; it deliberately excludes broader PNG colour/types, arbitrary
+transforms and cross-platform image reproduction. OpenType policy/parser
+budgets, cross-platform writer reproduction and total-resource allocation
+evidence are also independent requirements. Browser capture precedes
 screenshot reconstruction because it provides stronger source-backed fixtures
 and exposes which information is truly unavailable from pixels.
 
@@ -55,7 +58,7 @@ than a standing implementation commitment.
 4. Keep the tested Masonry shell attached only through the editor driver boundary; complete direct manipulation without moving semantic rules into shell code.
 5. Treat soft wrapping, gradients, strokes, paths, images and instance materialization as a separately versioned expanded profile; do not weaken profile-0 exactness to add them.
 6. Keep `cargo xtask gate-i-package` green across CLI/editor/package changes and add a recorded cross-platform/external writer before accepting the wire profile.
-7. Complete independent PNG render and OpenType parser/policy fixtures with calibrated allocation/time budgets; do not expand profile 0 by fallback.
+7. Extend the narrow independent PNG baseline only through new declared fixtures, add cross-platform image reproduction, and complete OpenType parser/policy fixtures with calibrated allocation/time budgets; do not expand profile 0 by fallback.
 8. Extend the fixed-input capture contract into a pinned live-browser adapter with header/body secret canaries, multi-viewport observations and explicit unavailable evidence.
 9. Freeze the reconstruction corpus and evaluator, then compare deterministic OCR/CV, one-shot, observation-assisted, hierarchical and corrective-loop baselines through the existing typed boundary.
 10. Train or distill only if the frozen evaluation demonstrates a learnable gap and rights-cleared validated traces exist.

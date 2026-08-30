@@ -1,6 +1,6 @@
 # Test-harness architecture
 
-Status: profile-0 baseline, deterministic `nuif-package-0`, Gate C browser/Taffy, Gate D text/render, Gate E complete editor authoring, bounded and full-v0 Gate F HTML/CSS synchronization, SVG/DTCG/Penpot adapter gates, Gate G independent v0 reproduction and Gate H collaboration-register convergence are implemented. Bounded browser/screenshot capture and reconstruction contracts have unit evidence; their cross-provider accuracy corpus is not yet a release gate. Fuzz packages, perceptual comparison, structural collaboration and broader foreign-runtime trials remain planned. This document specifies how round-trip trials run unattended, fail reproducibly, minimize themselves and report in machine-readable form. Evidence is cited by research record identifier.
+Status: profile-0 baseline, deterministic `nuif-package-0`, narrow cross-decoder `nuif-png-rgba8-0`, Gate C browser/Taffy, Gate D text/render, Gate E complete editor authoring, bounded and full-v0 Gate F HTML/CSS synchronization, SVG/DTCG/Penpot adapter gates, Gate G independent v0 reproduction and Gate H collaboration-register convergence are implemented. Bounded browser/screenshot capture and reconstruction contracts have unit evidence; their cross-provider accuracy corpus is not yet a release gate. Fuzz packages, perceptual comparison, structural collaboration and broader foreign-runtime trials remain planned. This document specifies how round-trip trials run unattended, fail reproducibly, minimize themselves and report in machine-readable form. Evidence is cited by research record identifier.
 
 ## Goals
 
@@ -22,6 +22,7 @@ crates/
   nuif-render              render scene, backends (CPU reference; Vello interactive)
   nuif-codec               nuif-text-0, nuif-cbor-0, canonicalizer, migrations
   nuif-package             deterministic bounded .nuif ZIP package and resource policy
+  nuif-media               bounded declared media decoders; narrow PNG RGBA8 profile
   nuif-reconstruct         typed observations/proposals and finite correction loop
   nuif-capture             browser-source and strict screenshot capture baselines
   nuif-query               semantic queries
@@ -90,6 +91,7 @@ Persisted expectation regeneration remains a planned extension and will use one 
 | provenance | assertions | correspondence records survive representable round trips; minimal-patch locality measured as changed source spans |
 | adapter | round trip and fidelity report | `canon(Y(X(d))) = canon(d)` on the representable subset; every deviation explained by a report entry |
 | package | independent ZIP writer plus fixpoint and corruption trials | fixed member order/metadata, exact package bytes, manifest/document/resource hashes, no traversal/symlink/encryption/compression/ZIP64 ambiguity, explicit linked-resource resolver |
+| image resource | independent decoder plus package/render metamorphic checks | exact RGBA agreement across all PNG row filters, encoded-byte preservation, repeatable fit/crop/sampling/opacity CPU raster, fail-closed metadata and one-over inputs |
 | capture/reconstruction contracts | metamorphic and policy assertions over fixed provider inputs | repeated normalized observations/packages, exact retained source resources, secret-query absence, evidence/omission truthfulness, observation codec fixpoint, typed proposal application, flat-copy rejection and finite-loop stop states; no live-capture or accuracy claim |
 | security | measured boundary and one-over cases | bare readers stop at 16 MiB plus one byte; packages stop at 80 MiB with 32 MiB per resource, 64 MiB total embedded resources and 8,192 resources; syntax depth 64 and the RFC 0009 semantic limits are enforced; release bare-codec cases fail above 2 s, 64 MiB allocated or 16 MiB retained; CPU targets remain capped at 16,777,216 pixels (`resource-bounded-serde-and-ciborium`) |
 
@@ -150,6 +152,15 @@ The text-pinning experiment writes `target/text-pinning-report.json`. It records
 The independent-reproduction experiment writes `target/gate-g-report.json` plus canonical text, layout and PNG artifacts under `target/gate-g-independent`. `cargo xtask gate-g` generates a real package and reference artifacts at three viewports, exports one generated `input.nuif.json` projection, runs the standard-library-only Python document-profile implementation's unit suite, then compares independently computed canonical document bytes, opaque preservation, boxes, decoded RGBA and fidelity. The Python implementation deliberately does not claim package parsing and does not import, link or invoke any Rust workspace package; only the outer differential harness invokes both implementations.
 
 The render-profile experiment writes `target/render-profile-report.json`. It fixes every supported paint input by value, repeats rectangle and ellipse scenes/raw-RGBA rasters/PNG artifacts, rejects out-of-range sRGB channels, and requires entity/property pointers for unsupported path, image and instance kinds plus preserved document/entity extensions. `cargo xtask gate-d-render` fails on any scene/pixel baseline, repeatability, validation or fidelity-attribution mismatch; `cargo xtask gate-d` runs both Gate D reports.
+
+The narrow image-resource experiment writes
+`target/image-resources-report.json`. `cargo xtask gate-i-image` compares exact
+RGBA output from `png` 0.18.1 and independently implemented `zune-png` 0.5.2
+across all row filters with absent/valid `sRGB`, preserves exact encoded bytes
+through package fixpoint and an unrelated edit, repeats resource-aware scene
+and CPU raster output, and rejects unsupported, corrupt and one-over cases. The
+report explicitly excludes broad PNG colour/metadata support, non-identity
+transforms, GPU/cross-platform image reproduction and non-PNG formats.
 
 The HTML/CSS retentive experiment writes `target/html-sync-report.json` and `target/html-sync-output.html`. It pins Tree-sitter and both grammars, exactly re-imports the declared subset, repeats synchronization, checks the complete unchanged-byte complement of six text/token/padding edits, preserves injected comments/unmapped markup and requires typed stale-span, unsupported-property and one-over-size failures. `cargo xtask gate-f` is blocking; the bounded profile and its non-claims are specified in `adapters/html-css/PROFILE.md`.
 

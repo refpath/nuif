@@ -43,11 +43,16 @@ fit, crop, affine transform, sampling, opacity and color-conversion policy.
 Decoded pixels and GPU textures are caches keyed by encoded digest plus decoder
 profile.
 
-The first proposed image profile is PNG-only. It MUST fix accepted PNG chunks,
-color metadata precedence/conflict behavior, Exif orientation, straight-alpha
-decode, premultiplication point, output color space, sampling, compositing and
-resource limits. JPEG, WebP, AVIF, animation, video and SVG are unsupported by
-that profile rather than silently decoded through host defaults.
+The first executable image profile, `nuif-png-rgba8-0`, is PNG-only and
+deliberately narrow. It accepts non-interlaced RGBA8 with no ancillary chunk or
+one valid pre-image `sRGB` chunk, interprets the encoded samples as sRGB and
+keeps alpha straight through decoding. It rejects palette, grayscale, RGB-only,
+16-bit, CICP, ICC, gamma/chromaticity, Exif, animation, arbitrary ancillary
+chunks and trailing bytes. Its exact chunk sequence, dimensions, pixel/byte
+budgets, fit/crop, identity-transform, nearest/fixed-bilinear sampling, opacity
+and encoded-sRGB integer composition contract is in
+`crates/nuif-media/PROFILE.md`. JPEG, WebP, AVIF, animation, video and SVG are
+unsupported by that profile rather than silently decoded through host defaults.
 
 An animation or video adapter MAY create a derived still resource when it
 records source digest, selected frame/time, decoder profile and item-level loss.
@@ -86,7 +91,8 @@ An ellipse is the closed four-cubic path inscribed in its bounds using control c
 
 Profile-0 text uses Ahem 1.50, HarfRust 0.13.3 with Unicode 17.0.0, unhinted Skrifa 0.46.2 outlines in signed 26.6 font units, and Zeno 0.3.3 grayscale masks. CRLF is one hard break; CR, LF, NEL, LINE SEPARATOR and PARAGRAPH SEPARATOR are individual hard breaks. Each hard line is shaped independently. Intrinsic width is the greatest shaped line advance; intrinsic height is the number of hard lines times `line_height`. The first baseline is 800 Ahem font units below the line top, subsequent baselines differ by `line_height`, LTR starts at the left edge, RTL starts at the right edge, and output is clipped to the text box. Profile 0 performs no automatic soft wrapping. Because wrapping is not an authored property in this profile, absence of soft wrapping is exact profile behavior rather than an approximation.
 
-Path geometry, image assets, component-instance materialization and extension-defined paint/effects are not supported by this profile. Lowering MUST emit `unsupported` or `preserved_unrenderable` fidelity with the originating entity and property pointer; it MUST NOT substitute bounds rectangles or silently omit the data. Future profiles may add these operations without changing profile-0 results.
+Path geometry, image assets, component-instance materialization and extension-defined paint/effects are not supported by CPU render profile 0. Lowering MUST emit `unsupported` or `preserved_unrenderable` fidelity with the originating entity and property pointer; it MUST NOT substitute bounds rectangles or silently omit the data. `nuif-png-rgba8-0` is an orthogonal experimental image segment and does not change profile-0 results. Future profiles may compose accepted segments explicitly.
 
-The asset/image/font requirements above are draft inputs for future profiles.
-They do not add images or general packaged fonts to CPU render profile 0.
+The asset and font requirements above remain draft inputs for broader profiles.
+The narrow executable image segment and future general packaged fonts do not
+implicitly enter CPU render profile 0.

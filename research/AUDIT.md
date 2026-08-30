@@ -133,11 +133,16 @@ Current evidence: stable `AssetId`/`ResourceDigest` semantics, deterministic
 stored ZIP packages, exact manual/independent-writer bytes, package fixpoint,
 separate document/resource/package identities, explicit resolver authority and
 15 hostile/archive/one-over cases run through `cargo xtask gate-i-package`.
-The CLI and editor write real packages and preserve embedded resources. Gate I
-does not yet pass: independent PNG interpretation/rendering, OpenType
-parser/policy fixtures, a cross-platform/external writer and calibrated
-total-resource/media allocation evidence remain required. Images and general
-packaged fonts therefore remain outside CPU render profile 0.
+The CLI and editor write real packages and preserve embedded resources. The
+`nuif-png-rgba8-0` segment additionally agrees across `png` and `zune-png` on
+12 filter/colour-marker fixtures, retains exact encoded bytes, repeats
+resource-aware CPU rasterization and rejects 13 unsupported/hostile cases via
+`cargo xtask gate-i-image`. Gate I does not yet pass: the general PNG colour
+and type profile, arbitrary transforms, cross-platform image reproduction,
+OpenType parser/policy fixtures, a cross-platform/external writer and
+calibrated total-resource/media allocation evidence remain required. The narrow
+image segment is separate from CPU render profile 0; general images and
+packaged fonts remain outside that profile.
 
 ### Gate J — source-backed browser capture (contract baseline active)
 
