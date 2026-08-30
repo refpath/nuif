@@ -124,3 +124,38 @@ questions:
     question: Which pinned browser context, settling policy, CDP observations and privacy exclusions are sufficient for a reproducible source-backed Web capture profile?
     status: experiment-required
     evidence: [nuif:research:chromium-source-backed-ui-capture, nuif:research:resource-packaging-and-source-capture-synthesis]
+  - id: nuif:question:screenshot-observability-boundary
+    topic: inference
+    question: Which NUIF properties can be observed from one screenshot, which require multiple contexts, and which are fundamentally unavailable without source or user evidence?
+    status: research
+    evidence: [nuif:research:design2code-real-world-benchmark, nuif:research:reverse-layout-inference, nuif:research:model-agnostic-screenshot-reconstruction-and-training]
+  - id: nuif:question:typed-reconstruction-interface
+    topic: inference
+    question: Does a constrained typed-operation decoder reduce invalid output and improve corrective iteration compared with complete-document JSON generation under the same model and budget?
+    status: experiment-required
+    evidence: [nuif:research:pix2struct-screenshot-parsing-pretraining, nuif:research:model-agnostic-screenshot-reconstruction-and-training]
+  - id: nuif:question:reconstruction-metric-ensemble
+    topic: testing
+    question: Which structural, text, geometry, resource, responsive, accessibility and visual metrics best predict human judgments and real edit-task success without rewarding flat screenshot copies?
+    status: experiment-required
+    evidence: [nuif:research:design2code-real-world-benchmark, nuif:research:flip-perceptual-difference-metric, nuif:research:ssim-and-classical-image-metrics, nuif:research:lpips-learned-perceptual-similarity, nuif:research:model-agnostic-screenshot-reconstruction-and-training]
+  - id: nuif:question:reconstruction-confidence
+    topic: inference
+    question: Which decision-level confidence events can be calibrated well enough for automatic application, and what risk-coverage threshold requires review or abstention?
+    status: experiment-required
+    evidence: [nuif:research:confidence-calibration-and-selective-prediction, nuif:research:model-agnostic-screenshot-reconstruction-and-training]
+  - id: nuif:question:reconstruction-training-gate
+    topic: training
+    question: After a frozen untuned baseline exists, do supervised tuning, LoRA, QLoRA or sequence-level distillation improve held-out typed reconstruction enough to justify their artifact and governance cost?
+    status: experiment-required
+    evidence: [nuif:research:lora-low-rank-adaptation, nuif:research:qlora-quantized-adaptation, nuif:research:sequence-level-knowledge-distillation, nuif:research:model-agnostic-screenshot-reconstruction-and-training]
+  - id: nuif:question:reconstruction-dataset-governance
+    topic: training
+    question: Which rights, consent, privacy, deletion, lineage and split controls are required before source-backed or screenshot traces may enter a training dataset?
+    status: research
+    evidence: [nuif:research:model-and-dataset-documentation, nuif:research:websight-synthetic-screenshot-html, nuif:research:model-agnostic-screenshot-reconstruction-and-training]
+  - id: nuif:question:screenshot-resource-recovery
+    topic: resources
+    question: When exact source bytes are absent, which crop, trace, substitution or generated-resource transformations are allowed and how must each report non-original provenance?
+    status: experiment-required
+    evidence: [nuif:research:resource-packaging-and-source-capture-synthesis, nuif:research:model-agnostic-screenshot-reconstruction-and-training]

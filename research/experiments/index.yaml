@@ -381,3 +381,62 @@ experiments:
       - capture responsive fixtures at training and held-out viewports and retain every observation as provenance
       - freeze canvas and video as bounded derived frames while keeping packaged scripts inert
       - scan capture artifacts for declared secret canaries and fail on disclosure
+  - id: nuif:experiment:screenshot-reconstruction-baseline
+    status: planned
+    evidence: [nuif:research:design2code-real-world-benchmark, nuif:research:pix2struct-screenshot-parsing-pretraining, nuif:research:screenai-ui-annotation, nuif:research:omniparser-ui-grounding, nuif:research:ocr-text-detection-and-recognition, nuif:research:model-agnostic-screenshot-reconstruction-and-training]
+    oracle: synthetic-exact-and-human-reviewed
+    acceptance:
+      - deterministic OCR CV one-shot model and observation-assisted model baselines run through one versioned harness
+      - every output is a valid transaction and document or an explicit no-result with diagnostics
+      - flat screenshot copies cannot satisfy the editable reconstruction profile
+      - report records per-example text element tree geometry resource responsive visual latency RAM VRAM and cost metrics
+    tests:
+      - use content-addressed synthetic exact real licensed and source-backed suites without mixing their evidence classes
+      - split by origin template component font resource and generator family and reject near-duplicate hashes across splits
+      - compare full-screen hierarchical-crop and observation-graph inputs under equal budgets
+      - evaluate OCR detection recognition and baselines separately from hierarchy layout and paint
+      - retain typed alternatives provenance confidence abstentions and every invalid-output diagnostic
+  - id: nuif:experiment:reconstruction-closed-loop
+    status: planned
+    evidence: [nuif:research:ui-code-generation-boundaries, nuif:research:visrefiner-render-difference-learning, nuif:research:flip-perceptual-difference-metric, nuif:research:lpips-learned-perceptual-similarity, nuif:research:model-agnostic-screenshot-reconstruction-and-training]
+    oracle: deterministic-render-and-property-evaluation
+    acceptance:
+      - bounded corrective operations improve predeclared held-out metrics over the same one-shot proposal budget
+      - every accepted correction preserves document validity and protected semantic non-regression limits
+      - loop stops deterministically on success no-improvement repeated-state or resource budget
+      - visual gains from flattening or deleting editable semantics are classified as failures
+    tests:
+      - localize raw-pixel FLIP SSIM pinned-LPIPS text geometry structure resource and accessibility differences
+      - compare single scalar lexicographic and Pareto candidate selection policies
+      - cache and hash every intermediate transaction document render difference and acceptance decision
+      - exercise invalid stale repeated regressive and non-improving correction proposals
+      - measure improvement versus iteration latency memory and inference cost distributions
+  - id: nuif:experiment:inference-confidence-calibration
+    status: planned
+    evidence: [nuif:research:confidence-calibration-and-selective-prediction, nuif:research:model-agnostic-screenshot-reconstruction-and-training]
+    oracle: held-out-calibration-and-risk-coverage
+    acceptance:
+      - raw and calibrated confidence are reported separately for each supported decision type
+      - automatic-application thresholds are chosen from a disjoint calibration set and evaluated on frozen normal and shifted holdouts
+      - risk coverage and abstention quality beat raw-confidence and always-answer baselines
+      - confidence never promotes screenshot-inferred evidence to source-lossless fidelity
+    tests:
+      - calibrate text region class parent layout family geometry resource-match and operation-acceptance events independently
+      - report reliability diagrams proper scores expected calibration error and risk-coverage curves with sample counts
+      - test unseen fonts templates resolutions languages and rendering conditions as distribution shifts
+      - preserve alternatives and require review below the declared automatic threshold
+  - id: nuif:experiment:reconstruction-distillation
+    status: planned
+    evidence: [nuif:research:lora-low-rank-adaptation, nuif:research:qlora-quantized-adaptation, nuif:research:sequence-level-knowledge-distillation, nuif:research:model-and-dataset-documentation, nuif:research:websight-synthetic-screenshot-html, nuif:research:model-agnostic-screenshot-reconstruction-and-training]
+    oracle: frozen-holdout-and-ablation
+    acceptance:
+      - training starts only after the untuned baseline closed loop error taxonomy and rights-cleared trace corpus satisfy their declared gates
+      - tuned and distilled candidates are compared on identical frozen data budgets and evaluator versions
+      - a candidate must improve predeclared quality or efficiency without unacceptable validity calibration privacy license or maintainability regression
+      - every dataset model processor adapter and run has a digest-pinned manifest datasheet or model card
+    tests:
+      - compare prompt/tool changes retrieval supervised adaptation LoRA rank/module variants QLoRA where architecture-compatible and sequence-level distillation
+      - train only on validated accepted operation transitions and keep benchmark families out of training
+      - ablate synthetic NUIF source-backed licensed public and consented contributor data
+      - record seeds code hardware hyperparameters base model processor schema renderer evaluator and artifact hashes
+      - evaluate initial transactions and corrective transactions as separate tasks before testing a combined adapter

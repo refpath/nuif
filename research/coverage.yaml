@@ -94,7 +94,19 @@ areas:
     artifacts: [spec/13-semantics-accessibility-and-behavior.md]
   reverse_inference_program_synthesis:
     status: ongoing
-    evidence: [nuif:research:reverse-layout-inference, nuif:research:ui-code-generation-boundaries]
+    evidence: [nuif:research:reverse-layout-inference, nuif:research:inferui-and-layout-synthesis, nuif:research:ui-code-generation-boundaries, nuif:research:design2code-real-world-benchmark, nuif:research:pix2struct-screenshot-parsing-pretraining, nuif:research:screenai-ui-annotation, nuif:research:omniparser-ui-grounding, nuif:research:ocr-text-detection-and-recognition, nuif:research:visrefiner-render-difference-learning, nuif:research:model-agnostic-screenshot-reconstruction-and-training]
+    artifacts: [research/items/model-agnostic-screenshot-reconstruction-and-training.md, research/questions.yaml, research/experiments/index.yaml]
+  reconstruction_evaluation:
+    status: experiment-required
+    evidence: [nuif:research:design2code-real-world-benchmark, nuif:research:flip-perceptual-difference-metric, nuif:research:ssim-and-classical-image-metrics, nuif:research:lpips-learned-perceptual-similarity, nuif:research:confidence-calibration-and-selective-prediction, nuif:research:model-agnostic-screenshot-reconstruction-and-training]
+    artifacts: [spec/00-conformance.md, spec/09-provenance-and-fidelity.md, research/experiments/index.yaml]
+  reconstruction_training_distillation:
+    status: experiment-required
+    evidence: [nuif:research:lora-low-rank-adaptation, nuif:research:qlora-quantized-adaptation, nuif:research:sequence-level-knowledge-distillation, nuif:research:websight-synthetic-screenshot-html, nuif:research:model-and-dataset-documentation, nuif:research:model-agnostic-screenshot-reconstruction-and-training]
+    artifacts: [research/items/model-agnostic-screenshot-reconstruction-and-training.md, research/experiments/index.yaml]
+  ai_dataset_model_governance:
+    status: ongoing
+    evidence: [nuif:research:model-and-dataset-documentation, nuif:research:websight-synthetic-screenshot-html, nuif:research:omniparser-ui-grounding, nuif:research:model-agnostic-screenshot-reconstruction-and-training]
     artifacts: [research/questions.yaml, research/experiments/index.yaml]
   refpath_graph_compatibility:
     status: covered

@@ -22,6 +22,14 @@ principles:
     statement: Stable semantic asset identity, immutable resource-byte identity, package location and source provenance are separate concerns and must not be conflated.
   - id: nuif:claim:source-inference-separation
     statement: Source-backed capture and screenshot-only reconstruction are distinct evidence classes; visual agreement alone cannot establish authored equivalence.
+  - id: nuif:claim:typed-reconstruction-loop
+    statement: Learned reconstruction components should propose bounded typed operations whose validity and rendered outcomes are decided by deterministic core services.
+  - id: nuif:claim:evaluation-before-adaptation
+    statement: A frozen leak-resistant benchmark and untuned baseline must precede fine-tuning, low-rank adaptation or distillation.
+  - id: nuif:claim:calibrated-inference
+    statement: Inference confidence must be calibrated against typed correctness events and support explicit abstention rather than forced guesses.
+  - id: nuif:claim:model-artifact-separation
+    statement: Models, processors, training datasets and task adapters are separately versioned optional artifacts and never redefine the NUIF core or document format.
 topics:
   ir: [mlir, openusd, gltf]
   design_models: [penpot, openpencil, figma]
@@ -32,6 +40,9 @@ topics:
   encoding: [encoding, openfig-fig-kiwi, deterministic-cbor-profiles-and-numeric-canonicalization, ipld-dag-cbor-strictness, cbor-data-model-and-key-order-correction]
   package_and_resources: [epub-ocf-package-container, oci-resource-descriptors, content-addressed-versioning, resource-packaging-and-source-capture-synthesis, png-image-preservation-and-decoding, opentype-font-embedding-and-portability, gltf]
   source_capture: [chromium-source-backed-ui-capture, tree-sitter, reverse-layout-inference, resource-packaging-and-source-capture-synthesis]
+  screenshot_reconstruction: [design2code-real-world-benchmark, ui-code-generation-boundaries, pix2struct-screenshot-parsing-pretraining, screenai-ui-annotation, omniparser-ui-grounding, ocr-text-detection-and-recognition, reverse-layout-inference, inferui-and-layout-synthesis, visrefiner-render-difference-learning, model-agnostic-screenshot-reconstruction-and-training]
+  model_adaptation: [lora-low-rank-adaptation, qlora-quantized-adaptation, sequence-level-knowledge-distillation, model-agnostic-screenshot-reconstruction-and-training]
+  ai_evaluation_and_governance: [design2code-real-world-benchmark, confidence-calibration-and-selective-prediction, model-and-dataset-documentation, websight-synthetic-screenshot-html, lpips-learned-perceptual-similarity, flip-perceptual-difference-metric, ssim-and-classical-image-metrics]
   ecosystem: [dtcg, wasm-component-model, step]
   adapter_surfaces: [svg, dtcg, react-jsx-adapter-surface, svelte-source-adapter-surface, penpot, figma, adobe-uxp-host-integration, swiftui-layout, jetpack-compose-layout, flutter-layout]
   cgi_interchange: [openusd-composition-and-crate, unknown-schema-preservation-strategies, hydra-render-delegate, opentimelineio, alembic, gltf-validator-and-sample-assets, materialx-and-shader-graph-tests]
