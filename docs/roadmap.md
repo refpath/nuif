@@ -23,6 +23,9 @@ Canonical text + deterministic CBOR; package/assets; patch/diff/query CLI. Exit:
 ## Phase 5 — editor (complete for the headless profile-0 instrument)
 The entire v0 fixture is authored from an empty document through identity-addressed semantic actions. Direct generation, editor output and operation replay are byte-identical, and the editor writes canonical document, context, layout, scene, CPU raster and fidelity report artifacts. The Rust-native Masonry shell from ADR 0006 and the later Svelte/WASM demonstration are non-normative interface work and cannot redefine this headless result.
 
+## Phase 5b — native editor research preview (complete for alpha.2)
+The native shell exposes the semantic driver through identity-backed canvas selection, a file menu with canonical and declared adapter import/export routes, document-aligned grid and pixel rulers, layer and component browsing, insertion tools, evaluation widths, zoom, inspector transactions and source-built developer installation. `cargo xtask editor-gui-trial` and `cargo xtask editor-install-trial` exercise the semantic, visual and lifecycle boundaries. The broader `apps/editor/UI-SPEC.md` remains a draft; direct manipulation, multi-selection, snapping, token authoring and expanded paint are not claimed by this phase.
+
 ## Phase 6a — first adapters/sync falsifier (complete for bounded HTML/CSS profile 0)
 `nuif-html-css-0` maps a declared container/text/finite-token subset through real DOM/CSS syntax with byte-span correspondence. Text, token and four-edge padding edits change only their six spans; comments and unmapped markup survive exactly; unsupported semantics have target/property fidelity. HTML/CSS was intentionally tested before SVG because Gate F and the architecture stop condition concern minimal source patches. This narrow profile remains independently automated even after the full-v0 follow-on; arbitrary HTML/CSS and SVG remain broader adapter work.
 
@@ -36,7 +39,7 @@ The entire v0 fixture is authored from an empty document through identity-addres
 `nuif-dtcg-scalar-0` maps flat boolean, string and number tokens to the Design Tokens Format Module 2025.10. Namespaced metadata retains NUIF document and token identity and distinguishes integer from real values; the trial applies eight edits through 21 correspondences while preserving unknown extension bytes. Groups, aliases, composite types and token-local extensions require a token-model RFC and a separate profile.
 
 ## Phase 6e — adapter inventory (complete for advertised targets)
-`adapters/index.json` enumerates ten advertised targets. The blocking adapter audit requires a primary research record, integration surface, next bounded profile and exclusion boundary for every target; executable entries additionally require a crate, profile document and routed conformance gate. Four profiles across HTML/CSS, SVG and DTCG are integrated. React, Svelte, Penpot, Figma, SwiftUI, Jetpack Compose and Flutter remain explicitly researched or externally bounded rather than carrying unsupported implementation claims.
+`adapters/index.json` enumerates eleven advertised targets. The blocking adapter audit requires a primary research record, integration surface, next bounded profile and exclusion boundary for every target; executable entries additionally require a crate, profile document and routed conformance gate. Four profiles across HTML/CSS, SVG and DTCG are integrated. React, Svelte, Penpot, Figma, Adobe UXP, SwiftUI, Jetpack Compose and Flutter remain explicitly researched or externally bounded rather than carrying unsupported implementation claims.
 
 ## Phase 7a — collaboration property registers (complete)
 `nuif-collab-registers-0` keeps causal metadata outside canonical documents and materializes concurrent register-like semantic operations through operation-set and replica-log algorithms. Every delivery of the three-replica trial converges, and distinct concurrent values remain explicit property conflicts.
@@ -49,6 +52,12 @@ The standard-library-only Python implementation reads, writes, lays out and rast
 
 ## Phase 8b — external reproduction and standards review
 Package the schema/conformance kit and obtain reproduction by an externally authored implementation. External provenance, interoperability review, neutral governance and a published conformance profile remain prerequisites for credible standards status; the in-repository mechanical reproduction and source adapter do not establish them.
+
+## Phase 9a — canonical research publication (complete)
+`cargo xtask docs-check` compiles the repository Markdown into one machine-readable catalog. `cargo xtask docs-build` renders that catalog without a second editable documentation source. `cargo xtask docs-paper` composes the twelve canonical whitepaper modules into a working technical manuscript and a verified PDF. Pull requests build retained artifacts, while default-branch workflow runs deploy the static site through GitHub Pages. `CITATION.cff` describes the tagged alpha.2 software release; no DOI or peer-review claim is present.
+
+## Phase 9b — implementer draft and incubation (blocked on external evidence)
+Meet the implementer-draft gate in `docs/STANDARDS-ROADMAP.md`, including a general-purpose externally maintained implementation, requirement-to-test traceability, legal review of specification and patent terms and organizational supporters. Venue selection follows the resulting scope: W3C for Web and design-tool incubation, Khronos for graphics/content-tool conformance, or OASIS for a governed document protocol. Application alpha versions do not advance this phase.
 
 ## Early falsifiers
 Stop/rethink if: semantic model requires pervasive vendor-specific exceptions; opaque extensions cannot survive common operations; source synchronization routinely requires whole-file regeneration; or independent implementation cannot reproduce normative layout/visual behavior from the spec.

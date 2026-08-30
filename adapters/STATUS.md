@@ -4,6 +4,10 @@ The adapter program separates an ecosystem's public interchange or source
 surface from the subset for which NUIF can provide executable round-trip laws.
 Research coverage does not imply an implemented conformance profile.
 
+The inventory contains eleven targets and four executable profiles across
+three target families. The remaining targets have no executable direction in
+`adapters/index.json`.
+
 This table is explanatory. `adapters/index.json` is the machine-audited target
 inventory; `cargo xtask adapter-audit` checks its research, profile, crate and
 gate references and writes `target/adapter-coverage-report.json`.

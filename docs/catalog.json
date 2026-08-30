@@ -21,6 +21,29 @@
   "exclude": [
     "research/items/_template.md"
   ],
+  "manuscript": {
+    "title": "NUIF authored-interface interchange research manuscript",
+    "subtitle": "Architecture, executable profiles, prior art and open risks",
+    "authors": ["Refpath contributors"],
+    "version": "working-2026-08-30",
+    "date": "2026-08-30",
+    "status": "working technical manuscript; not peer reviewed",
+    "abstract": "This manuscript evaluates a layered authored-interface interchange model through prior-art synthesis, bounded adapter profiles and executable conformance experiments. It records the architectural hypothesis, implemented evidence, unresolved risks and governance conditions without claiming specification stability or universal format coverage.",
+    "sources": [
+      "docs/whitepaper/00-foundation.md",
+      "docs/whitepaper/01-architecture.md",
+      "docs/whitepaper/02-layout-and-rendering.md",
+      "docs/whitepaper/03-protocol-and-portability.md",
+      "docs/whitepaper/04-serialization-collaboration-governance.md",
+      "docs/whitepaper/05-prior-art-and-competitive-map.md",
+      "docs/whitepaper/06-language-and-runtime-choice.md",
+      "docs/whitepaper/07-risk-register.md",
+      "docs/whitepaper/08-governance-and-standardization.md",
+      "docs/whitepaper/09-naming-and-identity.md",
+      "docs/whitepaper/10-research-coverage.md",
+      "docs/whitepaper/11-cross-industry-patterns.md"
+    ]
+  },
   "sections": [
     {
       "id": "project",
@@ -28,6 +51,7 @@
       "paths": [
         "README.md",
         "docs/roadmap.md",
+        "docs/STANDARDS-ROADMAP.md",
         "CONTRIBUTING.md",
         "GOVERNANCE.md",
         "SECURITY.md",

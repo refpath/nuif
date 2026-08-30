@@ -1,0 +1,25 @@
+cff-version: 1.2.0
+message: Cite the tagged software release and its exact source revision.
+title: "NUIF: Neutral User Interface Format research project"
+type: software
+version: 0.1.0-alpha.2
+date-released: 2026-08-30
+authors:
+  - name: Refpath contributors
+    website: https://github.com/refpath/nuif/graphs/contributors
+abstract: >-
+  NUIF is a pre-standard research project for authored interface interchange,
+  retentive synchronization, explicit fidelity reporting and executable
+  conformance experiments. The cited alpha release includes a reference core,
+  bounded adapter profiles, conformance fixtures and a native research editor.
+keywords:
+  - user interface
+  - interchange format
+  - design tools
+  - retentive synchronization
+  - conformance testing
+license:
+  - Apache-2.0
+  - MIT
+repository-code: https://github.com/refpath/nuif
+url: https://refpath.github.io/nuif/

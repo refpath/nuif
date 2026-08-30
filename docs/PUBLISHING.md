@@ -13,6 +13,7 @@ The documentation compiler is part of `xtask`:
 cargo xtask docs-check
 cargo xtask docs-build
 cargo xtask docs-serve
+cargo xtask docs-paper
 ```
 
 `docs-check` validates catalog paths, unique document identifiers, required
@@ -20,16 +21,23 @@ frontmatter, file budgets and relative links. It writes the machine-readable
 catalog and report under `target/`. `docs-build` stages Markdown with generated
 navigation and invokes mdBook 0.5.4. The static site is written to
 `target/docs-site`. `docs-serve` rebuilds the staging tree and starts the local
-mdBook server.
+mdBook server. `docs-paper` builds the site and prints the generated technical
+manuscript to `target/docs-site/downloads/nuif-research-manuscript.pdf` through
+the repository's pinned Chrome for Testing binary.
 
 The pinned renderer can be installed through:
 
 ```sh
 cargo xtask docs-setup
+cargo xtask browser-install
 ```
 
 Generated navigation, search indexes and HTML are build artifacts. They are not
 committed.
+
+The manuscript body is generated from the whitepaper modules listed in
+`docs/catalog.json`. The composition metadata does not copy chapter text.
+Publication does not imply peer review or specification maturity.
 
 ## Metadata boundary
 

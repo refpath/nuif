@@ -10,6 +10,7 @@
     "limits",
     "frontmatter_required",
     "exclude",
+    "manuscript",
     "sections"
   ],
   "properties": {
@@ -45,6 +46,31 @@
       "type": "array",
       "items": {"type": "string", "minLength": 1},
       "uniqueItems": true
+    },
+    "manuscript": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["title", "subtitle", "authors", "version", "date", "status", "abstract", "sources"],
+      "properties": {
+        "title": {"type": "string", "minLength": 1},
+        "subtitle": {"type": "string", "minLength": 1},
+        "authors": {
+          "type": "array",
+          "minItems": 1,
+          "items": {"type": "string", "minLength": 1},
+          "uniqueItems": true
+        },
+        "version": {"type": "string", "minLength": 1},
+        "date": {"type": "string", "format": "date"},
+        "status": {"type": "string", "minLength": 1},
+        "abstract": {"type": "string", "minLength": 1},
+        "sources": {
+          "type": "array",
+          "minItems": 1,
+          "items": {"type": "string", "minLength": 1},
+          "uniqueItems": true
+        }
+      }
     },
     "sections": {
       "type": "array",

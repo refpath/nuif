@@ -9,6 +9,10 @@
 [![Specification](https://img.shields.io/badge/specification-pre--draft-yellow.svg)](spec/README.md)
 [![Research](https://img.shields.io/badge/research-corpus-8a2be2.svg)](research/README.md)
 
+Citation metadata is provided in [`CITATION.cff`](CITATION.cff). The current
+software citation identifies the latest published editor prerelease. It does
+not cite the draft specification as an accredited standard.
+
 [Problem](#problem) ·
 [Scope](#scope) ·
 [Architecture](#architecture) ·

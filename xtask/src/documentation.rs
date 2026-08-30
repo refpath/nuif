@@ -55,6 +55,7 @@ struct CatalogConfig {
     limits: LimitConfig,
     frontmatter_required: Vec<PathBuf>,
     exclude: Vec<PathBuf>,
+    manuscript: ManuscriptConfig,
     sections: Vec<SectionConfig>,
 }
 
@@ -81,6 +82,20 @@ struct SectionConfig {
     id: String,
     title: String,
     paths: Vec<PathBuf>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct ManuscriptConfig {
+    title: String,
+    subtitle: String,
+    authors: Vec<String>,
+    version: String,
+    date: String,
+    status: String,
+    #[serde(rename = "abstract")]
+    abstract_text: String,
+    sources: Vec<PathBuf>,
 }
 
 #[derive(Clone, Debug, Default, Deserialize)]
@@ -151,6 +166,57 @@ pub(crate) fn build() -> Result<(), String> {
         "built {} documents into {SITE_OUTPUT}",
         compilation.documents.len()
     );
+    Ok(())
+}
+
+pub(crate) fn paper() -> Result<(), String> {
+    build()?;
+    let source = Path::new(SITE_OUTPUT).join("generated/research-manuscript.html");
+    let html = fs::read_to_string(&source)
+        .map_err(|error| format!("cannot read {}: {error}", source.display()))?;
+    let printable_path = Path::new(SITE_OUTPUT).join("generated/research-manuscript-print.html");
+    fs::write(&printable_path, html)
+        .map_err(|error| format!("cannot write {}: {error}", printable_path.display()))?;
+    let output = Path::new("target/research-manuscript.pdf");
+    if output.exists() {
+        fs::remove_file(output)
+            .map_err(|error| format!("cannot replace {}: {error}", output.display()))?;
+    }
+    let source_url = format!(
+        "file://{}",
+        fs::canonicalize(&printable_path)
+            .map_err(|error| format!("cannot resolve {}: {error}", printable_path.display()))?
+            .to_string_lossy()
+    );
+    let output_argument = format!(
+        "--print-to-pdf={}",
+        absolute_path(output)?.to_string_lossy()
+    );
+    let status = Command::new(chrome_for_testing()?)
+        .args([
+            "--headless=new",
+            "--disable-gpu",
+            "--disable-dev-shm-usage",
+            "--hide-scrollbars",
+            "--no-pdf-header-footer",
+            output_argument.as_str(),
+            source_url.as_str(),
+        ])
+        .status()
+        .map_err(|error| format!("could not start Chrome for Testing: {error}"))?;
+    if !status.success() {
+        return Err(format!(
+            "Chrome for Testing PDF render failed with {status}"
+        ));
+    }
+    verify_pdf(output)?;
+    let downloads = Path::new(SITE_OUTPUT).join("downloads");
+    fs::create_dir_all(&downloads)
+        .map_err(|error| format!("cannot create {}: {error}", downloads.display()))?;
+    fs::copy(output, downloads.join("nuif-research-manuscript.pdf"))
+        .map_err(|error| format!("cannot add the manuscript to the site: {error}"))?;
+    add_pdf_download_link(&source)?;
+    println!("built technical manuscript at {}", output.display());
     Ok(())
 }
 
@@ -233,6 +299,18 @@ fn compile(stage: bool) -> Result<Compilation, String> {
         documents,
         source_digest,
     };
+    for source in &compilation.config.manuscript.sources {
+        if !compilation
+            .documents
+            .iter()
+            .any(|document| &document.source_path == source)
+        {
+            return Err(format!(
+                "manuscript source is not selected for publication: {}",
+                source.display()
+            ));
+        }
+    }
     if stage {
         stage_book(&compilation)?;
     }
@@ -262,6 +340,15 @@ fn validate_config(config: &CatalogConfig) -> Result<(), String> {
         ("site.repository_url", config.site.repository_url.as_str()),
         ("site.canonical_url", config.site.canonical_url.as_str()),
         ("site.maturity", config.site.maturity.as_str()),
+        ("manuscript.title", config.manuscript.title.as_str()),
+        ("manuscript.subtitle", config.manuscript.subtitle.as_str()),
+        ("manuscript.version", config.manuscript.version.as_str()),
+        ("manuscript.date", config.manuscript.date.as_str()),
+        ("manuscript.status", config.manuscript.status.as_str()),
+        (
+            "manuscript.abstract",
+            config.manuscript.abstract_text.as_str(),
+        ),
     ] {
         if value.trim().is_empty() {
             return Err(format!("{field} must not be empty"));
@@ -295,8 +382,25 @@ fn validate_config(config: &CatalogConfig) -> Result<(), String> {
         .frontmatter_required
         .iter()
         .chain(config.exclude.iter())
+        .chain(config.manuscript.sources.iter())
     {
         validate_relative_path(path)?;
+    }
+    if config.manuscript.sources.is_empty() {
+        return Err("documentation manuscript selects no source modules".to_owned());
+    }
+    if config.manuscript.authors.is_empty()
+        || config
+            .manuscript
+            .authors
+            .iter()
+            .any(|author| author.trim().is_empty())
+    {
+        return Err("documentation manuscript requires non-empty authors".to_owned());
+    }
+    let unique_manuscript_sources = config.manuscript.sources.iter().collect::<BTreeSet<_>>();
+    if unique_manuscript_sources.len() != config.manuscript.sources.len() {
+        return Err("documentation manuscript contains duplicate source modules".to_owned());
     }
     Ok(())
 }
@@ -922,7 +1026,108 @@ fn write_generated_pages(compilation: &Compilation) -> Result<(), String> {
         generated_adapter_index()?,
     )
     .map_err(|error| format!("cannot write adapter index: {error}"))?;
+    fs::write(
+        generated.join("research-manuscript.md"),
+        generated_research_manuscript(compilation)?,
+    )
+    .map_err(|error| format!("cannot write research manuscript: {error}"))?;
     Ok(())
+}
+
+fn generated_research_manuscript(compilation: &Compilation) -> Result<String, String> {
+    let manuscript = &compilation.config.manuscript;
+    let mut output = format!(
+        "# {}\n\n{}\n\n{}  \nVersion `{}` · {}\n\n> Manuscript status: {}. This generated document does not change the status of any included specification module.\n\n## Abstract\n\n{}\n\n## Reproducibility\n\nThe body is compiled from {} canonical whitepaper modules at source digest `{}`. Editorial changes belong in those source modules.\n",
+        manuscript.title,
+        manuscript.subtitle,
+        manuscript.authors.join(", "),
+        manuscript.version,
+        manuscript.date,
+        manuscript.status,
+        manuscript.abstract_text,
+        manuscript.sources.len(),
+        compilation.source_digest
+    );
+    for source in &manuscript.sources {
+        let document = compilation
+            .documents
+            .iter()
+            .find(|document| &document.source_path == source)
+            .ok_or_else(|| format!("manuscript source is unavailable: {}", source.display()))?;
+        let rewritten =
+            rewrite_manuscript_links(document, &compilation.config.site.repository_url)?;
+        let (without_status, _) = remove_legacy_status(&rewritten);
+        output.push_str("\n\n---\n\n");
+        output.push_str(&demote_headings(&without_status));
+        let _ = write!(
+            output,
+            "\n\n[Canonical module]({}/blob/main/{}).\n",
+            compilation.config.site.repository_url,
+            source.to_string_lossy()
+        );
+    }
+    Ok(output)
+}
+
+fn rewrite_manuscript_links(document: &Document, repository_url: &str) -> Result<String, String> {
+    let destinations = markdown_destinations(&document.body);
+    let mut output = document.body.clone();
+    for destination in destinations.into_iter().rev() {
+        if external_destination(&destination.value) || destination.value.starts_with('#') {
+            continue;
+        }
+        let (path_value, suffix) = split_destination(&destination.value);
+        if path_value.is_empty() {
+            continue;
+        }
+        let resolved = resolve_link(&document.source_path, path_value)?;
+        let target = if destination.image {
+            format!(
+                "https://raw.githubusercontent.com/refpath/nuif/main/{}{}",
+                resolved.to_string_lossy(),
+                suffix
+            )
+        } else {
+            let mode = if resolved.is_dir() { "tree" } else { "blob" };
+            format!(
+                "{repository_url}/{mode}/main/{}{}",
+                resolved.to_string_lossy(),
+                suffix
+            )
+        };
+        output.replace_range(destination.start..destination.end, &target);
+    }
+    Ok(output)
+}
+
+fn demote_headings(body: &str) -> String {
+    let mut output = String::with_capacity(body.len());
+    let mut fence: Option<char> = None;
+    for line in body.split_inclusive('\n') {
+        let trimmed = line.trim_start();
+        if trimmed.starts_with("```") {
+            fence = if fence == Some('`') {
+                None
+            } else if fence.is_none() {
+                Some('`')
+            } else {
+                fence
+            };
+        } else if trimmed.starts_with("~~~") {
+            fence = if fence == Some('~') {
+                None
+            } else if fence.is_none() {
+                Some('~')
+            } else {
+                fence
+            };
+        }
+        if fence.is_none() && line.starts_with('#') {
+            output.push('#');
+        }
+        output.push_str(line);
+    }
+    output
 }
 
 fn generated_documentation_index(compilation: &Compilation) -> String {
@@ -999,6 +1204,11 @@ fn generated_adapter_index() -> Result<String, String> {
 fn build_summary(compilation: &Compilation) -> String {
     let mut output =
         String::from("# Summary\n\n[Documentation index](generated/documentation-index.md)\n\n");
+    let _ = writeln!(
+        output,
+        "[{}](generated/research-manuscript.md)\n",
+        compilation.config.manuscript.title
+    );
     for section in &compilation.config.sections {
         let _ = write!(output, "# {}\n\n", section.title);
         if section.id == "research" {
@@ -1098,6 +1308,67 @@ fn write_json(path: &Path, value: &serde_json::Value) -> Result<(), String> {
     let mut bytes = serde_json::to_vec_pretty(value).map_err(|error| error.to_string())?;
     bytes.push(b'\n');
     fs::write(path, bytes).map_err(|error| format!("cannot write {}: {error}", path.display()))
+}
+
+fn absolute_path(path: &Path) -> Result<PathBuf, String> {
+    std::env::current_dir()
+        .map(|directory| directory.join(path))
+        .map_err(|error| format!("cannot resolve the working directory: {error}"))
+}
+
+fn chrome_for_testing() -> Result<PathBuf, String> {
+    let candidates = [
+        PathBuf::from(
+            "target/chrome-for-testing/chrome-mac-arm64/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing",
+        ),
+        PathBuf::from(
+            "target/chrome-for-testing/chrome-mac-x64/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing",
+        ),
+        PathBuf::from("target/chrome-for-testing/chrome-linux64/chrome"),
+        PathBuf::from("target/chrome-for-testing/chrome-win64/chrome.exe"),
+    ];
+    candidates
+        .into_iter()
+        .find(|path| path.is_file())
+        .ok_or_else(|| {
+            "the pinned Chrome for Testing binary is absent; run cargo xtask browser-install"
+                .to_owned()
+        })
+}
+
+fn verify_pdf(path: &Path) -> Result<(), String> {
+    let bytes = fs::read(path)
+        .map_err(|error| format!("cannot read generated PDF {}: {error}", path.display()))?;
+    let eof_present = bytes
+        .windows(5)
+        .rposition(|window| window == b"%%EOF")
+        .is_some_and(|position| position + 1_024 >= bytes.len());
+    if bytes.len() < 10_000 || !bytes.starts_with(b"%PDF-") || !eof_present {
+        return Err(format!(
+            "generated manuscript is not a complete PDF artifact: {} bytes",
+            bytes.len()
+        ));
+    }
+    Ok(())
+}
+
+fn add_pdf_download_link(page: &Path) -> Result<(), String> {
+    let html = fs::read_to_string(page)
+        .map_err(|error| format!("cannot read {}: {error}", page.display()))?;
+    let marker = "<main>";
+    let replacement = concat!(
+        "<main>\n",
+        "<p><a href=\"../downloads/nuif-research-manuscript.pdf\" ",
+        "download>Download the generated PDF manuscript</a></p>"
+    );
+    if !html.contains(marker) {
+        return Err(format!(
+            "generated manuscript page has no main element: {}",
+            page.display()
+        ));
+    }
+    fs::write(page, html.replacen(marker, replacement, 1))
+        .map_err(|error| format!("cannot update {}: {error}", page.display()))
 }
 
 fn require_mdbook() -> Result<(), String> {
@@ -1259,5 +1530,14 @@ mod tests {
             PathBuf::from("spec/01-model.md")
         );
         assert!(resolve_link(Path::new("README.md"), "../outside.md").is_err());
+    }
+
+    #[test]
+    fn manuscript_headings_are_demoted_outside_code_fences() {
+        let body = "# Chapter\n\n## Section\n\n```md\n# Example\n```\n";
+        assert_eq!(
+            demote_headings(body),
+            "## Chapter\n\n### Section\n\n```md\n# Example\n```\n"
+        );
     }
 }

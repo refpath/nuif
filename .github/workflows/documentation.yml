@@ -27,8 +27,10 @@ jobs:
           rustup default 1.98.0
       - name: Install the pinned documentation renderer
         run: cargo xtask docs-setup
-      - name: Compile and validate the site
-        run: cargo xtask docs-build
+      - name: Install the pinned browser renderer
+        run: cargo xtask browser-install
+      - name: Compile and validate the site and technical manuscript
+        run: cargo xtask docs-paper
       - name: Retain the compiled site and validation report
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
@@ -37,6 +39,7 @@ jobs:
           retention-days: 14
           path: |
             target/docs-site
+            target/research-manuscript.pdf
             target/documentation-catalog.json
             target/documentation-report.json
       - name: Assemble the Pages artifact

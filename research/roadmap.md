@@ -20,6 +20,8 @@ Gate G: bounded mechanically independent reproduction. The standard-library-only
 
 Gate H: bounded metadata-free collaboration checkpoint. Two algorithmically distinct in-repository materializers converge for every delivery of a conflict-bearing property-register history; conflicts remain explicit and canonical NUIF contains no replica state.
 
+Publication infrastructure: `docs/catalog.json` selects 204 canonical Markdown documents without copying their bodies. The bounded `xtask` compiler validates metadata and repository links, generates navigation and status indexes, builds a searchable mdBook site and composes a 12-module working manuscript. The Pages workflow retains pull-request artifacts and restricts deployment permission to its deployment job. This infrastructure publishes evidence; it does not promote evidence status.
+
 ## Current falsifier
 
 `nuif:experiment:v0-responsive-card` and the bounded collaboration property-register checkpoint are complete under their declared acceptance. The next collaboration falsifier is structural: concurrent insert/remove/move must preserve one-parent/acyclic invariants, sibling ordering and deletion intent through an explicit tree/list algorithm, then reproduce its checkpoint through a foreign engine. Register convergence does not imply any of those properties.
@@ -31,8 +33,10 @@ Gate H: bounded metadata-free collaboration checkpoint. Two algorithmically dist
 3. Design explicit Grid track and placement fields before replacing the classified profile-0 stack fallback; do not infer Grid support from the Gate C pass.
 4. Attach any Masonry shell to the already-tested editor driver boundary; keep shell behavior outside model/layout/render conformance.
 5. Treat soft wrapping, gradients, strokes, paths, images and instance materialization as a separately versioned expanded profile; do not weaken profile-0 exactness to add them.
-6. Research SVG and vendor adapters only after declaring target-specific correspondence and fidelity boundaries as strictly as the HTML/CSS profiles.
-7. Package the conformance kit for externally authored reproduction; do not treat the in-repository Python path or Rust HTML/CSS adapter as external interoperability evidence.
+6. Implement the credential-free Penpot package profile only after ZIP resource limits and unknown-member retention have a shared test contract.
+7. Run the bounded Figma and Adobe profiles in named live host versions; retain host reports and do not infer live behavior from API documentation.
+8. Package the conformance kit for externally authored reproduction; do not treat the in-repository Python path or Rust adapters as external interoperability evidence.
+9. Keep standards-development work behind the implementer-draft and external-support gates in `docs/STANDARDS-ROADMAP.md`.
 
 ## Update policy
 
