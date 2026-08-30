@@ -5,9 +5,10 @@ use nuif_codec::{
     encode_canonical_record,
 };
 use nuif_core::{
-    AssetId, AssetPortability, Document, ResourceDerivation, ResourceDescriptor, ResourceDigest,
-    ResourceLocator, ResourceRole, Severity, validate,
+    Asset, AssetId, AssetKind, AssetPortability, Document, ResourceDerivation, ResourceDescriptor,
+    ResourceDigest, ResourceLocator, ResourceRole, Severity, validate,
 };
+use nuif_font::{FontError, validate_packaged_font};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::borrow::Cow;
@@ -196,17 +197,25 @@ impl NuifPackage {
                 .ok_or_else(|| PackageError::ResourceUndeclared {
                     digest: digest.clone(),
                 })?;
-        if let Some(bytes) = self.embedded.get(digest) {
-            verify_resource(descriptor, bytes)?;
-            return Ok(bytes.to_vec());
-        }
-        let resolver = resolver.ok_or_else(|| PackageError::ResolutionRequired {
-            digest: digest.clone(),
-        })?;
-        let bytes = resolver
-            .resolve(descriptor)
-            .map_err(PackageError::Resolver)?;
+        let bytes = if let Some(bytes) = self.embedded.get(digest) {
+            bytes.to_vec()
+        } else {
+            let resolver = resolver.ok_or_else(|| PackageError::ResolutionRequired {
+                digest: digest.clone(),
+            })?;
+            resolver
+                .resolve(descriptor)
+                .map_err(PackageError::Resolver)?
+        };
         verify_resource(descriptor, &bytes)?;
+        for asset in self
+            .document
+            .assets
+            .values()
+            .filter(|asset| asset.resource.as_ref() == Some(digest))
+        {
+            validate_asset_resource(asset, descriptor, &bytes)?;
+        }
         Ok(bytes)
     }
 
@@ -378,6 +387,8 @@ pub trait ResourceResolver {
 pub enum PackageError {
     #[error(transparent)]
     Codec(#[from] CodecError),
+    #[error(transparent)]
+    Font(#[from] FontError),
     #[error("document is invalid: {codes:?}")]
     InvalidDocument { codes: Vec<String> },
     #[error("invalid package manifest: {reason}")]
@@ -538,6 +549,31 @@ fn validate_resources(
                 reason: format!("asset {id} is not portable with embedded exact bytes"),
             });
         }
+        if let ResourceLocator::Embedded { path } = &descriptor.locator {
+            let bytes = embedded
+                .get(digest)
+                .ok_or_else(|| PackageError::MissingMember { name: path.clone() })?;
+            validate_asset_resource(asset, descriptor, bytes)?;
+        }
+    }
+    Ok(())
+}
+
+fn validate_asset_resource(
+    asset: &Asset,
+    descriptor: &ResourceDescriptor,
+    bytes: &[u8],
+) -> Result<(), PackageError> {
+    if matches!(asset.kind, AssetKind::Font(_)) {
+        if descriptor.media_type != "font/ttf" {
+            return Err(PackageError::InvalidManifest {
+                reason: format!(
+                    "font asset {} requires the exact font/ttf media type",
+                    asset.id
+                ),
+            });
+        }
+        validate_packaged_font(asset, bytes)?;
     }
     Ok(())
 }
@@ -1132,7 +1168,8 @@ fn crc32(bytes: &[u8]) -> u32 {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use nuif_core::{Asset, AssetKind, EntityId, ImageAsset};
+    use nuif_core::{Asset, AssetKind, EntityId, FontAsset, ImageAsset};
+    use nuif_font::{EmbeddingPermission, OPENTYPE_STATIC_PROFILE, inspect_opentype_static};
     use std::io::{Cursor, Write as _};
     use zip::write::SimpleFileOptions;
     use zip::{CompressionMethod, ZipWriter};
@@ -1168,6 +1205,53 @@ mod tests {
         package
     }
 
+    fn font_package() -> NuifPackage {
+        let inspection = inspect_opentype_static(font_test_data::AHEM, 0).unwrap();
+        assert_eq!(inspection.permission, EmbeddingPermission::Installable);
+        let mut document = Document::empty(EntityId::new(1));
+        let asset_id = AssetId::new(0xf0);
+        let mut package = NuifPackage::new(document.clone(), PackageMode::Portable);
+        let digest = package
+            .add_embedded(
+                font_test_data::AHEM.to_vec(),
+                "font/ttf",
+                ResourceRole::Authoring,
+                None,
+            )
+            .unwrap();
+        document.assets.insert(
+            asset_id,
+            Asset {
+                schema_version: 1,
+                id: asset_id,
+                name: Some("Ahem".to_owned()),
+                resource: Some(digest),
+                portability: AssetPortability::Portable,
+                kind: AssetKind::Font(FontAsset {
+                    face_index: 0,
+                    names: inspection.names,
+                    axes: BTreeMap::new(),
+                    features: BTreeMap::new(),
+                    coverage: inspection.coverage,
+                    policy_evidence: BTreeMap::from([
+                        (
+                            "font.decoder_profile".to_owned(),
+                            OPENTYPE_STATIC_PROFILE.to_owned(),
+                        ),
+                        (
+                            "opentype.fs_type".to_owned(),
+                            format!("0x{:04x}", inspection.fs_type),
+                        ),
+                        ("license.expression".to_owned(), "CC0-1.0".to_owned()),
+                        ("license.embedding_review".to_owned(), "approved".to_owned()),
+                    ]),
+                }),
+            },
+        );
+        package.document = document;
+        package
+    }
+
     #[test]
     fn package_roundtrip_reaches_a_byte_fixpoint() {
         let package = package();
@@ -1176,6 +1260,131 @@ mod tests {
         assert_eq!(decoded.document, package.document);
         assert_eq!(decoded.encode().unwrap(), bytes);
         assert!(package.package_hash().unwrap().starts_with(PROFILE));
+    }
+
+    #[test]
+    fn exact_font_resources_require_matching_metadata_and_policy() {
+        let package = font_package();
+        let bytes = package.encode().unwrap();
+        assert_eq!(
+            NuifPackage::decode(&bytes).unwrap().encode().unwrap(),
+            bytes
+        );
+
+        let mut unreviewed = font_package();
+        let AssetKind::Font(font) = &mut unreviewed
+            .document
+            .assets
+            .get_mut(&AssetId::new(0xf0))
+            .unwrap()
+            .kind
+        else {
+            unreachable!();
+        };
+        font.policy_evidence.remove("license.embedding_review");
+        assert!(matches!(
+            unreviewed.encode(),
+            Err(PackageError::Font(FontError::Policy(
+                "license.embedding_review"
+            )))
+        ));
+
+        let mut stale = font_package();
+        let AssetKind::Font(font) = &mut stale
+            .document
+            .assets
+            .get_mut(&AssetId::new(0xf0))
+            .unwrap()
+            .kind
+        else {
+            unreachable!();
+        };
+        font.coverage.pop();
+        assert!(matches!(
+            stale.encode(),
+            Err(PackageError::Font(FontError::AssetMismatch(
+                "Unicode coverage"
+            )))
+        ));
+
+        let mut wrong_media = font_package();
+        let digest = wrong_media
+            .document
+            .assets
+            .get(&AssetId::new(0xf0))
+            .unwrap()
+            .resource
+            .clone()
+            .unwrap();
+        wrong_media.resources.get_mut(&digest).unwrap().media_type =
+            "application/octet-stream".to_owned();
+        assert!(matches!(
+            wrong_media.encode(),
+            Err(PackageError::InvalidManifest { reason })
+                if reason.contains("font/ttf")
+        ));
+    }
+
+    #[test]
+    fn resolved_linked_fonts_receive_the_same_validation() {
+        struct Resolver;
+        impl ResourceResolver for Resolver {
+            fn resolve(&mut self, _: &ResourceDescriptor) -> Result<Vec<u8>, String> {
+                Ok(font_test_data::AHEM.to_vec())
+            }
+        }
+
+        let mut package = font_package();
+        let digest = package
+            .document
+            .assets
+            .get(&AssetId::new(0xf0))
+            .unwrap()
+            .resource
+            .clone()
+            .unwrap();
+        package.mode = PackageMode::Authoring;
+        package.resources.clear();
+        package.embedded.clear();
+        package
+            .add_linked(
+                digest.clone(),
+                font_test_data::AHEM.len() as u64,
+                "font/ttf",
+                ResourceRole::Authoring,
+                "https://example.invalid/ahem.ttf",
+                None,
+            )
+            .unwrap();
+        package
+            .document
+            .assets
+            .get_mut(&AssetId::new(0xf0))
+            .unwrap()
+            .portability = AssetPortability::Linked;
+        package.manifest().unwrap();
+
+        assert_eq!(
+            package
+                .resolve_resource(&digest, Some(&mut Resolver))
+                .unwrap(),
+            font_test_data::AHEM
+        );
+
+        let AssetKind::Font(font) = &mut package
+            .document
+            .assets
+            .get_mut(&AssetId::new(0xf0))
+            .unwrap()
+            .kind
+        else {
+            unreachable!();
+        };
+        font.names = vec!["not-ahem".to_owned()];
+        assert!(matches!(
+            package.resolve_resource(&digest, Some(&mut Resolver)),
+            Err(PackageError::Font(FontError::AssetMismatch("family names")))
+        ));
     }
 
     #[test]
