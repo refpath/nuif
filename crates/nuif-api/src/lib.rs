@@ -283,6 +283,13 @@ impl Session {
         &self.document
     }
 
+    /// Returns an explicitly supplied, digest-verified resource without
+    /// copying its immutable bytes.
+    #[must_use]
+    pub fn resource(&self, digest: &ResourceDigest) -> Option<&[u8]> {
+        self.resources.get(digest).map(Arc::as_ref)
+    }
+
     #[must_use]
     pub fn selection(&self) -> &[EntityId] {
         &self.selection

@@ -111,6 +111,12 @@ An image asset records intrinsic dimensions and the decoder profile. An
 opacity and declared color conversion. Decoded RGBA and GPU textures are
 deletable caches, never source resources.
 
+The reference scene interns decoded RGBA by resource digest plus decoder
+profile and gives commands deterministic numeric surface handles. Its 64 MiB
+unique decoded-surface total is preflighted from bounded image metadata before
+inflation. Repeated asset instances therefore do not duplicate decoded pixels
+or descriptor strings.
+
 A font asset records exact byte digest when available, media type, face or
 collection index, names used for matching, axes, features, character coverage
 and policy evidence. Text shaping continues to pin its execution inputs.
@@ -303,6 +309,13 @@ limits for total archive bytes, member count, per-member bytes, total expanded
 bytes, descriptor count, image/font bytes and decoder allocations. Resource
 size and digest are verified before media parsing. Readers do not extract to a
 filesystem.
+
+The executable allocation gate additionally requires package-to-session
+handoff to share immutable resource buffers. Its 8 MiB trial preserves the
+allocation pointer and permits at most 1 MiB of handoff allocator traffic and
+retained bookkeeping. A 1,024-instance image trial permits at most 8 MiB of
+scene-build allocator traffic and 4 MiB retained for one 1 MiB decoded surface.
+These are reference-CI regression ceilings rather than wire-format limits.
 
 Package resources never execute by being present. Scripts, shaders, links and
 embedded metadata are inert unless a separately authorized sandboxed capability

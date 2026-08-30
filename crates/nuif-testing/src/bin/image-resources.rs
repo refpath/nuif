@@ -11,10 +11,15 @@ use nuif_media::{
     inspect_png_basic_rgba8, inspect_png_rgba8,
 };
 use nuif_package::{NuifPackage, PackageMode};
-use nuif_render::{DrawCommand, RenderTarget, build_scene, build_scene_with_resources, render_cpu};
+use nuif_render::{
+    DrawCommand, MAX_SCENE_DECODED_IMAGE_BYTES, RenderError, RenderTarget, build_scene,
+    build_scene_with_resources, render_cpu,
+};
 use png::{BitDepth, ColorType, Filter, SrgbRenderingIntent};
 use serde_json::{Value, json};
 use sha2::{Digest, Sha256};
+use stats_alloc::{INSTRUMENTED_SYSTEM, Region, Stats, StatsAlloc};
+use std::alloc::System;
 use std::env;
 use std::fs;
 use std::io::Cursor;
@@ -26,6 +31,14 @@ use zune_png::zune_core::bit_depth::BitDepth as ZuneBitDepth;
 use zune_png::zune_core::bytestream::ZCursor;
 use zune_png::zune_core::colorspace::ColorSpace as ZuneColorSpace;
 use zune_png::zune_core::options::DecoderOptions;
+
+#[global_allocator]
+static GLOBAL: &StatsAlloc<System> = &INSTRUMENTED_SYSTEM;
+
+const SHARED_SURFACE_INSTANCES: usize = 1_024;
+const SHARED_SURFACE_DIMENSION: u32 = 512;
+const MAX_SHARED_SCENE_ALLOCATED_BYTES: usize = 8 * 1024 * 1024;
+const MAX_SHARED_SCENE_RETAINED_BYTES: usize = 4 * 1024 * 1024;
 
 fn main() {
     if let Err(error) = run() {
@@ -96,12 +109,14 @@ fn run() -> Result<(), String> {
     let basic_negative = basic_negative_trials(&canonical)?;
     let package = package_trial(&canonical)?;
     let render = render_trials(&canonical)?;
+    let allocation = shared_surface_allocation_trial()?;
     let passed = accepted.iter().all(passed_trial)
         && basic.iter().all(passed_trial)
         && negative.iter().all(passed_trial)
         && basic_negative.iter().all(passed_trial)
         && package.iter().all(passed_trial)
-        && render.iter().all(passed_trial);
+        && render.iter().all(passed_trial)
+        && allocation.iter().all(passed_trial);
     let report = json!({
         "schema_version": 1,
         "experiment": "nuif:experiment:image-resource-rgba8-baseline",
@@ -129,6 +144,7 @@ fn run() -> Result<(), String> {
             "height": nuif_media::MAX_PNG_HEIGHT,
             "pixels": MAX_PNG_PIXELS,
             "chunks": MAX_PNG_CHUNKS,
+            "scene_decoded_image_bytes": MAX_SCENE_DECODED_IMAGE_BYTES,
         },
         "measurements": {
             "accepted_decodes": accepted.len() + basic.len(),
@@ -142,6 +158,7 @@ fn run() -> Result<(), String> {
         "basic_negative_trials": basic_negative,
         "package_trials": package,
         "render_trials": render,
+        "allocation_trials": allocation,
         "source": source_identity(),
         "non_claims": [
             "no 16-bit interlaced ICC gamma/chromaticity CICP Exif animation or arbitrary ancillary PNG support",
@@ -153,7 +170,8 @@ fn run() -> Result<(), String> {
             "negative": negative.len() + basic_negative.len(),
             "package": package.len(),
             "render": render.len(),
-            "blocking_failures": accepted.iter().chain(&basic).chain(&negative).chain(&basic_negative).chain(&package).chain(&render).filter(|trial| !passed_trial(trial)).count(),
+            "allocation": allocation.len(),
+            "blocking_failures": accepted.iter().chain(&basic).chain(&negative).chain(&basic_negative).chain(&package).chain(&render).chain(&allocation).filter(|trial| !passed_trial(trial)).count(),
         }
     });
     if let Some(parent) = output.parent()
@@ -649,6 +667,12 @@ fn render_trials(bytes: &[u8]) -> Result<Vec<Value>, String> {
         },
     )
     .map_err(|error| error.to_string())?;
+    let basic_profile_surface = matches!(
+        basic_scene.commands.as_slice(),
+        [DrawCommand::Image { surface, .. }]
+            if basic_scene.image_surfaces.get(surface).is_some_and(|entry| entry.decoder_profile == PNG_BASIC_RGBA8_PROFILE)
+    );
+    let surface_budget = decoded_surface_budget_trial(bytes);
     Ok(vec![
         trial(
             "resolver_required",
@@ -667,10 +691,138 @@ fn render_trials(bytes: &[u8]) -> Result<Vec<Value>, String> {
         ),
         trial(
             "basic_profile_lowers_and_renders",
-            matches!(basic_scene.commands.as_slice(), [DrawCommand::Image { decoder_profile, .. }] if decoder_profile == PNG_BASIC_RGBA8_PROFILE)
-                && basic_raster.rgba.len() == 4 * 4 * 4,
+            basic_profile_surface && basic_raster.rgba.len() == 4 * 4 * 4,
         ),
+        surface_budget,
     ])
+}
+
+fn decoded_surface_budget_trial(bytes: &[u8]) -> Value {
+    let first_digest = ResourceDigest::from_sha256_hex(sha256(bytes));
+    let (first_asset, first_entity) = image_model(first_digest.clone());
+    let mut declared_maximum = bytes.to_vec();
+    declared_maximum[16..20].copy_from_slice(&4_096_u32.to_be_bytes());
+    declared_maximum[20..24].copy_from_slice(&4_096_u32.to_be_bytes());
+    let second_digest = ResourceDigest::from_sha256_hex(sha256(&declared_maximum));
+    let (mut second_asset, mut second_entity) =
+        image_model_for_profile(second_digest.clone(), PNG_RGBA8_PROFILE, 4_096, 4_096);
+    second_asset.id = AssetId::new(2);
+    second_entity.id = EntityId::new(3);
+    second_entity
+        .authored
+        .image
+        .as_mut()
+        .expect("fixture image paint exists")
+        .asset = second_asset.id;
+    let mut document = Document::empty(EntityId::new(1));
+    document.assets.insert(first_asset.id, first_asset);
+    document.assets.insert(second_asset.id, second_asset);
+    document.roots.extend([first_entity.id, second_entity.id]);
+    document.entities.insert(first_entity.id, first_entity);
+    document.entities.insert(second_entity.id, second_entity);
+    let context = EvaluationContext::viewport(4.0, 4.0);
+    let layout = nuif_layout::evaluate(&document, &context);
+    let result = build_scene_with_resources(&document, &layout, &context, |digest| {
+        if digest == &first_digest {
+            Some(bytes)
+        } else if digest == &second_digest {
+            Some(declared_maximum.as_slice())
+        } else {
+            None
+        }
+    });
+    let passed = matches!(
+        result,
+        Err(RenderError::ImageResourceLimit {
+            limit: MAX_SCENE_DECODED_IMAGE_BYTES,
+            observed,
+            ..
+        }) if observed == MAX_SCENE_DECODED_IMAGE_BYTES + 16
+    );
+    json!({
+        "name": "decoded_surface_total_one_over_rejected_before_second_decode",
+        "passed": passed,
+        "limit": MAX_SCENE_DECODED_IMAGE_BYTES,
+        "observed": MAX_SCENE_DECODED_IMAGE_BYTES + 16,
+    })
+}
+
+fn shared_surface_allocation_trial() -> Result<Vec<Value>, String> {
+    let pixels = fixture_pixels(SHARED_SURFACE_DIMENSION, SHARED_SURFACE_DIMENSION);
+    let bytes = encode_png(
+        SHARED_SURFACE_DIMENSION,
+        SHARED_SURFACE_DIMENSION,
+        &pixels,
+        ColorType::Rgba,
+        BitDepth::Eight,
+        Filter::Paeth,
+        true,
+    )?;
+    let digest = ResourceDigest::from_sha256_hex(sha256(&bytes));
+    let (asset, template) = image_model_for_profile(
+        digest.clone(),
+        PNG_RGBA8_PROFILE,
+        SHARED_SURFACE_DIMENSION,
+        SHARED_SURFACE_DIMENSION,
+    );
+    let mut document = Document::empty(EntityId::new(1));
+    document.assets.insert(asset.id, asset);
+    for index in 0..SHARED_SURFACE_INSTANCES {
+        let mut entity = template.clone();
+        entity.id = EntityId::new(0x1_0000 + index as u128);
+        document.roots.push(entity.id);
+        document.entities.insert(entity.id, entity);
+    }
+    let context = EvaluationContext::viewport(4.0, 4.0);
+    let layout = nuif_layout::evaluate(&document, &context);
+    let warm = build_scene_with_resources(&document, &layout, &context, |_| Some(&bytes))
+        .map_err(|error| error.to_string())?;
+    if warm.image_surfaces.len() != 1 || warm.commands.len() != SHARED_SURFACE_INSTANCES {
+        return Err("shared image-surface warmup did not deduplicate".to_owned());
+    }
+    drop(warm);
+
+    let region = Region::new(GLOBAL);
+    let scene = build_scene_with_resources(&document, &layout, &context, |_| Some(&bytes))
+        .map_err(|error| error.to_string())?;
+    let stats = region.change();
+    let retained = retained_bytes(stats);
+    let surface_bytes = scene
+        .image_surfaces
+        .values()
+        .map(|surface| surface.image.rgba.len())
+        .sum::<usize>();
+    let deduplicated = scene.commands.len() == SHARED_SURFACE_INSTANCES
+        && scene.image_surfaces.len() == 1
+        && surface_bytes
+            == usize::try_from(
+                u64::from(SHARED_SURFACE_DIMENSION) * u64::from(SHARED_SURFACE_DIMENSION) * 4,
+            )
+            .map_err(|error| error.to_string())?;
+    let within_budget = stats.bytes_allocated <= MAX_SHARED_SCENE_ALLOCATED_BYTES
+        && retained <= MAX_SHARED_SCENE_RETAINED_BYTES;
+    Ok(vec![json!({
+        "name": "shared_surface_is_decoded_once",
+        "passed": deduplicated && within_budget,
+        "instances": SHARED_SURFACE_INSTANCES,
+        "unique_surfaces": scene.image_surfaces.len(),
+        "surface_bytes": surface_bytes,
+        "encoded_bytes": bytes.len(),
+        "allocations": stats.allocations,
+        "reallocations": stats.reallocations,
+        "allocated_bytes": stats.bytes_allocated,
+        "retained_bytes": retained,
+        "allocated_budget": MAX_SHARED_SCENE_ALLOCATED_BYTES,
+        "retained_budget": MAX_SHARED_SCENE_RETAINED_BYTES,
+        "allocator": "stats_alloc 0.1.10 instrumented system allocator after one warmup",
+    })])
+}
+
+fn retained_bytes(stats: Stats) -> usize {
+    let retained = i128::try_from(stats.bytes_allocated).unwrap_or(i128::MAX)
+        - i128::try_from(stats.bytes_deallocated).unwrap_or(i128::MAX)
+        + i128::try_from(stats.bytes_reallocated).unwrap_or(i128::MAX);
+    usize::try_from(retained.max(0)).unwrap_or(usize::MAX)
 }
 
 fn image_model(resource: ResourceDigest) -> (Asset, Entity) {

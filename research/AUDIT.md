@@ -155,8 +155,10 @@ synthetic/real malformed or out-of-profile cases plus 10 policy cases through
 Six additional trials distinguish package-level portable/private/linked/
 substituted/unavailable outcomes. TTC, CFF/CFF2, variable/color/bitmap/WOFF2
 acceptance, item-level substitution/unavailability fidelity, shaping integration,
-cross-platform font reproduction and calibrated total-resource/media
-allocation evidence remain required. Both narrow media segments are separate
+cross-platform font reproduction and calibrated font-processing allocation
+evidence remain required. Package-to-session handoff shares an 8 MiB buffer
+under a 1 MiB allocation ceiling, and 1,024 image instances retain one 1 MiB
+surface under the 64 MiB preflighted scene total. Both media segments are separate
 from CPU render profile 0 and do not establish general images or packaged-font
 rendering.
 

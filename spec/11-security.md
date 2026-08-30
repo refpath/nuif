@@ -73,7 +73,9 @@ publish their own limits before claiming those resource classes.
 The orthogonal experimental `nuif-png-rgba8-0` image segment publishes a
 32 MiB encoded-byte limit, 8,192-pixel limit per dimension, 16,777,216-pixel
 decoded limit and 4,096-chunk limit. Its inspector applies these bounds before
-inflation and its two decoders verify datastream integrity. These limits do not
+inflation. Render scenes additionally cap unique decoded RGBA surfaces at
+64 MiB, preflight each new surface, and deduplicate repeated digest/profile
+uses. Its two decoders verify datastream integrity. These limits do not
 authorize other PNG forms, non-PNG media, GPU allocation or inclusion in CPU
 render profile 0.
 

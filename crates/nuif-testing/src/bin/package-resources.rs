@@ -1,14 +1,19 @@
+use nuif_api::{
+    MAX_SESSION_RESOURCE_BYTES, MAX_SESSION_RESOURCES, MAX_SESSION_TOTAL_RESOURCE_BYTES, Session,
+};
 use nuif_codec::{DeterministicCbor, Encoder, canonical_hash, encode_canonical_record};
 use nuif_core::{
     Asset, AssetId, AssetKind, AssetPortability, Document, EntityId, ImageAsset,
     ResourceDescriptor, ResourceDigest, ResourceLocator, ResourceRole,
 };
 use nuif_package::{
-    MAX_PACKAGE_BYTES, MAX_RESOURCE_BYTES, MAX_RESOURCES, MIME_TYPE, NuifPackage, PackageMode,
-    ResourceResolver,
+    MAX_PACKAGE_BYTES, MAX_RESOURCE_BYTES, MAX_RESOURCES, MAX_TOTAL_RESOURCE_BYTES, MIME_TYPE,
+    NuifPackage, PackageMode, ResourceResolver,
 };
 use serde_json::{Value, json};
 use sha2::{Digest, Sha256};
+use stats_alloc::{INSTRUMENTED_SYSTEM, Region, Stats, StatsAlloc};
+use std::alloc::System;
 use std::env;
 use std::fs;
 use std::io::{Cursor, Write as _};
@@ -19,6 +24,12 @@ use zip::write::SimpleFileOptions;
 use zip::{CompressionMethod, ZipWriter};
 
 const PROFILE: &str = "nuif-package-0";
+const SHARED_RESOURCE_TRIAL_BYTES: usize = 8 * 1024 * 1024;
+const MAX_SHARED_HANDOFF_ALLOCATED_BYTES: usize = 1024 * 1024;
+const MAX_SHARED_HANDOFF_RETAINED_BYTES: usize = 1024 * 1024;
+
+#[global_allocator]
+static GLOBAL: &StatsAlloc<System> = &INSTRUMENTED_SYSTEM;
 
 fn main() {
     if let Err(error) = run() {
@@ -56,6 +67,7 @@ fn run() -> Result<(), String> {
         cache_hash_trial(&package, &semantic_hash, &package_hash)?,
         locator_hash_trial(&resource, &resource_bytes)?,
         resolver_trial(&resource, &resource_bytes)?,
+        shared_session_allocation_trial()?,
     ];
     let negative = negative_trials(&encoded, &package, &resource)?;
     let passed = positive
@@ -77,12 +89,17 @@ fn run() -> Result<(), String> {
             "limits": {
                 "package_bytes": MAX_PACKAGE_BYTES,
                 "resource_bytes": MAX_RESOURCE_BYTES,
+                "total_resource_bytes": MAX_TOTAL_RESOURCE_BYTES,
                 "resources": MAX_RESOURCES,
+                "session_resource_bytes": MAX_SESSION_RESOURCE_BYTES,
+                "session_total_resource_bytes": MAX_SESSION_TOTAL_RESOURCE_BYTES,
+                "session_resources": MAX_SESSION_RESOURCES,
             }
         },
         "measurement": {
             "elapsed_microseconds": started.elapsed().as_micros(),
             "kind": "deterministic boundary and one-over profile",
+            "allocator": "stats_alloc 0.1.10 instrumented system allocator",
         },
         "positive_trials": positive,
         "negative_trials": negative,
@@ -300,6 +317,64 @@ fn resolver_trial(digest: &ResourceDigest, bytes: &[u8]) -> Result<Value, String
         explicit_required && exact && mismatch,
         json!({"implicit_rejected": explicit_required, "exact_resolved": exact, "mismatch_rejected": mismatch}),
     ))
+}
+
+fn shared_session_allocation_trial() -> Result<Value, String> {
+    let mut package = NuifPackage::new(
+        Document::empty(EntityId::new(0x5100)),
+        PackageMode::Authoring,
+    );
+    let digest = package
+        .add_embedded(
+            vec![0x5a; SHARED_RESOURCE_TRIAL_BYTES],
+            "application/octet-stream",
+            ResourceRole::Authoring,
+            None,
+        )
+        .map_err(|error| error.to_string())?;
+    let package_pointer = package
+        .embedded(&digest)
+        .ok_or_else(|| "shared resource fixture was not embedded".to_owned())?
+        .as_ptr();
+
+    let region = Region::new(GLOBAL);
+    let resources = package.embedded_resources();
+    let map_pointer = resources
+        .get(&digest)
+        .ok_or_else(|| "shared resource fixture was not cloned into the map".to_owned())?
+        .as_ptr();
+    let session = Session::with_resources(package.document.clone(), resources)
+        .map_err(|error| error.to_string())?;
+    let session_pointer = session
+        .resource(&digest)
+        .ok_or_else(|| "shared resource fixture was not retained by the session".to_owned())?
+        .as_ptr();
+    let stats = region.change();
+    let retained = retained_bytes(stats);
+    let shared = package_pointer == map_pointer && package_pointer == session_pointer;
+    let within_budget = stats.bytes_allocated <= MAX_SHARED_HANDOFF_ALLOCATED_BYTES
+        && retained <= MAX_SHARED_HANDOFF_RETAINED_BYTES;
+    Ok(trial(
+        "package_session_handoff_shares_resource_bytes",
+        shared && within_budget,
+        json!({
+            "resource_bytes": SHARED_RESOURCE_TRIAL_BYTES,
+            "allocated_bytes": stats.bytes_allocated,
+            "retained_bytes": retained,
+            "allocations": stats.allocations,
+            "reallocations": stats.reallocations,
+            "same_allocation": shared,
+            "allocated_budget": MAX_SHARED_HANDOFF_ALLOCATED_BYTES,
+            "retained_budget": MAX_SHARED_HANDOFF_RETAINED_BYTES,
+        }),
+    ))
+}
+
+fn retained_bytes(stats: Stats) -> usize {
+    let retained = i128::try_from(stats.bytes_allocated).unwrap_or(i128::MAX)
+        - i128::try_from(stats.bytes_deallocated).unwrap_or(i128::MAX)
+        + i128::try_from(stats.bytes_reallocated).unwrap_or(i128::MAX);
+    usize::try_from(retained.max(0)).unwrap_or(usize::MAX)
 }
 
 #[expect(

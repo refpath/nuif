@@ -43,6 +43,11 @@ fit, crop, affine transform, sampling, opacity and color-conversion policy.
 Decoded pixels and GPU textures are caches keyed by encoded digest plus decoder
 profile.
 
+Renderer-independent scenes MUST store a unique decoded surface once per
+resource-digest/decoder-profile pair and reference it from image commands.
+The reference scene budget is 64 MiB of decoded RGBA surfaces and MUST be
+checked from bounded metadata before allocating the next decode.
+
 The affine fields use `[a c tx; b d ty; 0 0 1]` and map the selected crop's
 normalized source coordinates forward into normalized coordinates of the
 fitted paint rectangle. Fit is calculated first. Rasterizers inverse-map

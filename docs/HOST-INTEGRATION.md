@@ -71,6 +71,14 @@ Hosts that need authenticated or remote resources keep that policy outside the
 session, resolve explicitly, verify against the descriptor, and then create a
 new bounded session.
 
+The release allocation trial hands an 8 MiB embedded buffer from package to
+session with the same allocation pointer; map/session construction allocates
+under 1 MiB and retains under 1 MiB. Scene lowering separately stores one
+decoded surface for repeated image uses and enforces a 64 MiB unique decoded
+surface total before inflation. These are regression ceilings measured by
+`cargo xtask gate-i-package` and `cargo xtask gate-i-image`, not promises about
+an arbitrary host allocator.
+
 ## Figma path
 
 The first profile is `adapters/figma/PROFILE-DRAFT.md`.

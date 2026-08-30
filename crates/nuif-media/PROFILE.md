@@ -26,6 +26,12 @@ CRC and DEFLATE integrity and allocates exactly four decoded bytes per accepted
 pixel. Original encoded bytes remain the content-addressed authoritative
 resource; RGBA output is a deletable cache.
 
+A render scene retains at most 64 MiB of unique decoded image surfaces. The
+builder inspects each new resource's decoded size before inflation, rejects a
+total one-over atomically, and stores one surface per unique digest/profile.
+Image commands carry deterministic numeric handles, so repeated use does not
+duplicate pixels or descriptor strings in memory or serialized scenes.
+
 ## Image-paint lowering
 
 The reference scene supports `fill`, `contain` and `cover`, normalized crop,
@@ -57,6 +63,10 @@ resource implicitly.
   forward affine matrices and rejects a singular matrix;
 - checks hostile/unsupported colour types, metadata, corruption, trailing
   bytes, and dimension, pixel, chunk and encoded-byte one-over cases.
+- requires 1,024 uses of one 512×512 resource to retain one 1 MiB surface; the
+  warmed release trial allocates under 8 MiB and retains under 4 MiB;
+- rejects a declared decoded-surface total of 64 MiB plus 16 bytes before
+  attempting the second image decode.
 
 ## Basic RGBA8 profile one
 

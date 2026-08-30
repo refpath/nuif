@@ -9,6 +9,7 @@ use nuif_render::{
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 use sha2::{Digest, Sha256};
+use std::collections::BTreeMap;
 use std::env;
 use std::fs;
 use std::path::PathBuf;
@@ -144,6 +145,7 @@ fn raster_trials(cases: &[GoldenCase]) -> Result<(Vec<Value>, bool), String> {
         let scene = RenderScene {
             commands: vec![command],
             fidelity: Vec::new(),
+            image_surfaces: BTreeMap::default(),
         };
         let first = render_cpu(&scene, case.target).map_err(|error| error.to_string())?;
         let second = render_cpu(&scene, case.target).map_err(|error| error.to_string())?;
@@ -295,6 +297,7 @@ fn negative_trials() -> (Vec<Value>, bool) {
             fill: invalid_color,
         }],
         fidelity: Vec::new(),
+        image_surfaces: BTreeMap::default(),
     };
     let raster_rejected = matches!(
         render_cpu(

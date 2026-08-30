@@ -68,6 +68,13 @@ only preserve its own pixels and infer a possible editable structure.
   traversal, duplicates, symlinks, encryption, unsupported compression and
   expansion-limit attacks without filesystem extraction. They do not prove the
   proposed NUIF package layout or image/font budgets.
+- The executable package profile now proves exact bytes from two ZIP writers
+  and passes a shared-buffer allocation trial: an 8 MiB resource retains the
+  same pointer across package, cloned handle map and session under 1 MiB of
+  allocator traffic and retained bookkeeping.
+- Image scene lowering now interns one decoded surface per digest/profile,
+  preflights a 64 MiB decoded total and keeps 1,024 uses of one 512×512 image to
+  one 1 MiB surface under measured release-build ceilings.
 
 ## Mechanism
 
@@ -117,14 +124,13 @@ allows. Screenshot-derived crops, reconstructed vectors and generated assets
 are derived approximations with evidence and confidence, never disguised as
 captured originals. External resolution is opt-in and always digest-checked.
 
-## Open questions
+## Remaining questions
 
-- Can two independent ZIP writers reproduce identical package bytes using the
-  proposed ordering and metadata rules?
-- Which manifest fields are part of the semantic document hash, package hash,
-  or both?
-- What calibrated image, font, expanded-byte and descriptor-count limits are
-  safe on all supported hosts?
+- Can an externally authored writer reproduce the already exact in-repository
+  two-writer package bytes on every supported host?
+- Do the measured package/image allocation ceilings reproduce on hosted Linux,
+  Windows and macOS runners, and what corresponding ceiling is appropriate for
+  the font pipeline?
 - Which resource substitutions are allowed by each portability profile, and
   when must a missing resource make validation fail?
 - How should an adapter preserve an inaccessible local font: metrics only,

@@ -127,6 +127,12 @@ undeclared/missing blobs and digest mismatch. It does not extract to a
 filesystem. Exact byte fixtures, member/resource limits and two independent
 writers are acceptance gates.
 
+Package-to-session handoff uses shared immutable buffers. The release gate
+passes an 8 MiB resource through package, handle map and session with the same
+allocation pointer while keeping handoff allocator traffic and retained
+bookkeeping below 1 MiB. This prevents a host from paying one full resource
+copy merely to enter the core.
+
 ## Images
 
 The original encoded image is authoritative. A semantic image asset records its
@@ -156,6 +162,12 @@ into the fitted rectangle. The CPU reference inverse-maps destination pixel
 centers, clips to the entity, and rejects singular or numerically unbounded
 matrices. Flip, rotation and translation fixtures make composition order
 observable; live host trials are still required for vendor interoperability.
+
+Decoded pixels are interned once per digest/profile in the renderer-independent
+scene and commands carry compact deterministic handles. A 64 MiB total is
+preflighted before each new inflation. The release gate retains one 1 MiB
+surface for 1,024 image instances under 8 MiB allocated and 4 MiB retained,
+and rejects a 64 MiB plus 16 byte declared total before the second decode.
 
 Any broader profile still has to pin:
 

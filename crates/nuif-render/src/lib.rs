@@ -8,6 +8,7 @@ use nuif_core::{
 use nuif_layout::{EvaluationContext, LayoutSnapshot, Rect, WritingDirection};
 use nuif_media::{
     MediaError, PNG_BASIC_RGBA8_PROFILE, PNG_RGBA8_PROFILE, Rgba8Image, decode_png_profile,
+    png_profile_decoded_bytes,
 };
 use nuif_text::{
     CLUSTER_UNIT, GlyphOutline, MAX_SHAPING_CODEPOINTS, OUTLINE_COORDINATE_DENOMINATOR,
@@ -67,9 +68,7 @@ pub enum DrawCommand {
         entity: EntityId,
         rect: Rect,
         asset: AssetId,
-        resource: ResourceDigest,
-        decoder_profile: String,
-        image: Box<Rgba8Image>,
+        surface: ImageSurfaceId,
         fit: ImageFit,
         crop: ImageCrop,
         transform: AffineTransform,
@@ -78,11 +77,43 @@ pub enum DrawCommand {
     },
 }
 
+#[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd, Serialize, Deserialize)]
+#[serde(transparent)]
+pub struct ImageSurfaceId(pub u32);
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ImageSurface {
+    pub resource: ResourceDigest,
+    pub decoder_profile: String,
+    pub image: Rgba8Image,
+}
+
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct RenderScene {
     pub commands: Vec<DrawCommand>,
     pub fidelity: Vec<RenderFidelity>,
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub image_surfaces: BTreeMap<ImageSurfaceId, ImageSurface>,
+}
+
+pub const MAX_SCENE_DECODED_IMAGE_BYTES: usize = 64 * 1024 * 1024;
+
+#[derive(Default)]
+struct ImageSurfaceCache {
+    decoded_bytes: usize,
+    ids: BTreeMap<AssetId, ImageSurfaceId>,
+}
+
+struct ImageSurfaceRequest<'a> {
+    entity: EntityId,
+    asset: AssetId,
+    resource: &'a ResourceDigest,
+    decoder_profile: &'a str,
+    width: u32,
+    height: u32,
+    bytes: &'a [u8],
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -169,6 +200,14 @@ pub enum RenderError {
     },
     #[error("image metadata or decoded dimensions are inconsistent for entity {entity}")]
     InvalidImage { entity: EntityId },
+    #[error(
+        "decoded image-surface budget exceeded for entity {entity}: limit {limit}, observed {observed}"
+    )]
+    ImageResourceLimit {
+        entity: EntityId,
+        limit: usize,
+        observed: usize,
+    },
     #[error("PNG encoding failed: {0}")]
     Png(String),
 }
@@ -217,7 +256,12 @@ pub fn build_scene_with_resources<'a>(
     context: &EvaluationContext,
     resolve: impl Fn(&ResourceDigest) -> Option<&'a [u8]>,
 ) -> Result<RenderScene, RenderError> {
-    let mut scene = RenderScene::default();
+    let mut scene = RenderScene {
+        commands: Vec::with_capacity(document.entities.len()),
+        fidelity: Vec::with_capacity(document.entities.len()),
+        image_surfaces: BTreeMap::new(),
+    };
+    let mut image_cache = ImageSurfaceCache::default();
     for namespace in document.extensions.0.keys() {
         scene.fidelity.push(RenderFidelity {
             entity: None,
@@ -248,6 +292,7 @@ pub fn build_scene_with_resources<'a>(
                 rect,
                 entity.authored.image.as_ref(),
                 &resolve,
+                &mut image_cache,
             )?;
         } else {
             lower_entity_visual(&mut scene, *id, &entity.kind, rect, entity.authored.fill);
@@ -318,6 +363,7 @@ fn lower_image<'a>(
     rect: Rect,
     paint: Option<&ImagePaint>,
     resolve: &impl Fn(&ResourceDigest) -> Option<&'a [u8]>,
+    image_cache: &mut ImageSurfaceCache,
 ) -> Result<(), RenderError> {
     let Some(paint) = paint else {
         image_fidelity(scene, id, "image entity has no authored image paint");
@@ -357,18 +403,24 @@ fn lower_image<'a>(
         image_fidelity(scene, id, "image resource was not explicitly resolved");
         return Ok(());
     };
-    let image = decode_png_profile(&metadata.decoder_profile, bytes)
-        .map_err(|source| RenderError::Image { entity: id, source })?;
-    if image.width != metadata.width || image.height != metadata.height {
-        return Err(RenderError::InvalidImage { entity: id });
-    }
+    let surface = resolve_image_surface(
+        scene,
+        image_cache,
+        &ImageSurfaceRequest {
+            entity: id,
+            asset: paint.asset,
+            resource,
+            decoder_profile: &metadata.decoder_profile,
+            width: metadata.width,
+            height: metadata.height,
+            bytes,
+        },
+    )?;
     scene.commands.push(DrawCommand::Image {
         entity: id,
         rect,
         asset: paint.asset,
-        resource: resource.clone(),
-        decoder_profile: metadata.decoder_profile.clone(),
-        image: Box::new(image),
+        surface,
         fit: paint.fit,
         crop: paint.crop,
         transform: paint.transform,
@@ -381,6 +433,82 @@ fn lower_image<'a>(
         status: Fidelity::Lossless,
     });
     Ok(())
+}
+
+fn resolve_image_surface(
+    scene: &mut RenderScene,
+    cache: &mut ImageSurfaceCache,
+    request: &ImageSurfaceRequest<'_>,
+) -> Result<ImageSurfaceId, RenderError> {
+    if let Some(surface) = cache.ids.get(&request.asset) {
+        return ensure_image_dimensions(scene, *surface, request);
+    }
+    if let Some(surface) = scene.image_surfaces.iter().find_map(|(id, surface)| {
+        (&surface.resource == request.resource
+            && surface.decoder_profile == request.decoder_profile)
+            .then_some(*id)
+    }) {
+        cache.ids.insert(request.asset, surface);
+        return ensure_image_dimensions(scene, surface, request);
+    }
+    let additional =
+        png_profile_decoded_bytes(request.decoder_profile, request.bytes).map_err(|source| {
+            RenderError::Image {
+                entity: request.entity,
+                source,
+            }
+        })?;
+    let observed = cache.decoded_bytes.saturating_add(additional);
+    if observed > MAX_SCENE_DECODED_IMAGE_BYTES {
+        return Err(RenderError::ImageResourceLimit {
+            entity: request.entity,
+            limit: MAX_SCENE_DECODED_IMAGE_BYTES,
+            observed,
+        });
+    }
+    let image = decode_png_profile(request.decoder_profile, request.bytes).map_err(|source| {
+        RenderError::Image {
+            entity: request.entity,
+            source,
+        }
+    })?;
+    if image.width != request.width || image.height != request.height {
+        return Err(RenderError::InvalidImage {
+            entity: request.entity,
+        });
+    }
+    let surface = ImageSurfaceId(u32::try_from(scene.image_surfaces.len()).map_err(|_| {
+        RenderError::InvalidImage {
+            entity: request.entity,
+        }
+    })?);
+    cache.decoded_bytes = observed;
+    scene.image_surfaces.insert(
+        surface,
+        ImageSurface {
+            resource: request.resource.clone(),
+            decoder_profile: request.decoder_profile.to_owned(),
+            image,
+        },
+    );
+    cache.ids.insert(request.asset, surface);
+    Ok(surface)
+}
+
+fn ensure_image_dimensions(
+    scene: &RenderScene,
+    surface: ImageSurfaceId,
+    request: &ImageSurfaceRequest<'_>,
+) -> Result<ImageSurfaceId, RenderError> {
+    if scene.image_surfaces.get(&surface).is_some_and(|entry| {
+        entry.image.width == request.width && entry.image.height == request.height
+    }) {
+        Ok(surface)
+    } else {
+        Err(RenderError::InvalidImage {
+            entity: request.entity,
+        })
+    }
 }
 
 fn image_decoder_profile_is_supported(profile: &str) -> bool {
@@ -485,7 +613,7 @@ pub fn render_cpu(scene: &RenderScene, target: RenderTarget) -> Result<RasterIma
         return Err(RenderError::InvalidTarget);
     }
     for command in &scene.commands {
-        let (entity, valid) = draw_command_is_valid(command, target.scale_factor);
+        let (entity, valid) = draw_command_is_valid(scene, command, target.scale_factor);
         if !valid {
             return Err(RenderError::InvalidScene { entity });
         }
@@ -522,31 +650,41 @@ pub fn render_cpu(scene: &RenderScene, target: RenderTarget) -> Result<RasterIma
                 *color,
             ),
             DrawCommand::Image {
+                entity,
                 rect,
-                image: source,
+                surface,
                 fit,
                 crop,
                 transform,
                 sampling,
                 opacity,
                 ..
-            } => draw_image(
-                &mut image,
-                scale_rect(*rect, f64::from(target.scale_factor)),
-                source,
-                *fit,
-                *crop,
-                *transform,
-                *sampling,
-                *opacity,
-                f64::from(target.scale_factor),
-            ),
+            } => {
+                let Some(surface) = scene.image_surfaces.get(surface) else {
+                    return Err(RenderError::InvalidScene { entity: *entity });
+                };
+                draw_image(
+                    &mut image,
+                    scale_rect(*rect, f64::from(target.scale_factor)),
+                    &surface.image,
+                    *fit,
+                    *crop,
+                    *transform,
+                    *sampling,
+                    *opacity,
+                    f64::from(target.scale_factor),
+                );
+            }
         }
     }
     Ok(image)
 }
 
-fn draw_command_is_valid(command: &DrawCommand, scale_factor: f32) -> (EntityId, bool) {
+fn draw_command_is_valid(
+    scene: &RenderScene,
+    command: &DrawCommand,
+    scale_factor: f32,
+) -> (EntityId, bool) {
     match command {
         DrawCommand::Rect { entity, rect, fill } | DrawCommand::Ellipse { entity, rect, fill } => (
             *entity,
@@ -567,18 +705,22 @@ fn draw_command_is_valid(command: &DrawCommand, scale_factor: f32) -> (EntityId,
         DrawCommand::Image {
             entity,
             rect,
-            decoder_profile,
-            image,
+            surface,
             crop,
             transform,
             opacity,
             ..
-        } => (
-            *entity,
-            command_rect_is_valid(*rect, scale_factor)
-                && image_decoder_profile_is_supported(decoder_profile)
-                && image_command_is_valid(image, *crop, *transform, *opacity),
-        ),
+        } => {
+            let surface = scene.image_surfaces.get(surface);
+            (
+                *entity,
+                command_rect_is_valid(*rect, scale_factor)
+                    && surface.is_some_and(|surface| {
+                        image_decoder_profile_is_supported(&surface.decoder_profile)
+                            && image_command_is_valid(&surface.image, *crop, *transform, *opacity)
+                    }),
+            )
+        }
     }
 }
 
@@ -1347,6 +1489,7 @@ mod tests {
                 },
             }],
             fidelity: Vec::new(),
+            image_surfaces: BTreeMap::new(),
         };
         let target = RenderTarget {
             width: 4,
@@ -1363,6 +1506,10 @@ mod tests {
     #[test]
     fn package_image_lowers_only_through_explicit_resource_resolution() {
         let (mut document, resource, bytes) = image_document();
+        let mut second = document.entities[&EntityId::new(2)].clone();
+        second.id = EntityId::new(3);
+        document.roots.push(second.id);
+        document.entities.insert(second.id, second);
         let context = EvaluationContext::viewport(4.0, 4.0);
         let layout = nuif_layout::evaluate(&document, &context);
         let unresolved = build_scene(&document, &layout, &context).unwrap();
@@ -1377,6 +1524,13 @@ mod tests {
         })
         .unwrap();
         assert!(matches!(scene.commands[0], DrawCommand::Image { .. }));
+        assert_eq!(scene.commands.len(), 2);
+        assert_eq!(scene.image_surfaces.len(), 1);
+        let encoded_scene = serde_json::to_vec(&scene).unwrap();
+        assert_eq!(
+            serde_json::from_slice::<RenderScene>(&encoded_scene).unwrap(),
+            scene
+        );
         assert_eq!(scene.fidelity[0].status, Fidelity::Lossless);
         let raster = render_cpu(
             &scene,
@@ -1414,13 +1568,17 @@ mod tests {
                 255, 0, 0, 255, 0, 255, 0, 255, 0, 0, 255, 255, 255, 255, 255, 255,
             ],
         };
+        let surface_id = ImageSurfaceId(0);
+        let surface = ImageSurface {
+            resource: ResourceDigest::from_sha256_hex("b".repeat(64)),
+            decoder_profile: PNG_RGBA8_PROFILE.to_owned(),
+            image: source.clone(),
+        };
         let command = |rect, fit, crop, sampling, opacity| DrawCommand::Image {
             entity: EntityId::new(2),
             rect,
             asset: AssetId::new(1),
-            resource: ResourceDigest::from_sha256_hex("b".repeat(64)),
-            decoder_profile: PNG_RGBA8_PROFILE.to_owned(),
-            image: Box::new(source.clone()),
+            surface: surface_id,
             fit,
             crop,
             transform: AffineTransform {
@@ -1439,6 +1597,7 @@ mod tests {
                 &RenderScene {
                     commands: vec![command],
                     fidelity: Vec::new(),
+                    image_surfaces: BTreeMap::from([(surface_id, surface.clone())]),
                 },
                 RenderTarget {
                     width,
@@ -1606,6 +1765,7 @@ mod tests {
                         ty: 0.0,
                     })],
                     fidelity: Vec::new(),
+                    image_surfaces: BTreeMap::from([(surface_id, surface.clone())]),
                 },
                 RenderTarget {
                     width: 2,
@@ -1697,6 +1857,7 @@ mod tests {
                 },
             }],
             fidelity: Vec::new(),
+            image_surfaces: BTreeMap::new(),
         };
         let image = render_cpu(
             &ellipse,
@@ -1784,6 +1945,7 @@ mod tests {
                 },
             }],
             fidelity: Vec::new(),
+            image_surfaces: BTreeMap::new(),
         };
         assert_eq!(
             render_cpu(
@@ -1820,6 +1982,7 @@ mod tests {
                 },
             }],
             fidelity: Vec::new(),
+            image_surfaces: BTreeMap::new(),
         };
         let image = render_cpu(
             &scene,

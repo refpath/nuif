@@ -146,6 +146,23 @@ pub fn decode_png_profile(profile: &str, bytes: &[u8]) -> Result<Rgba8Image, Med
     }
 }
 
+/// Returns the exact RGBA8 cache size implied by a supported profile without
+/// inflating image data.
+///
+/// # Errors
+///
+/// Rejects unknown profiles and inputs outside the selected structural
+/// profile.
+pub fn png_profile_decoded_bytes(profile: &str, bytes: &[u8]) -> Result<usize, MediaError> {
+    match profile {
+        PNG_RGBA8_PROFILE => inspect_png_rgba8(bytes).map(|header| header.decoded_bytes),
+        PNG_BASIC_RGBA8_PROFILE => {
+            inspect_png_basic_rgba8(bytes).map(|header| header.decoded_bytes)
+        }
+        _ => Err(MediaError::UnsupportedPng("unknown decoder profile")),
+    }
+}
+
 fn normalize_rgba8(
     color: ColorType,
     decoded: &[u8],

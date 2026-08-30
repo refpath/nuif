@@ -45,8 +45,10 @@ image reproduction remain excluded. `cargo xtask gate-i-font`
 adds a deliberately narrow static TrueType external-oracle/package/policy baseline;
 TTC, CFF, variable/color/bitmap/WOFF2 acceptance and complete item-level
 portability fidelity remain separate beyond the automated package-state outcomes.
-Cross-platform writer reproduction and total-resource allocation evidence are
-also independent requirements. Browser capture precedes
+Package/session handoff now proves shared immutable bytes, and image scenes
+deduplicate decoded surfaces under a preflighted 64 MiB total plus measured
+allocation ceilings. Cross-platform writer reproduction and font-processing
+allocation evidence remain independent requirements. Browser capture precedes
 screenshot reconstruction because it provides stronger source-backed fixtures
 and exposes which information is truly unavailable from pixels.
 
