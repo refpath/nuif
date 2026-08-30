@@ -378,8 +378,9 @@ impl Driver {
             .with_fixed(self.button("File", UiAction::ToggleFileMenu, self.show_file_menu))
             .with_fixed(self.button("Undo", UiAction::Undo, false))
             .with_fixed(self.button("Redo", UiAction::Redo, false))
-            .with_fixed_spacer(10.px())
-            .with(label(&title, 12.0, TEXT, true), 1.0)
+            .with_fixed_spacer(8.px())
+            .with_fixed(label(&title, 12.0, TEXT, true))
+            .with_spacer(1.0)
             .with_fixed(self.button(
                 "360",
                 UiAction::SetViewport(360),
@@ -404,13 +405,8 @@ impl Driver {
                 false,
             ))
             .with_fixed(self.button("+", UiAction::ZoomIn, false))
-            .with_fixed(label("px", 11.0, MUTED, true))
-            .with_fixed(self.button("Grid", UiAction::ToggleGrid, self.show_grid))
-            .with_fixed(self.button("Rulers", UiAction::ToggleRulers, self.show_rulers))
-            .with_fixed(self.button("Layers", UiAction::ToggleLeftPanel, self.show_left_panel))
-            .with_fixed(self.button("Design", UiAction::ToggleRightPanel, self.show_right_panel))
-            .with_fixed(self.button("Commands", UiAction::TogglePalette, self.show_palette))
-            .with_fixed(self.button("Export PNG", UiAction::ExportSnapshot, true));
+            .with_fixed_spacer(8.px())
+            .with_fixed(self.button("Export…", UiAction::ToggleFileMenu, true));
         NewWidget::new(SizedBox::new(row.prepare()).height(TOP_BAR_HEIGHT))
             .with_props((
                 Background::Color(PANEL),
@@ -858,30 +854,35 @@ impl Driver {
             };
             row = row.with_fixed(self.button(&caption, UiAction::ChooseTool(tool), selected));
         }
-        NewWidget::new(SizedBox::new(row.prepare()).height(Length::const_px(48.0)))
-            .with_props((
-                Background::Color(PANEL_RAISED),
-                BorderColor::new(BORDER),
-                BorderWidth::all(1.px()),
-                CornerRadius::all(10.px()),
-                Padding::from_vh(6.px(), 7.px()),
-            ))
-            .erased()
+        row = row.with_fixed_spacer(7.px()).with_fixed(self.button(
+            "+",
+            UiAction::TogglePalette,
+            self.show_palette,
+        ));
+        NewWidget::new(
+            SizedBox::new(row.prepare())
+                .width(Length::const_px(330.0))
+                .height(Length::const_px(48.0)),
+        )
+        .with_props((
+            Background::Color(PANEL_RAISED),
+            BorderColor::new(BORDER),
+            BorderWidth::all(1.px()),
+            CornerRadius::all(10.px()),
+            Padding::from_vh(6.px(), 7.px()),
+        ))
+        .erased()
     }
 
     fn build_command_palette(&mut self) -> NewWidget<dyn Widget> {
-        let mut commands = Flex::column()
-            .with_fixed(label("COMMANDS", 11.0, MUTED, true))
+        let mut document = Flex::column()
+            .with_fixed(label("DOCUMENT & ADAPTERS", 11.0, MUTED, true))
             .with_fixed_spacer(8.px());
         for (caption, action) in [
             ("New document", UiAction::New),
             ("Import NUIF document…", UiAction::ImportNative),
             ("Save", UiAction::Save),
             ("Save as…", UiAction::SaveAs),
-            ("Undo", UiAction::Undo),
-            ("Redo", UiAction::Redo),
-            ("Duplicate selection", UiAction::DuplicateSelection),
-            ("Delete selection", UiAction::DeleteSelection),
             ("Export PNG snapshot…", UiAction::ExportSnapshot),
             (
                 "Import SVG profile…",
@@ -915,15 +916,46 @@ impl Driver {
                 "Export Penpot package profile…",
                 UiAction::ExportExternal(ExternalFormat::Penpot),
             ),
-            ("Fit canvas", UiAction::ZoomFit),
-            ("Hide interface", UiAction::ToggleUi),
-            ("Close commands", UiAction::TogglePalette),
         ] {
-            commands = commands
+            document = document
                 .with_fixed(self.button(caption, action, false))
                 .with_fixed_spacer(4.px());
         }
-        NewWidget::new(SizedBox::new(commands.prepare()).width(Length::const_px(280.0)))
+        let mut workspace = Flex::column()
+            .with_fixed(label("WORKSPACE", 11.0, MUTED, true))
+            .with_fixed_spacer(8.px());
+        for (caption, action) in [
+            ("Undo", UiAction::Undo),
+            ("Redo", UiAction::Redo),
+            ("Duplicate selection", UiAction::DuplicateSelection),
+            ("Delete selection", UiAction::DeleteSelection),
+            ("Viewport 360 px", UiAction::SetViewport(360)),
+            ("Viewport 768 px", UiAction::SetViewport(768)),
+            ("Viewport 1440 px", UiAction::SetViewport(1440)),
+            ("Zoom in", UiAction::ZoomIn),
+            ("Zoom out", UiAction::ZoomOut),
+            ("Fit canvas", UiAction::ZoomFit),
+            ("Actual size", UiAction::ZoomActual),
+            ("Toggle pixel grid", UiAction::ToggleGrid),
+            ("Toggle pixel rulers", UiAction::ToggleRulers),
+            ("Toggle Layers panel", UiAction::ToggleLeftPanel),
+            ("Toggle Design panel", UiAction::ToggleRightPanel),
+            ("Hide interface", UiAction::ToggleUi),
+            ("Close commands", UiAction::TogglePalette),
+        ] {
+            workspace = workspace
+                .with_fixed(self.button(caption, action, false))
+                .with_fixed_spacer(4.px());
+        }
+        let commands = Flex::row()
+            .with_fixed(NewWidget::new(
+                SizedBox::new(document.prepare()).width(Length::const_px(280.0)),
+            ))
+            .with_fixed_spacer(12.px())
+            .with_fixed(NewWidget::new(
+                SizedBox::new(workspace.prepare()).width(Length::const_px(240.0)),
+            ));
+        NewWidget::new(SizedBox::new(commands.prepare()).width(Length::const_px(532.0)))
             .with_props((
                 Background::Color(PANEL),
                 BorderColor::new(ACCENT),
