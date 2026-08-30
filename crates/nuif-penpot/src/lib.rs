@@ -603,7 +603,7 @@ fn read_archive(bytes: &[u8]) -> Result<Vec<PackageMember>, AdapterError> {
             .by_index(index)
             .map_err(|error| AdapterError::Zip(error.to_string()))?;
         let name = file.name().to_owned();
-        if !portable_member_name(&file, &name) {
+        if !portable_member_name(&name) {
             return Err(AdapterError::UnsafeMemberName(name));
         }
         if !names.insert(name.clone()) {
@@ -656,12 +656,32 @@ fn read_archive(bytes: &[u8]) -> Result<Vec<PackageMember>, AdapterError> {
     Ok(members)
 }
 
-fn portable_member_name<R: Read>(file: &zip::read::ZipFile<'_, R>, name: &str) -> bool {
-    name.is_ascii()
-        && !name.contains('\\')
-        && file
-            .enclosed_name()
-            .is_some_and(|path| path.to_string_lossy() == name)
+fn portable_member_name(name: &str) -> bool {
+    !name.is_empty()
+        && name.is_ascii()
+        && name.bytes().all(|byte| {
+            byte >= b' '
+                && byte != 0x7f
+                && !matches!(byte, b'\\' | b'<' | b'>' | b':' | b'"' | b'|' | b'?' | b'*')
+        })
+        && name.split('/').all(|segment| {
+            !segment.is_empty()
+                && !matches!(segment, "." | "..")
+                && !segment.ends_with(['.', ' '])
+                && !windows_reserved_segment(segment)
+        })
+}
+
+fn windows_reserved_segment(segment: &str) -> bool {
+    let stem = segment.split_once('.').map_or(segment, |(stem, _)| stem);
+    ["CON", "PRN", "AUX", "NUL"]
+        .into_iter()
+        .any(|reserved| stem.eq_ignore_ascii_case(reserved))
+        || (stem.len() == 4
+            && ["COM", "LPT"]
+                .into_iter()
+                .any(|reserved| stem[..3].eq_ignore_ascii_case(reserved))
+            && matches!(stem.as_bytes()[3], b'1'..=b'9'))
 }
 
 fn write_archive(members: &[PackageMember]) -> Result<Vec<u8>, AdapterError> {
@@ -1950,6 +1970,40 @@ mod tests {
             import_package(&vec![0; MAX_PACKAGE_BYTES + 1]),
             Err(AdapterError::PackageTooLarge)
         ));
+    }
+
+    #[test]
+    fn member_names_are_host_independent_and_traversal_safe() {
+        for name in [
+            "manifest.json",
+            "files/00000000-0000-0000-0000-000000000001.json",
+            "objects/design probe.bin",
+        ] {
+            assert!(
+                portable_member_name(name),
+                "expected {name:?} to be portable"
+            );
+        }
+        for name in [
+            "",
+            "/manifest.json",
+            "files/",
+            "files//shape.json",
+            "files/./shape.json",
+            "files/../manifest.json",
+            "files\\shape.json",
+            "C:/shape.json",
+            "files/shape?.json",
+            "files/shape. ",
+            "files/CON.json",
+            "files/lpt9",
+            "files/shape\u{7f}.json",
+        ] {
+            assert!(
+                !portable_member_name(name),
+                "expected {name:?} to be rejected"
+            );
+        }
     }
 
     #[test]
