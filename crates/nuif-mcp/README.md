@@ -37,6 +37,7 @@ Run the independent subprocess and native-core oracle:
 
 ```sh
 cargo xtask gate-mcp
+cargo xtask mcp-package
 ```
 
 The gate opens with `server/discover` and no legacy initialization handshake,
@@ -45,3 +46,9 @@ annotations, compares canonicalization and patch bytes with the native CLI,
 classifies malformed and stale inputs, sends one frame above the transport
 limit, and records a small wire-latency sample in
 `target/mcp-conformance-report.json`.
+
+`mcp-package` repeats the live gate against an optimized binary, then creates a
+host archive and sibling manifest under `target/dist/`. Tagged GitHub
+prereleases build and attest those archives on Linux x86-64/Arm64, Windows
+x86-64 and macOS Arm64/x86-64. The binary is independently versioned at
+`0.0.1`; the editor's alpha version does not imply MCP protocol maturity.

@@ -144,6 +144,7 @@ fn run() -> Result<(), String> {
         Some("gate-mcp") => gate_mcp(),
         Some("wasm-install") => wasm_install(),
         Some("wasm-package") => wasm_package(),
+        Some("mcp-package") => mcp_package(),
         Some("gate-g") => gate_g(),
         Some("gate-h") => gate_h(),
         Some("gate-i-package") => gate_i_package(),
@@ -176,7 +177,7 @@ fn run() -> Result<(), String> {
         Some("manifest") => standalone_manifest(),
         Some("all") => all(),
         _ => Err(
-            "usage: cargo xtask <research|adapter-audit|dependency-audit|docs-check|docs-build|docs-paper|docs-serve|docs-setup|verify|trial [seed iterations snapshot-interval report-path]|gate-b|gate-c|gate-d|gate-d-text|gate-d-render|gate-f|gate-f-v0|gate-svg|gate-dtcg|gate-penpot|gate-react|gate-wasm|gate-mcp|gate-g|gate-h|gate-i-package|gate-i-image|gate-i-font|capture-baselines|browser-install|wasm-install|wasm-package|hostile-inputs|editor-hostile-inputs|performance|editor-trial|editor-gui-trial|editor-install-trial|editor-package|editor-launch|editor-install|editor-doctor|editor-rollback|editor-uninstall|editor-update|release-check <tag>|manifest|all>"
+            "usage: cargo xtask <research|adapter-audit|dependency-audit|docs-check|docs-build|docs-paper|docs-serve|docs-setup|verify|trial [seed iterations snapshot-interval report-path]|gate-b|gate-c|gate-d|gate-d-text|gate-d-render|gate-f|gate-f-v0|gate-svg|gate-dtcg|gate-penpot|gate-react|gate-wasm|gate-mcp|gate-g|gate-h|gate-i-package|gate-i-image|gate-i-font|capture-baselines|browser-install|wasm-install|wasm-package|mcp-package|hostile-inputs|editor-hostile-inputs|performance|editor-trial|editor-gui-trial|editor-install-trial|editor-package|editor-launch|editor-install|editor-doctor|editor-rollback|editor-uninstall|editor-update|release-check <tag>|manifest|all>"
                 .to_owned(),
         ),
     }
@@ -690,6 +691,156 @@ fn wasm_package() -> Result<(), String> {
         serde_json::to_vec_pretty(&binding).map_err(|error| error.to_string())?,
     )
     .map_err(|error| error.to_string())
+}
+
+fn mcp_package() -> Result<(), String> {
+    gate_mcp()?;
+    cargo(&[
+        "build",
+        "--release",
+        "--locked",
+        "-p",
+        "nuif-mcp",
+        "--bin",
+        "nuif-mcp",
+    ])?;
+    let target_root =
+        env::var_os("CARGO_TARGET_DIR").map_or_else(|| PathBuf::from("target"), PathBuf::from);
+    let executable_suffix = if cfg!(windows) { ".exe" } else { "" };
+    let source_binary = target_root
+        .join("release")
+        .join(format!("nuif-mcp{executable_suffix}"));
+    if !source_binary.is_file() {
+        return Err(format!(
+            "release MCP binary is absent: {}",
+            source_binary.display()
+        ));
+    }
+    let fixture = Path::new("target/mcp-smoke-input.nuif.json");
+    let report = Path::new("target/mcp-package-conformance-report.json");
+    let cli = Path::new("target")
+        .join("debug")
+        .join(format!("nuif{executable_suffix}"));
+    command(
+        if cfg!(windows) { "python" } else { "python3" },
+        &[
+            "tools/mcp/smoke.py",
+            "--server",
+            path(&source_binary)?,
+            "--cli",
+            path(&cli)?,
+            "--fixture",
+            path(fixture)?,
+            "--report",
+            path(report)?,
+        ],
+    )?;
+    let report_json = read_json(report)?;
+    if report_json["status"] != "passed"
+        || report_json["api_profile"] != "nuif-mcp-tools-0"
+        || report_json["protocol_version"] != "2026-07-28"
+        || report_json["authorities"] != serde_json::json!([])
+    {
+        return Err("release MCP binary failed its declared profile".to_owned());
+    }
+
+    let version = workspace_package_version("nuif-mcp")?;
+    let package_name = format!(
+        "nuif-mcp-{version}-{}-{}",
+        env::consts::OS,
+        env::consts::ARCH
+    );
+    let dist = target_root.join("dist");
+    let package_root = dist.join(&package_name);
+    if package_root.exists() {
+        fs::remove_dir_all(&package_root).map_err(|error| error.to_string())?;
+    }
+    let binary_directory = package_root.join("bin");
+    fs::create_dir_all(&binary_directory).map_err(|error| error.to_string())?;
+    let binary = binary_directory.join(format!("nuif-mcp{executable_suffix}"));
+    fs::copy(&source_binary, &binary).map_err(|error| error.to_string())?;
+    for license in ["LICENSE-APACHE", "LICENSE-MIT"] {
+        fs::copy(license, package_root.join(license)).map_err(|error| error.to_string())?;
+    }
+    fs::copy("crates/nuif-mcp/README.md", package_root.join("README.md"))
+        .map_err(|error| error.to_string())?;
+    fs::copy(report, package_root.join("conformance-report.json"))
+        .map_err(|error| error.to_string())?;
+
+    let archive = write_mcp_package_manifest(
+        &dist,
+        &package_root,
+        &binary,
+        report,
+        &package_name,
+        &version,
+    )?;
+    println!("packaged MCP developer tool: {}", archive.display());
+    Ok(())
+}
+
+fn write_mcp_package_manifest(
+    dist: &Path,
+    package_root: &Path,
+    binary: &Path,
+    report: &Path,
+    package_name: &str,
+    version: &str,
+) -> Result<PathBuf, String> {
+    let binary_bytes = fs::read(binary).map_err(|error| error.to_string())?;
+    let report_bytes = fs::read(report).map_err(|error| error.to_string())?;
+    let mut manifest = serde_json::json!({
+        "schema_version": 1,
+        "status": "passed",
+        "name": "nuif-mcp",
+        "version": version,
+        "api_profile": "nuif-mcp-tools-0",
+        "protocol_version": "2026-07-28",
+        "platform": env::consts::OS,
+        "architecture": env::consts::ARCH,
+        "source_revision": command_text("git", &["rev-parse", "HEAD"]),
+        "source_dirty": command_text("git", &["status", "--porcelain"])
+            .map(|value| !value.is_empty()),
+        "binary": {
+            "path": binary.strip_prefix(package_root).unwrap_or(binary),
+            "bytes": binary_bytes.len(),
+            "sha256": format!("{:x}", Sha256::digest(&binary_bytes))
+        },
+        "conformance": {
+            "path": "conformance-report.json",
+            "sha256": format!("{:x}", Sha256::digest(&report_bytes)),
+            "status": "passed"
+        },
+        "limits": {
+            "message_bytes": 4 * 1024 * 1024,
+            "document_bytes": 1024 * 1024,
+            "patch_bytes": 1024 * 1024,
+            "patch_transactions": 1024,
+            "patch_operations": 16_384
+        },
+        "authorities": [],
+        "publication": {
+            "crates_io": "not-published",
+            "github_release": "downloadable-developer-package"
+        },
+        "signing": {
+            "status": "unsigned",
+            "note": "checksums and GitHub attestations do not provide an operating-system publisher identity"
+        }
+    });
+    let internal = serde_json::to_vec_pretty(&manifest).map_err(|error| error.to_string())?;
+    fs::write(package_root.join("manifest.json"), internal).map_err(|error| error.to_string())?;
+    let archive = create_editor_archive(dist, package_root, package_name)?;
+    let archive_bytes = fs::read(&archive).map_err(|error| error.to_string())?;
+    manifest["archive"] = serde_json::json!({
+        "name": archive.file_name().and_then(|name| name.to_str()),
+        "bytes": archive_bytes.len(),
+        "sha256": format!("{:x}", Sha256::digest(&archive_bytes))
+    });
+    let external = serde_json::to_vec_pretty(&manifest).map_err(|error| error.to_string())?;
+    fs::write(dist.join(format!("{package_name}.manifest.json")), external)
+        .map_err(|error| error.to_string())?;
+    Ok(archive)
 }
 
 fn copy_wasm_package_files(
@@ -2201,6 +2352,10 @@ fn package_linux(
 }
 
 pub(crate) fn editor_version() -> Result<String, String> {
+    workspace_package_version("nuif-editor")
+}
+
+fn workspace_package_version(name: &str) -> Result<String, String> {
     let output = Command::new("cargo")
         .args(["metadata", "--locked", "--format-version", "1", "--no-deps"])
         .output()
@@ -2214,14 +2369,10 @@ pub(crate) fn editor_version() -> Result<String, String> {
         serde_json::from_slice(&output.stdout).map_err(|error| error.to_string())?;
     metadata["packages"]
         .as_array()
-        .and_then(|packages| {
-            packages
-                .iter()
-                .find(|package| package["name"] == "nuif-editor")
-        })
+        .and_then(|packages| packages.iter().find(|package| package["name"] == name))
         .and_then(|package| package["version"].as_str())
         .map(str::to_owned)
-        .ok_or_else(|| "cargo metadata did not contain the nuif-editor version".to_owned())
+        .ok_or_else(|| format!("cargo metadata did not contain the {name} version"))
 }
 
 fn short_version(version: &str) -> &str {

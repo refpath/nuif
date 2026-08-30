@@ -29,8 +29,9 @@ and source evidence are recorded in ADR 0007 and
 3. Create and push the exact version tag.
 4. `.github/workflows/release.yml` checks out the tag and runs `cargo xtask
    release-check <tag>` followed by the complete verification harness.
-5. Native jobs build, test, package, and attest five host architectures; a
-   separate job builds, cross-checks, packages and attests the browser binding.
+5. Native jobs build, test, package, and attest five editor host architectures;
+   a separate job builds, cross-checks, packages and attests the browser
+   binding, and five host jobs do the same for the MCP developer binary.
 6. The publication job writes checksums and a combined release manifest,
    creates a draft release, uploads all assets, and publishes the prerelease.
 
@@ -64,6 +65,14 @@ binding is listed under `bindings` in the release manifest and does not count
 among the five native editor packages used by the source updater. Its
 `package.json` is private: GitHub download is automated, npm publication is not
 authorized until an independent library-version policy is adopted.
+
+The same prerelease attaches five `nuif-mcp-0.0.1-<os>-<architecture>`
+archives, sibling manifests and a separate `nuif-mcp-0.0.1.cdx.json` SBOM.
+These independently versioned developer-service records appear under
+`services` in the release manifest. Every host binary is exercised through the
+live stdio conformance gate before packaging. The crate remains unpublished;
+developers may either use an attested archive or build it from a reviewed
+checkout with `cargo install --path crates/nuif-mcp --locked`.
 
 SHA-256 verification on Linux uses `sha256sum -c SHA256SUMS`. macOS uses
 `shasum -a 256 -c SHA256SUMS`. PowerShell users can compare

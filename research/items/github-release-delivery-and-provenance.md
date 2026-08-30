@@ -50,8 +50,8 @@ not replace operating-system code signing.
 NUIF uses tag-driven GitHub prereleases for the reference editor. The first tag
 is `v0.1.0-alpha.1`. Five native-host jobs build versioned archives, record
 package manifests, and attest the archives. A final job creates checksums, a
-CycloneDX software bill of materials, and a release manifest, uploads all files
-to a draft, and publishes the prerelease. Every external workflow action is
+separate editor and MCP CycloneDX software bills of materials, and a release
+manifest, uploads all files to a draft, and publishes the prerelease. Every external workflow action is
 pinned to the full commit of a verified release, checkout credentials are not
 persisted, and a pinned zizmor audit rejects regressions. The alpha artifacts
 remain explicitly unsigned until platform credentials are configured and
@@ -133,12 +133,14 @@ Each native job builds and tests on the target operating system and processor
 architecture. `cargo xtask editor-package` produces a versioned archive and a
 platform manifest containing the source revision, binary digest, archive
 digest, smoke-test result, and signing status. `actions/attest@v4` records
-provenance for both files. The publication job downloads all five job
-artifacts, requires five archives and five manifests, and runs the attested
+provenance for both files. Five additional native jobs build and exercise the
+separately versioned stateless MCP binary, then attest its archive and manifest.
+The publication job downloads all editor, binding and MCP artifacts, requires
+five editor archives/manifests and five MCP archives/manifests, and runs the attested
 cargo-cyclonedx 0.5.9 binary with the tagged commit time as
 `SOURCE_DATE_EPOCH`. It replaces the checkout path with `/src`, writes
-`SHA256SUMS`, and combines the platform manifests into
-`release-manifest.json`. It attests the software bill of materials and both
+`SHA256SUMS`, and combines editor packages, browser bindings and MCP services
+into `release-manifest.json`. It attests both software bills of materials and both
 index files before using GitHub CLI to create or resume a draft, upload the
 assets, and publish the prerelease.
 

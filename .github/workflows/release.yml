@@ -62,6 +62,7 @@ jobs:
             target/font-resources-report.json
             target/react-sync-report.json
             target/wasm-conformance-report.json
+            target/mcp-conformance-report.json
             target/editor-gui-trial/report.json
 
   package:
@@ -190,9 +191,76 @@ jobs:
             ${{ steps.assets.outputs.archive }}
             ${{ steps.assets.outputs.manifest }}
 
+  mcp-package:
+    needs: validate
+    name: package MCP (${{ matrix.platform }})
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 60
+    permissions:
+      contents: read
+      id-token: write # mint the OIDC identity used for package attestations
+      attestations: write # publish package attestations for this repository
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: linux-x86_64
+            runner: ubuntu-24.04
+          - platform: linux-aarch64
+            runner: ubuntu-24.04-arm
+          - platform: windows-x86_64
+            runner: windows-2025
+          - platform: macos-aarch64
+            runner: macos-15
+          - platform: macos-x86_64
+            runner: macos-15-intel
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+          ref: ${{ env.RELEASE_TAG }}
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+      - name: Install the pinned Rust toolchain
+        shell: bash
+        run: |
+          rustup toolchain install 1.98.0 --profile minimal
+          rustup default 1.98.0
+      - name: Validate the tag and source version
+        shell: bash
+        run: cargo xtask release-check "$RELEASE_TAG"
+      - name: Build, live-test, and package the MCP developer tool
+        run: cargo xtask mcp-package
+      - name: Locate MCP assets
+        id: assets
+        shell: bash
+        run: |
+          archive=$(find target/dist -maxdepth 1 -type f -name 'nuif-mcp-*' \( -name '*.tar.gz' -o -name '*.zip' \) -print -quit)
+          manifest=$(find target/dist -maxdepth 1 -type f -name 'nuif-mcp-*.manifest.json' -print -quit)
+          test -n "$archive"
+          test -n "$manifest"
+          printf 'archive=%s\n' "$archive" >> "$GITHUB_OUTPUT"
+          printf 'manifest=%s\n' "$manifest" >> "$GITHUB_OUTPUT"
+      - name: Attest MCP package
+        uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
+        with:
+          subject-path: |
+            ${{ steps.assets.outputs.archive }}
+            ${{ steps.assets.outputs.manifest }}
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: release-mcp-package-${{ matrix.platform }}
+          if-no-files-found: error
+          retention-days: 14
+          path: |
+            ${{ steps.assets.outputs.archive }}
+            ${{ steps.assets.outputs.manifest }}
+
   publish:
     name: publish prerelease
-    needs: [package, wasm-package]
+    needs: [package, wasm-package, mcp-package]
     runs-on: ubuntu-24.04
     permissions:
       contents: write # create the GitHub prerelease and upload its assets
@@ -217,7 +285,12 @@ jobs:
         with:
           name: release-wasm-package
           path: release-assets
-      - name: Generate the editor SBOM
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          pattern: release-mcp-package-*
+          path: release-assets
+          merge-multiple: true
+      - name: Generate release SBOMs
         env:
           GH_TOKEN: ${{ github.token }}
         shell: bash
@@ -252,6 +325,23 @@ jobs:
           jq -e '.bomFormat == "CycloneDX" and .metadata.component.version == $version' \
             --arg version "$version" \
             "release-assets/nuif-editor-${version}.cdx.json"
+          mcp_version=$(cargo metadata --locked --format-version 1 --no-deps \
+            | jq -r '.packages[] | select(.name == "nuif-mcp") | .version')
+          SOURCE_DATE_EPOCH=$source_date_epoch \
+            "$tool_dir/cargo-cyclonedx" cyclonedx \
+              --manifest-path crates/nuif-mcp/Cargo.toml \
+              --format json \
+              --target all \
+              --override-filename "nuif-mcp-${mcp_version}" \
+              --spec-version 1.5 \
+              --no-build-deps
+          jq --arg root "$GITHUB_WORKSPACE" \
+            'walk(if type == "string" then (split($root) | join("/src")) else . end)' \
+            "crates/nuif-mcp/nuif-mcp-${mcp_version}.json" \
+            > "release-assets/nuif-mcp-${mcp_version}.cdx.json"
+          jq -e '.bomFormat == "CycloneDX" and .metadata.component.version == $version' \
+            --arg version "$mcp_version" \
+            "release-assets/nuif-mcp-${mcp_version}.cdx.json"
       - name: Assemble checksums and release manifest
         shell: bash
         run: |
@@ -260,9 +350,13 @@ jobs:
           cd release-assets
           test "$(find . -maxdepth 1 -type f -name 'nuif-editor-*' \( -name '*.tar.gz' -o -name '*.zip' \) | wc -l | tr -d ' ')" = 5
           test "$(find . -maxdepth 1 -type f -name 'nuif-wasm-*-web.tar.gz' | wc -l | tr -d ' ')" = 1
-          test "$(find . -maxdepth 1 -type f -name '*.manifest.json' | wc -l | tr -d ' ')" = 5
+          test "$(find . -maxdepth 1 -type f -name 'nuif-editor-*.manifest.json' | wc -l | tr -d ' ')" = 5
+          test "$(find . -maxdepth 1 -type f -name 'nuif-mcp-*' \( -name '*.tar.gz' -o -name '*.zip' \) | wc -l | tr -d ' ')" = 5
+          test "$(find . -maxdepth 1 -type f -name 'nuif-mcp-*.manifest.json' | wc -l | tr -d ' ')" = 5
           test "$(find . -maxdepth 1 -type f -name '*.binding.json' | wc -l | tr -d ' ')" = 1
           test -f "nuif-editor-${version}.cdx.json"
+          test "$(find . -maxdepth 1 -type f -name 'nuif-mcp-*.cdx.json' | wc -l | tr -d ' ')" = 1
+          mcp_sbom=$(find . -maxdepth 1 -type f -name 'nuif-mcp-*.cdx.json' -printf '%f\n' -quit)
           binding=$(find . -maxdepth 1 -type f -name '*.binding.json' -print -quit)
           jq -e --arg revision "$revision" '
             .schema_version == 1 and
@@ -282,6 +376,27 @@ jobs:
           esac
           test -f "$binding_archive"
           test "$(sha256sum "$binding_archive" | cut -d ' ' -f 1)" = "$(jq -r '.archive.sha256' "$binding")"
+          for service in ./nuif-mcp-*.manifest.json; do
+            jq -e --arg revision "$revision" '
+              .schema_version == 1 and
+              .status == "passed" and
+              .name == "nuif-mcp" and
+              .api_profile == "nuif-mcp-tools-0" and
+              .protocol_version == "2026-07-28" and
+              .source_revision == $revision and
+              .source_dirty == false and
+              .authorities == [] and
+              (.binary.sha256 | test("^[0-9a-f]{64}$")) and
+              (.archive.sha256 | test("^[0-9a-f]{64}$"))
+            ' "$service"
+            service_archive=$(jq -r '.archive.name' "$service")
+            case "$service_archive" in
+              nuif-mcp-*.tar.gz|nuif-mcp-*.zip) ;;
+              *) printf 'unsafe MCP archive name: %s\n' "$service_archive" >&2; exit 1 ;;
+            esac
+            test -f "$service_archive"
+            test "$(sha256sum "$service_archive" | cut -d ' ' -f 1)" = "$(jq -r '.archive.sha256' "$service")"
+          done
           find . -maxdepth 1 -type f \( -name '*.tar.gz' -o -name '*.zip' -o -name '*.manifest.json' -o -name '*.binding.json' -o -name '*.cdx.json' \) -print0 \
             | sort -z \
             | xargs -0 sha256sum \
@@ -290,12 +405,17 @@ jobs:
             --arg version "$version" \
             --arg tag "$RELEASE_TAG" \
             --arg revision "$revision" \
-            '{schema_version: 1, version: $version, tag: $tag, source_revision: $revision, sbom: ("nuif-editor-" + $version + ".cdx.json"), packages: .}' \
-            ./*.manifest.json > release-manifest.json
+            --arg mcp_sbom "$mcp_sbom" \
+            '{schema_version: 1, version: $version, tag: $tag, source_revision: $revision, sbom: ("nuif-editor-" + $version + ".cdx.json"), sboms: {editor: ("nuif-editor-" + $version + ".cdx.json"), mcp: $mcp_sbom}, packages: .}' \
+            ./nuif-editor-*.manifest.json > release-manifest.json
           jq --slurpfile bindings ./nuif-wasm-*-web.binding.json \
             '. + {bindings: $bindings}' \
             release-manifest.json > release-manifest.with-bindings.json
-          mv release-manifest.with-bindings.json release-manifest.json
+          jq --slurpfile services ./nuif-mcp-*.manifest.json \
+            '. + {services: $services}' \
+            release-manifest.with-bindings.json > release-manifest.with-services.json
+          rm release-manifest.with-bindings.json
+          mv release-manifest.with-services.json release-manifest.json
       - name: Attest release index
         uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
         with:

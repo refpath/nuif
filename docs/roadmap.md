@@ -61,6 +61,17 @@ filesystem, network or host-document authority. Browser-layout execution, a
 WASI CLI, npm publication and live Figma/Adobe adapters remain separate
 profiles and version streams.
 
+## Phase 5d — external agent binding (complete for `nuif-mcp-tools-0`)
+
+The MCP process is a stateless stdio adapter over the same API and semantic
+patch layer. Its four inline-text tools carry no host authority, support only
+the current 2026-07-28 lifecycle, and are differentially checked against the
+native CLI through a real child process. Five native release jobs package and
+attest the separately versioned binary; source installation remains available
+without an application store. Live compatibility with named third-party MCP
+hosts, large-document resource handles and any authenticated HTTP service are
+separate trials and are not claimed by this phase.
+
 ## Phase 6a — first adapters/sync falsifier (complete for bounded HTML/CSS profile 0)
 `nuif-html-css-0` maps a declared container/text/finite-token subset through real DOM/CSS syntax with byte-span correspondence. Text, token and four-edge padding edits change only their six spans; comments and unmapped markup survive exactly; unsupported semantics have target/property fidelity. HTML/CSS was intentionally tested before SVG because Gate F and the architecture stop condition concern minimal source patches. This narrow profile remains independently automated even after the full-v0 follow-on; arbitrary HTML/CSS and SVG remain broader adapter work.
 

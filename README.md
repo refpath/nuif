@@ -163,6 +163,7 @@ cargo xtask browser-install # optional browser prefetch
 cargo xtask gate-wasm # pinned-browser initialization and Node/native byte parity
 cargo xtask wasm-package # downloadable direct-browser developer archive
 cargo xtask gate-mcp # current stateless stdio protocol and native byte parity
+cargo xtask mcp-package # live-tested host developer archive
 cargo xtask trial 24301 100
 cargo xtask gate-b # 10,000 patches; raster sample every 100 patches
 cargo xtask hostile-inputs # boundary/one-over time and allocator report
