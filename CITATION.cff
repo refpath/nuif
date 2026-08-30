@@ -2,7 +2,7 @@ cff-version: 1.2.0
 message: Cite the tagged software release and its exact source revision.
 title: "NUIF: Neutral User Interface Format research project"
 type: software
-version: 0.1.0-alpha.2
+version: 0.1.0-alpha.3
 date-released: 2026-08-30
 authors:
   - name: Refpath contributors

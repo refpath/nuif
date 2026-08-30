@@ -119,7 +119,7 @@ Testing is designed for automated trial loops: generate or load a document, appl
 
 | Surface | Maturity | Boundary |
 |---------|----------|----------|
-| Reference editor | Research preview; current release `0.1.0-alpha.2` | Semantic Versioning applies to the editor application only |
+| Reference editor | Research preview; current release `0.1.0-alpha.3` | Semantic Versioning applies to the editor application only |
 | Draft specification | Pre-draft | No normative conformance profile is published |
 | Executable adapter and conformance profiles | Experimental | Results apply only to each declared profile and evaluation matrix |
 | Project | Open research project; not a standard | Standards status requires neutral governance and independent implementations |

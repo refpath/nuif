@@ -1,7 +1,7 @@
 # Standards-development roadmap
 
 NUIF remains a pre-standard research project with a draft specification and
-reference implementation. The editor version `0.1.0-alpha.2` identifies an
+reference implementation. The editor version `0.1.0-alpha.3` identifies an
 application prerelease. It does not establish specification stability,
 interoperability or external review.
 
