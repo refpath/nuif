@@ -1,3 +1,9 @@
+---
+id: nuif:spec:geometry-paint-text
+kind: specification
+status: draft
+---
+
 # 05 — Geometry, paint and text
 
 Status: draft.

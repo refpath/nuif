@@ -1,3 +1,9 @@
+---
+id: nuif:rfc:0004
+kind: rfc
+status: proposed
+---
+
 # RFC 0004 — Headless QA contract
 
 Status: proposed

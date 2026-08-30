@@ -1,5 +1,6 @@
 ---
 id: nuif:spec:model
+kind: specification
 status: draft
 ---
 

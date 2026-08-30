@@ -1,5 +1,6 @@
 ---
 id: nuif:spec:conformance
+kind: specification
 status: draft
 ---
 

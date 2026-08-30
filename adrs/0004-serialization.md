@@ -1,3 +1,9 @@
+---
+id: nuif:adr:0004
+kind: adr
+status: provisional
+---
+
 # ADR 0004 — Encoding strategy
 
 Status: provisional

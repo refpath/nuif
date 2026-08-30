@@ -38,6 +38,7 @@ roxmltree = "=0.21.1"
 serde = { version = "1.0", features = ["derive"] }
 serde_bytes = "0.11"
 serde_json = { version = "1.0", features = ["raw_value"] }
+serde-saphyr = { version = "=1.1.0", default-features = false, features = ["deserialize"] }
 sha2 = "0.10"
 skrifa = "=0.46.2"
 stats_alloc = "0.1.10"

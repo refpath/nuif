@@ -1,3 +1,9 @@
+---
+id: nuif:spec:serialization
+kind: specification
+status: draft
+---
+
 # 08 — Serialization and package format
 
 Status: draft.

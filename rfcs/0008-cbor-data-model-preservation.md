@@ -1,3 +1,9 @@
+---
+id: nuif:rfc:0008
+kind: rfc
+status: accepted
+---
+
 # RFC 0008 — Preserve numeric kinds and distinguish text/CBOR key order
 
 Status: accepted (corrective; primary evidence in `nuif:research:cbor-data-model-and-key-order-correction`). Supersedes RFC 0005 rules 6 and 8 and the coincidence claim in rule 17. All other RFC 0005 rules remain in force.

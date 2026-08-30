@@ -1,3 +1,9 @@
+---
+id: nuif:rfc:0003
+kind: rfc
+status: proposed
+---
+
 # RFC 0003 — Authored state, resolved state and provenance
 
 Status: proposed

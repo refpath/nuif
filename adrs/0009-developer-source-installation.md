@@ -1,5 +1,6 @@
 ---
 id: nuif:adr:0009
+kind: adr
 status: accepted
 ---
 

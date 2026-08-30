@@ -1,3 +1,9 @@
+---
+id: nuif:spec:provenance-and-fidelity
+kind: specification
+status: draft
+---
+
 # 09 — Provenance, correspondence and fidelity
 
 Status: draft.

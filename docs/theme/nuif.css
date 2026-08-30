@@ -1,0 +1,27 @@
+:root {
+  --content-max-width: 920px;
+}
+
+.content main {
+  max-width: var(--content-max-width);
+}
+
+.content blockquote:first-of-type {
+  border-inline-start: 3px solid var(--links);
+  font-size: 0.9em;
+}
+
+.content table {
+  display: table;
+  width: 100%;
+}
+
+.content code {
+  font-variant-ligatures: none;
+}
+
+@media (max-width: 700px) {
+  .content main {
+    padding-inline: 20px;
+  }
+}

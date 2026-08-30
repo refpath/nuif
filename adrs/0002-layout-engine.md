@@ -1,3 +1,9 @@
+---
+id: nuif:adr:0002
+kind: adr
+status: accepted
+---
+
 # ADR 0002 — Use Taffy as initial CSS-family layout evaluator
 
 Status: accepted for prototype

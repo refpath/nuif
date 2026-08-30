@@ -1,3 +1,9 @@
+---
+id: nuif:spec:index
+kind: specification
+status: pre-draft
+---
+
 # NUIF specification
 
 Status: pre-draft. No module or conformance profile is published as an

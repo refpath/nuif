@@ -114,6 +114,14 @@
       "evidence": ["research/items/unknown-schema-preservation-strategies.md", "research/items/resource-bounded-serde-and-ciborium.md"]
     },
     {
+      "name": "serde-saphyr",
+      "role": "bounded typed YAML frontmatter parsing",
+      "decision": "retain",
+      "alternatives": ["serde_yaml", "serde_yaml_ng", "serde_yml"],
+      "rationale": "The documentation compiler needs deserialization only, duplicate-key rejection and parser budgets; serde-saphyr supplies those controls without the deprecated serde_yaml codebase or an unsafe LibYAML binding.",
+      "evidence": ["research/items/serde-saphyr-yaml-parser.md"]
+    },
+    {
       "name": "sha2",
       "role": "portable canonical and artifact hashes",
       "decision": "retain",

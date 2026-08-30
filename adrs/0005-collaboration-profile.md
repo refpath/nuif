@@ -1,3 +1,9 @@
+---
+id: nuif:adr:0005
+kind: adr
+status: accepted
+---
+
 # ADR 0005 — Keep CRDT state out of canonical documents
 
 Status: accepted

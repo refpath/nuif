@@ -1,3 +1,9 @@
+---
+id: nuif:spec:cli-api-and-automation
+kind: specification
+status: draft
+---
+
 # 12 — CLI, API and automation surface
 
 Status: draft.

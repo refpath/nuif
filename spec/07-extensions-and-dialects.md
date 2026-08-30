@@ -1,3 +1,9 @@
+---
+id: nuif:spec:extensions-and-dialects
+kind: specification
+status: draft
+---
+
 # 07 — Extensions and dialects
 
 Status: draft.

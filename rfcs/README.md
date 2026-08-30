@@ -1,3 +1,9 @@
+---
+id: nuif:rfc:index
+kind: rfc
+status: informational
+---
+
 # RFC process
 
 RFCs change NUIF semantics, protocol surface, conformance requirements, extension governance, or major implementation architecture. Research findings should link to an RFC rather than bypassing review by directly changing normative semantics.

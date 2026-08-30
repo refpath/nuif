@@ -1,3 +1,9 @@
+---
+id: nuif:rfc:0009
+kind: rfc
+status: accepted
+---
+
 # RFC 0009 — Bound profile-0 ingestion and semantic resources
 
 Status: accepted (primary evidence and calibration in `nuif:research:resource-bounded-serde-and-ciborium`).

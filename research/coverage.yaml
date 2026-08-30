@@ -107,6 +107,10 @@ areas:
   roadmap:
     status: covered
     artifacts: [docs/roadmap.md, research/roadmap.md]
+  documentation_publication:
+    status: covered
+    evidence: [nuif:research:github-pages-actions-documentation-publishing, nuif:research:github-wiki-repository-and-indexing, nuif:research:gitbook-bidirectional-git-sync, nuif:research:mdbook-static-documentation-pipeline, nuif:research:serde-saphyr-yaml-parser]
+    artifacts: [docs/PUBLISHING.md, docs/catalog.json, docs/schema/catalog.schema.json, docs/schema/document.schema.json, xtask/src/documentation.rs]
   governance_standardization:
     status: covered
     evidence: [nuif:research:w3c-community-incubation-and-recommendation-process, nuif:research:community-specification-license-and-governance]

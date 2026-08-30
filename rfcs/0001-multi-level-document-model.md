@@ -1,3 +1,9 @@
+---
+id: nuif:rfc:0001
+kind: rfc
+status: proposed
+---
+
 # RFC 0001 — Multi-level document model
 
 Status: proposed

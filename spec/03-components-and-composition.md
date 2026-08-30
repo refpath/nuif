@@ -1,3 +1,9 @@
+---
+id: nuif:spec:components-and-composition
+kind: specification
+status: draft
+---
+
 # 03 — Components and composition
 
 Status: draft.

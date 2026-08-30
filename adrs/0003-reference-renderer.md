@@ -1,3 +1,9 @@
+---
+id: nuif:adr:0003
+kind: adr
+status: accepted
+---
+
 # ADR 0003 — Renderer abstraction with Vello/wgpu experiment
 
 Status: accepted for prototype

@@ -1,0 +1,99 @@
+{
+  "$schema": "./schema/catalog.schema.json",
+  "schema_version": 1,
+  "site": {
+    "title": "NUIF research documentation",
+    "description": "Pre-standard research, draft specification modules, conformance evidence and reference implementation documentation.",
+    "repository_url": "https://github.com/refpath/nuif",
+    "canonical_url": "https://refpath.github.io/nuif/",
+    "maturity": "pre-standard research project"
+  },
+  "limits": {
+    "document_bytes": 2097152,
+    "frontmatter_bytes": 65536
+  },
+  "frontmatter_required": [
+    "spec",
+    "rfcs",
+    "adrs",
+    "research/items"
+  ],
+  "exclude": [
+    "research/items/_template.md"
+  ],
+  "sections": [
+    {
+      "id": "project",
+      "title": "Project",
+      "paths": [
+        "README.md",
+        "docs/roadmap.md",
+        "CONTRIBUTING.md",
+        "GOVERNANCE.md",
+        "SECURITY.md",
+        "CODE_OF_CONDUCT.md",
+        "docs/PUBLISHING.md"
+      ]
+    },
+    {
+      "id": "architecture",
+      "title": "Architecture and whitepaper",
+      "paths": [
+        "docs/HOST-INTEGRATION.md",
+        "docs/VERSIONING.md",
+        "docs/whitepaper"
+      ]
+    },
+    {
+      "id": "specification",
+      "title": "Draft specification",
+      "paths": ["spec"]
+    },
+    {
+      "id": "decisions",
+      "title": "RFCs and ADRs",
+      "paths": ["rfcs", "adrs"]
+    },
+    {
+      "id": "conformance",
+      "title": "Conformance",
+      "paths": ["conformance"]
+    },
+    {
+      "id": "editor",
+      "title": "Reference editor",
+      "paths": ["apps/editor"]
+    },
+    {
+      "id": "adapters",
+      "title": "Adapters",
+      "paths": ["adapters"]
+    },
+    {
+      "id": "research",
+      "title": "Research register",
+      "paths": [
+        "research/README.md",
+        "research/AUDIT.md",
+        "research/roadmap.md",
+        "research/items"
+      ]
+    },
+    {
+      "id": "releases",
+      "title": "Release records",
+      "paths": ["docs/releases"]
+    },
+    {
+      "id": "reference",
+      "title": "Implementation reference",
+      "paths": [
+        "schemas/README.md",
+        "bindings/wasm/README.md",
+        "implementations/python/README.md",
+        "tools/refpath/README.md",
+        "crates/nuif-collab/README.md"
+      ]
+    }
+  ]
+}

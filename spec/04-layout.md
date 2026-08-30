@@ -1,3 +1,9 @@
+---
+id: nuif:spec:layout
+kind: specification
+status: draft
+---
+
 # 04 — Layout
 
 Status: draft.

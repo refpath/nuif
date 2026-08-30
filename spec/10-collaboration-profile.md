@@ -1,3 +1,9 @@
+---
+id: nuif:spec:collaboration-profile
+kind: specification
+status: executable
+---
+
 # 10 — Collaboration profile
 
 Status: executable bounded register profile; structural collaboration remains exploratory.

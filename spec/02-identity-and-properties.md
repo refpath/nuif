@@ -1,3 +1,9 @@
+---
+id: nuif:spec:identity-and-properties
+kind: specification
+status: draft
+---
+
 # 02 — Identity and properties
 
 Status: draft.

@@ -1,3 +1,9 @@
+---
+id: nuif:rfc:0006
+kind: rfc
+status: accepted
+---
+
 # RFC 0006 — Sibling order: canonical arrays and anchored operations
 
 Status: accepted (decision delegated to research on 2026-08-29; evidence in `nuif:research:list-ordering-fractional-indexing-vs-list-crdts`, `nuif:research:crdt-tree-move-operation`, `nuif:research:figma-multiplayer-and-rendering-engineering`)

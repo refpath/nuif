@@ -1,3 +1,9 @@
+---
+id: nuif:rfc:0002
+kind: rfc
+status: proposed
+---
+
 # RFC 0002 — Opaque extension preservation
 
 Status: proposed; representation and severities specified by RFC 0007

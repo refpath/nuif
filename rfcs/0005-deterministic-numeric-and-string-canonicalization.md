@@ -1,3 +1,9 @@
+---
+id: nuif:rfc:0005
+kind: rfc
+status: accepted
+---
+
 # RFC 0005 — Deterministic numeric and string canonicalization
 
 Correction: RFC 0008 supersedes rules 6 and 8 and the key-order coincidence claim in rule 17. Integer and real values remain distinct in `nuif-cbor-0`; readers must apply RFC 0008 when implementing this RFC.

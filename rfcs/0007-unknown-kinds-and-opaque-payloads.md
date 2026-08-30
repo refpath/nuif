@@ -1,3 +1,9 @@
+---
+id: nuif:rfc:0007
+kind: rfc
+status: accepted
+---
+
 # RFC 0007 — Unknown entity kinds and opaque payloads
 
 Status: accepted (decision delegated to research on 2026-08-29; evidence in `nuif:research:unknown-schema-preservation-strategies`, `nuif:research:opentimelineio`, `nuif:research:godot-tscn-scene-format`, `nuif:research:openusd-composition-and-crate`, `nuif:research:gltf-validator-and-sample-assets`). Extends RFC 0002.

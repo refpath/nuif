@@ -1,0 +1,51 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://refpath.github.io/nuif/schema/document-frontmatter-v1.json",
+  "title": "NUIF repository document frontmatter",
+  "type": "object",
+  "additionalProperties": true,
+  "required": ["id", "kind", "status"],
+  "properties": {
+    "id": {
+      "type": "string",
+      "pattern": "^nuif:[a-z][a-z0-9-]*(?::[a-z0-9][a-z0-9._-]*)+$"
+    },
+    "kind": {
+      "type": "string",
+      "enum": [
+        "adr",
+        "article",
+        "dataset",
+        "implementation",
+        "paper",
+        "repository",
+        "rfc",
+        "specification",
+        "standard",
+        "synthesis",
+        "whitepaper"
+      ]
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "accepted",
+        "draft",
+        "executable",
+        "exploratory",
+        "informational",
+        "pre-draft",
+        "proposed",
+        "provisional",
+        "rejected",
+        "reviewed",
+        "seed",
+        "superseded",
+        "verified"
+      ]
+    },
+    "title": {"type": "string", "minLength": 1},
+    "version": {"type": "string", "minLength": 1},
+    "updated_at": {"type": "string", "format": "date"}
+  }
+}

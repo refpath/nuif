@@ -1,3 +1,9 @@
+---
+id: nuif:spec:operations-and-patches
+kind: specification
+status: draft
+---
+
 # 06 — Operations, patches and merge
 
 Status: draft.

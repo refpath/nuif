@@ -1,3 +1,9 @@
+---
+id: nuif:spec:security
+kind: specification
+status: draft
+---
+
 # 11 — Security and resource limits
 
 Status: draft.

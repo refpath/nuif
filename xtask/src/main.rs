@@ -6,6 +6,7 @@ use std::process::{Command, ExitStatus};
 
 use sha2::{Digest, Sha256};
 
+mod documentation;
 mod editor_install;
 
 type Step = (&'static str, fn() -> Result<(), String>);
@@ -14,6 +15,7 @@ const ALL_STEPS: &[Step] = &[
     ("research", research),
     ("adapter-audit", adapter_audit),
     ("dependency-audit", dependency_audit),
+    ("docs-check", documentation::check),
     ("verify", verify),
     ("gate-b", gate_b),
     ("hostile-inputs", hostile_inputs),
@@ -36,6 +38,8 @@ const ALL_STEPS: &[Step] = &[
 const VERIFICATION_ARTIFACTS: &[&str] = &[
     "target/adapter-coverage-report.json",
     "target/dependency-audit-report.json",
+    "target/documentation-catalog.json",
+    "target/documentation-report.json",
     "target/gate-b-report.json",
     "target/hostile-input-report.json",
     "target/editor-hostile-input-report.json",
@@ -118,6 +122,10 @@ fn run() -> Result<(), String> {
         Some("research") => research(),
         Some("adapter-audit") => adapter_audit(),
         Some("dependency-audit") => dependency_audit(),
+        Some("docs-check") => documentation::check(),
+        Some("docs-build") => documentation::build(),
+        Some("docs-serve") => documentation::serve(),
+        Some("docs-setup") => documentation::setup(),
         Some("editor-trial") => editor_trial(),
         Some("editor-gui-trial") => editor_gui_trial(),
         Some("editor-install-trial") => editor_install::trial(&args.collect::<Vec<_>>()),
@@ -132,7 +140,7 @@ fn run() -> Result<(), String> {
         Some("manifest") => standalone_manifest(),
         Some("all") => all(),
         _ => Err(
-            "usage: cargo xtask <research|adapter-audit|dependency-audit|verify|trial [seed iterations snapshot-interval report-path]|gate-b|gate-c|gate-d|gate-d-text|gate-d-render|gate-f|gate-f-v0|gate-svg|gate-dtcg|gate-g|gate-h|browser-install|hostile-inputs|editor-hostile-inputs|performance|editor-trial|editor-gui-trial|editor-install-trial|editor-package|editor-launch|editor-install|editor-doctor|editor-rollback|editor-uninstall|editor-update|release-check <tag>|manifest|all>"
+            "usage: cargo xtask <research|adapter-audit|dependency-audit|docs-check|docs-build|docs-serve|docs-setup|verify|trial [seed iterations snapshot-interval report-path]|gate-b|gate-c|gate-d|gate-d-text|gate-d-render|gate-f|gate-f-v0|gate-svg|gate-dtcg|gate-g|gate-h|browser-install|hostile-inputs|editor-hostile-inputs|performance|editor-trial|editor-gui-trial|editor-install-trial|editor-package|editor-launch|editor-install|editor-doctor|editor-rollback|editor-uninstall|editor-update|release-check <tag>|manifest|all>"
                 .to_owned(),
         ),
     }

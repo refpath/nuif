@@ -1,3 +1,9 @@
+---
+id: nuif:spec:semantics-accessibility-and-behavior
+kind: specification
+status: exploratory
+---
+
 # 13 — Semantics, accessibility and behavior
 
 Status: exploratory draft.
