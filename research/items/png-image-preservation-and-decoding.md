@@ -112,6 +112,6 @@ identity, and a profile-one RGB resource passes the same scene/raster path.
 The wider profile deliberately rejects 16-bit samples rather than truncating
 precision, and still rejects interlace, the complete PNG Third Edition colour
 precedence model, orientation, animation and arbitrary ancillary metadata.
-A real-world corpus, affine image transforms, GPU comparison and hosted
+A real-world corpus, live host affine equivalence, GPU comparison and hosted
 cross-platform image-raster reproduction remain open evidence—not implied by
 decoder agreement on the generated fixtures.

@@ -121,7 +121,7 @@ fn run() -> Result<(), String> {
             "orientation": "identity only; Exif and all orientation metadata rejected",
             "animation": "rejected",
             "sampling": "nearest or fixed 16-bit-weight bilinear",
-            "transform": "identity only in these decoder-profile trials",
+            "transform": "bounded invertible normalized-source-to-fitted-paint affine matrix with inverse-mapped pixel centers",
         },
         "limits": {
             "encoded_bytes": MAX_PNG_BYTES,
@@ -145,7 +145,6 @@ fn run() -> Result<(), String> {
         "source": source_identity(),
         "non_claims": [
             "no 16-bit interlaced ICC gamma/chromaticity CICP Exif animation or arbitrary ancillary PNG support",
-            "no non-identity image transform",
             "no GPU image sampling or cross-platform image-render reproduction yet",
             "the two decoders are independent libraries but the fixture author and harness are in this repository",
         ],
@@ -538,6 +537,10 @@ fn package_trial(bytes: &[u8]) -> Result<Vec<Value>, String> {
     ])
 }
 
+#[expect(
+    clippy::too_many_lines,
+    reason = "the end-to-end resolver, transform and decoder-profile trials remain one auditable flow"
+)]
 fn render_trials(bytes: &[u8]) -> Result<Vec<Value>, String> {
     let digest = ResourceDigest::from_sha256_hex(sha256(bytes));
     let (asset, entity) = image_model(digest.clone());
@@ -573,13 +576,44 @@ fn render_trials(bytes: &[u8]) -> Result<Vec<Value>, String> {
     .map_err(|error| error.to_string())?;
     let image_command = matches!(first.commands.as_slice(), [DrawCommand::Image { .. }]);
     let repeatable = first == second && first_raster == second_raster;
+    let authored_transform = document
+        .entities
+        .get_mut(&EntityId::new(2))
+        .and_then(|entity| entity.authored.image.as_mut())
+        .unwrap();
+    authored_transform.transform = AffineTransform {
+        a: -1.0,
+        b: 0.0,
+        c: 0.0,
+        d: 1.0,
+        tx: 1.0,
+        ty: 0.0,
+    };
+    let transformed_scene =
+        build_scene_with_resources(&document, &layout, &context, |_| Some(bytes))
+            .map_err(|error| error.to_string())?;
+    let transformed_raster = render_cpu(
+        &transformed_scene,
+        RenderTarget {
+            width: 4,
+            height: 4,
+            scale_factor: 1.0,
+        },
+    )
+    .map_err(|error| error.to_string())?;
     document
         .entities
         .get_mut(&EntityId::new(2))
         .and_then(|entity| entity.authored.image.as_mut())
         .unwrap()
-        .transform
-        .tx = 1.0;
+        .transform = AffineTransform {
+        a: 1.0,
+        b: 2.0,
+        c: 2.0,
+        d: 4.0,
+        tx: 0.0,
+        ty: 0.0,
+    };
     let unsupported_transform =
         build_scene_with_resources(&document, &layout, &context, |_| Some(bytes))
             .map_err(|error| error.to_string())?;
@@ -623,7 +657,12 @@ fn render_trials(bytes: &[u8]) -> Result<Vec<Value>, String> {
         trial("resolved_image_is_one_typed_command", image_command),
         trial("scene_and_raster_repeat", repeatable),
         trial(
-            "non_identity_transform_fails_closed",
+            "bounded_affine_transform_renders",
+            matches!(transformed_scene.commands.as_slice(), [DrawCommand::Image { transform, .. }] if transform.a.to_bits() == (-1.0_f64).to_bits() && transform.tx.to_bits() == 1.0_f64.to_bits())
+                && transformed_raster != first_raster,
+        ),
+        trial(
+            "singular_transform_fails_closed",
             unsupported_transform.commands.is_empty() && !unsupported_transform.fidelity.is_empty(),
         ),
         trial(

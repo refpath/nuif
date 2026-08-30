@@ -225,12 +225,21 @@ locations and deletable caches do not.
 `nuif-png-rgba8-0` now executes the smallest unambiguous subset: bounded,
 non-interlaced RGBA8; no ancillary metadata or one valid pre-image `sRGB`
 intent; encoded samples interpreted as sRGB; straight decoded alpha; identity
-image transform; declared fit/crop, nearest or fixed-bilinear sampling, opacity
+decoder orientation; declared fit/crop, bounded forward affine transform,
+nearest or fixed-bilinear sampling, opacity
 and encoded-sRGB integer source-over. It rejects every other colour type,
 bit-depth, colour signal, Exif/animation chunk and arbitrary metadata. Two
 independent decoder libraries must agree on exact RGBA bytes. Exact rules and
 non-claims are versioned in `crates/nuif-media/PROFILE.md`, and
 `cargo xtask gate-i-image` emits its machine evidence.
+
+The separately named `nuif-png-basic-rgba8-1` decoder profile adds every
+non-interlaced PNG colour/depth combination that can normalize to RGBA8 without
+sample-precision loss. Image-paint transforms use
+`[a c tx; b d ty; 0 0 1]` from crop-local source coordinates into the fitted
+paint rectangle; the CPU reference inverse-samples pixel centers and rejects
+singular or numerically unbounded matrices. Decoder and paint semantics remain
+separate contracts even though Gate I exercises them together.
 
 The broader PNG experiment remains separate. It must pin:
 

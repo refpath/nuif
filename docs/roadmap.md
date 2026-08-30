@@ -41,7 +41,7 @@ subset. The separately named `nuif-png-basic-rgba8-1` expansion now covers
 non-interlaced lossless-to-RGBA8 greyscale, indexed, RGB, greyscale-alpha and
 RGBA forms plus valid transparency; both retain encoded bytes and repeat
 package-aware CPU image rendering through `cargo xtask gate-i-image`. Gate I
-remains open for 16-bit/interlaced/colour-managed PNG, arbitrary image transforms and calibrated
+remains open for 16-bit/interlaced/colour-managed PNG, live host/GPU affine equivalence and calibrated
 total-resource/media allocation evidence. A Linux/Windows/macOS resource-gate
 matrix is configured; successful hosted artifacts are still required before a
 cross-platform reproduction claim. The

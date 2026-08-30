@@ -144,7 +144,7 @@ The CLI and editor write real packages and preserve embedded resources. The
 greyscale/indexed/RGB/greyscale-alpha/RGBA type and transparency form. Together
 they retain exact encoded bytes, repeat resource-aware CPU rasterization and
 reject 20 unsupported/hostile cases via `cargo xtask gate-i-image`. Gate I does
-not yet pass: 16-bit/interlaced/colour-managed PNG, arbitrary transforms,
+not yet pass: 16-bit/interlaced/colour-managed PNG, live host/GPU affine equivalence,
 cross-platform image reproduction, and a cross-platform/external writer remain required. The separate
 `nuif-opentype-static-single-0` segment compares exact Ahem metrics, family,
 tables and Unicode coverage between Skrifa and a pinned HarfBuzz metadata

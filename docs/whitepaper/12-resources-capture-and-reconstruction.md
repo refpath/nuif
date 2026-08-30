@@ -138,7 +138,7 @@ PNG is the correct first format because its current W3C specification covers
 lossless encoded pixels, alpha and explicit colour metadata. The executable
 `nuif-png-rgba8-0` baseline chooses an intentionally smaller contract:
 non-interlaced RGBA8, no ancillary metadata or one valid `sRGB` chunk, encoded
-samples interpreted as sRGB, straight decoded alpha, identity transform,
+samples interpreted as sRGB, straight decoded alpha, identity encoded orientation,
 declared fit/crop/sampling/opacity and bounded integer CPU composition. `png`
 0.18.1 and `zune-png` 0.5.2 must emit identical RGBA bytes for the accepted
 fixtures; encoded resources remain digest-identical through package edits.
@@ -150,6 +150,13 @@ greyscale-alpha8, RGBA8 and valid palette/colour-key transparency. It preserves
 encoded bytes and requires exact normalized RGBA agreement between both
 decoders. It is separately named so profile zero never changes meaning.
 
+Image-paint affine semantics are orthogonal to decoder choice. The executable
+matrix `[a c tx; b d ty; 0 0 1]` maps crop-local source coordinates forward
+into the fitted rectangle. The CPU reference inverse-maps destination pixel
+centers, clips to the entity, and rejects singular or numerically unbounded
+matrices. Flip, rotation and translation fixtures make composition order
+observable; live host trials are still required for vendor interoperability.
+
 Any broader profile still has to pin:
 
 - accepted chunks and metadata conflicts;
@@ -160,8 +167,8 @@ Any broader profile still has to pin:
 - encoded, pixel, decoded-byte, chunk and metadata limits;
 - independent decoder and malformed-input fixtures.
 
-16-bit/interlaced PNG, CICP/ICC/gamma/chromaticity, Exif, animation and
-arbitrary transforms are not claimed by either executable profile. A
+16-bit/interlaced PNG, CICP/ICC/gamma/chromaticity, Exif, animation,
+perspective/tiling and host-specific affine equivalence are not claimed. A
 Linux/Windows/macOS CI matrix runs the profile, but the cross-platform claim
 remains withheld until its hosted artifacts pass. JPEG, WebP, AVIF, video and
 SVG follow as separate profiles.

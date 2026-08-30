@@ -1,8 +1,9 @@
 #![doc = "Renderer-independent scene lowering and deterministic CPU rasterization."]
 
 use nuif_core::{
-    AssetId, AssetKind, Color as ModelColor, ColorSpace, Document, EntityId, EntityKind, Fidelity,
-    ImageCrop, ImageFit, ImagePaint, ImageSampling, ResourceDigest, ShapeKind,
+    AffineTransform, AssetId, AssetKind, Color as ModelColor, ColorSpace, Document, EntityId,
+    EntityKind, Fidelity, ImageCrop, ImageFit, ImagePaint, ImageSampling, ResourceDigest,
+    ShapeKind,
 };
 use nuif_layout::{EvaluationContext, LayoutSnapshot, Rect, WritingDirection};
 use nuif_media::{
@@ -71,6 +72,7 @@ pub enum DrawCommand {
         image: Box<Rgba8Image>,
         fit: ImageFit,
         crop: ImageCrop,
+        transform: AffineTransform,
         sampling: ImageSampling,
         opacity: f32,
     },
@@ -321,11 +323,11 @@ fn lower_image<'a>(
         image_fidelity(scene, id, "image entity has no authored image paint");
         return Ok(());
     };
-    if !image_transform_is_identity(paint) {
+    if inverse_image_transform(paint.transform).is_none() {
         image_fidelity(
             scene,
             id,
-            "nuif-image-rgba8-0 supports only the identity image transform",
+            "image transform is singular or outside the bounded affine profile",
         );
         return Ok(());
     }
@@ -369,6 +371,7 @@ fn lower_image<'a>(
         image: Box::new(image),
         fit: paint.fit,
         crop: paint.crop,
+        transform: paint.transform,
         sampling: paint.sampling,
         opacity: paint.opacity,
     });
@@ -378,15 +381,6 @@ fn lower_image<'a>(
         status: Fidelity::Lossless,
     });
     Ok(())
-}
-
-fn image_transform_is_identity(paint: &ImagePaint) -> bool {
-    paint.transform.a.to_bits() == 1.0_f64.to_bits()
-        && paint.transform.b.to_bits() == 0.0_f64.to_bits()
-        && paint.transform.c.to_bits() == 0.0_f64.to_bits()
-        && paint.transform.d.to_bits() == 1.0_f64.to_bits()
-        && paint.transform.tx.to_bits() == 0.0_f64.to_bits()
-        && paint.transform.ty.to_bits() == 0.0_f64.to_bits()
 }
 
 fn image_decoder_profile_is_supported(profile: &str) -> bool {
@@ -471,9 +465,9 @@ fn lower_text(
     Ok(())
 }
 
-/// Deterministic profile-0 rasterizer. It intentionally supports only solid
-/// rectangles and pinned unhinted text outlines; unsupported semantics stay in
-/// the scene fidelity report rather than disappearing.
+/// Deterministic profile-0 rasterizer for bounded solid paint, pinned unhinted
+/// text outlines and explicitly resolved PNG image commands. Unsupported
+/// semantics stay in the scene fidelity report rather than disappearing.
 ///
 /// # Errors
 ///
@@ -491,39 +485,7 @@ pub fn render_cpu(scene: &RenderScene, target: RenderTarget) -> Result<RasterIma
         return Err(RenderError::InvalidTarget);
     }
     for command in &scene.commands {
-        let (entity, valid) = match command {
-            DrawCommand::Rect { entity, rect, fill }
-            | DrawCommand::Ellipse { entity, rect, fill } => (
-                *entity,
-                command_rect_is_valid(*rect, target.scale_factor) && color_is_finite(*fill),
-            ),
-            DrawCommand::Text {
-                entity,
-                rect,
-                color,
-                run,
-                outlines,
-            } => (
-                *entity,
-                command_rect_is_valid(*rect, target.scale_factor)
-                    && color_is_finite(*color)
-                    && shaped_run_is_valid(run, outlines, f64::from(target.scale_factor)),
-            ),
-            DrawCommand::Image {
-                entity,
-                rect,
-                decoder_profile,
-                image,
-                crop,
-                opacity,
-                ..
-            } => (
-                *entity,
-                command_rect_is_valid(*rect, target.scale_factor)
-                    && image_decoder_profile_is_supported(decoder_profile)
-                    && image_command_is_valid(image, *crop, *opacity),
-            ),
-        };
+        let (entity, valid) = draw_command_is_valid(command, target.scale_factor);
         if !valid {
             return Err(RenderError::InvalidScene { entity });
         }
@@ -564,6 +526,7 @@ pub fn render_cpu(scene: &RenderScene, target: RenderTarget) -> Result<RasterIma
                 image: source,
                 fit,
                 crop,
+                transform,
                 sampling,
                 opacity,
                 ..
@@ -573,6 +536,7 @@ pub fn render_cpu(scene: &RenderScene, target: RenderTarget) -> Result<RasterIma
                 source,
                 *fit,
                 *crop,
+                *transform,
                 *sampling,
                 *opacity,
                 f64::from(target.scale_factor),
@@ -582,11 +546,52 @@ pub fn render_cpu(scene: &RenderScene, target: RenderTarget) -> Result<RasterIma
     Ok(image)
 }
 
+fn draw_command_is_valid(command: &DrawCommand, scale_factor: f32) -> (EntityId, bool) {
+    match command {
+        DrawCommand::Rect { entity, rect, fill } | DrawCommand::Ellipse { entity, rect, fill } => (
+            *entity,
+            command_rect_is_valid(*rect, scale_factor) && color_is_finite(*fill),
+        ),
+        DrawCommand::Text {
+            entity,
+            rect,
+            color,
+            run,
+            outlines,
+        } => (
+            *entity,
+            command_rect_is_valid(*rect, scale_factor)
+                && color_is_finite(*color)
+                && shaped_run_is_valid(run, outlines, f64::from(scale_factor)),
+        ),
+        DrawCommand::Image {
+            entity,
+            rect,
+            decoder_profile,
+            image,
+            crop,
+            transform,
+            opacity,
+            ..
+        } => (
+            *entity,
+            command_rect_is_valid(*rect, scale_factor)
+                && image_decoder_profile_is_supported(decoder_profile)
+                && image_command_is_valid(image, *crop, *transform, *opacity),
+        ),
+    }
+}
+
 fn command_rect_is_valid(rect: Rect, scale_factor: f32) -> bool {
     rect_is_valid(rect) && rect_is_valid(scale_rect(rect, f64::from(scale_factor)))
 }
 
-fn image_command_is_valid(image: &Rgba8Image, crop: ImageCrop, opacity: f32) -> bool {
+fn image_command_is_valid(
+    image: &Rgba8Image,
+    crop: ImageCrop,
+    transform: AffineTransform,
+    opacity: f32,
+) -> bool {
     let expected = usize::try_from(u64::from(image.width) * u64::from(image.height) * 4).ok();
     image.width > 0
         && image.height > 0
@@ -600,6 +605,7 @@ fn image_command_is_valid(image: &Rgba8Image, crop: ImageCrop, opacity: f32) -> 
         && crop.height > 0.0
         && crop.x + crop.width <= 1.0
         && crop.y + crop.height <= 1.0
+        && inverse_image_transform(transform).is_some()
         && opacity.is_finite()
         && (0.0..=1.0).contains(&opacity)
 }
@@ -658,6 +664,7 @@ fn draw_image(
     source: &Rgba8Image,
     fit: ImageFit,
     crop: ImageCrop,
+    transform: AffineTransform,
     sampling: ImageSampling,
     opacity: f32,
     target_scale: f64,
@@ -687,21 +694,34 @@ fn draw_image(
         width: draw_width,
         height: draw_height,
     };
-    let x0 = floor_coordinate(draw.x.max(destination_rect.x), destination.width);
-    let y0 = floor_coordinate(draw.y.max(destination_rect.y), destination.height);
+    let Some(inverse) = inverse_image_transform(transform) else {
+        return;
+    };
+    let transformed_bounds = transformed_image_bounds(draw, transform);
+    let x0 = floor_coordinate(
+        transformed_bounds.x.max(destination_rect.x),
+        destination.width,
+    );
+    let y0 = floor_coordinate(
+        transformed_bounds.y.max(destination_rect.y),
+        destination.height,
+    );
     let x1 = ceil_coordinate(
-        (draw.x + draw.width).min(destination_rect.x + destination_rect.width),
+        (transformed_bounds.x + transformed_bounds.width)
+            .min(destination_rect.x + destination_rect.width),
         destination.width,
     );
     let y1 = ceil_coordinate(
-        (draw.y + draw.height).min(destination_rect.y + destination_rect.height),
+        (transformed_bounds.y + transformed_bounds.height)
+            .min(destination_rect.y + destination_rect.height),
         destination.height,
     );
     let opacity = channel(opacity);
     for y in y0..y1 {
         for x in x0..x1 {
-            let u = (f64::from(x) + 0.5 - draw.x) / draw.width;
-            let v = (f64::from(y) + 0.5 - draw.y) / draw.height;
+            let paint_u = (f64::from(x) + 0.5 - draw.x) / draw.width;
+            let paint_v = (f64::from(y) + 0.5 - draw.y) / draw.height;
+            let (u, v) = transform_point(inverse, paint_u, paint_v);
             if !(0.0..1.0).contains(&u) || !(0.0..1.0).contains(&v) {
                 continue;
             }
@@ -713,6 +733,74 @@ fn draw_image(
                 .expect("product of two u8 alpha values remains in the u8 domain");
             blend_pixel(destination, x, y, pixel);
         }
+    }
+}
+
+const MAX_IMAGE_TRANSFORM_COMPONENT: f64 = 1_000_000.0;
+const MIN_IMAGE_TRANSFORM_DETERMINANT: f64 = 1.0e-12;
+
+fn inverse_image_transform(transform: AffineTransform) -> Option<AffineTransform> {
+    let components = [
+        transform.a,
+        transform.b,
+        transform.c,
+        transform.d,
+        transform.tx,
+        transform.ty,
+    ];
+    if components
+        .iter()
+        .any(|value| !value.is_finite() || value.abs() > MAX_IMAGE_TRANSFORM_COMPONENT)
+    {
+        return None;
+    }
+    let determinant = transform.a * transform.d - transform.b * transform.c;
+    if !determinant.is_finite() || determinant.abs() < MIN_IMAGE_TRANSFORM_DETERMINANT {
+        return None;
+    }
+    let inverse = AffineTransform {
+        a: transform.d / determinant,
+        b: -transform.b / determinant,
+        c: -transform.c / determinant,
+        d: transform.a / determinant,
+        tx: (transform.c * transform.ty - transform.d * transform.tx) / determinant,
+        ty: (transform.b * transform.tx - transform.a * transform.ty) / determinant,
+    };
+    [
+        inverse.a, inverse.b, inverse.c, inverse.d, inverse.tx, inverse.ty,
+    ]
+    .iter()
+    .all(|value| value.is_finite() && value.abs() <= MAX_IMAGE_TRANSFORM_COMPONENT)
+    .then_some(inverse)
+}
+
+fn transform_point(transform: AffineTransform, x: f64, y: f64) -> (f64, f64) {
+    (
+        transform.a * x + transform.c * y + transform.tx,
+        transform.b * x + transform.d * y + transform.ty,
+    )
+}
+
+fn transformed_image_bounds(draw: Rect, transform: AffineTransform) -> Rect {
+    let corners = [(0.0, 0.0), (1.0, 0.0), (0.0, 1.0), (1.0, 1.0)];
+    let mut min_x = f64::INFINITY;
+    let mut min_y = f64::INFINITY;
+    let mut max_x = f64::NEG_INFINITY;
+    let mut max_y = f64::NEG_INFINITY;
+    for (x, y) in corners {
+        let (x, y) = transform_point(transform, x, y);
+        let x = draw.x + x * draw.width;
+        let y = draw.y + y * draw.height;
+        min_x = min_x.min(x);
+        min_y = min_y.min(y);
+        max_x = max_x.max(x);
+        max_y = max_y.max(y);
+    }
+    Rect {
+        x: min_x,
+        y: min_y,
+        width: max_x - min_x,
+        height: max_y - min_y,
     }
 }
 
@@ -1335,6 +1423,14 @@ mod tests {
             image: Box::new(source.clone()),
             fit,
             crop,
+            transform: AffineTransform {
+                a: 1.0,
+                b: 0.0,
+                c: 0.0,
+                d: 1.0,
+                tx: 0.0,
+                ty: 0.0,
+            },
             sampling,
             opacity,
         };
@@ -1420,6 +1516,165 @@ mod tests {
         assert_eq!(pixel(0, 1), [255, 127, 127, 255]);
         assert_eq!(pixel(3, 4), [255, 255, 255, 255]);
         assert_eq!(pixel(0, 5), [255, 255, 255, 255]);
+
+        let transformed = |transform| {
+            let mut value = command(
+                Rect {
+                    x: 0.0,
+                    y: 0.0,
+                    width: 2.0,
+                    height: 2.0,
+                },
+                ImageFit::Fill,
+                full,
+                ImageSampling::Nearest,
+                1.0,
+            );
+            let DrawCommand::Image {
+                transform: authored,
+                ..
+            } = &mut value
+            else {
+                unreachable!("fixture command is an image")
+            };
+            *authored = transform;
+            value
+        };
+        let horizontal_flip = render(
+            transformed(AffineTransform {
+                a: -1.0,
+                b: 0.0,
+                c: 0.0,
+                d: 1.0,
+                tx: 1.0,
+                ty: 0.0,
+            }),
+            2,
+            2,
+        );
+        assert_eq!(
+            horizontal_flip.rgba,
+            [
+                0, 255, 0, 255, 255, 0, 0, 255, 255, 255, 255, 255, 0, 0, 255, 255
+            ]
+        );
+        let clockwise = render(
+            transformed(AffineTransform {
+                a: 0.0,
+                b: 1.0,
+                c: -1.0,
+                d: 0.0,
+                tx: 1.0,
+                ty: 0.0,
+            }),
+            2,
+            2,
+        );
+        assert_eq!(
+            clockwise.rgba,
+            [
+                0, 0, 255, 255, 255, 0, 0, 255, 255, 255, 255, 255, 0, 255, 0, 255
+            ]
+        );
+        let translated = render(
+            transformed(AffineTransform {
+                a: 1.0,
+                b: 0.0,
+                c: 0.0,
+                d: 1.0,
+                tx: 0.5,
+                ty: 0.0,
+            }),
+            2,
+            2,
+        );
+        assert_eq!(
+            translated.rgba,
+            [
+                255, 255, 255, 255, 255, 0, 0, 255, 255, 255, 255, 255, 0, 0, 255, 255
+            ]
+        );
+        assert!(matches!(
+            render_cpu(
+                &RenderScene {
+                    commands: vec![transformed(AffineTransform {
+                        a: 1.0,
+                        b: 2.0,
+                        c: 2.0,
+                        d: 4.0,
+                        tx: 0.0,
+                        ty: 0.0,
+                    })],
+                    fidelity: Vec::new(),
+                },
+                RenderTarget {
+                    width: 2,
+                    height: 2,
+                    scale_factor: 1.0,
+                }
+            ),
+            Err(RenderError::InvalidScene { .. })
+        ));
+    }
+
+    #[test]
+    fn bounded_affine_inverse_roundtrips_and_rejects_numeric_edges() {
+        for transform in [
+            AffineTransform {
+                a: 1.0,
+                b: 0.0,
+                c: 0.0,
+                d: 1.0,
+                tx: 0.0,
+                ty: 0.0,
+            },
+            AffineTransform {
+                a: 1.5,
+                b: -0.25,
+                c: 0.5,
+                d: 0.75,
+                tx: -0.125,
+                ty: 0.625,
+            },
+            AffineTransform {
+                a: 0.0,
+                b: 1.0,
+                c: -1.0,
+                d: 0.0,
+                tx: 1.0,
+                ty: 0.0,
+            },
+        ] {
+            let inverse = inverse_image_transform(transform).unwrap();
+            for (x, y) in [(0.0, 0.0), (0.25, 0.75), (1.0, 1.0)] {
+                let (mapped_x, mapped_y) = transform_point(transform, x, y);
+                let (actual_x, actual_y) = transform_point(inverse, mapped_x, mapped_y);
+                assert!((actual_x - x).abs() < 1.0e-12);
+                assert!((actual_y - y).abs() < 1.0e-12);
+            }
+        }
+        assert!(
+            inverse_image_transform(AffineTransform {
+                a: MAX_IMAGE_TRANSFORM_COMPONENT + 1.0,
+                b: 0.0,
+                c: 0.0,
+                d: 1.0,
+                tx: 0.0,
+                ty: 0.0,
+            })
+            .is_none()
+        );
+        assert!(
+            inverse_image_transform(AffineTransform {
+                a: 1.0e-13,
+                b: 0.0,
+                c: 0.0,
+                d: 1.0,
+                tx: 0.0,
+                ty: 0.0,
+            })
+            .is_none()
+        );
     }
 
     #[test]

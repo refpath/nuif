@@ -34,9 +34,10 @@ through one, and `color_conversion = "srgb"`. Source alpha is straight. Paint
 opacity multiplies alpha, and the CPU raster applies the same encoded-sRGB
 integer source-over rule as profile-zero solid paint.
 
-Only the identity image transform is executable with either current decoder profile.
-Unresolved resources, dimension mismatch, unsupported decoder/profile values,
-non-identity transforms and invalid crop/opacity values produce item-level
+The reference renderer executes the bounded normalized affine contract in
+`spec/05-geometry-paint-text.md`. Singular or numerically unbounded transforms,
+unresolved resources, dimension mismatch, unsupported decoder/profile values
+and invalid crop/opacity values produce item-level
 fidelity or typed errors; they never substitute a bounds rectangle or fetch a
 resource implicitly.
 
@@ -52,6 +53,8 @@ resource implicitly.
 - preserves encoded bytes through package fixpoint and an unrelated semantic
   edit;
 - repeats scene lowering and CPU rasterization exactly;
+- checks identity, horizontal flip, clockwise rotation and translation through
+  forward affine matrices and rejects a singular matrix;
 - checks hostile/unsupported colour types, metadata, corruption, trailing
   bytes, and dimension, pixel, chunk and encoded-byte one-over cases.
 
@@ -94,6 +97,6 @@ also passes renderer lowering and CPU rasterization.
 ## Evidence boundary
 
 The gate does not establish GPU or hosted cross-platform image-raster
-equivalence, arbitrary affine image transforms, a broad real-world corpus,
+equivalence, host-specific affine interoperability, a broad real-world corpus,
 16-bit/interlaced/colour-managed PNG, or any non-PNG image format. Those require
 distinct profiles and fixtures.

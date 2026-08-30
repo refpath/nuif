@@ -43,16 +43,33 @@ fit, crop, affine transform, sampling, opacity and color-conversion policy.
 Decoded pixels and GPU textures are caches keyed by encoded digest plus decoder
 profile.
 
+The affine fields use `[a c tx; b d ty; 0 0 1]` and map the selected crop's
+normalized source coordinates forward into normalized coordinates of the
+fitted paint rectangle. Fit is calculated first. Rasterizers inverse-map
+destination pixel centers, apply crop selection after that inverse, and clip to
+the entity rectangle. The origin is the fitted rectangle's top-left; callers
+encode any center-origin adjustment in the translation. Executable matrices
+MUST be finite and invertible. The reference bound rejects components or
+inverse components above 1,000,000 in magnitude and determinant magnitudes
+below `1e-12` as unsupported fidelity.
+
 The first executable image profile, `nuif-png-rgba8-0`, is PNG-only and
 deliberately narrow. It accepts non-interlaced RGBA8 with no ancillary chunk or
 one valid pre-image `sRGB` chunk, interprets the encoded samples as sRGB and
 keeps alpha straight through decoding. It rejects palette, grayscale, RGB-only,
 16-bit, CICP, ICC, gamma/chromaticity, Exif, animation, arbitrary ancillary
 chunks and trailing bytes. Its exact chunk sequence, dimensions, pixel/byte
-budgets, fit/crop, identity-transform, nearest/fixed-bilinear sampling, opacity
+budgets, fit/crop, bounded affine transform, nearest/fixed-bilinear sampling, opacity
 and encoded-sRGB integer composition contract is in
 `crates/nuif-media/PROFILE.md`. JPEG, WebP, AVIF, animation, video and SVG are
 unsupported by that profile rather than silently decoded through host defaults.
+
+The separately named `nuif-png-basic-rgba8-1` profile accepts the
+non-interlaced PNG colour/depth combinations that normalize to RGBA8 without
+sample-precision loss, including required palettes and valid `tRNS`
+transparency. It does not change profile zero and still rejects 16-bit,
+interlaced and colour-managed inputs. Its exact matrix is also in
+`crates/nuif-media/PROFILE.md`.
 
 An animation or video adapter MAY create a derived still resource when it
 records source digest, selected frame/time, decoder profile and item-level loss.
