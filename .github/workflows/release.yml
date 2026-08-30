@@ -57,6 +57,9 @@ jobs:
             target/dist/release-check.json
             target/verification-manifest.json
             target/performance-profile-report.json
+            target/package-resources-report.json
+            target/image-resources-report.json
+            target/font-resources-report.json
             target/editor-gui-trial/report.json
 
   package:

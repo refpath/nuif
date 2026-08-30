@@ -155,9 +155,10 @@ Third Edition. A broader profile still has to pin:
 - independent decoder and malformed-input fixtures.
 
 Palette, grayscale, RGB-only, 16-bit, CICP/ICC/gamma/chromaticity, Exif,
-animation, arbitrary transforms and cross-platform image reproduction are not
-claimed by the narrow baseline. JPEG, WebP, AVIF, video and SVG follow as
-separate profiles.
+animation and arbitrary transforms are not claimed by the narrow baseline. A
+Linux/Windows/macOS CI matrix runs the profile, but the cross-platform claim
+remains withheld until its hosted artifacts pass. JPEG, WebP, AVIF, video and
+SVG follow as separate profiles.
 Freezing a frame or tracing a screenshot crop is a derived approximation, not
 recovery of the original asset. Generative upscaling/inpainting requires an
 explicit user policy and cannot silently become canonical source evidence.
@@ -188,7 +189,9 @@ This is intentionally not general OpenType support. TTC, CFF/CFF2, variable,
 color, bitmap, SVG and WOFF/WOFF2 sources, historic ambiguous permission
 combinations, subsetting, item-level substitution/unavailability fidelity,
 shaping and cross-platform raster behavior remain separate fixtures and
-profiles. Parser acceptance and `fsType` do not grant redistribution rights.
+profiles. The configured three-OS parser/package matrix does not establish
+cross-platform raster behavior. Parser acceptance and `fsType` do not grant
+redistribution rights.
 
 Browser capture can identify platform fonts used for a node and capture
 downloaded web-font response bodies. It generally cannot retrieve arbitrary

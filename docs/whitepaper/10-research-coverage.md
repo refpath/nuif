@@ -26,7 +26,9 @@ This distinction is important: marking an open research problem as finished woul
 - Merkle/content addressing is appropriate for immutable assets and snapshots but not for editable semantic identity.
 - EPUB OCF and OCI descriptors support a narrow manifest-driven package with
   size/digest verification; NUIF now has an in-repository independent-writer
-  fixture, while cross-platform and external reproduction remain open.
+  fixture. A three-OS CI matrix now exercises the package, image and font
+  gates, while successful hosted evidence and external reproduction remain
+  open.
 - OpenType, `ttf-parser` and Fontations evidence now supports one executable
   static TrueType package baseline; broad font formats, portability outcomes
   and shaping/raster integration remain experiment-required.

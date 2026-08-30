@@ -54,8 +54,9 @@
 - **Portable resources are only narrowly implemented.** The deterministic
   package, RGBA8 PNG and static single-face TrueType subsets have executable
   gates, while CPU profile 0 remains unchanged. RFC 0010 cannot be accepted
-  until broad media/font matrices, cross-platform and external reproduction,
-  calibrated aggregate budgets and interoperability review pass.
+  until broad media/font matrices, the configured Linux/Windows/macOS jobs
+  produce passing hosted evidence, external reproduction, calibrated aggregate
+  budgets and interoperability review pass.
 - **Capture and reconstruction are proposed, not implemented.** RFC 0011 and
   specification 14 define evidence/fidelity ceilings and provider boundaries.
   No current release claims browser-capture or screenshot-reconstruction

@@ -123,7 +123,7 @@ Testing is designed for automated trial loops: generate or load a document, appl
 | Reference editor | Research preview; current release `0.1.0-alpha.3` | Semantic Versioning applies to the editor application only |
 | Draft specification | Pre-draft | No normative conformance profile is published |
 | Executable adapter and conformance profiles | Experimental | Results apply only to each declared profile and evaluation matrix |
-| Package/resources | Experimental implementation; Gate I incomplete | Deterministic package plus narrow independently parsed RGBA8 PNG and static TrueType resource paths are executable; broad media/font matrices and external/cross-platform reproduction remain open |
+| Package/resources | Experimental implementation; Gate I incomplete | Deterministic package plus narrow independently parsed RGBA8 PNG and static TrueType resource paths are executable; a three-OS CI matrix is configured, while broad media/font matrices, external reproduction and successful hosted matrix evidence remain open |
 | Capture/reconstruction | Experimental contracts and deterministic baselines | Browser/screenshot normalization, typed proposals, calibration primitives and a finite loop exist; no broad accuracy or model claim |
 | Project | Open research project; not a standard | Standards status requires neutral governance and independent implementations |
 
@@ -140,7 +140,10 @@ resource-aware CPU rendering. `cargo xtask gate-i-font` compares the narrow
 `nuif-opentype-static-single-0` subset across two Rust parser families, enforces
 exact package metadata and explicit embedding review, and rejects malformed and
 one-over resources. Gate I still lacks the broader PNG and OpenType matrices,
-external writer and cross-platform package/media reproduction. RFC
+external writer and successful hosted cross-platform package/media evidence.
+The CI workflow now runs all three narrow resource gates independently on
+Linux, Windows and macOS and archives each platform report; that configuration
+does not become reproduction evidence until the hosted jobs pass. RFC
 0011/specification 14 have executable
 provider-neutral observation, browser/screenshot baseline, typed-proposal,
 flat-copy rejection, calibration and finite-loop primitives, but Gates J/K

@@ -103,6 +103,16 @@ jobs:
         with:
           name: performance-profile-report
           path: target/performance-profile-report.json
+      - name: Upload portable resource profile evidence
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: portable-resource-profile-reports
+          if-no-files-found: error
+          path: |
+            target/package-resources-report.json
+            target/image-resources-report.json
+            target/font-resources-report.json
       - name: Upload layout differential report
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
@@ -206,6 +216,48 @@ jobs:
         with:
           name: verification-manifest
           path: target/verification-manifest.json
+
+  resource-profiles:
+    name: resource profiles (${{ matrix.platform }})
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: linux-x86_64
+            runner: ubuntu-latest
+          - platform: windows-x86_64
+            runner: windows-latest
+          - platform: macos-aarch64
+            runner: macos-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Install the pinned Rust toolchain
+        shell: bash
+        run: |
+          rustup toolchain install 1.98.0 --profile minimal
+          rustup default 1.98.0
+      - name: Install Linux native dependencies
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y libfontconfig1-dev
+      - name: Validate package, image, and font profiles
+        run: |
+          cargo xtask gate-i-package
+          cargo xtask gate-i-image
+          cargo xtask gate-i-font
+      - name: Upload platform resource evidence
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: portable-resource-profiles-${{ matrix.platform }}
+          if-no-files-found: error
+          path: |
+            target/package-resources-report.json
+            target/image-resources-report.json
+            target/font-resources-report.json
 
   native-editor:
     name: native-editor (${{ matrix.platform }})

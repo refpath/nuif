@@ -33,14 +33,16 @@ new bare forms use `.nuif.json`/`.nuif.cbor`. The executable
 `nuif-png-rgba8-0` baseline independently decodes a deliberately narrow PNG
 subset, retains encoded bytes and repeats package-aware CPU image rendering
 through `cargo xtask gate-i-image`. Gate I remains open for broad PNG
-colour/type handling, arbitrary image transforms, cross-platform image
-reproduction and calibrated total-resource/media allocation evidence. The
+colour/type handling, arbitrary image transforms and calibrated
+total-resource/media allocation evidence. A Linux/Windows/macOS resource-gate
+matrix is configured; successful hosted artifacts are still required before a
+cross-platform reproduction claim. The
 separate `nuif-opentype-static-single-0` baseline validates one exact static
 TrueType face through package encoding/resolution, compares `ttf-parser` with
 Skrifa and rejects malformed/policy/one-over cases through
 `cargo xtask gate-i-font`. TTC, CFF/CFF2, variable/color/bitmap/WOFF2 fonts,
 item-level substitution/unavailability fidelity, shaping integration,
-cross-platform reproduction and external implementations remain open.
+successful hosted cross-platform evidence and external implementations remain open.
 
 ## Phase 5 — editor (complete for the headless profile-0 instrument)
 The entire v0 fixture is authored from an empty document through identity-addressed semantic actions. Direct generation, editor output and operation replay are byte-identical, and the editor writes canonical document, context, layout, scene, CPU raster and fidelity report artifacts. The Rust-native Masonry shell from ADR 0006 and the later Svelte/WASM demonstration are non-normative interface work and cannot redefine this headless result.
