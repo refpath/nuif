@@ -2396,6 +2396,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "nuif-package"
+version = "0.0.1"
+dependencies = [
+ "nuif-codec",
+ "nuif-core",
+ "serde",
+ "sha2",
+ "thiserror 2.0.20",
+ "zip",
+]
+
+[[package]]
 name = "nuif-penpot"
 version = "0.0.1"
 dependencies = [
