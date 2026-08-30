@@ -146,6 +146,18 @@ fn main() {
         .layout
         .gap = 20.0;
 
+    let svelte_document = nuif_svelte::profile_fixture();
+    let svelte_exported = nuif_svelte::export_document(&svelte_document).unwrap();
+    let svelte_imported = nuif_svelte::import_source(&svelte_exported.source).unwrap();
+    let mut svelte_edited = svelte_document.clone();
+    svelte_edited
+        .entities
+        .get_mut(&EntityId::new(0x10))
+        .unwrap()
+        .authored
+        .layout
+        .gap = 20.0;
+
     let penpot_document = nuif_penpot::profile_fixture();
     let penpot_exported = nuif_penpot::export_document(&penpot_document).unwrap();
     let penpot_imported = nuif_penpot::import_package(&penpot_exported.bytes).unwrap();
@@ -450,6 +462,28 @@ fn main() {
             .source
             .len() as u64
         }),
+        measure("adapter_svelte_export", 2, 20, 500_000_000, || {
+            nuif_svelte::export_document(black_box(&svelte_document))
+                .unwrap()
+                .source
+                .len() as u64
+        }),
+        measure("adapter_svelte_import", 2, 20, 500_000_000, || {
+            nuif_svelte::import_source(black_box(&svelte_exported.source))
+                .unwrap()
+                .document
+                .entities
+                .len() as u64
+        }),
+        measure("adapter_svelte_sync", 2, 20, 500_000_000, || {
+            nuif_svelte::synchronize(
+                black_box(&svelte_imported.retentive),
+                black_box(&svelte_edited),
+            )
+            .unwrap()
+            .source
+            .len() as u64
+        }),
         measure("adapter_penpot_export", 4, 20, 500_000_000, || {
             nuif_penpot::export_document(black_box(&penpot_document))
                 .unwrap()
@@ -526,6 +560,7 @@ fn main() {
             "svg_bytes": svg_exported.source.len(),
             "dtcg_bytes": dtcg_exported.source.len(),
             "react_jsx_bytes": react_exported.source.len(),
+            "svelte_bytes": svelte_exported.source.len(),
             "penpot_bytes": penpot_exported.bytes.len(),
             "foreign_penpot_bytes": FOREIGN_PENPOT.len()
         },

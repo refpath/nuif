@@ -1,6 +1,6 @@
 # Conformance
 
-The profile-0 baseline is executable through the `nuif-conformance` package and xtask gates. It covers structural validation, canonicalization, parser/serializer round trips, unknown-extension preservation, operations/replay/inversion, responsive stack/flex layout, pinned shaping and hard-line text, deterministic solid rectangle/ellipse and bounded RGBA8 image CPU rendering, measured codec/model/resource limits, pinned browser/Taffy differential layout, editor-driver parity, six bounded retentive adapter profiles and machine reports. Grid track/placement semantics, paths/instances, broader image and paint profiles, broader adapters and perceptual tiers remain planned and are not claimed as implemented.
+The profile-0 baseline is executable through the `nuif-conformance` package and xtask gates. It covers structural validation, canonicalization, parser/serializer round trips, unknown-extension preservation, operations/replay/inversion, responsive stack/flex layout, pinned shaping and hard-line text, deterministic solid rectangle/ellipse and bounded RGBA8 image CPU rendering, measured codec/model/resource limits, pinned browser/Taffy differential layout, editor-driver parity, seven bounded retentive adapter profiles and machine reports. Grid track/placement semantics, paths/instances, broader image and paint profiles, broader adapters and perceptual tiers remain planned and are not claimed as implemented.
 
 Install the locked Chrome for Testing build once with `cargo xtask browser-install`, then run `cargo xtask gate-c`. The report at `target/layout-differential-report.json` contains the raw NUIF, Taffy and browser boxes, engine versions, source revision, fixture-local calibration and every classified divergence. Schema-loss entries are visible passing evidence, not a Grid-conformance claim; unclassified or evaluator differences fail the command.
 
@@ -44,6 +44,14 @@ source, rejects eleven dynamic/hostile cases and exercises the public CLI bridge
 Reports and synchronized JSX are written under `target/react-sync-*`;
 components, hooks, spreads, handlers, runtime expressions, TSX and browser
 runtime equivalence remain outside the profile.
+
+Run `cargo xtask gate-svelte` for the bounded `nuif-svelte-static-0` source
+profile. It applies 11 byte-local edits, preserves the complete unchanged-byte
+complement, rejects 13 executable or hostile inputs, completes the public CLI
+bridge, and then parses and compiles both synchronized outputs with exact
+official `svelte/compiler` 5.57.0. Reports and components are written under
+`target/svelte-*`; scripts, blocks, directives, components, component CSS and
+runtime rendering equivalence remain outside the profile.
 
 Run `cargo xtask gate-wasm` for `nuif-wasm-api-0`. It compiles the same core
 for `wasm32-unknown-unknown`, generates Node and direct-browser JavaScript plus

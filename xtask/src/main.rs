@@ -35,6 +35,7 @@ const ALL_STEPS: &[Step] = &[
     ("gate-dtcg", gate_dtcg),
     ("gate-penpot", gate_penpot),
     ("gate-react", gate_react),
+    ("gate-svelte", gate_svelte),
     ("gate-g", gate_g),
     ("gate-h", gate_h),
     ("gate-i-package", gate_i_package),
@@ -88,6 +89,12 @@ const VERIFICATION_ARTIFACTS: &[&str] = &[
     "target/react-sync-edited.nuif.json",
     "target/react-sync-cli-report.json",
     "target/react-sync-cli-output.jsx",
+    "target/svelte-sync-report.json",
+    "target/svelte-sync-output.svelte",
+    "target/svelte-sync-edited.nuif.json",
+    "target/svelte-sync-cli-report.json",
+    "target/svelte-sync-cli-output.svelte",
+    "target/svelte-compiler-oracle-report.json",
     "target/gate-g-report.json",
     "target/gate-g-independent",
     "target/collaboration-report.json",
@@ -140,6 +147,7 @@ fn run() -> Result<(), String> {
         Some("gate-dtcg") => gate_dtcg(),
         Some("gate-penpot") => gate_penpot(),
         Some("gate-react") => gate_react(),
+        Some("gate-svelte") => gate_svelte(),
         Some("gate-wasm") => gate_wasm(),
         Some("gate-mcp") => gate_mcp(),
         Some("wasm-install") => wasm_install(),
@@ -177,7 +185,7 @@ fn run() -> Result<(), String> {
         Some("manifest") => standalone_manifest(),
         Some("all") => all(),
         _ => Err(
-            "usage: cargo xtask <research|adapter-audit|dependency-audit|docs-check|docs-build|docs-paper|docs-serve|docs-setup|verify|trial [seed iterations snapshot-interval report-path]|gate-b|gate-c|gate-d|gate-d-text|gate-d-render|gate-f|gate-f-v0|gate-svg|gate-dtcg|gate-penpot|gate-react|gate-wasm|gate-mcp|gate-g|gate-h|gate-i-package|gate-i-image|gate-i-font|capture-baselines|browser-install|wasm-install|wasm-package|mcp-package|hostile-inputs|editor-hostile-inputs|performance|editor-trial|editor-gui-trial|editor-install-trial|editor-package|editor-launch|editor-install|editor-doctor|editor-rollback|editor-uninstall|editor-update|release-check <tag>|manifest|all>"
+            "usage: cargo xtask <research|adapter-audit|dependency-audit|docs-check|docs-build|docs-paper|docs-serve|docs-setup|verify|trial [seed iterations snapshot-interval report-path]|gate-b|gate-c|gate-d|gate-d-text|gate-d-render|gate-f|gate-f-v0|gate-svg|gate-dtcg|gate-penpot|gate-react|gate-svelte|gate-wasm|gate-mcp|gate-g|gate-h|gate-i-package|gate-i-image|gate-i-font|capture-baselines|browser-install|wasm-install|wasm-package|mcp-package|hostile-inputs|editor-hostile-inputs|performance|editor-trial|editor-gui-trial|editor-install-trial|editor-package|editor-launch|editor-install|editor-doctor|editor-rollback|editor-uninstall|editor-update|release-check <tag>|manifest|all>"
                 .to_owned(),
         ),
     }
@@ -1112,6 +1120,116 @@ fn gate_react() -> Result<(), String> {
         "target/react-sync-edited.nuif.json",
     ])?;
     gate_react_cli_bridge()
+}
+
+fn gate_svelte() -> Result<(), String> {
+    cargo(&[
+        "run",
+        "--release",
+        "--locked",
+        "-p",
+        "nuif-svelte",
+        "--bin",
+        "svelte-sync-profile",
+        "--",
+        "target/svelte-sync-report.json",
+        "target/svelte-sync-output.svelte",
+        "target/svelte-sync-edited.nuif.json",
+    ])?;
+    gate_svelte_cli_bridge()?;
+    command(
+        "npm",
+        &[
+            "ci",
+            "--ignore-scripts",
+            "--no-audit",
+            "--no-fund",
+            "--prefix",
+            "tools/svelte-oracle",
+        ],
+    )?;
+    command(
+        "node",
+        &[
+            "tools/svelte-oracle/check.mjs",
+            "target/svelte-compiler-oracle-report.json",
+            "target/svelte-sync-output.svelte",
+            "target/svelte-sync-cli-output.svelte",
+        ],
+    )
+}
+
+fn gate_svelte_cli_bridge() -> Result<(), String> {
+    let directory = env::temp_dir().join(format!("nuif-svelte-trial-{}", std::process::id()));
+    if directory.exists() {
+        return Err(format!(
+            "temporary path already exists: {}",
+            directory.display()
+        ));
+    }
+    fs::create_dir(&directory).map_err(|error| error.to_string())?;
+    let input = directory.join("input.nuif.json");
+    let exported = directory.join("exported.svelte");
+    let export_report = directory.join("export-report.json");
+    let imported = directory.join("imported.nuif.json");
+    let import_report = directory.join("import-report.json");
+    let reimported = directory.join("reimported.nuif.json");
+    let reimport_report = directory.join("reimport-report.json");
+    let synchronized = Path::new("target/svelte-sync-cli-output.svelte");
+    let sync_report = Path::new("target/svelte-sync-cli-report.json");
+    let edited = Path::new("target/svelte-sync-edited.nuif.json");
+    nuif(&["fixture", "svelte-profile", path(&input)?])?;
+    nuif(&[
+        "export",
+        path(&input)?,
+        "svelte-static-0",
+        path(&exported)?,
+        path(&export_report)?,
+    ])?;
+    nuif(&[
+        "import",
+        "svelte-static-0",
+        path(&exported)?,
+        path(&imported)?,
+        path(&import_report)?,
+    ])?;
+    if fs::read(&input).map_err(|error| error.to_string())?
+        != fs::read(&imported).map_err(|error| error.to_string())?
+    {
+        return Err("CLI Svelte export/import changed canonical NUIF bytes".to_owned());
+    }
+    nuif(&[
+        "sync",
+        "svelte-static-0",
+        path(&exported)?,
+        path(edited)?,
+        path(synchronized)?,
+        path(sync_report)?,
+    ])?;
+    nuif(&[
+        "import",
+        "svelte-static-0",
+        path(synchronized)?,
+        path(&reimported)?,
+        path(&reimport_report)?,
+    ])?;
+    if fs::read(edited).map_err(|error| error.to_string())?
+        != fs::read(&reimported).map_err(|error| error.to_string())?
+    {
+        return Err(
+            "CLI Svelte synchronization changed edited canonical document bytes".to_owned(),
+        );
+    }
+    let report = read_json(sync_report)?;
+    if report["status"] != "passed" || report["edits"].as_array().map(Vec::len) != Some(11) {
+        return Err("CLI Svelte bridge did not produce the expected 11 source edits".to_owned());
+    }
+    fs::remove_dir_all(&directory).map_err(|error| {
+        format!(
+            "trial passed but temporary directory {} could not be removed: {error}",
+            directory.display()
+        )
+    })
 }
 
 fn gate_react_cli_bridge() -> Result<(), String> {

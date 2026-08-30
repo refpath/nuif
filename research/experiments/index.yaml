@@ -93,7 +93,7 @@ experiments:
     tests:
       - validate canonical text deterministic CBOR protocol layout and scene work at 1024 entities
       - measure CPU raster and end-to-end snapshot latency at representative viewport sizes
-      - measure HTML CSS SVG DTCG Penpot and static React JSX adapter boundaries including official-foreign Penpot import and exact no-op package synchronization
+      - measure HTML CSS SVG DTCG Penpot static React JSX and static Svelte adapter boundaries including official-foreign Penpot import and exact no-op package synchronization
       - measure bounded PNG inspection and decode static TrueType inspection image and font package encode decode and resource-aware scene raster paths
       - retain statistical baselines under target for controlled before-and-after comparisons
       - write and archive target/performance-profile-report.json
@@ -112,6 +112,23 @@ experiments:
       - preserve module comments and unrelated declarations outside every returned source edit
       - reject spreads components event handlers runtime style expressions extra properties duplicate identities and malformed syntax
       - write and archive target/react-sync-report.json and synchronized JSX/NUIF artifacts
+  - id: nuif:experiment:svelte-static-retentive-sync
+    status: automated
+    evidence: [nuif:research:svelte-source-adapter-surface, nuif:research:tree-sitter]
+    implementation: [crates/nuif-svelte/src/lib.rs, crates/nuif-svelte/src/bin/svelte-sync-profile.rs, adapters/svelte/PROFILE.md, tools/svelte-oracle/check.mjs, xtask/src/main.rs]
+    oracle: roundtrip-metamorphic-and-official-compiler
+    acceptance:
+      - export and import reproduce the exact declared NUIF document
+      - synchronization changes only mapped scalar byte spans and reparses to the edited document
+      - scripts expressions blocks directives components and component CSS are never executed or inferred
+      - exact official svelte/compiler 5.57.0 parses and compiles direct and CLI synchronized sources without warnings
+      - excluded executable syntax and hostile size node identity depth and syntax cases fail atomically
+    tests:
+      - map fixed regular flex containers literal pinned-font text and stable identifiers
+      - preserve top-level and nested comments plus every byte outside returned edits
+      - reject scripts styles blocks components directives expression attributes extra properties duplicate identities and malformed syntax
+      - require CLI export synchronization and import to reproduce edited canonical NUIF bytes
+      - write and archive native CLI and official-compiler reports plus synchronized Svelte/NUIF artifacts
   - id: nuif:experiment:wasm-cross-surface
     status: automated
     evidence: [nuif:research:wasm-headless-execution, nuif:research:wasm-component-model]

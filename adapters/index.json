@@ -78,12 +78,19 @@
     {
       "id": "svelte",
       "surface": ".svelte source and compiler AST",
-      "status": "researched",
+      "status": "integrated",
       "research": "svelte-source-adapter-surface",
-      "directions": [],
-      "profiles": [],
-      "next_profile": "static regular elements, literal text and attributes, and profile-owned CSS spans",
-      "boundary": "Runes, scripts, blocks, directives, preprocessors and dynamic components require execution."
+      "directions": ["import", "export", "synchronize"],
+      "profiles": [
+        {
+          "name": "nuif-svelte-static-0",
+          "crate": "crates/nuif-svelte",
+          "profile": "adapters/svelte/PROFILE.md",
+          "gate": "gate-svelte"
+        }
+      ],
+      "next_profile": "component CSS only after selector, cascade, scope-hash and source-locality rules are separately specified",
+      "boundary": "Runes, scripts, blocks, directives, preprocessors, component CSS and dynamic components require execution or a broader semantic profile."
     },
     {
       "id": "penpot",

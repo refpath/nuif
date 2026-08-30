@@ -59,6 +59,11 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: "24.20.0"
+          cache: npm
+          cache-dependency-path: tools/svelte-oracle/package-lock.json
       - name: Install the pinned Rust toolchain
         run: |
           rustup toolchain install 1.98.0 --profile minimal --component rustfmt --component clippy
@@ -223,6 +228,19 @@ jobs:
             target/react-sync-edited.nuif.json
             target/react-sync-cli-report.json
             target/react-sync-cli-output.jsx
+      - name: Upload Svelte synchronization and compiler evidence
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: svelte-static-sync-report
+          if-no-files-found: error
+          path: |
+            target/svelte-sync-report.json
+            target/svelte-sync-output.svelte
+            target/svelte-sync-edited.nuif.json
+            target/svelte-sync-cli-report.json
+            target/svelte-sync-cli-output.svelte
+            target/svelte-compiler-oracle-report.json
       - name: Upload independent implementation evidence
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1

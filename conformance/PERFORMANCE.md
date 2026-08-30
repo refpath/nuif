@@ -20,7 +20,7 @@ not treated as comparable baselines.
 | Embedded image and font resources | RGBA8 image plus pinned static TrueType font | Inspect and decode the media profiles; encode and decode exact-resource packages; lower a resolved image scene and raster it at 256x256 |
 | Semantic query | 128, 1,024, 4,096, 8,192 entities | Stable-ID lookup and kind scan over the authored model |
 | Collaboration | 2, 32, 256, 1,024 concurrent register writers | Materialize identical conflict checkpoints through the operation-set and replica-log algorithms |
-| Integrated adapters | Declared HTML/CSS, SVG, DTCG, Penpot and static React JSX fixtures | Export, import and retentive synchronization measured separately; Penpot also measures official-foreign import and the byte-exact no-op path |
+| Integrated adapters | Declared HTML/CSS, SVG, DTCG, Penpot, static React JSX and static Svelte fixtures | Export, import and retentive synchronization measured separately; Penpot also measures official-foreign import and the byte-exact no-op path |
 
 `nuif_testing::performance_fixture` is deterministic, valid, bounded by the
 profile-zero 8,192-entity resource limit and uses the repository-pinned font.
@@ -76,7 +76,7 @@ budgets.
   rebuild/re-import 93.9–94.6 µs, and byte-exact no-op synchronization
   2.85–2.87 µs. These figures use the 7,855-byte native and 5,439-byte foreign
   fixtures rather than a large production design.
-- The matching allocation-instrumented smoke run now covers 40 cases. The nine
+- The matching allocation-instrumented smoke run now covers 43 cases. The nine
   resource-path cases add PNG structure/decode, static-font inspection, image
   and font package encode/decode, resolved scene lowering and a 256x256 image
   raster. On the same machine, font inspection measured a 0.67 ms median and
@@ -88,6 +88,11 @@ budgets.
   median for the 778-byte declared fixture, allocating about 71/67/244 KiB per
   invocation and retaining zero. These are parser-boundary calibration values,
   not React runtime or browser performance claims.
+- Static Svelte export/import/synchronization measured 0.053/0.052/0.166 ms
+  median for the 761-byte declared fixture, allocating about 68/64/236 KiB per
+  invocation and retaining zero. Official compiler execution is intentionally
+  outside these production-parser timings and remains a conformance-oracle
+  cost, not an application-runtime benchmark.
 - Penpot
   native export and edited synchronization allocated 291 KiB and 246 KiB per
   invocation; native and foreign imports allocated 215 KiB and 665 KiB, and the

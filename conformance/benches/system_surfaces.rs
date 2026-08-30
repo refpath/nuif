@@ -252,6 +252,34 @@ fn benchmark_react_adapter(criterion: &mut Criterion) {
     group.finish();
 }
 
+fn benchmark_svelte_adapter(criterion: &mut Criterion) {
+    let document = nuif_svelte::profile_fixture();
+    let exported = nuif_svelte::export_document(&document).unwrap();
+    let imported = nuif_svelte::import_source(&exported.source).unwrap();
+    let mut edited = document.clone();
+    edited
+        .entities
+        .get_mut(&EntityId::new(0x10))
+        .unwrap()
+        .authored
+        .layout
+        .gap = 20.0;
+    let mut group = criterion.benchmark_group("adapter/svelte_static_0");
+    group.throughput(Throughput::Bytes(exported.source.len() as u64));
+    group.bench_function("export", |bencher| {
+        bencher.iter(|| nuif_svelte::export_document(black_box(&document)).unwrap());
+    });
+    group.bench_function("import", |bencher| {
+        bencher.iter(|| nuif_svelte::import_source(black_box(&exported.source)).unwrap());
+    });
+    group.bench_function("synchronize", |bencher| {
+        bencher.iter(|| {
+            nuif_svelte::synchronize(black_box(&imported.retentive), black_box(&edited)).unwrap()
+        });
+    });
+    group.finish();
+}
+
 fn benchmark_penpot_adapter(criterion: &mut Criterion) {
     const FOREIGN_PACKAGE: &[u8] = include_bytes!("../foreign/penpot/fixture.penpot");
     let document = nuif_penpot::profile_fixture();
@@ -309,6 +337,7 @@ criterion_group! {
         benchmark_svg_adapter,
         benchmark_dtcg_adapter,
         benchmark_react_adapter,
+        benchmark_svelte_adapter,
         benchmark_penpot_adapter
 }
 criterion_main!(system_surfaces);

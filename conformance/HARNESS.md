@@ -196,6 +196,19 @@ failures and eleven excluded or hostile sources, including the one-over mapped
 JSX depth case. The intrinsic-only mapping and
 runtime non-claims are specified in `adapters/react/PROFILE.md`.
 
+The static Svelte experiment writes `target/svelte-sync-report.json`, a
+synchronized component, an edited canonical document, separate CLI bridge
+artifacts and `target/svelte-compiler-oracle-report.json`. `cargo xtask
+gate-svelte` checks 21 correspondences, 11 mapped edits, exact unchanged-byte
+complement preservation, repeated output, typed stale/structural/profile
+failures and 13 excluded or hostile sources. It then uses the exact npm
+lockfile with lifecycle scripts disabled and requires official
+`svelte/compiler` 5.57.0 to parse in modern-AST mode and compile both direct and
+CLI output without warnings. Tree-sitter owns retained byte ranges; the
+official compiler remains a separate semantic oracle. Runtime rendering,
+component CSS and executable template semantics are explicit non-claims in
+`adapters/svelte/PROFILE.md`.
+
 The WebAssembly cross-surface experiment writes
 `target/wasm-conformance-report.json` and generates Node and direct-browser
 packages. `cargo xtask gate-wasm` pins wasm-bindgen 0.2.127, initializes the

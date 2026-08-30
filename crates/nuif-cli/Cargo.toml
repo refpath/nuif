@@ -24,6 +24,7 @@ nuif-render = { version = "0.0.0", path = "../nuif-render" }
 nuif-reconstruct = { version = "0.0.1", path = "../nuif-reconstruct" }
 nuif-react = { version = "0.0.1", path = "../nuif-react" }
 nuif-svg = { version = "0.0.1", path = "../nuif-svg" }
+nuif-svelte = { version = "0.0.1", path = "../nuif-svelte" }
 nuif-testing = { version = "0.0.1", path = "../nuif-testing" }
 serde.workspace = true
 serde_json.workspace = true

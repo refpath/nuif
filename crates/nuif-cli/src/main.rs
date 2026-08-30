@@ -31,6 +31,10 @@ use nuif_react::{
     import_source as import_react_source, synchronize as synchronize_react,
 };
 use nuif_reconstruct::{ObservationBundle, Proposal, ProposalPolicy, apply_proposal};
+use nuif_svelte::{
+    AdapterError as SvelteAdapterError, export_document as export_svelte_document,
+    import_source as import_svelte_source, synchronize as synchronize_svelte,
+};
 use nuif_svg::{
     AdapterError as SvgAdapterError, export_document as export_svg_document,
     import_source as import_svg_source, synchronize as synchronize_svg,
@@ -432,6 +436,14 @@ fn import(args: &[String]) -> Result<(), CliError> {
     {
         return import_react(args);
     }
+    if args.first().is_some_and(|argument| {
+        matches!(
+            argument.as_str(),
+            "svelte-static-0" | "nuif-svelte-static-0"
+        )
+    }) {
+        return import_svelte(args);
+    }
     let input = required(args, 0, "input document")?;
     let output = args.get(1).map_or("-", String::as_str);
     let document = load_document(input)?;
@@ -512,6 +524,15 @@ fn export(args: &[String]) -> Result<(), CliError> {
             let exported = match export_react_document(&document) {
                 Ok(exported) => exported,
                 Err(error) => return react_adapter_failure(&error, report_path),
+            };
+            write_output(output, exported.source.as_bytes())?;
+            emit_adapter_report(&exported.report, report_path)
+        }
+        "svelte-static-0" | "nuif-svelte-static-0" => {
+            let report_path = args.get(3).map(String::as_str);
+            let exported = match export_svelte_document(&document) {
+                Ok(exported) => exported,
+                Err(error) => return svelte_adapter_failure(&error, report_path),
             };
             write_output(output, exported.source.as_bytes())?;
             emit_adapter_report(&exported.report, report_path)
@@ -599,6 +620,20 @@ fn import_react(args: &[String]) -> Result<(), CliError> {
     emit_adapter_report(&imported.retentive.report, report_path)
 }
 
+fn import_svelte(args: &[String]) -> Result<(), CliError> {
+    let input = required(args, 1, "Svelte input")?;
+    let output = args.get(2).map_or("-", String::as_str);
+    let report_path = args.get(3).map(String::as_str);
+    let source = String::from_utf8(read_input(input)?)
+        .map_err(|error| CliError::new(1, "SVELTE_UTF8_INVALID", error.to_string()))?;
+    let imported = match import_svelte_source(&source) {
+        Ok(imported) => imported,
+        Err(error) => return svelte_adapter_failure(&error, report_path),
+    };
+    write_document(output, &imported.document)?;
+    emit_adapter_report(&imported.retentive.report, report_path)
+}
+
 fn sync(args: &[String]) -> Result<(), CliError> {
     let target = required(args, 0, "synchronization target")?;
     if matches!(target, "penpot-v3-0" | "nuif-penpot-v3-0") {
@@ -614,6 +649,8 @@ fn sync(args: &[String]) -> Result<(), CliError> {
             | "nuif-dtcg-scalar-0"
             | "react-jsx-0"
             | "nuif-react-jsx-0"
+            | "svelte-static-0"
+            | "nuif-svelte-static-0"
     ) {
         return Err(CliError::new(
             3,
@@ -677,6 +714,16 @@ fn sync(args: &[String]) -> Result<(), CliError> {
             match synchronize_react(&imported.retentive, &edited) {
                 Ok(synchronized) => synchronized,
                 Err(error) => return react_adapter_failure(&error, report_path),
+            }
+        }
+        "svelte-static-0" | "nuif-svelte-static-0" => {
+            let imported = match import_svelte_source(&source) {
+                Ok(imported) => imported,
+                Err(error) => return svelte_adapter_failure(&error, report_path),
+            };
+            match synchronize_svelte(&imported.retentive, &edited) {
+                Ok(synchronized) => synchronized,
+                Err(error) => return svelte_adapter_failure(&error, report_path),
             }
         }
         _ => unreachable!("synchronization target was checked above"),
@@ -779,6 +826,21 @@ fn react_adapter_failure<T>(
     let report = match error {
         ReactAdapterError::UnsupportedProfile { report, .. }
         | ReactAdapterError::UnmappedChanges { report, .. } => Some(report.as_ref()),
+        _ => None,
+    };
+    if let Some(report) = report {
+        emit_adapter_report(report, report_path)?;
+    }
+    Err(CliError::new(1, "ADAPTER_FAILED", error.to_string()))
+}
+
+fn svelte_adapter_failure<T>(
+    error: &SvelteAdapterError,
+    report_path: Option<&str>,
+) -> Result<T, CliError> {
+    let report = match error {
+        SvelteAdapterError::UnsupportedProfile { report, .. }
+        | SvelteAdapterError::UnmappedChanges { report, .. } => Some(report.as_ref()),
         _ => None,
     };
     if let Some(report) = report {
@@ -1033,6 +1095,7 @@ fn fixture(args: &[String]) -> Result<(), CliError> {
         "dtcg-profile" => nuif_dtcg::profile_fixture(),
         "penpot-profile" => nuif_penpot::profile_fixture(),
         "react-profile" => nuif_react::profile_fixture(),
+        "svelte-profile" => nuif_svelte::profile_fixture(),
         _ => {
             return Err(CliError::new(
                 2,
@@ -1050,7 +1113,7 @@ fn print_capabilities() -> Result<(), CliError> {
         "protocol": "0.0.1",
         "status": "executable",
         "commands": COMMANDS,
-        "adapters": ["html-css-0", "html-css-v0", "svg-0", "dtcg-scalar-0", "penpot-v3-0", "react-jsx-0"],
+        "adapters": ["html-css-0", "html-css-v0", "svg-0", "dtcg-scalar-0", "penpot-v3-0", "react-jsx-0", "svelte-static-0"],
         "containers": ["nuif-package-0", "nuif-cbor-0", "nuif-text-0"],
         "image_profiles": ["nuif-png-rgba8-0"],
         "capture_profiles": ["nuif-browser-capture-0", "nuif-screenshot-baseline-0"],

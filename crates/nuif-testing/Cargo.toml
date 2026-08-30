@@ -24,6 +24,7 @@ nuif-reconstruct = { version = "0.0.1", path = "../nuif-reconstruct" }
 nuif-react = { version = "0.0.1", path = "../nuif-react" }
 nuif-render = { version = "0.0.0", path = "../nuif-render" }
 nuif-svg = { version = "0.0.1", path = "../nuif-svg" }
+nuif-svelte = { version = "0.0.1", path = "../nuif-svelte" }
 nuif-text = { version = "0.0.1", path = "../nuif-text" }
 png.workspace = true
 serde.workspace = true
