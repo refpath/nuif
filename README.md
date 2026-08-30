@@ -168,6 +168,7 @@ cargo xtask trial 24301 100
 cargo xtask gate-b # 10,000 patches; raster sample every 100 patches
 cargo xtask hostile-inputs # boundary/one-over time and allocator report
 cargo xtask editor-hostile-inputs # semantic, parser and snapshot rejection report
+cargo xtask fuzz-smoke # bounded AddressSanitizer campaigns over five core surfaces
 cargo xtask adapter-audit # research/profile/gate coverage for all advertised targets
 cargo xtask performance # portable release-mode latency and allocation budgets
 cargo xtask gate-c # NUIF/Taffy/pinned-Chrome layout report

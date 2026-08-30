@@ -1,6 +1,6 @@
 # Test-harness architecture
 
-Status: profile-0 baseline, deterministic `nuif-package-0`, narrow cross-decoder `nuif-png-rgba8-0`, Gate C browser/Taffy, Gate D text/render, Gate E complete editor authoring, bounded and full-v0 Gate F HTML/CSS synchronization, SVG/DTCG/Penpot/React adapter gates, `nuif-wasm-api-0`, Gate G independent v0 reproduction and Gate H collaboration-register convergence are implemented. Bounded browser/screenshot capture and reconstruction contracts have unit evidence; their cross-provider accuracy corpus is not yet a release gate. Fuzz packages, perceptual comparison, structural collaboration and broader foreign-runtime trials remain planned. This document specifies how round-trip trials run unattended, fail reproducibly, minimize themselves and report in machine-readable form. Evidence is cited by research record identifier.
+Status: profile-0 baseline, deterministic `nuif-package-0`, narrow cross-decoder `nuif-png-rgba8-0`, Gate C browser/Taffy, Gate D text/render, Gate E complete editor authoring, bounded and full-v0 Gate F HTML/CSS synchronization, SVG/DTCG/Penpot/React/Svelte adapter gates, `nuif-wasm-api-0`, Gate G independent v0 reproduction, Gate H collaboration-register convergence and a bounded five-target sanitizer fuzz suite are implemented. Bounded browser/screenshot capture and reconstruction contracts have unit evidence; their cross-provider accuracy corpus is not yet a release gate. Perceptual comparison, structural collaboration and broader foreign-runtime trials remain planned. This document specifies how round-trip trials run unattended, fail reproducibly, minimize themselves and report in machine-readable form. Evidence is cited by research record identifier.
 
 ## Goals
 
@@ -39,7 +39,7 @@ conformance/
   fixtures/<suite>/<id>/   input.nuif, context.toml, expected.*, meta.toml
   fonts/                   pinned fonts referenced by fixtures; no system fonts
   generated/               planned persisted browser cases; runtime Gate C cases are seed-derived
-fuzz/                      planned cargo-fuzz package; no targets are implemented yet
+fuzz/                      pinned cargo-fuzz package; five bounded production-core targets
 xtask/                     implemented research/verify/Gate B/Gate C/hostile-input/editor loop
 tools/
   research/                record validator
@@ -100,7 +100,7 @@ Persisted expectation regeneration remains a planned extension and will use one 
 
 ## Trial loop
 
-The target loop is shared conceptually by CLI, CI and editor automation. Profile 0 currently implements generation, replay, inverse, canonical encodings, responsive layout, CPU rerender, operation ddmin and the Gate C foreign layout matrix. Adapters and automatic minimized-fixture writing shown below remain planned stages.
+The target loop is shared conceptually by CLI, CI and editor automation. Profile 0 currently implements generation, replay, inverse, canonical encodings, responsive layout, CPU rerender, operation ddmin, adapter-specific round trips, fuzz choice streams and the Gate C foreign layout matrix. Automatic minimized-fixture writing shown below remains planned.
 
 ```text
 trial(seed, profile):
@@ -143,6 +143,17 @@ Diagnostic codes are stable strings emitted in machine reports; severities seria
 The hostile-input experiment writes a separate `target/hostile-input-report.json` because allocator and elapsed-time measurements are process-level rather than document fidelity entries. It records every input size, expected/observed error class, allocation counters, retained bytes, elapsed microseconds, limits, warmup, allocator method, toolchain and platform. `cargo xtask hostile-inputs` regenerates it and CI uploads it as `hostile-input-report`.
 
 The editor hostile-interaction experiment writes `target/editor-hostile-input-report.json`. Its release runner rejects zero, one-over-edge and maximal snapshot requests before raster allocation; accepts the exact one-dimensional edge boundary; rejects non-finite size, position and spacing values plus malformed paint without mutation; and checks missing selection/node errors, atomic multi-operation failure, empty history, redo invalidation and exact patch-log replay. Unit tests additionally exercise bounded script reads, per-line limits, command limits and malformed-line attribution. `cargo xtask editor-hostile-inputs` is blocking and CI archives the report.
+
+The standalone `fuzz/` workspace pins nightly 2026-08-28, cargo-fuzz 0.13.2
+and libfuzzer-sys 0.4.13 without adding sanitizer dependencies to release
+packages. `cargo xtask fuzz-smoke` regenerates target-specific valid seeds from
+production fixtures, then runs raw codec, package/archive, resource-decoder,
+static-source-adapter and typed-operation targets with explicit input, timeout,
+allocation and RSS limits. The operation target maps bytes to valid production
+operations rather than maintaining a second document grammar; parser targets
+retain malformed bytes. CI runs 512 inputs per target under AddressSanitizer
+and archives `target/fuzz-smoke-report.json`. Crash bytes remain local until
+reduced and promoted to a named regression fixture.
 
 The 10,000-patch Gate B run writes `target/gate-b-report.json`. `cargo xtask all` also installs or reuses the locked browser oracle and writes `target/verification-manifest.json` on success or at the first failing step. The manifest records revision, dirty state, toolchain, completed steps and the presence of every expected evidence artifact, so CI and autonomous research controllers can make a decision without parsing console output. `cargo xtask manifest` performs the narrower presence audit on an already-generated evidence set; its manifest is labelled `artifact-index`, does not claim that it executed any trial, and fails after writing the index when an artifact is absent.
 
@@ -254,7 +265,7 @@ The editor exposes an in-process session driver (`nuif-api`) that the harness ca
 | research | record validation |
 | rust | fmt, check, clippy pedantic, `cargo test --workspace --locked`, 10,000-patch Gate B trial, hostile-input release measurement, pinned Gate C three-way layout trial, both Gate D text/render trials and all report uploads (all render suites CPU only) |
 | wasm | generated Node/direct-browser binding, Node/native byte differential, typed limit failures and downloadable developer artifact (currently part of the `rust` complete gate) |
-| fuzz-smoke (planned) | future fuzz targets with committed seed corpora |
+| fuzz-smoke | five cargo-fuzz/libFuzzer targets, regenerated production seeds, AddressSanitizer, explicit resource limits and an archived campaign report |
 | layout-differential | `cargo xtask browser-install` plus `cargo xtask gate-c`; seed-derived cases run in headless Chrome and fail on pin drift or blocking/unclassified divergence |
 | editor-headless | editor session scripts through `nuif-api`; accessibility-tree assertions; CPU snapshots |
 | gpu-optional | interactive backend under tier 3 on a GPU runner; failures are reported, not blocking |

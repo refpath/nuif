@@ -8,7 +8,7 @@ source:
   repository: https://github.com/rust-fuzz/cargo-fuzz
   authors: [LLVM Project, AFLplusplus contributors, rust-fuzz contributors, Cornelius Aschermann, Rohan Padhye, Google OSS-Fuzz, Skia contributors, image-rs contributors, resvg contributors]
   published_at: "2019-02-24"
-  license: LLVM Apache-2.0 with LLVM exception; AFL++ Apache-2.0; cargo-fuzz and arbitrary MIT OR Apache-2.0; Skia BSD-3-Clause; resvg MIT OR Apache-2.0; Nautilus and Zest papers publisher controlled
+  license: LLVM Apache-2.0 with LLVM exception; AFL++ Apache-2.0; cargo-fuzz and arbitrary MIT OR Apache-2.0; libfuzzer-sys (MIT OR Apache-2.0) AND NCSA; Skia BSD-3-Clause; resvg MIT OR Apache-2.0; Nautilus and Zest papers publisher controlled
 retrieved_at: 2026-08-29
 tags: [testing, fuzzing, coverage-guided, structure-aware, arbitrary, cargo-fuzz, grammar-fuzzing, resource-limits, parser, security]
 confidence: 0.92
@@ -36,8 +36,8 @@ links:
   spec: [spec/11-security.md, spec/08-serialization.md, spec/07-extensions-and-dialects.md, spec/00-conformance.md]
   adr: []
   rfc: [rfcs/0002-extension-preservation.md, rfcs/0004-headless-qa-contract.md]
-  code: [crates/nuif-codec, crates/nuif-core, crates/nuif-render, crates/nuif-layout]
-  experiments: [conformance/PLAN.md]
+  code: [crates/nuif-codec, crates/nuif-core, crates/nuif-render, crates/nuif-layout, crates/nuif-testing, fuzz]
+  experiments: [conformance/PLAN.md, conformance/HARNESS.md, research/experiments/index.yaml]
 ---
 
 # Summary
@@ -107,7 +107,7 @@ Invariants: the target is deterministic for a given input; every limit produces 
 
 **Borrow**
 
-- `cargo fuzz` with `Arbitrary`-derived document generators as the default harness for `nuif-codec` (text and CBOR decoders), path geometry and extension payload handling, matching the `fuzz parsers/codecs and path geometry` technique in `conformance/PLAN.md`.
+- `cargo fuzz`/libFuzzer raw byte targets for every untrusted parser and a parametric byte choice stream for valid semantic operations, matching the `fuzz parsers/codecs and path geometry` technique in `conformance/PLAN.md`.
 - Concrete limit values from usvg, serde_json and image as starting points for the bounds that `spec/11-security.md` requires (depth, entity count, allocation, cycle detection).
 - libFuzzer's target contract (deterministic, no exit, no global state) as the acceptance rule for every headless engine entry point exposed through `spec/12-cli-api-and-automation.md`.
 - Zest's valid-coverage feedback: keep corpus inputs that are valid documents and add coverage, reject structurally invalid ones so the corpus stays useful for the round-trip loop.
@@ -115,16 +115,25 @@ Invariants: the target is deterministic for a given input; every limit produces 
 **Adapt**
 
 - Depth bounding must be explicit in `Arbitrary` implementations because `arbitrary`'s `MAX_DEPTH` guards only size hints; NUIF should generate nodes with a depth parameter as in Zest and Skia.
-- The same `Arbitrary` generator should be reusable by the property-based loop, with the fuzzer's byte stream as the choice sequence; this aligns fuzzing, PBT and reduction on one representation (Zest parametric generators; Hypothesis choice sequences).
+- The same typed operation choice-stream mapper is reusable by deterministic trials and coverage-guided fuzzing; it delegates values and invariants to production operation types instead of serializing a second document model (Zest parametric generators; Hypothesis choice sequences).
 - Extension payloads are opaque bytes and should be fuzzed for preservation, not for interpretation: the oracle is byte equality after round trip (`rfcs/0002-extension-preservation.md`).
 
 **Reject**
 
 - Grammar-mutator custom mutators (AFL++ Grammar-Mutator, libprotobuf-mutator) are unnecessary while the Rust model already provides a typed generator; they add a second grammar to maintain.
-- Raw byte fuzzing of the canonical text profile without a structural generator; McKeeman's quality levels and Nautilus show that unstructured bytes rarely pass the parser front end.
+- A raw-byte-only campaign with no valid corpus. NUIF deliberately retains raw malformed parser inputs but regenerates valid canonical/package/resource/source seeds from production fixtures so mutations reach post-parse relations.
 
-## Open questions
+## Implemented decision
 
-- Which limit values are normative for conforming implementations versus implementation-defined minimums, and how are they exposed in the capability profile?
-- Should the renderer be fuzzed in-process (Skia `FuzzCanvas` style with depth budgets) or only through the layout and draw-command list, given GPU nondeterminism?
-- How should fuzz corpora be shared between the codec, layout and adapter targets without coupling their input formats?
+`fuzz/` is a standalone workspace pinned to nightly 2026-08-28,
+cargo-fuzz 0.13.2 and libfuzzer-sys 0.4.13. Five targets separate codec,
+package/archive, PNG/font, static-source-adapter and valid operation concerns.
+Each owns a generated target-specific corpus under ignored `target/`; corpora
+are not shared across incompatible input selectors. CPU rendering is sampled
+only after valid typed operations, while GPU execution is excluded from the
+security fuzzer because it has a separate nondeterministic process/device risk
+boundary. `cargo xtask fuzz-smoke` applies 10-second, 512-MiB allocation and
+2-GiB RSS limits, records every target, and CI runs 512 inputs per target under
+AddressSanitizer. Format resource limits remain normative where declared by
+`spec/11-security.md`; campaign limits are implementation test budgets rather
+than wire-profile requirements.

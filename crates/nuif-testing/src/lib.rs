@@ -22,6 +22,7 @@ use nuif_protocol::{Axis, Operation, Patch, Transaction, apply_patch, apply_patc
 use nuif_render::{RenderTarget, render_cpu};
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet};
+use std::fmt::Write as _;
 use std::io::Cursor;
 use std::path::Path;
 use std::process::Command;
@@ -819,6 +820,78 @@ fn verify_iteration(
     Ok(())
 }
 
+/// Maximum choice-stream length accepted by [`verify_operation_choices`].
+pub const MAX_OPERATION_CHOICE_BYTES: usize = 4 * 1024;
+
+/// Maps an arbitrary byte choice stream to bounded, valid scalar operations
+/// and verifies the same replay, inverse, codec and render relations as the
+/// seeded conformance trials.
+///
+/// The input is a generator decision stream, not another serialized NUIF
+/// grammar. Keeping the mapping here ensures fuzzing exercises the production
+/// operation model and conformance relations.
+///
+/// # Errors
+///
+/// Returns a stable conformance code and message if a relation fails, or a
+/// resource-limit error when the choice stream exceeds the public bound.
+pub fn verify_operation_choices(choices: &[u8]) -> Result<(), (String, String)> {
+    if choices.len() > MAX_OPERATION_CHOICE_BYTES {
+        return Err((
+            "TRIAL_CHOICE_LIMIT_EXCEEDED".to_owned(),
+            format!("operation choice stream exceeds the {MAX_OPERATION_CHOICE_BYTES}-byte limit"),
+        ));
+    }
+    let candidates = [
+        EntityId::new(0x20),
+        EntityId::new(0x21),
+        EntityId::new(0x22),
+        EntityId::new(0x24),
+    ];
+    let operations = choices
+        .chunks(8)
+        .take(256)
+        .enumerate()
+        .map(|(index, chunk)| {
+            let selector = chunk.first().copied().unwrap_or_default();
+            let entity = candidates[usize::from(selector >> 2) % candidates.len()];
+            let scalar = chunk.get(1..=2).map_or(u16::from(selector), |bytes| {
+                u16::from_le_bytes([bytes[0], bytes[1]])
+            });
+            match selector & 3 {
+                0 => {
+                    let mut name = format!("fuzz-{index}-");
+                    for byte in chunk.iter().skip(1) {
+                        write!(name, "{byte:02x}").expect("writing to a string cannot fail");
+                    }
+                    Operation::Rename {
+                        entity,
+                        name: Some(name),
+                    }
+                }
+                1 => Operation::SetValue {
+                    entity,
+                    key: "fuzz.value".to_owned(),
+                    value: PropertyValue::Integer(i64::from(scalar)),
+                },
+                2 => Operation::SetSize {
+                    entity,
+                    axis: Axis::Horizontal,
+                    value: SizeIntent::Fixed(1.0 + f64::from(scalar % 1_000)),
+                },
+                _ => Operation::SetSize {
+                    entity,
+                    axis: Axis::Vertical,
+                    value: SizeIntent::Fixed(1.0 + f64::from(scalar % 1_000)),
+                },
+            }
+        })
+        .collect::<Vec<_>>();
+    let width = 360 + u32::from(choices.get(3).copied().unwrap_or_default()) * 4;
+    let render = choices.first().is_some_and(|selector| selector & 0x80 != 0);
+    verify_iteration(0x6675_7a7a, 0, &operations, width, render)
+}
+
 fn generate_operations(rng: &mut TrialRng, count: u32, iteration: u32) -> Vec<Operation> {
     let candidates = [
         EntityId::new(0x20),
@@ -1018,5 +1091,18 @@ mod tests {
     fn reducer_can_find_an_operation_independent_failure() {
         let operations = generate_operations(&mut TrialRng::new(9), 4, 0);
         assert!(minimize_operations(&operations, |_| true).is_empty());
+    }
+
+    #[test]
+    fn byte_choices_drive_valid_operation_conformance() {
+        verify_operation_choices(b"\x80\x01\x02\x03rename-width-height-value-sequence").unwrap();
+        verify_operation_choices(&[]).unwrap();
+    }
+
+    #[test]
+    fn byte_choice_stream_has_an_explicit_resource_bound() {
+        let error = verify_operation_choices(&vec![0; MAX_OPERATION_CHOICE_BYTES + 1])
+            .expect_err("an oversized choice stream must be rejected");
+        assert_eq!(error.0, "TRIAL_CHOICE_LIMIT_EXCEEDED");
     }
 }

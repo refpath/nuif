@@ -226,6 +226,22 @@ experiments:
       - sampled responsive layout and CPU rerender equality
       - operation-sequence ddmin when a relation fails
       - one JSON report per run following conformance/HARNESS.md
+  - id: nuif:experiment:fuzz-smoke
+    status: automated
+    evidence: [nuif:research:fuzzing-structured-inputs, nuif:research:property-based-testing-state-machines, nuif:research:resource-bounded-serde-and-ciborium]
+    implementation: [fuzz/Cargo.toml, fuzz/fuzz_targets/codec_roundtrip.rs, fuzz/fuzz_targets/package_decode.rs, fuzz/fuzz_targets/resource_decoders.rs, fuzz/fuzz_targets/adapter_import.rs, fuzz/fuzz_targets/operation_sequence.rs, crates/nuif-testing/src/lib.rs, xtask/src/main.rs, .github/workflows/ci.yml]
+    oracle: coverage-guided-metamorphic
+    acceptance:
+      - codec package resource and adapter parsers remain bounded and never panic on mutated bytes
+      - every accepted representation reaches its declared semantic or byte fixpoint
+      - valid typed operation streams preserve replay inverse codec and sampled CPU render relations
+      - exact nightly cargo-fuzz libfuzzer resource limits and target outcomes are archived
+    tests:
+      - regenerate valid target-specific seeds from production profile fixtures
+      - mutate canonical text deterministic CBOR NUIF Penpot PNG OpenType and static adapter sources
+      - decode choice bytes into bounded valid scalar operations without a duplicate document grammar
+      - run every target under AddressSanitizer in a dedicated GitHub Actions job
+      - write and archive target/fuzz-smoke-report.json
   - id: nuif:experiment:hostile-input-budgets
     status: automated
     evidence: [nuif:research:resource-bounded-serde-and-ciborium, nuif:research:deterministic-simulation-testing, nuif:research:fuzzing-structured-inputs]

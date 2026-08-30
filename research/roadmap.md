@@ -55,7 +55,7 @@ than a standing implementation commitment.
 
 ## Queue
 
-1. Keep Gates B through H green with `cargo xtask all`; commit minimized failures as fixtures and retain all machine reports as CI artifacts.
+1. Keep Gates B through H green with `cargo xtask all` and the separate nightly `cargo xtask fuzz-smoke`; reduce fuzz failures before committing them as named fixtures and retain all machine reports as CI artifacts.
 2. Extend collaboration from property registers to a proved tree move/list profile with explicit cycle, tombstone and sibling-order behavior; compare a foreign engine before broad claims.
 3. Design explicit Grid track and placement fields before replacing the classified profile-0 stack fallback; do not infer Grid support from the Gate C pass.
 4. Keep the tested Masonry shell attached only through the editor driver boundary; complete direct manipulation without moving semantic rules into shell code.

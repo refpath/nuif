@@ -1,0 +1,28 @@
+# The fuzz workspace is not shipped. Its bundled LLVM libFuzzer runtime adds
+# NCSA to the release workspace's otherwise identical permissive license set.
+[graph]
+all-features = true
+
+[licenses]
+allow = [
+  "MIT",
+  "Apache-2.0",
+  "BSD-2-Clause",
+  "NCSA",
+  "Zlib",
+  "Unicode-3.0",
+  "0BSD",
+  "Unlicense",
+]
+confidence-threshold = 0.9
+
+[bans]
+multiple-versions = "warn"
+wildcards = "deny"
+
+[advisories]
+yanked = "deny"
+
+[sources]
+unknown-registry = "deny"
+unknown-git = "deny"

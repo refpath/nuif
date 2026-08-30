@@ -1,0 +1,69 @@
+[package]
+name = "nuif-fuzz"
+version = "0.0.0"
+publish = false
+edition = "2024"
+rust-version = "1.96"
+license = "Apache-2.0 OR MIT"
+
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+libfuzzer-sys = "=0.4.13"
+nuif-codec = { version = "=0.0.0", path = "../crates/nuif-codec" }
+nuif-core = { version = "=0.0.1", path = "../crates/nuif-core" }
+nuif-dtcg = { version = "=0.0.1", path = "../crates/nuif-dtcg" }
+nuif-font = { version = "=0.0.1", path = "../crates/nuif-font" }
+nuif-html = { version = "=0.0.1", path = "../crates/nuif-html" }
+nuif-media = { version = "=0.0.1", path = "../crates/nuif-media" }
+nuif-package = { version = "=0.0.1", path = "../crates/nuif-package" }
+nuif-penpot = { version = "=0.0.1", path = "../crates/nuif-penpot" }
+nuif-react = { version = "=0.0.1", path = "../crates/nuif-react" }
+nuif-render = { version = "=0.0.0", path = "../crates/nuif-render" }
+nuif-svelte = { version = "=0.0.1", path = "../crates/nuif-svelte" }
+nuif-svg = { version = "=0.0.1", path = "../crates/nuif-svg" }
+nuif-testing = { version = "=0.0.1", path = "../crates/nuif-testing" }
+nuif-text = { version = "=0.0.1", path = "../crates/nuif-text" }
+
+[[bin]]
+name = "seed-corpus"
+path = "src/bin/seed-corpus.rs"
+
+[[bin]]
+name = "codec_roundtrip"
+path = "fuzz_targets/codec_roundtrip.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "package_decode"
+path = "fuzz_targets/package_decode.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "resource_decoders"
+path = "fuzz_targets/resource_decoders.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "adapter_import"
+path = "fuzz_targets/adapter_import.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "operation_sequence"
+path = "fuzz_targets/operation_sequence.rs"
+test = false
+doc = false
+bench = false
+
+[workspace]
+members = ["."]

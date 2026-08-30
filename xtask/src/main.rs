@@ -164,6 +164,7 @@ fn run() -> Result<(), String> {
         Some("browser-install") => browser_install(),
         Some("hostile-inputs") => hostile_inputs(),
         Some("editor-hostile-inputs") => editor_hostile_inputs(),
+        Some("fuzz-smoke") => fuzz_smoke(),
         Some("performance") => performance(),
         Some("research") => research(),
         Some("workflow-audit") => workflow_audit(),
@@ -188,7 +189,7 @@ fn run() -> Result<(), String> {
         Some("manifest") => standalone_manifest(),
         Some("all") => all(),
         _ => Err(
-            "usage: cargo xtask <research|workflow-audit|adapter-audit|dependency-audit|docs-check|docs-build|docs-paper|docs-serve|docs-setup|verify|trial [seed iterations snapshot-interval report-path]|gate-b|gate-c|gate-d|gate-d-text|gate-d-render|gate-f|gate-f-v0|gate-svg|gate-dtcg|gate-penpot|gate-react|gate-svelte|gate-wasm|gate-mcp|gate-g|gate-h|gate-i-package|gate-i-image|gate-i-font|capture-baselines|browser-install|wasm-install|wasm-package|mcp-package|hostile-inputs|editor-hostile-inputs|performance|editor-trial|editor-gui-trial|editor-install-trial|editor-package|editor-launch|editor-install|editor-doctor|editor-rollback|editor-uninstall|editor-update|release-check <tag>|manifest|all>"
+            "usage: cargo xtask <research|workflow-audit|adapter-audit|dependency-audit|docs-check|docs-build|docs-paper|docs-serve|docs-setup|verify|trial [seed iterations snapshot-interval report-path]|gate-b|gate-c|gate-d|gate-d-text|gate-d-render|gate-f|gate-f-v0|gate-svg|gate-dtcg|gate-penpot|gate-react|gate-svelte|gate-wasm|gate-mcp|gate-g|gate-h|gate-i-package|gate-i-image|gate-i-font|capture-baselines|browser-install|wasm-install|wasm-package|mcp-package|hostile-inputs|editor-hostile-inputs|fuzz-smoke|performance|editor-trial|editor-gui-trial|editor-install-trial|editor-package|editor-launch|editor-install|editor-doctor|editor-rollback|editor-uninstall|editor-update|release-check <tag>|manifest|all>"
                 .to_owned(),
         ),
     }
@@ -337,6 +338,155 @@ fn editor_hostile_inputs() -> Result<(), String> {
         "--output",
         "target/editor-hostile-input-report.json",
     ])
+}
+
+#[expect(
+    clippy::too_many_lines,
+    reason = "the campaign setup, exact target limits and result recording stay reviewable together"
+)]
+fn fuzz_smoke() -> Result<(), String> {
+    const NIGHTLY: &str = "nightly-2026-08-28";
+    const DEFAULT_RUNS: u32 = 256;
+    let runs = env::var("NUIF_FUZZ_RUNS")
+        .ok()
+        .map(|value| {
+            value
+                .parse::<u32>()
+                .map_err(|error| format!("invalid NUIF_FUZZ_RUNS={value}: {error}"))
+                .and_then(|runs| {
+                    (1..=1_000_000)
+                        .contains(&runs)
+                        .then_some(runs)
+                        .ok_or_else(|| "NUIF_FUZZ_RUNS must be between 1 and 1000000".to_owned())
+                })
+        })
+        .transpose()?
+        .unwrap_or(DEFAULT_RUNS);
+    command(
+        "cargo",
+        &[
+            "+nightly-2026-08-28",
+            "run",
+            "--locked",
+            "--manifest-path",
+            "fuzz/Cargo.toml",
+            "--bin",
+            "seed-corpus",
+            "--",
+            "target/fuzz-corpus",
+        ],
+    )?;
+
+    let local = PathBuf::from("target/tools/cargo-fuzz/bin/cargo-fuzz");
+    let binary = env::var_os("NUIF_CARGO_FUZZ").map_or_else(
+        || {
+            if local.is_file() {
+                local
+            } else {
+                PathBuf::from("cargo-fuzz")
+            }
+        },
+        PathBuf::from,
+    );
+    let version = Command::new(&binary)
+        .arg("--version")
+        .output()
+        .map_err(|error| {
+            format!(
+                "cannot execute {}: {error}; install cargo-fuzz 0.13.2 or set NUIF_CARGO_FUZZ",
+                binary.display()
+            )
+        })?;
+    check_status(version.status, path(&binary)?, &["--version"])?;
+    let cargo_fuzz_version = String::from_utf8_lossy(&version.stdout).trim().to_owned();
+    if cargo_fuzz_version != "cargo-fuzz 0.13.2" {
+        return Err(format!(
+            "expected cargo-fuzz 0.13.2, observed {cargo_fuzz_version}"
+        ));
+    }
+
+    let targets = [
+        ("codec_roundtrip", 1_048_576_u32),
+        ("package_decode", 1_048_576),
+        ("resource_decoders", 1_048_576),
+        ("adapter_import", 262_144),
+        ("operation_sequence", 4_096),
+    ];
+    let root = env::current_dir().map_err(|error| error.to_string())?;
+    let mut outcomes = Vec::new();
+    for (target, max_len) in targets {
+        let corpus = format!("target/fuzz-corpus/{target}");
+        let artifact_dir = root.join("fuzz/artifacts").join(target);
+        fs::create_dir_all(&artifact_dir).map_err(|error| error.to_string())?;
+        let arguments = vec![
+            "run".to_owned(),
+            "--fuzz-dir".to_owned(),
+            "fuzz".to_owned(),
+            target.to_owned(),
+            corpus.clone(),
+            "--".to_owned(),
+            format!("-runs={runs}"),
+            format!("-max_len={max_len}"),
+            "-timeout=10".to_owned(),
+            "-rss_limit_mb=2048".to_owned(),
+            "-malloc_limit_mb=512".to_owned(),
+            "-use_value_profile=1".to_owned(),
+            "-print_final_stats=1".to_owned(),
+            format!("-artifact_prefix={}/", artifact_dir.display()),
+        ];
+        let status = Command::new(&binary)
+            .args(&arguments)
+            .env("RUSTUP_TOOLCHAIN", NIGHTLY)
+            .status()
+            .map_err(|error| format!("failed to execute {}: {error}", binary.display()))?;
+        outcomes.push(serde_json::json!({
+            "target": target,
+            "status": if status.success() { "passed" } else { "failed" },
+            "runs": runs,
+            "max_input_bytes": max_len,
+            "corpus": corpus,
+            "artifact_directory": format!("fuzz/artifacts/{target}"),
+        }));
+        write_fuzz_report(&cargo_fuzz_version, NIGHTLY, &outcomes)?;
+        if !status.success() {
+            return Err(format!("fuzz target {target} failed with {status}"));
+        }
+    }
+    Ok(())
+}
+
+fn write_fuzz_report(
+    cargo_fuzz_version: &str,
+    nightly: &str,
+    outcomes: &[serde_json::Value],
+) -> Result<(), String> {
+    let passed = outcomes.iter().all(|outcome| outcome["status"] == "passed");
+    let report = serde_json::json!({
+        "schema_version": 1,
+        "status": if passed { "passed" } else { "failed" },
+        "source": {
+            "revision": command_text("git", &["rev-parse", "HEAD"]),
+            "dirty": command_text("git", &["status", "--porcelain"]).map(|value| !value.is_empty()),
+        },
+        "engine": {
+            "cargo_fuzz": cargo_fuzz_version,
+            "toolchain": nightly,
+            "sanitizer": "address",
+            "build_standard_library": true,
+        },
+        "limits": {
+            "timeout_seconds_per_input": 10,
+            "rss_megabytes": 2048,
+            "allocation_megabytes": 512,
+        },
+        "targets": outcomes,
+    });
+    fs::create_dir_all("target").map_err(|error| error.to_string())?;
+    fs::write(
+        "target/fuzz-smoke-report.json",
+        serde_json::to_vec_pretty(&report).map_err(|error| error.to_string())?,
+    )
+    .map_err(|error| error.to_string())
 }
 
 fn performance() -> Result<(), String> {
