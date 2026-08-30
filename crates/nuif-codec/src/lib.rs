@@ -2,6 +2,8 @@
 
 use ciborium::Value;
 use nuif_core::{Document, ResourceLimitExceeded, Severity, resource_usage, validate};
+use serde::Serialize;
+use serde::de::DeserializeOwned;
 use sha2::{Digest, Sha256};
 use std::fmt::Write as _;
 use std::io::{self, Cursor, Read as _};
@@ -106,6 +108,43 @@ pub trait Canonicalizer {
     /// Returns an implementation-defined error when the input cannot be
     /// decoded or canonical output cannot be produced.
     fn canonicalize(&self, bytes: &[u8]) -> Result<Vec<u8>, Self::Error>;
+}
+
+/// Encodes any versioned record with the deterministic CBOR rules used by
+/// `nuif-cbor-0` documents.
+///
+/// This is intended for adjacent protocol records such as package manifests
+/// and observation bundles. Semantic validation remains the owning record
+/// type's responsibility.
+///
+/// # Errors
+///
+/// Returns a codec error for unsupported values, non-finite numbers, or output
+/// exceeding the encoded profile budget.
+pub fn encode_canonical_record<T: Serialize>(record: &T) -> Result<Vec<u8>, CodecError> {
+    let value =
+        Value::serialized(record).map_err(|error| CodecError::Malformed(error.to_string()))?;
+    let output = encode_cbor_value(&canonical_value(value)?)?;
+    check_input_budget(&output)?;
+    Ok(output)
+}
+
+/// Decodes an adjacent record and requires its bytes to already be canonical
+/// deterministic CBOR.
+///
+/// # Errors
+///
+/// Returns a codec error for malformed, trailing, non-canonical, oversized, or
+/// non-representable input.
+pub fn decode_canonical_record<T: DeserializeOwned>(bytes: &[u8]) -> Result<T, CodecError> {
+    check_input_budget(bytes)?;
+    let value = canonical_value(decode_cbor_value(bytes)?)?;
+    if encode_cbor_value(&value)? != bytes {
+        return Err(CodecError::NonCanonical);
+    }
+    value
+        .deserialized()
+        .map_err(|error| CodecError::Malformed(error.to_string()))
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Error)]
@@ -672,6 +711,7 @@ pub fn canonical_hash(document: &Document) -> Result<String, CodecError> {
 mod tests {
     use super::*;
     use nuif_core::{Entity, EntityId, EntityKind, PROFILE0_RESOURCE_LIMITS, PropertyValue};
+    use std::collections::BTreeMap;
 
     fn document() -> Document {
         let mut document = Document::empty(EntityId::new(1));
@@ -976,5 +1016,25 @@ mod tests {
         assert_eq!(CanonicalText.decode_strict(&text).unwrap(), boundary);
         let cbor = DeterministicCbor.encode(&boundary).unwrap();
         assert_eq!(DeterministicCbor.decode(&cbor).unwrap(), boundary);
+    }
+
+    #[test]
+    fn adjacent_records_share_the_document_canonical_cbor_rules() {
+        let record = BTreeMap::from([
+            ("profile".to_owned(), "nuif-package-0".to_owned()),
+            ("version".to_owned(), "1".to_owned()),
+        ]);
+        let bytes = encode_canonical_record(&record).unwrap();
+        assert_eq!(
+            decode_canonical_record::<BTreeMap<String, String>>(&bytes).unwrap(),
+            record
+        );
+
+        let mut widened = bytes.clone();
+        widened.push(0);
+        assert!(matches!(
+            decode_canonical_record::<BTreeMap<String, String>>(&widened),
+            Err(CodecError::Malformed(_))
+        ));
     }
 }
