@@ -31,7 +31,8 @@ application runtime or rewriting unrelated developer source.
    changes atomically, reparses the result, and requires canonical NUIF equality.
 5. Scripts, stylesheets, preprocessors, expressions, blocks, directives,
    components, special elements and dynamic attributes are outside profile zero.
-   Unmarked source may be retained but has no claimed semantic mapping.
+   Top-level comments and whitespace may be retained but have no claimed
+   semantic mapping. Other top-level nodes are rejected.
 6. Component CSS is deferred. A later profile must define selector ownership,
    cascade, specificity, Svelte scope hashing and source-locality rules before
    it can be accepted.

@@ -443,6 +443,7 @@ fn verify_file_menu_routes(driver: &Driver) -> Result<Vec<String>, String> {
         (ExternalFormat::Dtcg, "dtcg"),
         (ExternalFormat::Penpot, "penpot"),
         (ExternalFormat::React, "react"),
+        (ExternalFormat::Svelte, "svelte"),
     ] {
         let import = format!("import_{profile}");
         require_visible_action(driver, UiAction::ImportExternal(format), &import)?;

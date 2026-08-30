@@ -44,6 +44,7 @@ nuif-protocol = { version = "0.0.1", path = "../../crates/nuif-protocol" }
 nuif-render = { version = "0.0.0", path = "../../crates/nuif-render" }
 nuif-react = { version = "0.0.1", path = "../../crates/nuif-react" }
 nuif-svg = { version = "0.0.1", path = "../../crates/nuif-svg" }
+nuif-svelte = { version = "0.0.1", path = "../../crates/nuif-svelte" }
 nuif-text = { version = "0.0.1", path = "../../crates/nuif-text" }
 rfd = "0.17.2"
 serde.workspace = true

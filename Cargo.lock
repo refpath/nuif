@@ -2532,6 +2532,7 @@ dependencies = [
  "nuif-protocol",
  "nuif-react",
  "nuif-render",
+ "nuif-svelte",
  "nuif-svg",
  "nuif-testing",
  "nuif-text",

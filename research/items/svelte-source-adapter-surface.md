@@ -36,9 +36,9 @@ The first executable profile is deliberately smaller than Svelte's static
 surface: regular `div`/`span` elements, double-quoted literal identity and name
 attributes, one literal inline-style declaration list and one literal text run.
 Scripts, component CSS, expressions and all directives or blocks are rejected
-inside the mapped component. Unmarked comments and top-level source may be
-retained, but the profile does not infer their runtime relationship to the
-marked root.
+inside the mapped component. Top-level comments and whitespace may be retained,
+but the profile does not infer their runtime relationship to the marked root;
+other top-level nodes are rejected.
 
 ## Evidence
 
