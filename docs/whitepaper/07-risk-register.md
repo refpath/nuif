@@ -29,7 +29,9 @@
   API call sites and does not patch the Objective-C blocks ABI. Each fork update
   requires the editor tests, reverse dependency trace, and macOS Metal window
   smoke test recorded in
-  `nuif:research:macos-metal-block-future-incompatibility`.
+  `nuif:research:macos-metal-block-future-incompatibility`. A separate
+  `refpath/metal-rs` `move-to-block2` branch exists only for review; NUIF does
+  not depend on the deprecated binding or that experimental patch.
 - **Release signing is credential-bound.** The editor packaging gate builds,
   archives and smoke-tests an unsigned host package. Platform signing and
   notarisation require release credentials and remain separate from source

@@ -67,6 +67,21 @@ is available from the selected upstream Xilem revision.
 - `cargo test -p nuif-editor --features editor-automation` passes 14 tests
   against the pinned fork commit. A macOS Metal window smoke test reaches the
   event loop and presents without a surface error (2026-08-30).
+- Upstream metal-rs commit `9ed9fe9` still declares `block 0.1.6` and its
+  README now deprecates the crate in favor of `objc2-metal`. The review-only
+  `refpath/metal-rs` branch `move-to-block2`, commit `7e0a178`, replaces the
+  production dependency with `block2 0.6.2`, migrates the typed callbacks, and
+  replaces the shared-event layout mutation with block2's explicit ABI
+  encoding. No pull request was opened and NUIF does not depend on this fork.
+  Locator: https://github.com/refpath/metal-rs/tree/move-to-block2, retrieved
+  2026-08-30.
+- The review fork passes the upstream crate checks and tests on Rust 1.82, its
+  declared MSRV. Real macOS probes completed both an `MTLSharedEvent`
+  notification and a command-buffer completion handler. Its normal dependency
+  graph contains block2 and no rust-block; the all-target development graph
+  still reaches rust-block through the deprecated `cocoa 0.26` dev dependency.
+  This makes the branch useful for review, but not a complete modernization of
+  the deprecated objc stack.
 
 ## Mechanism
 
@@ -93,9 +108,10 @@ metal-rs and rust-block.
 update includes the NUIF editor tests, the reverse dependency trace, and a
 macOS Metal window smoke test.
 
-**Reject** a direct patch to metal-rs or rust-block. The reviewed fork changes
-dependency versions and public API call sites; it does not alter unsafe
-foreign-interface code.
+**Contain** the direct metal-rs experiment in the review-only
+`refpath/metal-rs` branch. It demonstrates a small block2 migration but changes
+callback-facing Rust types and cannot remove rust-block from the legacy Cocoa
+development graph. NUIF therefore does not pin or ship the experiment.
 
 ## NUIF relevance
 
