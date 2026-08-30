@@ -1,8 +1,8 @@
 #![doc = "Deterministic authored-to-resolved layout evaluation for NUIF."]
 
 use nuif_core::{
-    Align, Diagnostic, Document, Entity, EntityId, EntityKind, Fidelity, FlowDirection,
-    LayoutFamily, Severity, SizeIntent, validate,
+    Align, Diagnostic, Document, Entity, EntityId, EntityKind, Fidelity, FlowDirection, GridArea,
+    GridTrack, LayoutFamily, Severity, SizeIntent, resolve_grid_placements, validate,
 };
 use nuif_text::{ShapeRequest, TextDirection, hard_lines, shape_hard_lines};
 use serde::{Deserialize, Serialize};
@@ -413,8 +413,8 @@ fn layout_children(
                 layout_entity(document, *child, content_bounds, context, snapshot, false);
             }
         }
-        LayoutFamily::Stack | LayoutFamily::Flex | LayoutFamily::Grid => {
-            if entity.authored.layout.family != LayoutFamily::Stack {
+        LayoutFamily::Stack | LayoutFamily::Flex => {
+            if entity.authored.layout.family == LayoutFamily::Flex {
                 snapshot.diagnostics.push(Diagnostic {
                     code: "LAYOUT_FAMILY_PROFILE0_FALLBACK".to_owned(),
                     severity: Severity::Warning,
@@ -425,7 +425,7 @@ fn layout_children(
                     entity: Some(entity.id),
                     pointer: Some(format!("/entities/{}/authored/layout/family", entity.id)),
                     fidelity: Some(Fidelity::Approximated {
-                        reason: "the Taffy flex/grid evaluator is not wired yet".to_owned(),
+                        reason: "the profile-0 flex evaluator currently uses stack flow".to_owned(),
                     }),
                 });
             }
@@ -438,7 +438,147 @@ fn layout_children(
                 resolved,
             );
         }
+        LayoutFamily::Grid => {
+            layout_grid(document, entity, content_bounds, context, snapshot);
+        }
     }
+}
+
+fn layout_grid(
+    document: &Document,
+    entity: &Entity,
+    bounds: Rect,
+    context: &EvaluationContext,
+    snapshot: &mut LayoutSnapshot,
+) {
+    let Ok(areas) = resolve_grid_placements(document, entity) else {
+        return;
+    };
+    let gap = entity.authored.layout.gap.max(0.0);
+    let columns = resolve_grid_tracks(&entity.authored.layout.grid.columns, bounds.width, gap);
+    let rows = resolve_grid_tracks(&entity.authored.layout.grid.rows, bounds.height, gap);
+    for child_id in &entity.children {
+        let (Some(child), Some(area)) = (document.entities.get(child_id), areas.get(child_id))
+        else {
+            continue;
+        };
+        let area_bounds = grid_area_bounds(bounds, &columns, &rows, gap, *area);
+        let resolved = resolved_authored(child, context);
+        let intrinsic = intrinsic_size(child, context);
+        let (x_offset, width) = resolve_grid_item_axis(
+            &resolved.width,
+            area_bounds.width,
+            intrinsic.width,
+            entity.authored.layout.align,
+        );
+        let (y_offset, height) = resolve_grid_item_axis(
+            &resolved.height,
+            area_bounds.height,
+            intrinsic.height,
+            entity.authored.layout.align,
+        );
+        layout_entity_in_flow(
+            document,
+            *child_id,
+            Rect {
+                x: area_bounds.x + x_offset,
+                y: area_bounds.y + y_offset,
+                width,
+                height,
+            },
+            context,
+            snapshot,
+        );
+    }
+}
+
+#[derive(Clone, Copy)]
+struct GridTrackGeometry {
+    offset: f64,
+    size: f64,
+}
+
+fn resolve_grid_tracks(tracks: &[GridTrack], available: f64, gap: f64) -> Vec<GridTrackGeometry> {
+    let gap_count = f64::from(u32::try_from(tracks.len().saturating_sub(1)).unwrap_or(u32::MAX));
+    let fixed = tracks
+        .iter()
+        .map(|track| match track {
+            GridTrack::Fixed(value) => *value,
+            GridTrack::Fraction(_) => 0.0,
+        })
+        .sum::<f64>();
+    let weight = tracks
+        .iter()
+        .map(|track| match track {
+            GridTrack::Fixed(_) => 0.0,
+            GridTrack::Fraction(value) => *value,
+        })
+        .sum::<f64>();
+    let fraction = (available - fixed - gap * gap_count).max(0.0) / weight.max(1.0);
+    let mut offset = 0.0;
+    tracks
+        .iter()
+        .map(|track| {
+            let size = match track {
+                GridTrack::Fixed(value) => *value,
+                GridTrack::Fraction(value) => value * fraction,
+            };
+            let geometry = GridTrackGeometry { offset, size };
+            offset += size + gap;
+            geometry
+        })
+        .collect()
+}
+
+fn grid_area_bounds(
+    bounds: Rect,
+    columns: &[GridTrackGeometry],
+    rows: &[GridTrackGeometry],
+    gap: f64,
+    area: GridArea,
+) -> Rect {
+    let column = usize::try_from(area.column).unwrap_or(0);
+    let row = usize::try_from(area.row).unwrap_or(0);
+    let column_span = usize::try_from(area.column_span).unwrap_or(1);
+    let row_span = usize::try_from(area.row_span).unwrap_or(1);
+    let column_end = column + column_span;
+    let row_end = row + row_span;
+    Rect {
+        x: bounds.x + columns[column].offset,
+        y: bounds.y + rows[row].offset,
+        width: columns[column..column_end]
+            .iter()
+            .map(|track| track.size)
+            .sum::<f64>()
+            + gap * f64::from(u32::try_from(column_span.saturating_sub(1)).unwrap_or(u32::MAX)),
+        height: rows[row..row_end]
+            .iter()
+            .map(|track| track.size)
+            .sum::<f64>()
+            + gap * f64::from(u32::try_from(row_span.saturating_sub(1)).unwrap_or(u32::MAX)),
+    }
+}
+
+fn resolve_grid_item_axis(
+    intent: &SizeIntentRef,
+    available: f64,
+    intrinsic: f64,
+    align: Align,
+) -> (f64, f64) {
+    let size = if matches!(intent, SizeIntentRef::Fill)
+        || (align == Align::Stretch && matches!(intent, SizeIntentRef::Auto))
+    {
+        available
+    } else {
+        resolve_axis(intent, available, intrinsic)
+    }
+    .max(0.0);
+    let offset = match align {
+        Align::Start | Align::Stretch => 0.0,
+        Align::Center => (available - size) / 2.0,
+        Align::End => available - size,
+    };
+    (offset, size)
 }
 
 #[expect(
@@ -582,7 +722,10 @@ fn layout_entity_in_flow(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use nuif_core::{Entity, LayoutStyle, OpaqueEncoding, OpaquePayload, TextContent, UnknownKind};
+    use nuif_core::{
+        Edges, Entity, GridStyle, LayoutStyle, OpaqueEncoding, OpaquePayload, TextContent,
+        UnknownKind,
+    };
     use nuif_text::{PINNED_FONT_NAME, PINNED_FONT_SHA256};
 
     #[test]
@@ -677,6 +820,89 @@ mod tests {
 
         let snapshot = evaluate(&document, &EvaluationContext::viewport(200.0, 100.0));
         assert!((snapshot.boxes[&EntityId::new(3)].width - 40.0).abs() < f64::EPSILON);
+    }
+
+    #[test]
+    fn explicit_grid_resolves_tracks_spans_and_two_axis_alignment() {
+        let mut document = Document::empty(EntityId::new(1));
+        let mut root = Entity::new(EntityId::new(2), EntityKind::Container);
+        root.authored.width = SizeIntent::Fill;
+        root.authored.height = SizeIntent::Fill;
+        root.authored.layout = LayoutStyle {
+            family: LayoutFamily::Grid,
+            gap: 10.0,
+            padding: Edges {
+                top: 10.0,
+                right: 10.0,
+                bottom: 10.0,
+                left: 10.0,
+            },
+            align: Align::Center,
+            grid: GridStyle {
+                columns: vec![GridTrack::Fixed(50.0), GridTrack::Fraction(1.0)],
+                rows: vec![GridTrack::Fraction(1.0), GridTrack::Fixed(40.0)],
+                ..GridStyle::default()
+            },
+            ..LayoutStyle::default()
+        };
+        let mut first = Entity::new(EntityId::new(3), EntityKind::Container);
+        first.authored.width = SizeIntent::Fixed(20.0);
+        first.authored.height = SizeIntent::Fixed(30.0);
+        let mut second = Entity::new(EntityId::new(4), EntityKind::Container);
+        second.authored.width = SizeIntent::Fill;
+        second.authored.height = SizeIntent::Fill;
+        let mut spanning = Entity::new(EntityId::new(5), EntityKind::Container);
+        spanning.authored.width = SizeIntent::Fixed(100.0);
+        spanning.authored.height = SizeIntent::Fixed(20.0);
+        spanning.authored.grid_placement.column_span = 2;
+        root.children = vec![first.id, second.id, spanning.id];
+        document.roots.push(root.id);
+        document.entities.insert(root.id, root);
+        document.entities.insert(first.id, first);
+        document.entities.insert(second.id, second);
+        document.entities.insert(spanning.id, spanning);
+
+        let snapshot = evaluate(&document, &EvaluationContext::viewport(220.0, 200.0));
+        assert_eq!(
+            snapshot.boxes[&EntityId::new(3)],
+            Rect {
+                x: 25.0,
+                y: 60.0,
+                width: 20.0,
+                height: 30.0,
+            }
+        );
+        assert_eq!(
+            snapshot.boxes[&EntityId::new(4)],
+            Rect {
+                x: 70.0,
+                y: 10.0,
+                width: 140.0,
+                height: 130.0,
+            }
+        );
+        assert_eq!(
+            snapshot.boxes[&EntityId::new(5)],
+            Rect {
+                x: 60.0,
+                y: 160.0,
+                width: 100.0,
+                height: 20.0,
+            }
+        );
+        assert!(
+            snapshot
+                .diagnostics
+                .iter()
+                .all(|diagnostic| diagnostic.code != "LAYOUT_FAMILY_PROFILE0_FALLBACK")
+        );
+    }
+
+    #[test]
+    fn fractional_weight_below_one_leaves_trailing_space() {
+        let tracks = resolve_grid_tracks(&[GridTrack::Fraction(0.25)], 100.0, 0.0);
+        assert_eq!(tracks.len(), 1);
+        assert!((tracks[0].size - 25.0).abs() < f64::EPSILON);
     }
 
     #[test]
