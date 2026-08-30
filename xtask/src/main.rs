@@ -103,6 +103,9 @@ const VERIFICATION_ARTIFACTS: &[&str] = &[
     "target/gate-g-report.json",
     "target/gate-g-independent",
     "target/collaboration-report.json",
+    "target/collaboration-structure-report.json",
+    "target/collaboration-automerge-input.json",
+    "target/collaboration-automerge-report.json",
     "target/package-resources-report.json",
     "target/image-resources-report.json",
     "target/font-resources-report.json",
@@ -1841,7 +1844,40 @@ fn gate_h() -> Result<(), String> {
         "--",
         "--output",
         "target/collaboration-report.json",
-    ])
+    ])?;
+    cargo(&[
+        "run",
+        "--release",
+        "--locked",
+        "-p",
+        "nuif-conformance",
+        "--bin",
+        "collaboration-structure",
+        "--",
+        "--output",
+        "target/collaboration-structure-report.json",
+        "--oracle-input",
+        "target/collaboration-automerge-input.json",
+    ])?;
+    command(
+        "npm",
+        &[
+            "ci",
+            "--ignore-scripts",
+            "--no-audit",
+            "--no-fund",
+            "--prefix",
+            "tools/automerge-oracle",
+        ],
+    )?;
+    command(
+        "node",
+        &[
+            "tools/automerge-oracle/check.mjs",
+            "target/collaboration-automerge-input.json",
+            "target/collaboration-automerge-report.json",
+        ],
+    )
 }
 
 const MAX_WORKFLOW_BYTES: u64 = 1_048_576;

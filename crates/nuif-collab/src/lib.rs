@@ -7,6 +7,8 @@ use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet};
 use thiserror::Error;
 
+pub mod structural;
+
 pub const PROFILE_NAME: &str = "nuif-collab-registers-0";
 pub const MAX_CHANGES: usize = 100_000;
 pub const MAX_REPLICAS: usize = 1_024;

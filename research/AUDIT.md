@@ -103,16 +103,20 @@ Exit only when a second implementation, built from the specification and fixture
 
 Evidence: `implementations/python/nuif_profile0.py` uses only the Python standard library and does not import, invoke or link a Rust/NUIF package. `cargo xtask gate-g` gives the implementations the same canonical fixture, generates reference observations at 360 × 640, 768 × 768 and 1,440 × 900, and requires the independent path to reproduce canonical text bytes, unknown opaque payload preservation after a neighbouring edit, all eight boxes, decoded RGBA and five fidelity records exactly. The report contains three matching RGBA SHA-256 values and zero layout delta in every context. Duplicate-key and deliberately corrupted layout/raster trials prove the negative path. This closes the mechanical Gate G metric; it is not external authorship, a general-purpose second implementation, neutral governance or standards publication.
 
-### Gate H — metadata-free collaboration checkpoint (complete for property registers)
+### Gate H — metadata-free collaboration checkpoints (complete for bounded register and existing-tree profiles)
 
 Exit metrics:
 
 - replica clocks, causal context and conflict candidates remain outside canonical NUIF documents;
 - independently structured operation-set and replica-log materializers converge for every delivery of the same valid change set;
 - concurrent semantic property conflicts remain explicit and property-attributed;
-- incomplete causal history, identifier reuse, unsupported structural operations and invalid materialization fail closed.
+- incomplete causal history, identifier reuse, unsupported profile expansion and invalid materialization fail closed;
+- existing-tree move/delete delivery preserves one-parent/acyclic structure and explicit structural conflicts;
+- a pinned foreign engine convergently transports the exact structural operation set without being treated as the tree oracle.
 
-Evidence: `nuif-collab-registers-0` maps register-like NUIF semantic operations to causal multi-value registers. One implementation computes pairwise maximal changes from an operation set; the other incrementally maintains causal frontiers in per-replica logs. `cargo xtask gate-h` exhausts all 5,040 deliveries of a seven-change/three-replica history, compares both materializers and multiple merge orders, repeats duplicate delivery, requires two explicit property conflicts and proves canonical NUIF text contains no replica/context/conflict metadata. Five unit regressions cover incomplete and non-transitive context, atomic merge failure and structural rejection. This closes only the bounded property-register checkpoint: insert/remove/move, tombstones, sibling-list ordering and a foreign collaboration engine remain open.
+Evidence: `nuif-collab-registers-0` maps register-like NUIF semantic operations to causal multi-value registers. One implementation computes pairwise maximal changes from an operation set; the other incrementally maintains causal frontiers in per-replica logs. `cargo xtask gate-h` exhausts all 5,040 deliveries of a seven-change/three-replica history, compares both materializers and multiple merge orders, repeats duplicate delivery, requires two explicit property conflicts and proves canonical NUIF text contains no replica/context/conflict metadata.
+
+`nuif-collab-tree-0` separately handles existing-identity moves, reorders and trash deletion with unique Lamport order, cycle rejection and RGA-style stable sibling origins. The gate exhausts all 5,040 deliveries of a seven-replica conflict/stable-anchor fixture, checks two materializers, join/idempotence, every required structural conflict class and 4,096 moves across 4,097 entities. Pinned `@automerge/automerge` 3.4.1 reproduces the exact immutable operation set across merge orders and save/load. That foreign result proves transport, not independent tree semantics. Concurrent creation, causal-stability garbage collection, combined structural/property transactions and an externally authored tree materializer remain open.
 
 ### Gate I — portable package and resources (container and narrow media segments active)
 

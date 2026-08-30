@@ -25,9 +25,17 @@ field behavior.
 
 ## Collaboration
 
-Canonical documents do not require CRDT tombstones, clocks or replica metadata. A collaboration profile maps NUIF operations to an append-only/change structure and can use Automerge, Yjs or another convergent algorithm. Checkpoints serialize back to canonical NUIF.
+Canonical documents do not require CRDT tombstones, clocks or replica metadata. A collaboration profile maps NUIF operations to an append-only/change structure and can use Automerge, Yjs or another convergent transport. Checkpoints serialize back to canonical NUIF.
 
 This keeps offline files simple and permits multiple collaboration engines.
+
+The executable register profile uses causal multi-value registers. The
+separate existing-tree profile replays uniquely ordered moves, rejects cycles,
+models deletion as profile trash and orders siblings through stable RGA-style
+origins. Semantic move and deletion conflicts remain visible even when the
+profile can choose a deterministic checkpoint. Automerge is presently tested
+as an operation-set transport, not claimed as an implementation of the tree
+algorithm.
 
 ## Governance
 

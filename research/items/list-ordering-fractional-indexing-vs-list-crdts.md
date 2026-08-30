@@ -38,7 +38,7 @@ links:
   adr: [adrs/0005-collaboration-profile.md]
   rfc: []
   code: [crates/nuif-core, crates/nuif-protocol]
-  experiments: []
+  experiments: [nuif:experiment:crdt-structural-checkpoint]
 ---
 
 # Summary

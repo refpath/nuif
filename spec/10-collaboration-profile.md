@@ -6,7 +6,7 @@ status: executable
 
 # 10 — Collaboration profile
 
-Status: executable bounded register profile; structural collaboration remains exploratory.
+Status: executable bounded register and existing-tree structural profiles.
 
 Collaboration is operation-based and layered above canonical NUIF.
 
@@ -25,3 +25,58 @@ Register-like operations use one multi-value register per entity/property pointe
 Profile 0 supports rename, size, container layout, grid-item placement, token, authored-value, extension-declaration, entity-extension and unknown-payload registers. It rejects insert, remove, move and restore-subtree. Structural collaboration requires a declared tree move/list algorithm, cycle handling and tombstone policy and MUST NOT be inferred from register convergence.
 
 `cargo xtask gate-h` compares an operation-set maximality materializer with an incremental replica-log frontier materializer over every delivery permutation of the bounded conflict fixture. These are algorithmically separate in-repository implementations, not foreign-engine interoperability evidence.
+
+## Executable existing-tree structural profile 0
+
+`nuif-collab-tree-0` accepts only `Move` and `Delete` for entity identities
+already present in one validated canonical base. Creation, subtree payloads,
+relations, property changes and mixed structural/property transactions are not
+part of this profile. A structural change uses the same dot and transitive
+version-vector requirements as the register profile. Every engine and joined
+operation set is bound to the canonical hash of exactly one base; merging
+different bases is a typed failure. The dot's total order is `(counter,
+replica)`.
+
+A move carries `(entity, new_parent, anchor)`. `anchor` is either `Start` or a
+stable position identifier. A base position is `Base(entity_id)`; every move
+creates `Change(dot)`. An authoring surface MUST resolve a canonical
+`After(entity_id)` against its current checkpoint and persist the resulting
+stable position. It MUST NOT reconstruct a stale anchor from the entity's
+current position after synchronization. A `Change(dot)` anchor MUST name a
+received change included in the author's transitive causal context; a missing
+or non-causal anchor change fails the checkpoint as incomplete history.
+
+The materializer MUST behave as if all changes were applied in ascending dot
+order:
+
+1. An unknown entity or parent is a typed failure and produces no checkpoint.
+2. Moving an entity below itself or its current descendant has no structural
+   effect, remains in the applied history and emits `CycleRejected`.
+3. A missing anchor, an anchor from another parent, or the entity's own
+   position has no structural effect and emits its typed anchor conflict.
+4. A valid move deactivates the entity's prior position and creates an active
+   position under the target parent. Inactive positions remain as sibling
+   origins.
+5. Delete deactivates the prior position and assigns the entity to synthetic
+   profile trash. Descendant relationships are retained in profile state.
+6. A later valid move may restore a trashed entity or rescue one of its
+   descendants.
+
+Sibling order is an RGA-style origin traversal. Positions with the same origin
+sort by descending position identifier, followed recursively by their own
+descendants. Base sibling order is represented as an origin chain. Position
+IDs, inactive positions, clocks and trash are profile metadata. The canonical
+checkpoint stores only ordinary ordered child arrays and removes every entity
+not reachable from a visible root; it MUST validate and hash as canonical NUIF.
+
+Concurrent distinct moves of one entity, delete/move of one entity, deletion
+of a destination parent and deletion of a moved entity's base ancestor MUST
+remain typed semantic conflicts. Total ordering selects a provisional tree but
+does not erase those candidates.
+
+Gate H compares full sorted replay with an incremental local/rollback-replay
+engine for all 5,040 deliveries of the bounded fixture, multiple joins, duplicate
+delivery and a 4,096-change scaling case. Pinned Automerge 3.4.1 must reproduce
+the exact immutable operation set through different merge orders and
+save/load. That foreign check covers convergent transport only; it is not an
+independent implementation of these tree semantics.

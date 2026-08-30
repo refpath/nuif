@@ -1,4 +1,4 @@
-# NUIF collaboration register profile 0
+# NUIF collaboration profiles
 
 `nuif-collab-registers-0` is a bounded operation-set collaboration profile above canonical NUIF. It proves convergence for register-like semantic operations without adding replica IDs, version vectors, histories or conflicts to `Document`.
 
@@ -37,3 +37,46 @@ This is algorithmic independence inside one repository, not an externally author
 - negative cases for missing history, duplicate dots, invalid local context, structural operations and semantic apply failure.
 
 The release-mode report is `target/collaboration-report.json` and is part of `cargo xtask all` and CI artifact upload.
+
+## Structural tree profile 0
+
+`nuif-collab-tree-0` is a separate bounded profile for moves, reorders and
+deletion of identities already present in the canonical base. It does not
+weaken the register profile's rejection of structural operations or pretend a
+move is an ordinary last-writer-wins property.
+
+Each move has a unique Lamport-ordered dot, target parent and stable sibling
+origin. Base positions are identified by entity ID; later positions are
+identified by the change dot. Position identifiers, inactive origins and the
+synthetic trash parent are collaboration metadata and never enter canonical
+NUIF. Within one sibling list, entries sharing an origin are traversed in
+descending identifier order and retain inactive origins, following the core
+RGA rule. The public checkpoint resolves canonical `Anchor` values to stable
+positions so a later operation cannot accidentally bind to a different move of
+the same entity. Both materializers are bound to one canonical base hash;
+different-base joins fail. A change-position anchor must exist and occur in the
+author's transitive causal history.
+
+Changes are replayed in ascending unique timestamp order. A move that would
+make its destination a descendant of itself is retained but has no tree effect
+and produces `CycleRejected`. Deletion moves an entity under profile trash;
+its descendants remain available so a concurrent or later move can rescue
+them. Canonical checkpoints contain only the forest reachable outside trash.
+Concurrent move/move, delete/move, deleted-parent and delete/descendant-move
+intent remains in typed conflicts even though a deterministic checkpoint is
+available.
+
+`StructuralOperationSetEngine` replays a sorted operation set.
+`StructuralUndoRedoEngine` applies monotonic local changes directly and rolls
+back/replays when a lower timestamp arrives. Gate H exhausts all 5,040 deliveries
+of a seven-replica move/delete/cycle/stable-anchor fixture, checks join and idempotence, and
+compares both paths. A 4,096-change/4,097-entity release trial guards the linear
+checkpoint path.
+
+Pinned `@automerge/automerge` 3.4.1 independently merges immutable structural
+change records forward, reverse and in a different partition order, then
+checks duplicate merge and save/load. Automerge is the foreign convergent
+transport oracle only: it does not implement NUIF's tree move, cycle, trash or
+semantic-conflict rules. Concurrent creation, causally stable garbage
+collection, combined property/structure transactions and an independently
+authored tree materializer remain outside this profile.

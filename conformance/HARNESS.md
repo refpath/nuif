@@ -251,7 +251,9 @@ byte-identical to the native CLI. Twenty-five repeated validation calls record
 wire median, p95 and maximum latency with a catastrophic two-second p95 budget;
 this smoke distribution is not a controlled throughput benchmark.
 
-The collaboration register experiment writes `target/collaboration-report.json`. `cargo xtask gate-h` exhausts all 5,040 deliveries through operation-set and replica-log materializers, checks multiple merge orders and duplicate delivery, requires property-attributed multi-value conflicts and inspects canonical text for leaked replica state. Structural operations fail before ingestion; the executable boundary is specified in `crates/nuif-collab/README.md` and `spec/10-collaboration-profile.md`.
+The collaboration register experiment writes `target/collaboration-report.json`. `cargo xtask gate-h` exhausts all 5,040 deliveries through operation-set and replica-log materializers, checks multiple merge orders and duplicate delivery, requires property-attributed multi-value conflicts and inspects canonical text for leaked replica state. Structural operations still fail before register-profile ingestion.
+
+The separate existing-tree experiment writes `target/collaboration-structure-report.json`, exhausts 5,040 deliveries of seven move/delete/cycle/stable-anchor changes through sorted-set and incremental rollback/replay materializers, requires one-parent/acyclic checkpoints plus explicit move, deletion, cycle and anchor conflicts, and runs a 4,096-change release scaling guard. `tools/automerge-oracle` uses pinned `@automerge/automerge` 3.4.1 to merge the seven immutable operation records in different orders and through save/load, writing `target/collaboration-automerge-report.json`. This is foreign transport evidence; Automerge does not provide the NUIF tree materializer. Both executable boundaries are specified in `crates/nuif-collab/README.md` and `spec/10-collaboration-profile.md`.
 
 The capture/reconstruction contract experiment writes
 `target/capture-reconstruction-report.json`. `cargo xtask capture-baselines`

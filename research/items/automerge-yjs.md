@@ -18,7 +18,7 @@ links:
   adr: [adrs/0005-collaboration-profile.md]
   rfc: []
   code: [crates/nuif-collab]
-  experiments: [nuif:experiment:crdt-checkpoint]
+  experiments: [nuif:experiment:crdt-checkpoint, nuif:experiment:crdt-structural-checkpoint]
 ---
 # Summary
 Automerge provides Rust-backed CRDT data structures, compact change encoding and sync protocols for local-first applications. Yjs uses a modified YATA-style sequence CRDT with state-vector-based differential synchronization.
@@ -26,6 +26,19 @@ Automerge provides Rust-backed CRDT data structures, compact change encoding and
 ## Executable NUIF boundary
 
 `nuif-collab-registers-0` exercises operation-set convergence without depending on either library. It compares pairwise-maximal and incremental-frontier materializers across every delivery order, keeps conflicts explicit and strips collaboration metadata from the checkpoint document. This is a profile-mechanism test, not evidence that Automerge and Yjs interoperate or make identical choices.
+
+The follow-on `nuif-collab-tree-0` uses the proved tree-move design and
+RGA-style stable sibling origins inside NUIF. Current Automerge Rust 0.11.0 and
+JavaScript 3.4.1 documentation still exposes maps, RGA lists, element cursors,
+change merging and synchronization but no tree-move operation. Its merge rules
+explicitly note that reverse list insertion does not always preserve insertion
+order. Gate H therefore pins JavaScript 3.4.1 only as a foreign transport
+oracle: seven replicas write immutable NUIF change records under distinct map
+keys, and forward, reverse, even/odd, duplicate and save/load merges must
+recover the exact record set. NUIF, not Automerge, materializes the tree and
+reports cycle/deletion conflicts. Sources: official merge rules
+https://automerge.org/docs/reference/under-the-hood/merge-rules/ and Rust 0.11.0
+API https://docs.rs/automerge/0.11.0/automerge/ (retrieved 2026-08-30).
 
 ## NUIF relevance
 CRDTs are suitable for a collaboration profile and operation history, but their implementation-specific metadata should not become mandatory content of every canonical NUIF document. Saved documents must remain portable to non-collaborative implementations.
