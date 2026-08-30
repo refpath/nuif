@@ -1,10 +1,10 @@
 # Research audit and corrected base plan
 
 Audit date: 2026-08-29. Inventory synchronized: 2026-08-30. Current scope: the
-research index, 108 substantive source records plus the record template,
+research index, 116 substantive source records plus the record template,
 questions, coverage map, experiments, whitepaper synthesis, accepted RFCs and
 ADRs, draft specification, conformance design and executable seams. The current
-record states are 99 reviewed, 9 verified and 1 seed template.
+record states are 99 reviewed, 17 verified and 1 seed template.
 
 ## Outcome
 
