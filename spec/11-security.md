@@ -66,6 +66,33 @@ to no training.
 
 Headless rendering MUST expose deterministic timeout/memory/resource budgets. GPU failures must not compromise process memory safety.
 
+The experimental live Chromium capture segment runs each page in a fresh
+temporary profile and accepts only its `ws://127.0.0.1` debugger endpoint. It
+caps one debugger message/frame at 32 MiB, queued events at 65,536 and their
+aggregate encoded bytes at 64 MiB, commands at 100,000, DOM nodes at 32,768,
+captured responses at 8,192, one response/screenshot at 16 MiB, total response
+bodies at 64 MiB, platform-font records at 64 per node and 32,768 total, and
+the WebSocket write buffer at 1 MiB. Browser startup and protocol I/O each
+have 10-second bounds, while the connected capture has a 30-second deadline.
+The discovery HTTP response is capped at 1 MiB and must contain a valid content
+length. Query/fragment values are removed before serialization; cookie,
+storage and request-header APIs are never read.
+
+The live conformance fixture accepts only complete captures. A missing response
+body remains an omission in the adapter result; the harness may retry that
+viewport in a new isolated profile at most three times and records every
+attempt. Network response bodies are primary, Page resource content is a
+post-load fallback, and the canary probe body is retained only after its
+in-page response completes and is checked for reflected canary values.
+
+Live capture still executes the target page inside Chromium and may cause its
+declared network behavior. The caller MUST authorize the target and apply
+network/process isolation appropriate to untrusted content. The experimental
+adapter MUST NOT import a user's persistent browser profile or credentials.
+Exact response bodies can themselves contain sensitive data, so their
+retention, transfer and training policy remains explicit even when transport
+canaries are absent.
+
 Image, font, compressed-package, path-segment and GPU budgets are not part of
 executable CPU profile 0. Orthogonal resource profiles MUST calibrate and
 publish their own limits before claiming those resource classes.

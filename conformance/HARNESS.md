@@ -264,6 +264,24 @@ fixpoints, calibration interpolation/selective review and finite loop stops.
 The report carries explicit non-claims for live browser capture, OCR/model
 accuracy, a broad or held-out corpus, independent evaluation and training.
 
+The separate live capture experiment writes
+`target/live-browser-capture-report.json`. `cargo xtask gate-j-live` installs or
+reuses exact Chrome for Testing 152.0.7977.64 and accepts isolated 360, 768,
+held-out 900 and repeated 360 px captures through bounded loopback CDP. It
+allows at most three recorded fresh-profile attempts per viewport and accepts
+only the exact resource/font fixture. It requires loader-specific load plus
+image/font readiness, a bounded event-quiet point, stable consecutive
+screenshots, structured context, exact
+HTML/CSS/PNG/font/probe body set, actual downloaded-font and accessibility
+evidence, repeat-identical capture/normalization/screenshot bytes, absence of
+five exercised transport/storage secret canaries and lower held-out aggregate
+geometry error from two viewports than the one-viewport freeform baseline. The
+adapter also enforces aggregate event-byte, command, node, font-use, resource,
+decode, write-buffer and connected-capture limits; the gate requires the four
+accepted captures and any recorded retries to finish within 120 seconds. The report explicitly excludes
+cross-browser/OS, opaque-frame, authenticated-site, canvas/video semantic and
+reconstruction-accuracy claims.
+
 ## Editor participation
 
 The editor exposes an in-process session driver (`nuif-api`) that the harness calls without a window: create/open, apply operation, query accessibility tree, dispatch accessibility action, redraw to a CPU frame and snapshot. The accessibility tree carries entity identifiers (`accesskit-semantic-ui-testing`), so a test asserts "the selected entity is X" by role and identifier rather than by pixel position. `cargo xtask editor-trial` authors the complete v0 fixture from an empty document, demands byte identity with the direct generator and replay, and emits `target/editor-authoring-report.json` plus canonical document/context/layout/scene/CPU-PNG/fidelity artifacts under `target/editor-authoring-snapshot`. GUI screenshot comparison is limited to shell wiring and uses the same tiers as the render suite with per-OS baselines avoided by CPU rasterization. Gesture tests assert the emitted protocol operations, not canvas pixels.

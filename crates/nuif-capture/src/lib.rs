@@ -1,5 +1,7 @@
 #![doc = "Source-backed browser capture and deterministic screenshot reconstruction baselines."]
 
+pub mod live;
+
 use nuif_codec::{CodecError, canonical_hash};
 use nuif_core::{
     AffineTransform, Align, Asset, AssetId, AssetKind, AssetPortability, AuthoredProperties,
@@ -11,9 +13,9 @@ use nuif_media::{MediaError, Rgba8Image, decode_png_rgba8};
 use nuif_package::{NuifPackage, PackageError, PackageMode};
 use nuif_protocol::{Anchor, Operation, Patch, Transaction};
 use nuif_reconstruct::{
-    Bounds, Confidence, CoordinateSpace, EvidenceClass, InferenceProvenance, OBSERVATION_PROFILE,
-    Observation, ObservationBundle, ObservationError, ObservationId, ObservationValue, Omission,
-    Proposal, Subject,
+    Bounds, CaptureContext, Confidence, CoordinateSpace, EvidenceClass, InferenceProvenance,
+    OBSERVATION_PROFILE, Observation, ObservationBundle, ObservationError, ObservationId,
+    ObservationValue, Omission, Proposal, Subject,
 };
 use nuif_text::PINNED_FONT_SHA256;
 use serde::{Deserialize, Serialize};
@@ -61,8 +63,19 @@ pub struct BrowserNode {
     pub background: Option<[f32; 4]>,
     pub accessible_role: Option<String>,
     pub accessible_name: Option<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub font_uses: Vec<BrowserFontUse>,
     pub source_span: Option<SourceSpan>,
     pub resource_url: Option<String>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct BrowserFontUse {
+    pub family: String,
+    pub postscript_name: String,
+    pub glyph_count: u32,
+    pub custom: bool,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -86,6 +99,8 @@ pub struct BrowserCapture {
     pub adapter_version: String,
     pub source_url: String,
     pub viewport: Viewport,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub context: Option<CaptureContext>,
     pub nodes: Vec<BrowserNode>,
     pub resources: Vec<BrowserResource>,
     #[serde(default)]
@@ -168,6 +183,7 @@ pub fn normalize_browser_capture(
         capture_id: capture.capture_id.clone(),
         adapter: "browser-source-capture".to_owned(),
         adapter_version: capture.adapter_version.clone(),
+        context: capture.context.clone(),
         observations,
         omissions,
     };
@@ -218,7 +234,31 @@ fn validate_browser_capture(
             ));
         }
     }
+    let mut total_font_uses = 0_usize;
     for node in &capture.nodes {
+        if node.font_uses.len() > live::MAX_FONT_USES_PER_NODE {
+            return Err(CaptureError::ResourceLimit);
+        }
+        total_font_uses = total_font_uses
+            .checked_add(node.font_uses.len())
+            .ok_or(CaptureError::ResourceLimit)?;
+        if total_font_uses > live::MAX_TOTAL_FONT_USES {
+            return Err(CaptureError::ResourceLimit);
+        }
+        for font in &node.font_uses {
+            if font.family.is_empty()
+                || font.postscript_name.is_empty()
+                || [font.family.as_str(), font.postscript_name.as_str()]
+                    .into_iter()
+                    .any(|value| {
+                        value.len() > 1_024 || value.bytes().any(|byte| byte.is_ascii_control())
+                    })
+            {
+                return Err(CaptureError::InvalidCapture(
+                    "platform font metadata is invalid".to_owned(),
+                ));
+            }
+        }
         if let Some(background) = node.background
             && !background
                 .iter()
@@ -290,6 +330,10 @@ fn topological_nodes(nodes: &[BrowserNode]) -> Result<Vec<BrowserNode>, CaptureE
     Ok(ordered)
 }
 
+#[expect(
+    clippy::too_many_lines,
+    reason = "the ordered observations for one source node form one reviewable mapping"
+)]
 fn append_browser_node_observations(
     capture: &BrowserCapture,
     node: &BrowserNode,
@@ -367,6 +411,23 @@ fn append_browser_node_observations(
             },
             confidence: None,
             source: "accessibility-tree".to_owned(),
+        });
+    }
+    for (index, font) in node.font_uses.iter().enumerate() {
+        observations.push(Observation {
+            id: observation_id(&capture.capture_id, &format!("{prefix}-font-{index}")),
+            evidence: EvidenceClass::ResolvedSource,
+            subject: None,
+            coordinate_space: None,
+            transform: None,
+            value: ObservationValue::FontUse {
+                family: font.family.clone(),
+                postscript_name: font.postscript_name.clone(),
+                glyph_count: font.glyph_count,
+                custom: font.custom,
+            },
+            confidence: None,
+            source: "platform-font-use".to_owned(),
         });
     }
     if let Some(span) = &node.source_span {
@@ -798,6 +859,7 @@ fn screenshot_observations(
         capture_id: capture.capture_id.clone(),
         adapter: "screenshot-baseline".to_owned(),
         adapter_version: "1".to_owned(),
+        context: None,
         observations,
         omissions: screenshot_omissions(),
     };
@@ -1171,6 +1233,10 @@ mod tests {
                 height: 100.0,
                 device_scale_factor: 1.0,
             },
+            context: Some(CaptureContext {
+                profile: "browser-context-0".to_owned(),
+                properties: BTreeMap::from([("locale".to_owned(), "en-US".to_owned())]),
+            }),
             nodes: vec![BrowserNode {
                 backend_node_id: 1,
                 parent: None,
@@ -1186,6 +1252,7 @@ mod tests {
                 background: Some([1.0; 4]),
                 accessible_role: Some("main".to_owned()),
                 accessible_name: None,
+                font_uses: Vec::new(),
                 source_span: None,
                 resource_url: None,
             }],
@@ -1202,6 +1269,7 @@ mod tests {
         let mut package =
             NuifPackage::new(Document::empty(EntityId::new(1)), PackageMode::Authoring);
         let result = normalize_browser_capture(&capture, &mut package).unwrap();
+        assert_eq!(result.observations.context, capture.context);
         assert_eq!(package.resources.len(), 1);
         assert!(
             result

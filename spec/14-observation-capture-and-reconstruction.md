@@ -7,10 +7,11 @@ status: draft
 # 14 — Observation, capture and reconstruction
 
 Status: draft. This module specifies candidate contracts from RFC 0011. No
-screenshot reconstruction profile is currently conforming. The executable
-fixed-input contract baseline exercises observation/proposal encoding, evidence
-ceilings, flat-copy rejection and bounded correction stops; it is not an
-accuracy or live-capture conformance profile.
+screenshot reconstruction profile is currently conforming. The fixed-input
+contract baseline exercises observation/proposal encoding, evidence ceilings,
+flat-copy rejection and bounded correction stops. The separate
+`nuif-cdp-live-0` baseline exercises one pinned, local Chromium fixture; it is
+not a cross-browser capture or reconstruction-accuracy conformance profile.
 
 ## Scope
 
@@ -80,6 +81,33 @@ scripts remain inert resources.
 The capture MUST exclude cookies, authorization headers, credentials, storage
 values and secret form fields from its output. Redaction is a recorded
 transformation, not silent source equivalence.
+
+The implemented live baseline records a bounded string map as
+`nuif-browser-runtime-context-0` in the observation bundle. It fixes exact
+browser and reported protocol, operating system/architecture, viewport/DPR,
+locale, timezone, screen media, color scheme, reduced-motion preference, scroll
+origin, settling policy and animation policy. Context keys are identifiers,
+the map is limited to 64 entries and all names/values share the observation
+string-byte limits. A consumer MUST NOT assume equivalence between bundles with
+different contexts.
+
+`nuif-cdp-live-0` uses an isolated temporary browser profile, accepts only a
+loopback debugger socket, waits for the lifecycle load event belonging to the
+exact navigation loader, fixes animation/transition and scroll state, waits two
+animation frames, awaits font readiness and waits two final frames. It normalizes opaque browser node
+identifiers before export and strips URL query/fragment data twice: before live
+capture serialization and again during observation normalization. The gate
+exercises query, cookie, storage, authorization and custom-header canaries; this
+proves those declared ingress paths are not retained, not that arbitrary
+response bodies contain no sensitive application content.
+
+The first implementation observes element layout rectangles, a bounded
+background-style subset, text, containment/order, downloaded response bodies,
+actual platform-font use, accessibility role/name and a viewport screenshot.
+Inline text boxes, complete paint ordering, matched-rule/source-map
+correspondence, opaque cross-origin bodies, canvas/video derived-frame capture
+and general interaction states remain outside this automated segment and MUST
+NOT be inferred from its passing report.
 
 ## Screenshot-only reconstruction
 

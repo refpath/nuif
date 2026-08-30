@@ -545,8 +545,8 @@ experiments:
       - archive target/capture-reconstruction-report.json from cargo xtask capture-baselines
   - id: nuif:experiment:browser-source-capture
     status: active
-    evidence: [nuif:research:chromium-source-backed-ui-capture, nuif:research:resource-packaging-and-source-capture-synthesis, nuif:research:reverse-layout-inference]
-    implementation: [crates/nuif-capture/src/lib.rs, crates/nuif-testing/src/bin/capture-reconstruction.rs, xtask/src/main.rs]
+    evidence: [nuif:research:chromium-source-backed-ui-capture, nuif:research:live-chromium-cdp-capture, nuif:research:resource-packaging-and-source-capture-synthesis, nuif:research:reverse-layout-inference]
+    implementation: [crates/nuif-capture/src/lib.rs, crates/nuif-capture/src/live.rs, crates/nuif-testing/src/bin/capture-reconstruction.rs, crates/nuif-testing/src/bin/live-browser-capture.rs, xtask/src/main.rs]
     oracle: pinned-browser-and-metamorphic
     acceptance:
       - repeated capture under the same pinned context produces equivalent normalized observations and exact resource hashes
@@ -559,6 +559,25 @@ experiments:
       - capture responsive fixtures at training and held-out viewports and retain every observation as provenance
       - freeze canvas and video as bounded derived frames while keeping packaged scripts inert
       - scan capture artifacts for declared secret canaries and fail on disclosure
+  - id: nuif:experiment:live-browser-source-capture
+    status: automated
+    evidence: [nuif:research:chromium-source-backed-ui-capture, nuif:research:live-chromium-cdp-capture, nuif:research:reverse-layout-inference]
+    implementation: [crates/nuif-capture/src/live.rs, crates/nuif-capture/src/lib.rs, crates/nuif-reconstruct/src/lib.rs, crates/nuif-testing/src/bin/live-browser-capture.rs, conformance/browser-oracle.lock.json, tools/browser/install-chrome-for-testing.sh, xtask/src/main.rs, .github/workflows/ci.yml]
+    oracle: pinned-browser-metamorphic-and-heldout
+    acceptance:
+      - exact Chrome product protocol runtime context and resource budgets are recorded
+      - repeated capture normalization package and narrow screenshot bytes are identical
+      - query cookie storage authorization and header canaries are exercised but absent from serializable evidence
+      - two observed viewports predict the held-out fixture geometry better than the one-viewport freeform baseline
+    tests:
+      - capture 360 768 held-out 900 and repeated 360 pixel contexts in isolated profiles
+      - retain the exact HTML CSS PNG font and probe response bodies and no undeclared response body
+      - require downloaded Ahem platform-font use plus main and button accessibility role/name evidence
+      - normalize opaque backend identities to deterministic preorder identities
+      - validate every screenshot through the bounded basic PNG profile and match viewport dimensions
+      - record and cap fresh-profile retries at three attempts per viewport and accept only the exact resource and font fixture
+      - record explicit cross-origin local-font canvas video worklet source-span and runtime omissions
+      - archive target/live-browser-capture-report.json from cargo xtask gate-j-live
   - id: nuif:experiment:screenshot-reconstruction-baseline
     status: active
     evidence: [nuif:research:design2code-real-world-benchmark, nuif:research:pix2struct-screenshot-parsing-pretraining, nuif:research:screenai-ui-annotation, nuif:research:omniparser-ui-grounding, nuif:research:ocr-text-detection-and-recognition, nuif:research:model-agnostic-screenshot-reconstruction-and-training]

@@ -22,11 +22,14 @@ relations:
     note: Multi-viewport browser observations constrain later layout inference.
   - type: related_to
     target: nuif:research:accessibility-semantics
+  - type: related_to
+    target: nuif:research:live-chromium-cdp-capture
+    note: Records the selected transport, bounds and first executable pinned-browser result.
 links:
   spec: [spec/04-layout.md, spec/09-provenance-and-fidelity.md, spec/11-security.md, spec/13-semantics-accessibility-and-behavior.md, spec/14-observation-capture-and-reconstruction.md]
   adr: []
   rfc: [rfcs/0003-authored-resolved-provenance.md, rfcs/0011-observation-and-inference-provenance.md]
-  code: [adapters/html-css/PROFILE.md]
+  code: [adapters/html-css/PROFILE.md, crates/nuif-capture/src/live.rs, crates/nuif-testing/src/bin/live-browser-capture.rs, xtask/src/main.rs]
   experiments: [nuif:experiment:browser-source-capture]
 ---
 
@@ -109,10 +112,14 @@ classification for canvas/video/script behavior based only on a frozen frame.
 
 ## Open questions
 
-- Which CDP protocol revision should be pinned independently of the Chrome for
-  Testing build used by layout differential tests?
-- Which computed-style subset is sufficient to reconstruct the first browser
-  profile without making snapshots unbounded?
+- The first segment pins the complete Chrome for Testing build rather than a
+  floating CDP schema and records its reported protocol version. CDP explicitly
+  provides no tip-of-tree compatibility guarantee, so browser updates require a
+  gate rerun and review.
+- The first segment retains background colour plus actual font-use as its
+  implemented style subset. Font family/size/line-height are requested in the
+  snapshot but are not yet promoted to observations; matched-rule and
+  stylesheet/source correspondence remain an explicit extension.
 - How can cross-origin iframes and opaque responses report unavailable evidence
   without silently flattening them into screenshots?
 - Which interaction states can be captured reproducibly without executing

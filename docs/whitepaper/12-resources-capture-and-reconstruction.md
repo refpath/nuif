@@ -260,6 +260,26 @@ not exported. Scripts remain inert.
 Multiple viewports and states are more valuable than one oversized capture:
 they constrain layout hypotheses and permit held-out responsive evaluation.
 
+The automated `nuif-cdp-live-0` segment now implements that boundary for one
+loopback fixture and exact Chrome for Testing 152.0.7977.64. It starts fresh
+temporary profiles, retains a structured runtime context, waits for the exact
+navigation loader and declared freeze/readiness point, captures bounded
+DOM/layout/background/font/accessibility/resource/PNG evidence, and replaces
+opaque browser node IDs with deterministic preorder identities. Four runs at
+360, 768, held-out 900 and repeated 360 px retain exactly the expected five
+response bodies and repeat the narrow capture bytes. Five exercised
+query/cookie/storage/authorization/header canaries are absent from serializable
+capture, observations, proposals and package bytes. The two fitted viewports
+beat the one-viewport freeform baseline on the held-out fixture.
+
+This is a falsifiable local baseline, not the entire profile described above.
+Cross-browser/OS reproduction, opaque frames and response bodies, full
+matched-style/source correlation, canvas/video frame capture, authenticated
+sites and licensed real-page evaluation remain open. WebDriver BiDi is the
+standards-track transport to revisit as its implemented evidence surface grows;
+Playwright is the higher-level candidate when NUIF owns a real multi-engine
+matrix and can make one tool the browser-version authority.
+
 ## Screenshot reconstruction
 
 A screenshot supplies visible samples but not the unique scene graph or layout
@@ -350,11 +370,11 @@ consent/policy decisions.
 ## Maturity boundary
 
 The current `0.1.0-alpha.3` label belongs to the developer editor application.
-It provides no evidence that the broad image/font resource, live browser
+It provides no evidence that the broad image/font resource, portable browser
 capture or screenshot reconstruction accuracy profiles are complete. A
-deterministic package plus narrow PNG/static-font segments and fixed
-provider-input capture/reconstruction contract baseline are implemented, but
-their deliberately narrow evidence does not promote the broader profiles.
+deterministic package, narrow PNG/static-font segments, fixed provider-input
+contracts and one pinned local live-browser segment are implemented, but their
+deliberately narrow evidence does not promote the broader profiles.
 
 Promotion requires the package/resource cross-writer fixtures, pinned capture
 reproduction, baseline/closed-loop/calibration harness, leak-resistant licensed
@@ -373,6 +393,7 @@ reconstruction promise.
 - `nuif:research:ttf-parser`
 - `nuif:research:fontations`
 - `nuif:research:chromium-source-backed-ui-capture`
+- `nuif:research:live-chromium-cdp-capture`
 - `nuif:research:design2code-real-world-benchmark`
 - `nuif:research:pix2struct-screenshot-parsing-pretraining`
 - `nuif:research:screenai-ui-annotation`

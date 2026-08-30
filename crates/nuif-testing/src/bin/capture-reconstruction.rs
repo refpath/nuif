@@ -303,6 +303,7 @@ fn browser_fixture(png: &[u8]) -> BrowserCapture {
             height: 100.0,
             device_scale_factor: 1.0,
         },
+        context: None,
         nodes: vec![
             BrowserNode {
                 backend_node_id: 1,
@@ -314,6 +315,7 @@ fn browser_fixture(png: &[u8]) -> BrowserCapture {
                 background: Some([1.0, 1.0, 1.0, 1.0]),
                 accessible_role: Some("main".to_owned()),
                 accessible_name: Some("Captured example".to_owned()),
+                font_uses: Vec::new(),
                 source_span: Some(SourceSpan {
                     uri: "https://example.invalid/index.html?token=fixture-secret".to_owned(),
                     start: 0,
@@ -331,6 +333,7 @@ fn browser_fixture(png: &[u8]) -> BrowserCapture {
                 background: None,
                 accessible_role: Some("image".to_owned()),
                 accessible_name: Some("Fixture image".to_owned()),
+                font_uses: Vec::new(),
                 source_span: None,
                 resource_url: Some(
                     "https://cdn.example.invalid/image.png?token=fixture-secret".to_owned(),

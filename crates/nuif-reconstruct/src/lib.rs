@@ -13,6 +13,7 @@ use thiserror::Error;
 pub const OBSERVATION_PROFILE: &str = "nuif-observations-0";
 pub const MAX_OBSERVATIONS: usize = 100_000;
 pub const MAX_OMISSIONS: usize = 16_384;
+pub const MAX_CONTEXT_PROPERTIES: usize = 64;
 pub const MAX_OBSERVATION_STRING_BYTES: usize = 8 * 1024 * 1024;
 pub const MAX_OBSERVATION_SINGLE_STRING_BYTES: usize = 1024 * 1024;
 pub const MAX_PROPOSAL_OPERATIONS: usize = 16_384;
@@ -108,6 +109,12 @@ pub enum ObservationValue {
         role: String,
         name: Option<String>,
     },
+    FontUse {
+        family: String,
+        postscript_name: String,
+        glyph_count: u32,
+        custom: bool,
+    },
     Resource {
         digest: Option<ResourceDigest>,
         media_type: Option<String>,
@@ -171,6 +178,13 @@ pub struct Omission {
     pub affected: Option<Subject>,
 }
 
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct CaptureContext {
+    pub profile: String,
+    pub properties: BTreeMap<String, String>,
+}
+
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct ObservationBundle {
@@ -179,6 +193,8 @@ pub struct ObservationBundle {
     pub capture_id: String,
     pub adapter: String,
     pub adapter_version: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub context: Option<CaptureContext>,
     pub observations: Vec<Observation>,
     #[serde(default)]
     pub omissions: Vec<Omission>,
@@ -219,11 +235,37 @@ impl ObservationBundle {
                 observed: self.omissions.len(),
             });
         }
+        if let Some(context) = &self.context {
+            if !identifier(&context.profile) {
+                return Err(ObservationError::InvalidBundle(
+                    "capture context profile is not an identifier".to_owned(),
+                ));
+            }
+            if context.properties.len() > MAX_CONTEXT_PROPERTIES {
+                return Err(ObservationError::ResourceLimit {
+                    resource: "capture context properties",
+                    limit: MAX_CONTEXT_PROPERTIES,
+                    observed: context.properties.len(),
+                });
+            }
+        }
         let mut ids = BTreeSet::new();
         let mut string_bytes = 0_usize;
         add_string(&mut string_bytes, &self.capture_id)?;
         add_string(&mut string_bytes, &self.adapter)?;
         add_string(&mut string_bytes, &self.adapter_version)?;
+        if let Some(context) = &self.context {
+            add_string(&mut string_bytes, &context.profile)?;
+            for (name, value) in &context.properties {
+                if !identifier(name) {
+                    return Err(ObservationError::InvalidBundle(format!(
+                        "capture context property {name:?} is not an identifier"
+                    )));
+                }
+                add_string(&mut string_bytes, name)?;
+                add_string(&mut string_bytes, value)?;
+            }
+        }
         for observation in &self.observations {
             validate_observation(observation, &mut ids, &mut string_bytes)?;
         }
@@ -433,6 +475,14 @@ fn validate_value(
                 add_string(string_bytes, name)?;
             }
             Ok(())
+        }
+        ObservationValue::FontUse {
+            family,
+            postscript_name,
+            ..
+        } => {
+            add_string(string_bytes, family)?;
+            add_string(string_bytes, postscript_name)
         }
         ObservationValue::Resource {
             digest, media_type, ..
@@ -1100,6 +1150,10 @@ mod tests {
             capture_id: "capture-1".to_owned(),
             adapter: "screenshot-baseline".to_owned(),
             adapter_version: "1".to_owned(),
+            context: Some(CaptureContext {
+                profile: "test-context-0".to_owned(),
+                properties: BTreeMap::from([("viewport".to_owned(), "100x100".to_owned())]),
+            }),
             observations: vec![Observation {
                 id: ObservationId("root-geometry".to_owned()),
                 evidence: EvidenceClass::ObservedPixels,
@@ -1140,6 +1194,18 @@ mod tests {
             .unwrap()
             .calibrated = Some(0.7);
         assert!(invalid.validate().is_err());
+
+        let mut excessive = observations();
+        excessive.context.as_mut().unwrap().properties = (0..=MAX_CONTEXT_PROPERTIES)
+            .map(|index| (format!("property-{index}"), index.to_string()))
+            .collect();
+        assert!(matches!(
+            excessive.validate(),
+            Err(ObservationError::ResourceLimit {
+                resource: "capture context properties",
+                ..
+            })
+        ));
     }
 
     #[test]

@@ -12,8 +12,11 @@ screenshot profile normative.
 
 Implementation note: `nuif-capture`, `nuif-reconstruct` and `cargo xtask
 capture-baselines` exercise a bounded fixed-input subset of these contracts.
-That automation does not change this RFC's proposed status or establish a live
-capture/reconstruction accuracy profile.
+`cargo xtask gate-j-live` separately exercises one pinned local Chromium
+fixture, structured runtime context, exact response retention, secret canaries
+and held-out viewport measurement. That automation does not change this RFC's
+proposed status or establish a portable capture/reconstruction accuracy
+profile.
 
 ## Motivation
 
@@ -35,6 +38,9 @@ ceilings needed to prevent that category error while keeping models replaceable.
 - `nuif:research:chromium-source-backed-ui-capture` identifies the independent
   DOM/layout/style/network/font/accessibility/screenshot observations available
   from a pinned browser protocol.
+- `nuif:research:live-chromium-cdp-capture` compares CDP, Playwright and
+  WebDriver BiDi boundaries and records the bounded transport plus first live
+  executable result.
 - `nuif:research:design2code-real-world-benchmark` records real-page element
   recall and layout failures in one-shot screenshot-to-code systems.
 - `nuif:research:reverse-layout-inference` and

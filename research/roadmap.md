@@ -59,11 +59,17 @@ The automated capture/reconstruction contract baseline now produces
 normalization, exact browser resource retention, credential-query redaction,
 honest screenshot omissions, typed proposal application, flat-copy rejection,
 codec fixpoints, calibration interpolation and finite correction-loop stops.
-This starts but does not complete the broader browser, screenshot, closed-loop
-or calibration experiments: no live browser, accuracy corpus, held-out
-responsive prediction, independent evaluator or trained artifact is claimed.
-Adaptation/distillation remains conditional on evidence from that loop rather
-than a standing implementation commitment.
+`cargo xtask gate-j-live` separately drives Chrome for Testing 152.0.7977.64
+through bounded loopback CDP. Four isolated runs retain the exact declared
+response set, platform-font use, accessibility and PNG evidence; carry the
+pinned runtime context into observations; reproduce the repeated 360 px
+capture exactly; exclude five exercised secret canaries; and use 360/768 px
+geometry to beat the one-view baseline at held-out 900 px. This closes the
+local live-fixture segment, not the broader browser, screenshot, closed-loop or
+calibration experiments: no cross-browser/OS capture corpus, opaque-frame
+coverage, reconstruction accuracy corpus, independent evaluator or trained
+artifact is claimed. Adaptation/distillation remains conditional on evidence
+from that loop rather than a standing implementation commitment.
 
 ## Queue
 
@@ -74,7 +80,7 @@ than a standing implementation commitment.
 5. Treat soft wrapping, gradients, strokes, paths, images and instance materialization as a separately versioned expanded profile; do not weaken profile-0 exactness to add them.
 6. Keep `cargo xtask gate-i-package` green across CLI/editor/package changes and add a recorded cross-platform/external writer before accepting the wire profile.
 7. Extend the narrow PNG and static TrueType baselines only through new declared fixtures, add cross-platform media reproduction, and complete the broader OpenType format/policy matrix with calibrated allocation/time budgets; do not expand profile 0 by fallback.
-8. Extend the fixed-input capture contract into a pinned live-browser adapter with header/body secret canaries, multi-viewport observations and explicit unavailable evidence.
+8. Extend the passing local live-browser segment to cross-OS reproduction, opaque/cross-origin cases, matched-style/source correlation and licensed real pages before defining a portable browser-capture profile; keep WebDriver BiDi as the standards-track transport watch path.
 9. Freeze the reconstruction corpus and evaluator, then compare deterministic OCR/CV, one-shot, observation-assisted, hierarchical and corrective-loop baselines through the existing typed boundary.
 10. Train or distill only if the frozen evaluation demonstrates a learnable gap and rights-cleared validated traces exist.
 11. Maintain the credential-free Penpot package profile under its shared ZIP resource-limit, foreign-producer and unknown-member-retention gate; defer the compact representation until upstream stability and a second fixture.

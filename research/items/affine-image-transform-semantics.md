@@ -73,3 +73,10 @@ Flip, clockwise rotation, translation, singular-matrix and repeatability
 fixtures run through `cargo xtask gate-i-image`. This proves the reference CPU
 semantics. It does not prove that a Figma/Adobe host uses the same fit/crop
 composition until live adapter trials compare named host versions.
+
+## NUIF relevance
+
+The declared direction and inverse-sampling rule make image transforms
+portable core values instead of renderer-specific conventions. Adapters can
+classify a target mismatch explicitly, while the reference renderer and future
+foreign implementations share one falsifiable coordinate contract.

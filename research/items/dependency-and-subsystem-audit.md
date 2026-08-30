@@ -7,10 +7,10 @@ source:
   url: https://doc.rust-lang.org/cargo/commands/cargo-metadata.html
   repository: https://github.com/refpath/nuif
   authors: [Rust project contributors, Serde contributors, Tree-sitter contributors, Servo contributors, Linebender contributors, Google Fonts contributors, RustCrypto contributors]
-  published_at: "dependency releases and upstream manifests current on 2026-08-30"
+  published_at: "dependency releases and upstream manifests current on 2026-08-31"
   license: "mixed permissive upstream licenses; NUIF Apache-2.0 OR MIT"
-retrieved_at: 2026-08-30
-tags: [rust, dependency, architecture, parser, adapter, layout, rendering, text, editor, benchmark, security]
+retrieved_at: 2026-08-31
+tags: [rust, dependency, architecture, parser, adapter, layout, rendering, text, editor, browser, benchmark, security]
 confidence: 0.93
 claims: [nuif:claim:sync-not-regenerate, nuif:claim:semantic-automation, nuif:claim:bounded-untrusted-input]
 relations:
@@ -36,7 +36,7 @@ links:
 
 # Summary
 
-Cargo metadata reports 32 distinct direct external crates across the workspace.
+Cargo metadata reports 35 distinct direct external crates across the workspace.
 Each is now registered with a role, a current decision, at least one considered
 alternative and repository evidence. The executable audit fails when a direct
 crate is added without ownership or when a stale registration remains. Cargo
@@ -163,6 +163,21 @@ Process and agent adapters
   keeps every async concern outside the deterministic core. Async-std or Smol
   would add runtime interoperation; a blocking loop would reproduce official
   lifecycle behavior without a semantic benefit.
+- The live Chromium capture port uses the repository's existing exact Chrome
+  for Testing lock through raw CDP rather than adding Playwright's separate
+  browser-release/download lifecycle. A tiny synchronous Tungstenite 0.29.0 client is
+  limited to the browser's loopback `ws://` endpoint and caps messages/frames at
+  32 MiB. The current 0.30.0 server-side validation change does not apply to
+  this client-only boundary, while its dependency refresh introduced four
+  parallel Digest-family version lines, so the smaller prior line is pinned and
+  watched. Base64 decoding occurs only after CDP and response ceilings; Tempfile
+  supplies one automatically cleaned, credential-empty browser profile per run.
+  Playwright remains the stronger future cross-engine runner, and the W3C
+  WebDriver BiDi Working Draft remains the portability watch path, but neither
+  currently replaces the Chromium-only DOMSnapshot and platform-font evidence
+  used by this segment. Locators: https://playwright.dev/docs/browsers,
+  https://www.w3.org/TR/webdriver-bidi/ and
+  https://github.com/snapview/tungstenite-rs, retrieved 2026-08-31.
 - roxmltree represents XML as a read-only tree and exposes original byte
   positions. Quick XML is an almost-zero-copy pull parser and a better candidate
   for very large streaming documents, while usvg is a better renderer-facing

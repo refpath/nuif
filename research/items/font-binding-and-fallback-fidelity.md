@@ -107,3 +107,10 @@ engine.
 Cluster-level fallback, missing-glyph reporting, multiple faces per run,
 variable axes, feature-dependent substitution, shaping with arbitrary packaged
 font bytes and cross-platform raster equivalence remain separate work.
+
+## NUIF relevance
+
+The binding keeps requested design intent, resource policy and the bytes used
+for evaluation as separate core facts. Thin adapters can reject or report the
+unsupported field without inventing host fallback, and layout/rendering derive
+the same item-level fidelity from one authoritative resolution function.

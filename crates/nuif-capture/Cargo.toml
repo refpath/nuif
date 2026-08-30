@@ -6,6 +6,7 @@ license.workspace = true
 repository.workspace = true
 
 [dependencies]
+base64.workspace = true
 nuif-codec = { version = "0.0.0", path = "../nuif-codec" }
 nuif-core = { version = "0.0.1", path = "../nuif-core" }
 nuif-media = { version = "0.0.1", path = "../nuif-media" }
@@ -15,8 +16,11 @@ nuif-reconstruct = { version = "0.0.1", path = "../nuif-reconstruct" }
 nuif-text = { version = "0.0.1", path = "../nuif-text" }
 serde.workspace = true
 serde_bytes.workspace = true
+serde_json.workspace = true
 sha2.workspace = true
+tempfile.workspace = true
 thiserror.workspace = true
+tungstenite.workspace = true
 
 [lints]
 workspace = true

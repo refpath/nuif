@@ -44,6 +44,7 @@ const ALL_STEPS: &[Step] = &[
     ("gate-i-image", gate_i_image),
     ("gate-i-font", gate_i_font),
     ("capture-baselines", capture_baselines),
+    ("gate-j-live", gate_j_live),
 ];
 
 const VERIFICATION_ARTIFACTS: &[&str] = &[
@@ -110,6 +111,7 @@ const VERIFICATION_ARTIFACTS: &[&str] = &[
     "target/image-resources-report.json",
     "target/font-resources-report.json",
     "target/capture-reconstruction-report.json",
+    "target/live-browser-capture-report.json",
 ];
 
 fn main() {
@@ -167,6 +169,7 @@ fn run() -> Result<(), String> {
         Some("gate-i-image") => gate_i_image(),
         Some("gate-i-font") => gate_i_font(),
         Some("capture-baselines") => capture_baselines(),
+        Some("gate-j-live") => gate_j_live(),
         Some("browser-install") => browser_install(),
         Some("hostile-inputs") => hostile_inputs(),
         Some("reduction-profile") => reduction_profile(),
@@ -196,7 +199,7 @@ fn run() -> Result<(), String> {
         Some("manifest") => standalone_manifest(),
         Some("all") => all(),
         _ => Err(
-            "usage: cargo xtask <research|workflow-audit|adapter-audit|dependency-audit|docs-check|docs-build|docs-paper|docs-serve|docs-setup|verify|trial [seed iterations snapshot-interval report-path]|gate-b|gate-c|gate-d|gate-d-text|gate-d-render|gate-f|gate-f-v0|gate-svg|gate-dtcg|gate-penpot|gate-react|gate-svelte|gate-wasm|gate-mcp|gate-g|gate-h|gate-i-package|gate-i-image|gate-i-font|capture-baselines|browser-install|wasm-install|wasm-package|mcp-package|hostile-inputs|reduction-profile|editor-hostile-inputs|fuzz-smoke|performance|editor-trial|editor-gui-trial|editor-install-trial|editor-package|editor-launch|editor-install|editor-doctor|editor-rollback|editor-uninstall|editor-update|release-check <tag>|manifest|all>"
+            "usage: cargo xtask <research|workflow-audit|adapter-audit|dependency-audit|docs-check|docs-build|docs-paper|docs-serve|docs-setup|verify|trial [seed iterations snapshot-interval report-path]|gate-b|gate-c|gate-d|gate-d-text|gate-d-render|gate-f|gate-f-v0|gate-svg|gate-dtcg|gate-penpot|gate-react|gate-svelte|gate-wasm|gate-mcp|gate-g|gate-h|gate-i-package|gate-i-image|gate-i-font|gate-j-live|capture-baselines|browser-install|wasm-install|wasm-package|mcp-package|hostile-inputs|reduction-profile|editor-hostile-inputs|fuzz-smoke|performance|editor-trial|editor-gui-trial|editor-install-trial|editor-package|editor-launch|editor-install|editor-doctor|editor-rollback|editor-uninstall|editor-update|release-check <tag>|manifest|all>"
                 .to_owned(),
         ),
     }
@@ -314,6 +317,31 @@ fn capture_baselines() -> Result<(), String> {
         "--",
         "--output",
         "target/capture-reconstruction-report.json",
+    ])
+}
+
+fn gate_j_live() -> Result<(), String> {
+    browser_install()?;
+    let chrome = wasm_browser_binary()?;
+    let browser_lock = read_json(Path::new("conformance/browser-oracle.lock.json"))?;
+    let browser_version = browser_lock["version"]
+        .as_str()
+        .ok_or_else(|| "browser oracle lock has no version".to_owned())?;
+    cargo(&[
+        "run",
+        "--release",
+        "--locked",
+        "-p",
+        "nuif-testing",
+        "--bin",
+        "live-browser-capture",
+        "--",
+        "--chrome",
+        path(&chrome)?,
+        "--browser-version",
+        browser_version,
+        "--output",
+        "target/live-browser-capture-report.json",
     ])
 }
 

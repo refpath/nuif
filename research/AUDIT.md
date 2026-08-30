@@ -165,7 +165,7 @@ surface under the 64 MiB preflighted scene total. Both media segments are separa
 from CPU render profile 0 and do not establish general images or packaged-font
 rendering.
 
-### Gate J — source-backed browser capture (contract baseline active)
+### Gate J — source-backed browser capture (local live segment automated)
 
 Exit only when:
 
@@ -186,10 +186,19 @@ Current evidence: `cargo xtask capture-baselines` repeats fixed browser-provider
 input through `nuif-capture`, requires identical normalized output/package
 bytes, exact image-resource digest and body retention, absence of a query-token
 canary from observations/proposals/packages, typed proposal application and
-cyclic-parent rejection. This is a deterministic adapter contract only. It has
-not captured a live pinned browser, exercised cookies/headers/storage, collected
-the complete observation set or predicted a held-out viewport, so Gate J remains
-open.
+cyclic-parent rejection. `cargo xtask gate-j-live` then launches exact Chrome
+for Testing 152.0.7977.64 through bounded loopback CDP, accepting four declared
+contexts with at most three recorded fresh-profile attempts each. It records
+browser/protocol/OS/viewport/locale/timezone/media/motion/settling/freeze
+context, exactly retains the declared HTML/CSS/PNG/font/probe bodies, observes
+actual custom-font and accessibility results, reproduces the repeated 360 px
+capture/normalization/screenshot bytes, and excludes five query, cookie,
+storage, authorization and header canaries after proving they were exercised.
+Geometry fitted to 360/768 px beats copying the 360 px freeform geometry at the
+held-out 900 px fixture. This automates the local live segment. Gate J remains
+open for cross-OS/browser reproduction, opaque/cross-origin behavior,
+matched-style/source correspondence, canvas/video bounded frames and licensed
+real-page evidence.
 
 ### Gate K — screenshot reconstruction and calibrated abstention (contract baseline active)
 
@@ -261,10 +270,9 @@ Gate H is complete for collaboration property registers. The operation-set and r
 
 RFCs 0010 and 0011 plus specification 14 remain research-aligned proposals.
 The executable baseline now includes the deterministic package writer,
-asset/resource model and bounded provider-input browser/screenshot and
-reconstruction contract implementations described above. It still has no
-independent image-render profile, general font package policy, pinned live-
-browser capture, reconstruction accuracy corpus, independent reconstruction
-evaluator or trained artifact. The editor version `0.1.0-alpha.3` identifies
-the developer application and must not be cited as maturity evidence for those
-open proposals.
+asset/resource model, bounded provider-input browser/screenshot contracts and
+the pinned local live-browser segment described above. It still has no general
+image/font resource profile, cross-browser/OS capture corpus, reconstruction
+accuracy corpus, independent reconstruction evaluator or trained artifact. The
+editor version `0.1.0-alpha.3` identifies the developer application and must not
+be cited as maturity evidence for those open proposals.

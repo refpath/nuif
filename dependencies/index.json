@@ -2,6 +2,14 @@
   "schema_version": 1,
   "dependencies": [
     {
+      "name": "base64",
+      "role": "bounded decoding of binary Chrome DevTools Protocol response bodies and screenshots",
+      "decision": "retain",
+      "alternatives": ["data-encoding", "hand-written Base64 decoder"],
+      "rationale": "CDP exposes binary bodies as Base64 text; the small standard-alphabet decoder is used only after response and message ceilings are enforced, while a custom decoder would add security-sensitive parsing without improving the capture contract.",
+      "evidence": ["research/items/live-chromium-cdp-capture.md", "research/items/dependency-and-subsystem-audit.md"]
+    },
+    {
       "name": "ciborium",
       "role": "deterministic CBOR value encoding and decoding",
       "decision": "retain",
@@ -162,6 +170,14 @@
       "evidence": ["research/items/taffy-and-yoga-browser-generated-tests.md", "research/items/yoga.md"]
     },
     {
+      "name": "tempfile",
+      "role": "isolated automatically cleaned browser profile directories for live capture",
+      "decision": "retain",
+      "alternatives": ["manual platform temporary-directory management", "shared persistent browser profile"],
+      "rationale": "Every capture must start without ambient cookies, storage, extensions or cache and must clean up after error paths; a scoped temporary directory provides that lifecycle without importing host profile state.",
+      "evidence": ["research/items/live-chromium-cdp-capture.md"]
+    },
+    {
       "name": "thiserror",
       "role": "typed library error definitions",
       "decision": "retain",
@@ -224,6 +240,14 @@
       "alternatives": ["async-std", "smol", "manual blocking JSON-RPC loop"],
       "rationale": "rmcp is built on Tokio and the adapter needs only its current-thread runtime and stdio primitives; another runtime would add an interop layer, while a manual loop would duplicate official lifecycle and cancellation behavior.",
       "evidence": ["research/items/mcp-stateless-agent-adapter.md"]
+    },
+    {
+      "name": "tungstenite",
+      "role": "bounded synchronous loopback WebSocket transport for the pinned Chromium capture adapter",
+      "decision": "retain",
+      "alternatives": ["Playwright sidecar", "WebDriver BiDi plus driver", "chromiumoxide", "headless_chrome"],
+      "rationale": "The capture process already owns an exact Chrome for Testing build and needs a sequential loopback CDP message channel, not another browser downloader, asynchronous runtime or automation object model. Exact 0.29 supplies RFC 6455 framing with explicit frame/message ceilings and no TLS feature for the loopback-only debugger socket. The reviewed 0.30 delta is a server-side client-key rejection plus dependency/MSRV updates; NUIF is only a client here, and 0.29 avoids four parallel Digest-family version lines. All CDP semantics and evidence limits remain NUIF-owned.",
+      "evidence": ["research/items/live-chromium-cdp-capture.md", "research/items/chromium-source-backed-ui-capture.md"]
     },
     {
       "name": "wasm-bindgen",

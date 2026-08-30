@@ -118,7 +118,7 @@ Package the schema/conformance kit and obtain reproduction by an externally auth
 ## Phase 9b — implementer draft and incubation (blocked on external evidence)
 Meet the implementer-draft gate in `docs/STANDARDS-ROADMAP.md`, including a general-purpose externally maintained implementation, requirement-to-test traceability, legal review of specification and patent terms and organizational supporters. Venue selection follows the resulting scope: W3C for Web and design-tool incubation, Khronos for graphics/content-tool conformance, or OASIS for a governed document protocol. Application alpha versions do not advance this phase.
 
-## Phase 10 — source-backed browser capture (active contract baseline)
+## Phase 10 — source-backed browser capture (active; local live segment automated)
 
 Create a dedicated browser-capture adapter instead of expanding the retentive
 Tree-sitter adapter into a runtime. Pin browser/protocol/OS/context and collect
@@ -126,11 +126,18 @@ bounded source, DOM/layout/style, downloaded-resource, font-use, accessibility
 and screenshot observations. Exit: repeated normalized observations/resource
 hashes reproduce; multi-viewport evidence predicts a held-out context; canvas,
 video, cross-origin and local-font gaps remain explicit; secret canaries never
-enter exported evidence. `cargo xtask capture-baselines` currently proves
-repeatable normalization, exact resource retention, query-secret redaction,
-typed proposal application and cycle rejection from fixed provider input. It
-does not yet drive a live browser, predict a held-out viewport or satisfy this
-phase exit.
+enter exported evidence. `cargo xtask capture-baselines` proves repeatable
+normalization, exact resource retention, query-secret redaction, typed proposal
+application and cycle rejection from fixed provider input. `cargo xtask
+gate-j-live` additionally drives exact Chrome for Testing 152.0.7977.64 with at
+most three recorded fresh-profile attempts per viewport. It records a structured runtime context, retains exactly the
+five declared response bodies, observes actual downloaded-font and
+accessibility results, repeats 360 px bytes exactly, excludes exercised query,
+cookie, storage, authorization and custom-header canaries, and beats the 360 px
+freeform geometry at held-out 900 px using the 360/768 px observations. Cross-OS/browser
+reproduction, opaque and cross-origin fixtures, complete matched-style/source
+correlation, canvas/video frame handling and real licensed pages remain open,
+so the broader phase does not yet exit.
 
 ## Phase 11 — screenshot reconstruction baseline (active contract baseline)
 
