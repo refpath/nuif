@@ -12,6 +12,7 @@ nuif-layout = { version = "0.0.0", path = "../nuif-layout" }
 nuif-render = { version = "0.0.0", path = "../nuif-render" }
 nuif-text = { version = "0.0.1", path = "../nuif-text" }
 nuif-codec = { version = "0.0.0", path = "../nuif-codec" }
+nuif-package = { version = "0.0.1", path = "../nuif-package" }
 nuif-query = { version = "0.0.0", path = "../nuif-query" }
 serde.workspace = true
 sha2.workspace = true

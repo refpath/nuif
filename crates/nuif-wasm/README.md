@@ -3,6 +3,9 @@
 `nuif-wasm-api-0` is a byte-oriented browser and JavaScript binding over the
 same `nuif-api`, codec and semantic-operation crates used by the CLI and native
 editor. It is an experimental developer package, not a stable npm release.
+Document loading, validation, hashing, canonical export and history delegate to
+`nuif-api::NuifDocument`; this crate owns only the JavaScript byte boundary and
+its transport limits.
 
 The generated package has no filesystem, network, host-document or rendering
 authority. A Figma, Adobe or browser integration owns those capabilities and

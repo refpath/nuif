@@ -16,6 +16,26 @@ Every command MUST support machine-readable output and stable diagnostic codes. 
 
 The editor MUST route mutations through the same operation layer available to CLI/API clients. AI/MCP adapters are optional clients of this interface and are never the canonical protocol.
 
+The reference in-process SDK profile is a byte-oriented façade over the
+canonical codecs, package and operation implementation. Bare text/CBOR loading
+MUST name its encoding; package loading MUST run the complete package/resource
+validation path. A loaded package MUST retain verified embedded resources and
+descriptors across neighboring semantic edits. Export to a portable mode MUST
+rerun the target mode's resource policy.
+
+Language and process wrappers MAY add transport limits, ownership conversion
+and host authorization. They MUST NOT copy the semantic model or independently
+implement validation, canonicalization, hashing, package policy or operation
+application. Equivalent wrapper calls over the declared common subset MUST
+produce the same canonical bytes, hash and diagnostics as the direct SDK.
+
+A future C ABI is a separate versioned profile. It MUST define opaque-handle
+lifetime, byte-buffer ownership and release, panic containment, stable error
+classes, threading, calling convention and exported-symbol compatibility. C,
+Swift or Kotlin bindings are not claimed merely because a shared library or
+generated header compiles. Native consumer tests and platform packages are
+required before integration status.
+
 The experimental `nuif-mcp-tools-0` profile is a stateless, stdio-only process
 adapter for MCP `2026-07-28`. It exposes `validate`, `inspect`, `canonicalize`
 and atomic `apply_patch` as pure inline-text transforms over the authoritative

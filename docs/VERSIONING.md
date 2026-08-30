@@ -19,6 +19,10 @@ and source evidence are recorded in ADR 0007 and
   profile identifier, conformance evidence and release record.
 - Library crate versions remain independent until a crate publication policy
   is adopted.
+- `nuif-api` is the direct Rust SDK façade during this policy-free `0.0.x`
+  phase; its source API is usable from a reviewed checkout but no stable Rust
+  or C ABI is promised. The FFI promotion gate is defined in ADR 0011 and
+  `docs/SDK-AND-BINDINGS.md`.
 
 ## Release sequence
 

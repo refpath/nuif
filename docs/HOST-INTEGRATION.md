@@ -30,6 +30,11 @@ The portable contract is canonical NUIF plus the report. Rust is optional for a
 vendor implementation. A TypeScript or JavaScript plug-in may implement the
 same mapping directly from the specification and conformance fixtures.
 
+Rust hosts use the package-aware `nuif-api::NuifDocument` façade documented in
+`docs/SDK-AND-BINDINGS.md`. Browser plug-ins use the thin WASM wrapper over that
+façade. A stable C/Swift/Kotlin ABI is deliberately not claimed during the
+`0.0.x` semantic-API phase; ADR 0011 defines the native-binding promotion gate.
+
 ## Browser binding boundary
 
 `nuif-wasm-api-0` packages parsing, validation, canonical text/CBOR and bounded

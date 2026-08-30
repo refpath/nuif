@@ -26,11 +26,18 @@ Gate G: bounded mechanically independent reproduction. The standard-library-only
 
 Gate H: bounded metadata-free collaboration checkpoint. Two algorithmically distinct in-repository materializers converge for every delivery of a conflict-bearing property-register history; conflicts remain explicit and canonical NUIF contains no replica state.
 
-Publication infrastructure: `docs/catalog.json` currently selects 235 canonical Markdown documents without copying their bodies. The bounded `xtask` compiler validates metadata and repository links, generates navigation and status indexes, builds a searchable mdBook site and composes a 13-module working manuscript. The Pages workflow retains pull-request artifacts and restricts deployment permission to its deployment job. This infrastructure publishes evidence; it does not promote evidence status.
+Publication infrastructure: `docs/catalog.json` currently selects 244 canonical Markdown documents without copying their bodies. The bounded `xtask` compiler validates metadata and repository links, generates navigation and status indexes, builds a searchable mdBook site and composes a 13-module working manuscript. The Pages workflow retains pull-request artifacts and restricts deployment permission to its deployment job. This infrastructure publishes evidence; it does not promote evidence status.
 
 ## Current falsifiers
 
-`nuif:experiment:v0-responsive-card` and the bounded collaboration property-register checkpoint are complete under their declared acceptance. The next collaboration falsifier is structural: concurrent insert/remove/move must preserve one-parent/acyclic invariants, sibling ordering and deletion intent through an explicit tree/list algorithm, then reproduce its checkpoint through a foreign engine. Register convergence does not imply any of those properties.
+`nuif:experiment:v0-responsive-card`, the bounded collaboration
+property-register checkpoint and the existing-tree structural checkpoint are
+complete under their declared acceptance. Structural move/reorder/delete/rescue
+preserves one-parent/acyclic invariants and stable sibling origins across all
+5,040 deliveries, while Automerge reproduces operation transport. The next
+collaboration falsifier is concurrent entity creation, followed by causally
+stable garbage collection, combined property/structure transactions and a
+foreign materializer of the tree algorithm itself.
 
 The package segment of `nuif:experiment:portable-package-resources` is active:
 the manual writer agrees byte-for-byte with an independent ZIP writer, identity
@@ -75,7 +82,9 @@ from that loop rather than a standing implementation commitment.
 
 1. Keep Gates B through H green with `cargo xtask all` and the separate nightly `cargo xtask fuzz-smoke`; reduce fuzz failures before committing them as named fixtures and retain all machine reports as CI artifacts.
 2. Extend the executable existing-tree collaboration profile to concurrent creation, causal-stability garbage collection and combined property/structure transactions; obtain a foreign tree materializer rather than treating the completed Automerge transport oracle as one.
-3. Design explicit Grid track and placement fields before replacing the classified profile-0 stack fallback; do not infer Grid support from the Gate C pass.
+3. Keep the implemented fixed/`fr`, sparse-flow, explicit-placement Grid subset
+   exact; intrinsic, percentage, named, repeated, implicit, subgrid and masonry
+   tracks require a separately versioned schema and foreign-oracle matrix.
 4. Keep the tested Masonry shell attached only through the editor driver boundary; complete direct manipulation without moving semantic rules into shell code.
 5. Treat soft wrapping, gradients, strokes, paths, images and instance materialization as a separately versioned expanded profile; do not weaken profile-0 exactness to add them.
 6. Keep `cargo xtask gate-i-package` green across CLI/editor/package changes and add a recorded cross-platform/external writer before accepting the wire profile.
@@ -85,8 +94,12 @@ from that loop rather than a standing implementation commitment.
 10. Train or distill only if the frozen evaluation demonstrates a learnable gap and rights-cleared validated traces exist.
 11. Maintain the credential-free Penpot package profile under its shared ZIP resource-limit, foreign-producer and unknown-member-retention gate; defer the compact representation until upstream stability and a second fixture.
 12. Run the bounded Figma and Adobe profiles in named live host versions; retain host reports and do not infer live behavior from API documentation.
-13. Package the conformance kit for externally authored reproduction; do not treat the in-repository Python path or Rust adapters as external interoperability evidence.
-14. Keep standards-development work behind the implementer-draft and external-support gates in `docs/STANDARDS-ROADMAP.md`.
+13. Keep `nuif-api::NuifDocument` as the single direct SDK façade and require
+    semantic-API promotion, stable errors/ownership, sanitizer-backed native
+    consumers and real platform packages before declaring C, Swift or Kotlin
+    binding profiles.
+14. Package the conformance kit for externally authored reproduction; do not treat the in-repository Python path or Rust adapters as external interoperability evidence.
+15. Keep standards-development work behind the implementer-draft and external-support gates in `docs/STANDARDS-ROADMAP.md`.
 
 ## Update policy
 

@@ -126,6 +126,7 @@ Testing is designed for automated trial loops: generate or load a document, appl
 | Draft specification | Pre-draft | No normative conformance profile is published |
 | Executable adapter and conformance profiles | Experimental | Results apply only to each declared profile and evaluation matrix |
 | WebAssembly binding | Experimental `nuif-wasm-api-0` | Byte-oriented text/CBOR, validation, patch and history parity; no host authority or browser-layout claim |
+| Direct Rust SDK | Experimental `nuif-api` façade | Package-aware load/validate/apply/export over one core; no stable C ABI or crates.io publication claim |
 | Package/resources | Experimental implementation; Gate I incomplete | Deterministic package plus narrow independently parsed RGBA8 PNG and static TrueType resource paths are executable; a three-OS CI matrix is configured, while broad media/font matrices, external reproduction and successful hosted matrix evidence remain open |
 | Capture/reconstruction | Experimental contracts and deterministic baselines | Browser/screenshot normalization plus one pinned local live-CDP segment, typed proposals, calibration primitives and a finite loop exist; no portable capture, broad accuracy or model claim |
 | Project | Open research project; not a standard | Standards status requires neutral governance and independent implementations |

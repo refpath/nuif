@@ -85,6 +85,21 @@ without an application store. Live compatibility with named third-party MCP
 hosts, large-document resource handles and any authenticated HTTP service are
 separate trials and are not claimed by this phase.
 
+## Phase 5e — direct SDK and foreign binding boundary (direct SDK complete)
+
+`nuif-api::NuifDocument` is the package-aware, byte-oriented façade over the
+canonical codecs, verified package/resources and typed session operations.
+Text/CBOR load, validation, transaction application, hashes, undo/redo and
+bare/package export have one implementation; the WASM binding delegates to it
+and the system benchmark suite measures direct text, CBOR and package calls.
+
+No stable C ABI is claimed while the semantic API remains `0.0.x`. ADR 0011
+requires a separately reviewed unsafe `nuif-ffi` boundary, stable ownership and
+error contracts, cbindgen header/symbol checks, sanitizer-backed C consumers,
+pinned UniFFI Swift/Kotlin consumers and real XCFramework/AAR packages before
+that surface becomes integrated. This is a promotion gate, not missing logic
+that should be guessed into the core.
+
 ## Phase 6a — first adapters/sync falsifier (complete for bounded HTML/CSS profile 0)
 `nuif-html-css-0` maps a declared container/text/finite-token subset through real DOM/CSS syntax with byte-span correspondence. Text, token and four-edge padding edits change only their six spans; comments and unmapped markup survive exactly; unsupported semantics have target/property fidelity. HTML/CSS was intentionally tested before SVG because Gate F and the architecture stop condition concern minimal source patches. This narrow profile remains independently automated even after the full-v0 follow-on; arbitrary HTML/CSS and SVG remain broader adapter work.
 

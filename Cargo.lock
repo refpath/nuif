@@ -2412,6 +2412,7 @@ dependencies = [
  "nuif-codec",
  "nuif-core",
  "nuif-layout",
+ "nuif-package",
  "nuif-protocol",
  "nuif-query",
  "nuif-render",

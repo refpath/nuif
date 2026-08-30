@@ -1,8 +1,9 @@
 #![doc = "Stable headless engine and editor-session contract shared by every client."]
 
-use nuif_codec::{CodecError, canonical_hash};
+use nuif_codec::{CanonicalText, CodecError, DeterministicCbor, Encoder, canonical_hash};
 use nuif_core::{Diagnostic, Document, EntityId, ResourceDigest, Severity, validate};
 use nuif_layout::{EvaluationContext, LayoutSnapshot, evaluate};
+use nuif_package::{NuifPackage, PackageError, PackageMode};
 use nuif_protocol::{ApplyError, Operation, Patch, Transaction, apply_patch_with_inverse};
 use nuif_render::{
     RasterImage, RenderError, RenderScene, RenderTarget, build_scene, build_scene_with_resources,
@@ -19,6 +20,55 @@ pub const MAX_SESSION_RESOURCES: usize = 8_192;
 pub const MAX_SESSION_RESOURCE_BYTES: usize = 32 * 1024 * 1024;
 pub const MAX_SESSION_TOTAL_RESOURCE_BYTES: usize = 64 * 1024 * 1024;
 pub type SessionResources = BTreeMap<ResourceDigest, Arc<[u8]>>;
+
+/// A canonical bare-document encoding accepted by every in-process client.
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum DocumentEncoding {
+    CanonicalText,
+    DeterministicCbor,
+}
+
+impl DocumentEncoding {
+    #[must_use]
+    pub const fn profile(self) -> &'static str {
+        match self {
+            Self::CanonicalText => "nuif-text-0",
+            Self::DeterministicCbor => "nuif-cbor-0",
+        }
+    }
+
+    /// Resolves a public encoding profile without guessing from input bytes.
+    ///
+    /// # Errors
+    ///
+    /// Rejects every profile outside the two canonical bare encodings.
+    pub fn from_profile(profile: &str) -> Result<Self, EngineError> {
+        match profile {
+            "nuif-text-0" => Ok(Self::CanonicalText),
+            "nuif-cbor-0" => Ok(Self::DeterministicCbor),
+            _ => Err(EngineError::EncodingUnsupported {
+                profile: profile.to_owned(),
+            }),
+        }
+    }
+
+    fn decode_for_validation(self, bytes: &[u8]) -> Result<Document, EngineError> {
+        match self {
+            Self::CanonicalText => CanonicalText.decode_for_validation(bytes),
+            Self::DeterministicCbor => DeterministicCbor.decode_for_validation(bytes),
+        }
+        .map_err(Into::into)
+    }
+
+    fn encode(self, document: &Document) -> Result<Vec<u8>, EngineError> {
+        match self {
+            Self::CanonicalText => CanonicalText.encode(document),
+            Self::DeterministicCbor => DeterministicCbor.encode(document),
+        }
+        .map_err(Into::into)
+    }
+}
 
 const CAPABILITIES: &[Capability] = &[
     Capability::Inspect,
@@ -121,6 +171,172 @@ pub fn profile_zero_context(width: f64, height: f64) -> EvaluationContext {
     context
 }
 
+/// Package-aware, byte-oriented façade over one authoritative session.
+///
+/// Language bindings and process adapters should translate their transport at
+/// the edge, then delegate document semantics to this type. A loaded package
+/// retains its verified resource descriptors and immutable embedded bytes
+/// across semantic edits and subsequent package export.
+#[derive(Clone, Debug)]
+pub struct NuifDocument {
+    session: Session,
+    package: Option<NuifPackage>,
+}
+
+impl NuifDocument {
+    #[must_use]
+    pub fn from_document(document: Document) -> Self {
+        Self {
+            session: Session::new(document),
+            package: None,
+        }
+    }
+
+    /// Loads a canonical bare document while retaining structural diagnostics.
+    ///
+    /// # Errors
+    ///
+    /// Rejects malformed or resource-excessive input. Structurally invalid but
+    /// decodable documents remain inspectable through [`Self::validate`].
+    pub fn load(bytes: &[u8], encoding: DocumentEncoding) -> Result<Self, EngineError> {
+        let document = encoding.decode_for_validation(bytes)?;
+        Ok(Self::from_document(document))
+    }
+
+    /// Loads and fully verifies a deterministic package and its embedded bytes.
+    ///
+    /// # Errors
+    ///
+    /// Rejects malformed packages, invalid manifests, resource-policy failures,
+    /// digest mismatches and every declared package or session resource limit.
+    pub fn load_package(bytes: &[u8]) -> Result<Self, EngineError> {
+        let package = NuifPackage::decode(bytes)?;
+        let session =
+            Session::with_resources(package.document.clone(), package.embedded_resources())?;
+        Ok(Self {
+            session,
+            package: Some(package),
+        })
+    }
+
+    #[must_use]
+    pub const fn document(&self) -> &Document {
+        self.session.document()
+    }
+
+    #[must_use]
+    pub fn package_mode(&self) -> Option<PackageMode> {
+        self.package.as_ref().map(|package| package.mode)
+    }
+
+    #[must_use]
+    pub fn resource(&self, digest: &ResourceDigest) -> Option<&[u8]> {
+        self.session.resource(digest)
+    }
+
+    /// Returns structural diagnostics without mutating the loaded document.
+    ///
+    /// # Errors
+    ///
+    /// Returns an engine error only if validation cannot be executed.
+    pub fn validate(&self) -> Result<ValidationReport, EngineError> {
+        ReferenceEngine.validate(self.document())
+    }
+
+    /// Returns the canonical semantic-document revision.
+    ///
+    /// # Errors
+    ///
+    /// Rejects documents that cannot be canonically encoded.
+    pub fn canonical_hash(&self) -> Result<String, EngineError> {
+        canonical_hash(self.document()).map_err(Into::into)
+    }
+
+    /// Applies an already decoded semantic patch atomically.
+    ///
+    /// # Errors
+    ///
+    /// Rejects stale or invalid patches without changing the document.
+    pub fn apply_patch(&mut self, patch: &Patch) -> Result<(), EngineError> {
+        self.session.apply(patch)
+    }
+
+    /// Applies one typed transaction and returns its replayable patch.
+    ///
+    /// # Errors
+    ///
+    /// Rejects invalid operations atomically.
+    pub fn apply_operations(
+        &mut self,
+        transaction: u128,
+        operations: Vec<Operation>,
+    ) -> Result<Patch, EngineError> {
+        self.session.apply_transaction(transaction, operations)
+    }
+
+    #[must_use]
+    pub fn can_undo(&self) -> bool {
+        self.session.can_undo()
+    }
+
+    #[must_use]
+    pub fn can_redo(&self) -> bool {
+        self.session.can_redo()
+    }
+
+    /// Undoes one semantic patch and returns the applied inverse.
+    ///
+    /// # Errors
+    ///
+    /// Rejects an empty or stale history entry without changing the document.
+    pub fn undo(&mut self) -> Result<Patch, EngineError> {
+        self.session.undo()
+    }
+
+    /// Redoes one semantic patch and returns the applied patch.
+    ///
+    /// # Errors
+    ///
+    /// Rejects an empty or stale history entry without changing the document.
+    pub fn redo(&mut self) -> Result<Patch, EngineError> {
+        self.session.redo()
+    }
+
+    /// Exports the current semantic document through one canonical bare codec.
+    ///
+    /// # Errors
+    ///
+    /// Rejects invalid documents and output-limit violations.
+    pub fn export(&self, encoding: DocumentEncoding) -> Result<Vec<u8>, EngineError> {
+        encoding.encode(self.document())
+    }
+
+    /// Exports a deterministic package while retaining loaded package metadata
+    /// and resources. A document created from bare bytes starts an empty package.
+    ///
+    /// # Errors
+    ///
+    /// Rejects invalid documents, portability-policy failures and package limits.
+    pub fn export_package(&self, mode: PackageMode) -> Result<Vec<u8>, EngineError> {
+        let mut package = self
+            .package
+            .clone()
+            .unwrap_or_else(|| NuifPackage::new(self.document().clone(), mode));
+        package.document = self.document().clone();
+        package.mode = mode;
+        package.encode().map_err(Into::into)
+    }
+
+    /// Evaluates and rasterizes one explicit context through the shared engine.
+    ///
+    /// # Errors
+    ///
+    /// Rejects invalid documents, contexts, resources or render targets.
+    pub fn snapshot(&self, context: &EvaluationContext) -> Result<Snapshot, EngineError> {
+        self.session.snapshot(context)
+    }
+}
+
 impl Engine for ReferenceEngine {
     type Error = EngineError;
 
@@ -182,7 +398,11 @@ pub enum EngineError {
     #[error(transparent)]
     Codec(#[from] CodecError),
     #[error(transparent)]
+    Package(#[from] PackageError),
+    #[error(transparent)]
     Render(#[from] RenderError),
+    #[error("unsupported document encoding profile {profile:?}")]
+    EncodingUnsupported { profile: String },
     #[error("undo or redo history is empty")]
     HistoryEmpty,
     #[error("invalid evaluation context: {reason}")]
@@ -676,5 +896,72 @@ mod tests {
             Session::with_resources(document(), resources),
             Err(EngineError::ResourceDigestMismatch { .. })
         ));
+    }
+
+    #[test]
+    fn byte_facade_shares_canonical_operations_across_encodings() {
+        let input = CanonicalText.encode(&document()).unwrap();
+        let mut loaded = NuifDocument::load(&input, DocumentEncoding::CanonicalText).unwrap();
+        let before = loaded.canonical_hash().unwrap();
+        let patch = loaded
+            .apply_operations(
+                7,
+                vec![Operation::Rename {
+                    entity: EntityId::new(2),
+                    name: Some("shared facade".to_owned()),
+                }],
+            )
+            .unwrap();
+        let after = loaded.canonical_hash().unwrap();
+
+        assert_eq!(patch.base_revision.as_deref(), Some(before.as_str()));
+        assert_ne!(after, before);
+        assert_eq!(loaded.validate().unwrap().diagnostics.len(), 0);
+        let cbor = loaded.export(DocumentEncoding::DeterministicCbor).unwrap();
+        assert_eq!(
+            NuifDocument::load(&cbor, DocumentEncoding::DeterministicCbor)
+                .unwrap()
+                .canonical_hash()
+                .unwrap(),
+            after
+        );
+        loaded.undo().unwrap();
+        assert_eq!(loaded.canonical_hash().unwrap(), before);
+        loaded.redo().unwrap();
+        assert_eq!(loaded.canonical_hash().unwrap(), after);
+    }
+
+    #[test]
+    fn byte_facade_retains_package_contract_across_edits() {
+        let mut package = NuifPackage::new(document(), PackageMode::Authoring);
+        package
+            .required_capabilities
+            .insert("nuif-layout-profile-0".to_owned());
+        let bytes = package.encode().unwrap();
+        let mut loaded = NuifDocument::load_package(&bytes).unwrap();
+
+        assert_eq!(loaded.package_mode(), Some(PackageMode::Authoring));
+        loaded
+            .apply_operations(
+                9,
+                vec![Operation::Rename {
+                    entity: EntityId::new(2),
+                    name: Some("package edit".to_owned()),
+                }],
+            )
+            .unwrap();
+        let exported = loaded.export_package(PackageMode::Authoring).unwrap();
+        let decoded = NuifPackage::decode(&exported).unwrap();
+
+        assert!(
+            decoded
+                .required_capabilities
+                .contains("nuif-layout-profile-0")
+        );
+        assert_eq!(
+            decoded.document.entities[&EntityId::new(2)].name.as_deref(),
+            Some("package edit")
+        );
+        assert_eq!(decoded.encode().unwrap(), exported);
     }
 }

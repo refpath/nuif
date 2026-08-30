@@ -1,8 +1,7 @@
 #![doc = "Stateless Model Context Protocol tools over the authoritative NUIF core API."]
 
-use nuif_api::Session;
-use nuif_codec::{CanonicalText, Canonicalizer, Decoder, Encoder, canonical_hash};
-use nuif_core::{Diagnostic, Document, Fidelity, Severity, validate};
+use nuif_api::{DocumentEncoding, NuifDocument};
+use nuif_core::{Diagnostic, Fidelity, Severity};
 use nuif_protocol::{Patch, PatchLimits, enforce_patch_limits};
 use rmcp::{
     Json, ServerHandler, ServiceExt,
@@ -150,7 +149,7 @@ impl NuifMcp {
         Parameters(input): Parameters<DocumentInput>,
     ) -> Result<Json<ValidationOutput>, String> {
         let document = decode_document(&input.document)?;
-        Ok(Json(validation_output(&document)))
+        Ok(Json(validation_output(&document)?))
     }
 
     /// Reports bounded structural and identity information for a document.
@@ -175,24 +174,23 @@ impl NuifMcp {
         Parameters(input): Parameters<DocumentInput>,
     ) -> Result<Json<InspectionOutput>, String> {
         let document = decode_document(&input.document)?;
-        let diagnostics = validate(&document);
+        let diagnostics = document
+            .validate()
+            .map_err(|error| coded("NUIF_VALIDATE_FAILED", error))?
+            .diagnostics;
         let errors = error_count(&diagnostics);
+        let model = document.document();
         Ok(Json(InspectionOutput {
             schema_version: 1,
             status: status(errors).to_owned(),
-            document_id: document.id.to_string(),
-            canonical_hash: canonical_hash(&document).ok(),
-            entities: document.entities.len(),
-            roots: document.roots.iter().map(ToString::to_string).collect(),
-            tokens: document.tokens.len(),
-            relations: document.relations.len(),
-            assets: document.assets.len(),
-            extensions_used: document
-                .extension_declarations
-                .used
-                .iter()
-                .cloned()
-                .collect(),
+            document_id: model.id.to_string(),
+            canonical_hash: document.canonical_hash().ok(),
+            entities: model.entities.len(),
+            roots: model.roots.iter().map(ToString::to_string).collect(),
+            tokens: model.tokens.len(),
+            relations: model.relations.len(),
+            assets: model.assets.len(),
+            extensions_used: model.extension_declarations.used.iter().cloned().collect(),
             errors,
         }))
     }
@@ -218,17 +216,15 @@ impl NuifMcp {
         &self,
         Parameters(input): Parameters<DocumentInput>,
     ) -> Result<Json<CanonicalDocumentOutput>, String> {
-        enforce_document_bytes(&input.document)?;
-        let canonical = CanonicalText
-            .canonicalize(input.document.as_bytes())
+        let document = decode_document(&input.document)?;
+        let canonical = document
+            .export(DocumentEncoding::CanonicalText)
             .map_err(|error| coded("NUIF_DOCUMENT_CANONICALIZE_FAILED", error))?;
-        let document = CanonicalText
-            .decode(&canonical)
-            .map_err(|error| coded("NUIF_DOCUMENT_DECODE_FAILED", error))?;
         Ok(Json(CanonicalDocumentOutput {
             schema_version: 1,
             status: "passed".to_owned(),
-            canonical_hash: canonical_hash(&document)
+            canonical_hash: document
+                .canonical_hash()
                 .map_err(|error| coded("NUIF_CANONICAL_HASH_FAILED", error))?,
             document: String::from_utf8(canonical)
                 .map_err(|error| coded("NUIF_DOCUMENT_UTF8_FAILED", error))?,
@@ -256,19 +252,19 @@ impl NuifMcp {
         &self,
         Parameters(input): Parameters<ApplyPatchInput>,
     ) -> Result<Json<ApplyPatchOutput>, String> {
-        let document = decode_document(&input.document)?;
+        let mut document = decode_document(&input.document)?;
         let (patch, usage) = decode_patch(&input.patch)?;
-        let mut session = Session::new(document);
-        session
-            .apply(&patch)
+        document
+            .apply_patch(&patch)
             .map_err(|error| coded("NUIF_PATCH_APPLY_FAILED", error))?;
-        let bytes = CanonicalText
-            .encode(session.document())
+        let bytes = document
+            .export(DocumentEncoding::CanonicalText)
             .map_err(|error| coded("NUIF_DOCUMENT_ENCODE_FAILED", error))?;
         Ok(Json(ApplyPatchOutput {
             schema_version: 1,
             status: "passed".to_owned(),
-            canonical_hash: canonical_hash(session.document())
+            canonical_hash: document
+                .canonical_hash()
                 .map_err(|error| coded("NUIF_CANONICAL_HASH_FAILED", error))?,
             document: String::from_utf8(bytes)
                 .map_err(|error| coded("NUIF_DOCUMENT_UTF8_FAILED", error))?,
@@ -295,10 +291,9 @@ impl ServerHandler for NuifMcp {
     }
 }
 
-fn decode_document(input: &str) -> Result<Document, String> {
+fn decode_document(input: &str) -> Result<NuifDocument, String> {
     enforce_document_bytes(input)?;
-    CanonicalText
-        .decode_for_validation(input.as_bytes())
+    NuifDocument::load(input.as_bytes(), DocumentEncoding::CanonicalText)
         .map_err(|error| coded("NUIF_DOCUMENT_DECODE_FAILED", error))
 }
 
@@ -333,16 +328,19 @@ fn decode_patch(input: &str) -> Result<(Patch, nuif_protocol::PatchUsage), Strin
     Ok((patch, usage))
 }
 
-fn validation_output(document: &Document) -> ValidationOutput {
-    let diagnostics = validate(document);
+fn validation_output(document: &NuifDocument) -> Result<ValidationOutput, String> {
+    let diagnostics = document
+        .validate()
+        .map_err(|error| coded("NUIF_VALIDATE_FAILED", error))?
+        .diagnostics;
     let errors = error_count(&diagnostics);
-    ValidationOutput {
+    Ok(ValidationOutput {
         schema_version: 1,
         status: status(errors).to_owned(),
-        canonical_hash: canonical_hash(document).ok(),
+        canonical_hash: document.canonical_hash().ok(),
         errors,
         diagnostics: diagnostics.into_iter().map(Into::into).collect(),
-    }
+    })
 }
 
 fn error_count(diagnostics: &[Diagnostic]) -> usize {
@@ -485,7 +483,8 @@ pub fn run_stdio() -> Result<(), Box<dyn std::error::Error>> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use nuif_core::{Entity, EntityId, EntityKind};
+    use nuif_codec::{CanonicalText, Encoder};
+    use nuif_core::{Document, Entity, EntityId, EntityKind};
     use tokio::io::AsyncReadExt;
 
     fn document_text() -> String {

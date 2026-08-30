@@ -1,6 +1,6 @@
 version: 1
 project: NUIF
-updated_at: 2026-08-30
+updated_at: 2026-08-31
 principles:
   - id: nuif:claim:multi-level-ir
     statement: A portable authored-interface standard requires multiple coordinated semantic levels rather than a single scene tree.
@@ -54,4 +54,4 @@ topics:
   editor_ui: [figma-ui3-editor-layout, figma-tools-and-keyboard-shortcuts, figma-plugin-and-rest-api-as-automation-surface, penpot-editor-ui-and-automation, design-editor-ui-conventions-synthesis]
   documentation_publication: [github-pages-actions-documentation-publishing, github-wiki-repository-and-indexing, gitbook-bidirectional-git-sync, mdbook-static-documentation-pipeline, scholarly-publication-and-citation-workflow]
   governance_and_standardization: [w3c-community-incubation-and-recommendation-process, community-specification-license-and-governance, standards-development-venue-comparison, dtcg, ui-spec-schema-cg]
-  rust_tooling: [egui-and-egui-kittest, masonry-xilem-and-linebender-test-harness, iced-slint-gpui-makepad-floem, accesskit-semantic-ui-testing, rust-snapshot-property-fuzz-tooling, libtest-mimic-and-data-driven-fixtures, cargo-workspace-xtask-and-ci-layout, wasm-headless-execution, masonry-editor-stack-decision, rust-toolchain-and-msrv-policy, macos-metal-block-future-incompatibility, github-release-delivery-and-provenance, developer-source-installation-and-os-trust, dependency-and-subsystem-audit, serde-saphyr-yaml-parser]
+  rust_tooling: [egui-and-egui-kittest, masonry-xilem-and-linebender-test-harness, iced-slint-gpui-makepad-floem, accesskit-semantic-ui-testing, rust-snapshot-property-fuzz-tooling, libtest-mimic-and-data-driven-fixtures, cargo-workspace-xtask-and-ci-layout, wasm-headless-execution, rust-sdk-and-foreign-language-bindings, masonry-editor-stack-decision, rust-toolchain-and-msrv-policy, macos-metal-block-future-incompatibility, github-release-delivery-and-provenance, developer-source-installation-and-os-trust, dependency-and-subsystem-audit, serde-saphyr-yaml-parser]

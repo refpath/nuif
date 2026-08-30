@@ -1,4 +1,6 @@
 use criterion::{BenchmarkId, Criterion, Throughput, criterion_group, criterion_main};
+use nuif_api::{DocumentEncoding, NuifDocument};
+use nuif_codec::{CanonicalText, DeterministicCbor, Encoder};
 use nuif_collab::{Change, ChangeId, OperationSetEngine, ReplicaLogEngine};
 use nuif_core::{EntityId, EntityKind, PropertyValue, SizeIntent};
 use nuif_package::{NuifPackage, PackageMode};
@@ -11,6 +13,48 @@ use std::time::Duration;
 const QUERY_SIZES: &[usize] = &[128, 1_024, 4_096, 8_192];
 const COLLABORATOR_SIZES: &[usize] = &[2, 32, 256, 1_024];
 const PACKAGE_SIZES: &[usize] = &[128, 1_024, 4_096];
+
+fn benchmark_direct_sdk(criterion: &mut Criterion) {
+    let document = performance_fixture(1_024, true);
+    let text = CanonicalText.encode(&document).unwrap();
+    let cbor = DeterministicCbor.encode(&document).unwrap();
+    let package = NuifPackage::new(document, PackageMode::Portable)
+        .encode()
+        .unwrap();
+    let loaded = NuifDocument::load(&cbor, DocumentEncoding::DeterministicCbor).unwrap();
+    let mut group = criterion.benchmark_group("sdk/direct_document");
+
+    group.throughput(Throughput::Bytes(text.len() as u64));
+    group.bench_function("load_text", |bencher| {
+        bencher.iter(|| {
+            NuifDocument::load(black_box(&text), black_box(DocumentEncoding::CanonicalText))
+                .unwrap()
+        });
+    });
+    group.throughput(Throughput::Bytes(cbor.len() as u64));
+    group.bench_function("load_cbor", |bencher| {
+        bencher.iter(|| {
+            NuifDocument::load(
+                black_box(&cbor),
+                black_box(DocumentEncoding::DeterministicCbor),
+            )
+            .unwrap()
+        });
+    });
+    group.throughput(Throughput::Bytes(package.len() as u64));
+    group.bench_function("load_package", |bencher| {
+        bencher.iter(|| NuifDocument::load_package(black_box(&package)).unwrap());
+    });
+    group.throughput(Throughput::Bytes(cbor.len() as u64));
+    group.bench_function("export_cbor", |bencher| {
+        bencher.iter(|| {
+            black_box(&loaded)
+                .export(black_box(DocumentEncoding::DeterministicCbor))
+                .unwrap()
+        });
+    });
+    group.finish();
+}
 
 fn benchmark_queries(criterion: &mut Criterion) {
     let mut lookup = criterion.benchmark_group("query/entity_lookup");
@@ -329,7 +373,8 @@ fn criterion_config() -> Criterion {
 criterion_group! {
     name = system_surfaces;
     config = criterion_config();
-    targets = benchmark_queries,
+    targets = benchmark_direct_sdk,
+        benchmark_queries,
         benchmark_collaboration,
         benchmark_package,
         benchmark_resource_profiles,

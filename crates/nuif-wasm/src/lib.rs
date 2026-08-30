@@ -1,8 +1,8 @@
 #![doc = "Byte-oriented WebAssembly bindings over the authoritative NUIF core API."]
 
-use nuif_api::Session;
-use nuif_codec::{CanonicalText, DeterministicCbor, Encoder, MAX_INPUT_BYTES, canonical_hash};
-use nuif_core::{Diagnostic, Document, Severity, validate};
+use nuif_api::{DocumentEncoding, NuifDocument};
+use nuif_codec::MAX_INPUT_BYTES;
+use nuif_core::{Diagnostic, Severity};
 use nuif_protocol::{Patch, PatchLimits, enforce_patch_limits};
 use serde::Serialize;
 use thiserror::Error;
@@ -13,39 +13,9 @@ pub const MAX_PATCH_BYTES: usize = 4 * 1024 * 1024;
 pub const MAX_PATCH_TRANSACTIONS: usize = 1_024;
 pub const MAX_PATCH_OPERATIONS: usize = 16_384;
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-enum DocumentEncoding {
-    Text,
-    Cbor,
-}
-
-impl DocumentEncoding {
-    fn parse(value: &str) -> Result<Self, BindingError> {
-        match value {
-            "nuif-text-0" => Ok(Self::Text),
-            "nuif-cbor-0" => Ok(Self::Cbor),
-            _ => Err(BindingError::new(
-                "NUIF_ENCODING_UNSUPPORTED",
-                format!("unsupported encoding profile {value:?}"),
-            )),
-        }
-    }
-
-    fn decode_for_validation(self, bytes: &[u8]) -> Result<Document, BindingError> {
-        match self {
-            Self::Text => CanonicalText.decode_for_validation(bytes),
-            Self::Cbor => DeterministicCbor.decode_for_validation(bytes),
-        }
-        .map_err(|error| BindingError::new("NUIF_DOCUMENT_DECODE_FAILED", error.to_string()))
-    }
-
-    fn encode(self, document: &Document) -> Result<Vec<u8>, BindingError> {
-        match self {
-            Self::Text => CanonicalText.encode(document),
-            Self::Cbor => DeterministicCbor.encode(document),
-        }
-        .map_err(|error| BindingError::new("NUIF_DOCUMENT_ENCODE_FAILED", error.to_string()))
-    }
+fn document_encoding(value: &str) -> Result<DocumentEncoding, BindingError> {
+    DocumentEncoding::from_profile(value)
+        .map_err(|error| BindingError::new("NUIF_ENCODING_UNSUPPORTED", error.to_string()))
 }
 
 #[derive(Debug, Error)]
@@ -63,7 +33,7 @@ impl BindingError {
 
 #[derive(Debug)]
 struct CoreDocument {
-    session: Session,
+    document: NuifDocument,
 }
 
 impl CoreDocument {
@@ -77,47 +47,53 @@ impl CoreDocument {
                 ),
             ));
         }
-        let encoding = DocumentEncoding::parse(encoding)?;
-        let document = encoding.decode_for_validation(bytes)?;
-        Ok(Self {
-            session: Session::new(document),
-        })
+        let encoding = document_encoding(encoding)?;
+        let document = NuifDocument::load(bytes, encoding)
+            .map_err(|error| BindingError::new("NUIF_DOCUMENT_DECODE_FAILED", error.to_string()))?;
+        Ok(Self { document })
     }
 
-    fn validation_report(&self) -> ValidationReport {
-        let diagnostics = validate(self.session.document());
+    fn validation_report(&self) -> Result<ValidationReport, BindingError> {
+        let diagnostics = self
+            .document
+            .validate()
+            .map_err(|error| BindingError::new("NUIF_VALIDATE_FAILED", error.to_string()))?
+            .diagnostics;
         let errors = diagnostics
             .iter()
             .filter(|diagnostic| diagnostic.severity == Severity::Error)
             .count();
-        ValidationReport {
+        Ok(ValidationReport {
             schema_version: 1,
             status: if errors == 0 { "passed" } else { "failed" },
             errors,
             diagnostics,
-        }
+        })
     }
 
     fn export(&self, encoding: &str) -> Result<Vec<u8>, BindingError> {
-        DocumentEncoding::parse(encoding)?.encode(self.session.document())
+        self.document
+            .export(document_encoding(encoding)?)
+            .map_err(|error| BindingError::new("NUIF_DOCUMENT_ENCODE_FAILED", error.to_string()))
     }
 
     fn canonical_hash(&self) -> Result<String, BindingError> {
-        canonical_hash(self.session.document())
+        self.document
+            .canonical_hash()
             .map_err(|error| BindingError::new("NUIF_CANONICAL_HASH_FAILED", error.to_string()))
     }
 
     fn apply_patch(&mut self, bytes: &[u8]) -> Result<String, BindingError> {
         let patch = decode_patch(bytes)?;
-        self.session
-            .apply(&patch)
+        self.document
+            .apply_patch(&patch)
             .map_err(|error| BindingError::new("NUIF_PATCH_APPLY_FAILED", error.to_string()))?;
         self.canonical_hash()
     }
 
     fn undo(&mut self) -> Result<(String, Patch), BindingError> {
         let patch = self
-            .session
+            .document
             .undo()
             .map_err(|error| BindingError::new("NUIF_UNDO_FAILED", error.to_string()))?;
         Ok((self.canonical_hash()?, patch))
@@ -125,7 +101,7 @@ impl CoreDocument {
 
     fn redo(&mut self) -> Result<(String, Patch), BindingError> {
         let patch = self
-            .session
+            .document
             .redo()
             .map_err(|error| BindingError::new("NUIF_REDO_FAILED", error.to_string()))?;
         Ok((self.canonical_hash()?, patch))
@@ -177,7 +153,7 @@ impl WasmDocument {
     /// Throws only if the report cannot be represented as JSON.
     #[wasm_bindgen(js_name = validationReport)]
     pub fn validation_report(&self) -> Result<Vec<u8>, JsError> {
-        serde_json::to_vec(&self.inner.validation_report())
+        serde_json::to_vec(&self.inner.validation_report().map_err(JsError::from)?)
             .map_err(|error| JsError::new(&format!("NUIF_REPORT_ENCODE_FAILED: {error}")))
     }
 
@@ -214,13 +190,13 @@ impl WasmDocument {
     #[wasm_bindgen(js_name = canUndo)]
     #[must_use]
     pub fn can_undo(&self) -> bool {
-        self.inner.session.can_undo()
+        self.inner.document.can_undo()
     }
 
     #[wasm_bindgen(js_name = canRedo)]
     #[must_use]
     pub fn can_redo(&self) -> bool {
-        self.inner.session.can_redo()
+        self.inner.document.can_redo()
     }
 
     /// Undoes one patch and returns its new hash and replayable patch as JSON.
@@ -244,7 +220,7 @@ impl WasmDocument {
     #[wasm_bindgen(getter, js_name = entityCount)]
     #[must_use]
     pub fn entity_count(&self) -> usize {
-        self.inner.session.document().entities.len()
+        self.inner.document.document().entities.len()
     }
 }
 
@@ -312,7 +288,8 @@ fn history_json((canonical_hash, patch): (String, Patch)) -> Result<Vec<u8>, JsE
 #[cfg(test)]
 mod tests {
     use super::*;
-    use nuif_core::{Entity, EntityId, EntityKind};
+    use nuif_codec::{CanonicalText, Encoder};
+    use nuif_core::{Document, Entity, EntityId, EntityKind};
     use nuif_protocol::{Operation, Transaction};
 
     fn document() -> Document {
@@ -347,7 +324,7 @@ mod tests {
             .apply_patch(&rename_patch(Some(before.as_str())))
             .unwrap();
         assert_ne!(after, before);
-        assert_eq!(bound.validation_report().errors, 0);
+        assert_eq!(bound.validation_report().unwrap().errors, 0);
         let cbor = bound.export("nuif-cbor-0").unwrap();
         assert_eq!(
             CoreDocument::load(&cbor, "nuif-cbor-0")
@@ -366,7 +343,7 @@ mod tests {
         invalid.roots.push(EntityId::new(99));
         let bytes = serde_json::to_vec(&invalid).unwrap();
         let bound = CoreDocument::load(&bytes, "nuif-text-0").unwrap();
-        assert!(bound.validation_report().errors > 0);
+        assert!(bound.validation_report().unwrap().errors > 0);
         assert!(bound.export("nuif-text-0").is_err());
     }
 
