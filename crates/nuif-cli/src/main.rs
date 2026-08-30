@@ -39,7 +39,7 @@ use nuif_svg::{
     AdapterError as SvgAdapterError, export_document as export_svg_document,
     import_source as import_svg_source, synchronize as synchronize_svg,
 };
-use nuif_testing::{TrialConfig, run_trials};
+use nuif_testing::{TrialConfig, reduction, run_trials};
 use serde::Deserialize;
 use std::env;
 use std::fs;
@@ -876,12 +876,28 @@ fn trial(args: &[String]) -> Result<(), CliError> {
             .parse::<u32>()
             .map_err(|error| CliError::new(2, "ARGUMENT_INVALID", error.to_string()))
     })?;
-    let report = run_trials(&TrialConfig {
+    let mut report = run_trials(&TrialConfig {
         seed,
         iterations,
         snapshot_interval: snapshot_interval.max(1),
         ..TrialConfig::default()
     });
+    if !report.passed()
+        && let (Some(output), Some(reproduction)) = (args.get(3), report.reproduction.as_ref())
+    {
+        let fixture = PathBuf::from(format!("{output}.reproduction"));
+        let reduced = reduction::minimize_trial_reproduction(reproduction)
+            .map_err(|error| CliError::new(1, "TRIAL_REDUCTION_FAILED", error))?;
+        reduction::write_reduced_fixture(
+            &fixture,
+            &reproduction.failure_code,
+            Some(reproduction.seed),
+            &reduced,
+            &reproduction.minimized_operations,
+        )
+        .map_err(|error| CliError::new(1, "TRIAL_FIXTURE_FAILED", error))?;
+        report.artifacts.push(fixture.display().to_string());
+    }
     if let Some(output) = args.get(3) {
         write_output(
             output,

@@ -219,13 +219,34 @@ experiments:
     acceptance:
       - 10000-patch Gate B replay inverse and text/CBOR fixpoint relations pass for the recorded seed
       - sampled layout and CPU rerender relations pass at the declared snapshot interval
-      - a failure report carries source revision seed iteration and ddmin-reduced operations
+      - a failure report carries source revision seed iteration sampled viewport snapshot decision and ddmin-reduced operations
+      - a reported failure atomically emits a hierarchically minimized base document and operation fixture
     tests:
       - seeded generation of valid semantic edit logs over the v0 fixture
       - replay inversion and encode fixpoint relations on every patch
       - sampled responsive layout and CPU rerender equality
       - operation-sequence ddmin when a relation fails
+      - validity-preserving subtree graph collection extension and known-scalar reduction
+      - contiguous deletion byte lowering and adjacent numeric redistribution for generator choices
+      - automatic non-overwriting fixture-directory emission beside a failed report
       - one JSON report per run following conformance/HARNESS.md
+  - id: nuif:experiment:hierarchical-reduction
+    status: automated
+    evidence: [nuif:research:delta-debugging-and-test-case-reduction, nuif:research:property-based-testing-state-machines]
+    implementation: [crates/nuif-testing/src/reduction.rs, crates/nuif-testing/src/bin/reduction-profile.rs, crates/nuif-testing/src/lib.rs, crates/nuif-cli/src/main.rs, xtask/src/main.rs, .github/workflows/ci.yml]
+    oracle: validity-preserving-interestingness
+    acceptance:
+      - every candidate is structurally valid before the interestingness predicate runs
+      - dangling component token asset containment root and relation references are rejected
+      - reduction order and accepted-step evidence are deterministic for a deterministic predicate
+      - emitted fixtures contain canonical input operations seed predicate and reduction report and never overwrite
+    tests:
+      - reduce the responsive fixture to the three-entity path retaining a named trigger
+      - prove an instance keeps its referenced component definition
+      - reject invalid and initially uninteresting inputs before reduction
+      - shrink choice streams by deletion lowering and adjacent redistribution
+      - atomically emit and decode a named fixture then reject a second write
+      - write and archive target/reduction-profile-report.json and target/reduction-profile-fixture
   - id: nuif:experiment:fuzz-smoke
     status: automated
     evidence: [nuif:research:fuzzing-structured-inputs, nuif:research:property-based-testing-state-machines, nuif:research:resource-bounded-serde-and-ciborium]

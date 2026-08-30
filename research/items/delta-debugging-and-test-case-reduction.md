@@ -34,8 +34,8 @@ links:
   spec: [spec/06-operations-and-patches.md, spec/12-cli-api-and-automation.md, spec/08-serialization.md]
   adr: []
   rfc: [rfcs/0004-headless-qa-contract.md]
-  code: [crates/nuif-protocol, crates/nuif-core, crates/nuif-cli]
-  experiments: [conformance/PLAN.md]
+  code: [crates/nuif-protocol, crates/nuif-core, crates/nuif-cli, crates/nuif-testing/src/reduction.rs, crates/nuif-testing/src/bin/reduction-profile.rs]
+  experiments: [conformance/PLAN.md, conformance/HARNESS.md, research/experiments/index.yaml]
 ---
 
 # Summary
@@ -126,8 +126,19 @@ Invariants: every candidate passed to the system under test is a valid document 
 - Character- or line-based reduction of canonical text (Berkeley delta style); it produces invalid documents and is orders of magnitude slower than structural reduction (PLDI 2012 §3.2; HDD Table 2).
 - Reduction without a validity oracle; Csmith and C-Reduce show that unguarded reducers converge to invalid inputs (PLDI 2011 §3.7; Regehr blog).
 
-## Open questions
+## Implemented decision
 
-- Should NUIF store the reduced fixture as a choice sequence plus generator version, as a canonical document plus patch, or both, given generator evolution?
-- How should reduction treat opaque extension payloads: shrink bytes freely, or hold them fixed because their semantics are unknown?
-- Is HDD* iteration necessary in practice for NUIF documents, or does one HDD pass followed by ddmin over operations suffice?
+NUIF stores the reduced canonical document and semantic operations as the
+durable regression fixture, together with the seed, predicate identifier,
+content hashes and every accepted transformation. The choice sequence remains
+reproduction evidence for generator/fuzzer failures but is not the only durable
+form because generators evolve. The document reducer iterates subtree deletion
+at progressively finer granularity and then runs explicit graph-collection,
+extension and known-scalar passes; full structural validation precedes every
+interestingness call. Unknown-kind opaque payload bytes are held fixed because
+only their owner can define meaningful byte-level simplification, though a
+whole irrelevant unknown entity or namespace can be removed. The bounded NUIF
+profile does not need general cubic HDD*: the subtree pass returns only after no
+remaining individual subtree can be removed, and all later passes are strictly
+simplifying and content-hash memoized. `cargo xtask reduction-profile` records
+the resulting three-entity ancestor path and emitted fixture in CI.

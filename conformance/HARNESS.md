@@ -5,7 +5,7 @@ Status: profile-0 baseline, deterministic `nuif-package-0`, narrow cross-decoder
 ## Goals
 
 1. Every conformance suite in `conformance/PLAN.md` runs from `cargo test --workspace` and from `nuif` CLI commands without a display or GPU.
-2. A failing implemented trial is reproducible from its seed, iteration, source revision and minimized semantic operation sequence. Hierarchical document reduction and automatic fixture-directory writing remain planned.
+2. A failing seeded trial is reproducible from its seed, iteration, sampled viewport, snapshot decision, source revision and minimized semantic operation sequence. When a report path is supplied, the CLI also reduces the base document and atomically emits a sibling regression-fixture directory.
 3. Oracles are explicit: reference implementation, alternative implementation, self-consistency (metamorphic relations) and declared assertions. No oracle is a human.
 4. The editor is a client of the same engine and harness; nothing is testable only through the GUI.
 
@@ -100,7 +100,7 @@ Persisted expectation regeneration remains a planned extension and will use one 
 
 ## Trial loop
 
-The target loop is shared conceptually by CLI, CI and editor automation. Profile 0 currently implements generation, replay, inverse, canonical encodings, responsive layout, CPU rerender, operation ddmin, adapter-specific round trips, fuzz choice streams and the Gate C foreign layout matrix. Automatic minimized-fixture writing shown below remains planned.
+The target loop is shared conceptually by CLI, CI and editor automation. Profile 0 currently implements generation, replay, inverse, canonical encodings, responsive layout, CPU rerender, operation ddmin, document-aware subtree/scalar reduction, choice-stream shrinking, atomic minimized-fixture writing, adapter-specific round trips, fuzz choice streams and the Gate C foreign layout matrix.
 
 ```text
 trial(seed, profile):
@@ -118,7 +118,7 @@ trial(seed, profile):
   on failure: reduce(seed, d0, log) -> fixture; write report
 ```
 
-The implemented reducer runs complement-based ddmin over the semantic operation sequence and re-runs the failing relation after every candidate removal. Hierarchical document reduction, generated-value shrinking and automatic fixture-directory writing remain planned (`delta-debugging-and-test-case-reduction`, `property-based-testing-state-machines`).
+The implemented reducer first runs complement-based ddmin over semantic operations. Its document pass removes entity subtrees in progressively finer chunks, prunes containment and relation edges, and relies on full model validation to reject dangling component, token or asset references before the interestingness predicate runs. It then reduces relations, tokens, assets, extension namespaces and known scalar fields; unknown-kind opaque bytes remain fixed. The choice-stream pass deletes contiguous regions, exhaustively lowers bytes and redistributes adjacent numeric choices toward shortlex order. Accepted candidates are content-hash memoized. A fixture writer atomically creates `input.nuif.json`, `operations.json`, `reduction.json` and `fixture.json` and refuses an existing destination. `cargo xtask reduction-profile` exercises all of these paths and archives the report and emitted fixture (`delta-debugging-and-test-case-reduction`, `property-based-testing-state-machines`).
 
 ## Report schema
 
@@ -143,6 +143,15 @@ Diagnostic codes are stable strings emitted in machine reports; severities seria
 The hostile-input experiment writes a separate `target/hostile-input-report.json` because allocator and elapsed-time measurements are process-level rather than document fidelity entries. It records every input size, expected/observed error class, allocation counters, retained bytes, elapsed microseconds, limits, warmup, allocator method, toolchain and platform. `cargo xtask hostile-inputs` regenerates it and CI uploads it as `hostile-input-report`.
 
 The editor hostile-interaction experiment writes `target/editor-hostile-input-report.json`. Its release runner rejects zero, one-over-edge and maximal snapshot requests before raster allocation; accepts the exact one-dimensional edge boundary; rejects non-finite size, position and spacing values plus malformed paint without mutation; and checks missing selection/node errors, atomic multi-operation failure, empty history, redo invalidation and exact patch-log replay. Unit tests additionally exercise bounded script reads, per-line limits, command limits and malformed-line attribution. `cargo xtask editor-hostile-inputs` is blocking and CI archives the report.
+
+The reduction experiment writes `target/reduction-profile-report.json` plus
+`target/reduction-profile-fixture/`. Its fixed interestingness predicate reduces
+the complete responsive card to the valid three-entity ancestor path, proves
+component references cannot dangle, reduces a byte choice stream, records every
+accepted transformation and confirms that the atomic writer refuses overwrite.
+On a real `nuif trial` failure with a report path, the same machinery emits
+`<report-path>.reproduction/` using the recorded failure code, viewport and
+snapshot decision.
 
 The standalone `fuzz/` workspace pins nightly 2026-08-28, cargo-fuzz 0.13.2
 and libfuzzer-sys 0.4.13 without adding sanitizer dependencies to release
@@ -264,6 +273,7 @@ The editor exposes an in-process session driver (`nuif-api`) that the harness ca
 | commit-lint | subject rules |
 | research | record validation |
 | rust | fmt, check, clippy pedantic, `cargo test --workspace --locked`, 10,000-patch Gate B trial, hostile-input release measurement, pinned Gate C three-way layout trial, both Gate D text/render trials and all report uploads (all render suites CPU only) |
+| reduction-profile | validity-preserving subtree/scalar and choice-stream reduction plus atomic regression-fixture emission (currently part of the `rust` complete gate) |
 | wasm | generated Node/direct-browser binding, Node/native byte differential, typed limit failures and downloadable developer artifact (currently part of the `rust` complete gate) |
 | fuzz-smoke | five cargo-fuzz/libFuzzer targets, regenerated production seeds, AddressSanitizer, explicit resource limits and an archived campaign report |
 | layout-differential | `cargo xtask browser-install` plus `cargo xtask gate-c`; seed-derived cases run in headless Chrome and fail on pin drift or blocking/unclassified divergence |

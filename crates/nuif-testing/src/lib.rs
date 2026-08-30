@@ -1,6 +1,7 @@
 #![doc = "Seeded conformance trials, fixtures, reports and failure reduction."]
 
 pub mod layout_differential;
+pub mod reduction;
 
 use nuif_api::{Session, Snapshot};
 use nuif_codec::{
@@ -138,6 +139,9 @@ pub struct Issue {
 pub struct Reproduction {
     pub seed: u64,
     pub iteration: u32,
+    pub failure_code: String,
+    pub trial_width: u32,
+    pub verify_snapshot: bool,
     pub minimized_operations: Vec<Operation>,
 }
 
@@ -587,10 +591,12 @@ pub fn run_trials(config: &TrialConfig) -> RunReport {
     };
     let mut rng = TrialRng::new(config.seed);
     for iteration in 0..config.iterations {
-        if let Err((code, message, operations)) = run_iteration(config, &mut rng, iteration) {
+        if let Err((code, message, operations, trial_width, verify_snapshot)) =
+            run_iteration(config, &mut rng, iteration)
+        {
             report.issues.errors += 1;
             report.issues.messages.push(Issue {
-                code,
+                code: code.clone(),
                 severity: Severity::Error,
                 message,
                 iteration: Some(iteration),
@@ -599,6 +605,9 @@ pub fn run_trials(config: &TrialConfig) -> RunReport {
             report.reproduction = Some(Reproduction {
                 seed: config.seed,
                 iteration,
+                failure_code: code,
+                trial_width,
+                verify_snapshot,
                 minimized_operations: operations,
             });
             return report;
@@ -711,7 +720,7 @@ fn run_iteration(
     config: &TrialConfig,
     rng: &mut TrialRng,
     iteration: u32,
-) -> Result<(), (String, String, Vec<Operation>)> {
+) -> Result<(), (String, String, Vec<Operation>, u32, bool)> {
     let operations = generate_operations(rng, config.operations_per_iteration, iteration);
     let trial_width = 360 + u32::try_from(rng.range(1081)).expect("the trial width range fits u32");
     let verify_snapshot = iteration.is_multiple_of(config.snapshot_interval.max(1));
@@ -736,7 +745,7 @@ fn run_iteration(
                     Err((candidate_code, _)) if candidate_code == code
                 )
             });
-            Err((code, message, minimized))
+            Err((code, message, minimized, trial_width, verify_snapshot))
         }
     }
 }
@@ -749,8 +758,26 @@ fn verify_iteration(
     verify_snapshot: bool,
 ) -> Result<(), (String, String)> {
     let base = responsive_card_fixture();
+    verify_document_iteration(
+        &base,
+        seed,
+        iteration,
+        operations,
+        trial_width,
+        verify_snapshot,
+    )
+}
+
+fn verify_document_iteration(
+    base: &Document,
+    seed: u64,
+    iteration: u32,
+    operations: &[Operation],
+    trial_width: u32,
+    verify_snapshot: bool,
+) -> Result<(), (String, String)> {
     let patch = Patch {
-        base_revision: canonical_hash(&base).ok(),
+        base_revision: canonical_hash(base).ok(),
         transactions: vec![Transaction {
             id: (u128::from(seed) << 64) | u128::from(iteration),
             operations: operations.to_vec(),
@@ -770,7 +797,7 @@ fn verify_iteration(
     }
     apply_patch(&mut changed, &inverse)
         .map_err(|error| ("TRIAL_INVERSE_FAILED".to_owned(), error.to_string()))?;
-    if changed != base {
+    if changed != *base {
         return Err((
             "TRIAL_INVERSE_MISMATCH".to_owned(),
             "applying the inverse did not restore the base document".to_owned(),
@@ -1016,6 +1043,79 @@ where
     current
 }
 
+/// Reduces a generator choice stream by contiguous deletion followed by
+/// deterministic per-byte lowering. The predicate must remain deterministic.
+#[must_use]
+pub fn minimize_choice_bytes<F>(choices: &[u8], mut still_fails: F) -> Vec<u8>
+where
+    F: FnMut(&[u8]) -> bool,
+{
+    if still_fails(&[]) {
+        return Vec::new();
+    }
+    if !still_fails(choices) {
+        return choices.to_vec();
+    }
+    let mut current = choices.to_vec();
+    let mut granularity = 2_usize;
+    while current.len() >= 2 {
+        let chunk = current.len().div_ceil(granularity);
+        let mut reduced = false;
+        for start in (0..current.len()).step_by(chunk) {
+            let end = (start + chunk).min(current.len());
+            let mut candidate = current.clone();
+            candidate.drain(start..end);
+            if still_fails(&candidate) {
+                current = candidate;
+                granularity = granularity.saturating_sub(1).max(2);
+                reduced = true;
+                break;
+            }
+        }
+        if !reduced {
+            if granularity >= current.len() {
+                break;
+            }
+            granularity = (granularity * 2).min(current.len());
+        }
+    }
+    loop {
+        let mut changed = false;
+        for index in 0..current.len() {
+            for replacement in 0..current[index] {
+                let mut candidate = current.clone();
+                candidate[index] = replacement;
+                if still_fails(&candidate) {
+                    current = candidate;
+                    changed = true;
+                    break;
+                }
+            }
+        }
+        for index in 0..current.len().saturating_sub(1) {
+            let original = current[index];
+            for replacement in 0..original {
+                let delta = original - replacement;
+                let Some(next) = current[index + 1].checked_add(delta) else {
+                    continue;
+                };
+                let mut candidate = current.clone();
+                candidate[index] = replacement;
+                candidate[index + 1] = next;
+                if still_fails(&candidate) {
+                    current = candidate;
+                    changed = true;
+                    break;
+                }
+            }
+        }
+        if !changed {
+            break;
+        }
+    }
+    current
+}
+
 #[must_use]
 pub fn fixture_diagnostics() -> Vec<String> {
     validate(&responsive_card_fixture())
@@ -1091,6 +1191,19 @@ mod tests {
     fn reducer_can_find_an_operation_independent_failure() {
         let operations = generate_operations(&mut TrialRng::new(9), 4, 0);
         assert!(minimize_operations(&operations, |_| true).is_empty());
+    }
+
+    #[test]
+    fn choice_reducer_deletes_then_lowers() {
+        let reduced = minimize_choice_bytes(&[9, 7, 200, 4], |candidate| {
+            candidate.len() >= 2 && candidate.iter().copied().sum::<u8>() >= 7
+        });
+        assert_eq!(reduced, [0, 7]);
+        for index in 0..reduced.len() {
+            let mut candidate = reduced.clone();
+            candidate.remove(index);
+            assert!(!candidate.iter().copied().sum::<u8>().ge(&7) || candidate.len() < 2);
+        }
     }
 
     #[test]

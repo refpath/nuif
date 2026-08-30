@@ -2751,6 +2751,7 @@ dependencies = [
  "sha2",
  "stats_alloc",
  "taffy",
+ "thiserror 2.0.20",
  "zip",
  "zune-png",
 ]
