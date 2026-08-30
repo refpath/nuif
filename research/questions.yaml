@@ -99,3 +99,28 @@ questions:
     question: Which visual properties are assigned to the exact, bounded and perceptual tiers, and what per-channel delta, pixel count and FLIP thresholds are normative for each?
     status: experiment-required
     evidence: [nuif:research:vello-testing-and-cpu-reference, nuif:research:flip-perceptual-difference-metric, nuif:research:webrender-reftests, nuif:research:skia-gold-and-gm-tests]
+  - id: nuif:question:portable-package-profile
+    topic: serialization
+    question: Can independent writers reproduce one deterministic ZIP package containing a canonical manifest, document and content-addressed resources without hiding semantic differences in archive metadata?
+    status: experiment-required
+    evidence: [nuif:research:epub-ocf-package-container, nuif:research:oci-resource-descriptors, nuif:research:resource-packaging-and-source-capture-synthesis]
+  - id: nuif:question:resource-identity-boundary
+    topic: resources
+    question: Which asset and resource fields affect the semantic document hash, the package hash, or provenance only?
+    status: experiment-required
+    evidence: [nuif:research:content-addressed-versioning, nuif:research:oci-resource-descriptors, nuif:research:resource-packaging-and-source-capture-synthesis]
+  - id: nuif:question:image-resource-profile
+    topic: rendering
+    question: Which PNG color, orientation, alpha, animation and sampling rules form the smallest independently reproducible image profile?
+    status: experiment-required
+    evidence: [nuif:research:png-image-preservation-and-decoding]
+  - id: nuif:question:font-portability-policy
+    topic: text
+    question: How should exact font bytes, embedding signals, explicit license evidence, links, substitution and unavailability interact across portable and private-authoring profiles?
+    status: research
+    evidence: [nuif:research:opentype-font-embedding-and-portability, nuif:research:text-rendering-reproducibility]
+  - id: nuif:question:browser-capture-profile
+    topic: adapters
+    question: Which pinned browser context, settling policy, CDP observations and privacy exclusions are sufficient for a reproducible source-backed Web capture profile?
+    status: experiment-required
+    evidence: [nuif:research:chromium-source-backed-ui-capture, nuif:research:resource-packaging-and-source-capture-synthesis]

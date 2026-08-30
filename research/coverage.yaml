@@ -50,15 +50,23 @@ areas:
     artifacts: [spec/03-components-and-composition.md]
   serialization_file_format:
     status: experiment-required
-    evidence: [nuif:research:encoding, nuif:research:content-addressed-versioning, nuif:research:canonicalization-rfc8785-and-cbor-deterministic, nuif:research:deterministic-cbor-profiles-and-numeric-canonicalization, nuif:research:cbor-data-model-and-key-order-correction, nuif:research:ipld-dag-cbor-strictness, nuif:research:opentimelineio, nuif:research:unreal-asset-versioning-and-automation, nuif:research:alembic]
-    artifacts: [spec/08-serialization.md, adrs/0004-serialization.md, rfcs/0005-deterministic-numeric-and-string-canonicalization.md, rfcs/0008-cbor-data-model-preservation.md, crates/nuif-codec]
+    evidence: [nuif:research:encoding, nuif:research:content-addressed-versioning, nuif:research:canonicalization-rfc8785-and-cbor-deterministic, nuif:research:deterministic-cbor-profiles-and-numeric-canonicalization, nuif:research:cbor-data-model-and-key-order-correction, nuif:research:ipld-dag-cbor-strictness, nuif:research:epub-ocf-package-container, nuif:research:oci-resource-descriptors, nuif:research:resource-packaging-and-source-capture-synthesis, nuif:research:opentimelineio, nuif:research:unreal-asset-versioning-and-automation, nuif:research:alembic]
+    artifacts: [spec/08-serialization.md, adrs/0004-serialization.md, rfcs/0005-deterministic-numeric-and-string-canonicalization.md, rfcs/0008-cbor-data-model-preservation.md, crates/nuif-codec, research/items/resource-packaging-and-source-capture-synthesis.md]
+  resource_model_images_fonts:
+    status: experiment-required
+    evidence: [nuif:research:resource-packaging-and-source-capture-synthesis, nuif:research:png-image-preservation-and-decoding, nuif:research:opentype-font-embedding-and-portability, nuif:research:text-rendering-reproducibility, nuif:research:content-addressed-versioning]
+    artifacts: [spec/05-geometry-paint-text.md, spec/08-serialization.md, spec/11-security.md, research/experiments/index.yaml]
+  browser_source_capture:
+    status: experiment-required
+    evidence: [nuif:research:chromium-source-backed-ui-capture, nuif:research:tree-sitter, nuif:research:reverse-layout-inference, nuif:research:resource-packaging-and-source-capture-synthesis]
+    artifacts: [adapters/html-css/PROFILE.md, spec/09-provenance-and-fidelity.md, research/experiments/index.yaml]
   collaboration_version_control:
     status: experiment-required
     evidence: [nuif:research:automerge-yjs, nuif:research:structured-merge, nuif:research:crdt-tree-move-operation, nuif:research:operational-transformation-vs-crdt, nuif:research:patch-theory-darcs-pijul, nuif:research:unity-prefabs-and-yaml-merge]
     artifacts: [spec/10-collaboration-profile.md, adrs/0005-collaboration-profile.md, crates/nuif-collab, conformance/src/bin/collaboration-registers.rs]
   security_trust:
-    status: covered
-    evidence: [nuif:research:webgpu-security, nuif:research:fuzzing-structured-inputs, nuif:research:resource-bounded-serde-and-ciborium]
+    status: experiment-required
+    evidence: [nuif:research:webgpu-security, nuif:research:fuzzing-structured-inputs, nuif:research:resource-bounded-serde-and-ciborium, nuif:research:epub-ocf-package-container, nuif:research:oci-resource-descriptors, nuif:research:png-image-preservation-and-decoding, nuif:research:opentype-font-embedding-and-portability]
     artifacts: [spec/11-security.md, rfcs/0009-profile-zero-resource-budgets.md, SECURITY.md]
   implementation_language:
     status: covered
@@ -78,7 +86,7 @@ areas:
     artifacts: [spec/00-conformance.md, conformance/PLAN.md, conformance/fixtures/v0-responsive-card/README.md, conformance/HARNESS.md, crates/nuif-testing/src/bin/text-pinning.rs, crates/nuif-testing/src/bin/html-sync-v0.rs, conformance/src/bin/collaboration-registers.rs, implementations/python/nuif_profile0.py]
   adapters:
     status: ongoing
-    evidence: [nuif:research:figma, nuif:research:openfig-fig-kiwi, nuif:research:penpot, nuif:research:svg, nuif:research:tree-sitter]
+    evidence: [nuif:research:figma, nuif:research:openfig-fig-kiwi, nuif:research:penpot, nuif:research:svg, nuif:research:tree-sitter, nuif:research:chromium-source-backed-ui-capture]
     artifacts: [adapters/README.md, adapters/html-css/PROFILE.md, adapters/html-css/V0-PROFILE.md, crates/nuif-html]
   semantics_accessibility_behavior:
     status: experiment-required

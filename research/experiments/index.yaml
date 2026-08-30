@@ -323,3 +323,61 @@ experiments:
       - compare every unsupported and preserved-unrenderable fidelity entry
       - perturb reference layout and raster observations and require exact comparison failures
       - write and archive target/gate-g-report.json plus independent canonical layout and PNG artifacts
+  - id: nuif:experiment:portable-package-resources
+    status: planned
+    evidence: [nuif:research:epub-ocf-package-container, nuif:research:oci-resource-descriptors, nuif:research:resource-packaging-and-source-capture-synthesis]
+    oracle: cross-writer-and-metamorphic
+    acceptance:
+      - two independently implemented writers produce identical package bytes from the same manifest document and resources
+      - semantic document hash remains stable when declared nonsemantic caches are removed
+      - every required descriptor is size- and digest-verified before media decoding
+      - hostile archive structure and one-over resource cases fail atomically with named limits
+    tests:
+      - write fixed first mimetype manifest document and sorted SHA-256 blob members with normalized ZIP metadata
+      - compare package bytes and package hash across writers and operating systems
+      - distinguish semantic document hash package hash asset identity resource digest and locator in positive and negative fixtures
+      - reject duplicate traversal symlink directory encrypted split unsupported-compression undeclared and digest-mismatched members
+      - measure compressed expanded per-member descriptor-count and total-resource budgets before accepting the profile
+  - id: nuif:experiment:image-resource-profile
+    status: planned
+    evidence: [nuif:research:png-image-preservation-and-decoding, nuif:research:text-rendering-reproducibility]
+    oracle: cross-decoder-and-reference-render
+    acceptance:
+      - accepted PNG fixtures decode to identical declared reference pixels in two independent implementations
+      - original encoded bytes and all fidelity-relevant metadata remain digest-identical after unrelated edits
+      - color orientation alpha premultiplication sampling and crop rules are fixed by fixture
+      - malformed and one-over image cases fail before unbounded allocation
+    tests:
+      - exercise palette grayscale truecolor transparency ICC sRGB gamma Exif and conflicting-metadata cases
+      - compare straight-alpha decode and declared scene-lowering conversion separately
+      - verify image fit crop transform sampling and opacity in reference renders
+      - prove decoded and GPU caches can be deleted without changing the semantic document hash
+  - id: nuif:experiment:font-resource-profile
+    status: planned
+    evidence: [nuif:research:opentype-font-embedding-and-portability, nuif:research:text-rendering-reproducibility]
+    oracle: cross-parser-and-policy
+    acceptance:
+      - font bytes face index axes features coverage and shaping inputs are content-addressed and independently decoded
+      - portable private-authoring linked substituted and unavailable policies produce distinct validated outcomes
+      - no profile claims redistribution permission from a font family name or fsType alone
+      - malformed and one-over font cases fail under measured parser and shaping budgets
+    tests:
+      - exercise OpenType collections variable axes embedding permission bits no-subsetting and bitmap-only flags
+      - compare exact-byte embedded and digest-pinned linked resolution paths
+      - require item-level fidelity for substitutions and unavailable fonts
+      - verify package export rejects policy-forbidden embedded resources atomically
+  - id: nuif:experiment:browser-source-capture
+    status: planned
+    evidence: [nuif:research:chromium-source-backed-ui-capture, nuif:research:resource-packaging-and-source-capture-synthesis, nuif:research:reverse-layout-inference]
+    oracle: pinned-browser-and-metamorphic
+    acceptance:
+      - repeated capture under the same pinned context produces equivalent normalized observations and exact resource hashes
+      - multi-viewport observations predict a held-out viewport better than one fixed screenshot for the declared responsive subset
+      - unavailable cross-origin local-font canvas video and script evidence is explicit and never classified as source-lossless
+      - exported capture contains no cookies authorization headers form secrets or storage values
+    tests:
+      - collect DOMSnapshot layout inline boxes paint order computed and matched styles stylesheet text network bodies platform fonts accessibility tree and screenshot
+      - pin browser build OS viewport DPR locale timezone media preferences font readiness network-settling and animation-freeze policy
+      - capture responsive fixtures at training and held-out viewports and retain every observation as provenance
+      - freeze canvas and video as bounded derived frames while keeping packaged scripts inert
+      - scan capture artifacts for declared secret canaries and fail on disclosure
