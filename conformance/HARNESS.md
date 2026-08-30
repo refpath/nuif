@@ -167,15 +167,16 @@ transforms, GPU/cross-platform image reproduction and non-PNG formats.
 
 The narrow font-resource experiment writes
 `target/font-resources-report.json`. `cargo xtask gate-i-font` compares the
-profile's `ttf-parser` interpretation with Skrifa metrics, static axes and
-selected Unicode mappings for the exact pinned Ahem bytes, while three more
-static TrueType fixtures exercise acceptance. It proves package byte fixpoint
-and resource retention, mutates metadata and embedding evidence, distinguishes
-six portability outcomes, and rejects synthetic malformed cases plus real TTC,
-CFF, variable, COLR, bitmap, CBDT and sbix inputs. The report explicitly excludes
-TTC, CFF/CFF2, variable, color, bitmap, SVG and WOFF/WOFF2 fonts; it does not
-claim shaping/raster equivalence or that technical flags grant redistribution
-rights.
+profile's Skrifa interpretation with a committed `hb-info` 14.4.0 capture of
+metrics, family, tables and Unicode coverage for the exact pinned Ahem bytes,
+while three more static TrueType fixtures exercise acceptance. NUIF-owned sfnt,
+checksum and OS/2 validation remains ahead of Skrifa. The gate proves package
+byte fixpoint and resource retention, mutates metadata and embedding evidence,
+distinguishes six portability outcomes, and rejects synthetic malformed cases
+plus real TTC, CFF, variable, COLR, bitmap, CBDT and sbix inputs. The report
+explicitly excludes TTC, CFF/CFF2, variable, color, bitmap, SVG and WOFF/WOFF2
+fonts; it does not claim shaping/raster equivalence or that technical flags
+grant redistribution rights.
 
 The HTML/CSS retentive experiment writes `target/html-sync-report.json` and `target/html-sync-output.html`. It pins Tree-sitter and both grammars, exactly re-imports the declared subset, repeats synchronization, checks the complete unchanged-byte complement of six text/token/padding edits, preserves injected comments/unmapped markup and requires typed stale-span, unsupported-property and one-over-size failures. `cargo xtask gate-f` is blocking; the bounded profile and its non-claims are specified in `adapters/html-css/PROFILE.md`.
 

@@ -2,9 +2,13 @@
 
 use nuif_core::{Asset, AssetKind, AssetPortability, CodepointRange, FontAsset};
 use serde::{Deserialize, Serialize};
+use skrifa::{
+    FontRef, MetadataProvider,
+    instance::{LocationRef, Size},
+    string::StringId,
+};
 use std::collections::BTreeSet;
 use thiserror::Error;
-use ttf_parser::{Face, Permissions, name_id};
 
 pub const OPENTYPE_STATIC_PROFILE: &str = "nuif-opentype-static-single-0";
 pub const MAX_FONT_BYTES: usize = 32 * 1024 * 1024;
@@ -96,57 +100,59 @@ pub fn inspect_opentype_static(bytes: &[u8], face_index: u32) -> Result<FontInsp
         ));
     }
     let tables = inspect_directory(bytes)?;
-    let face =
-        Face::parse(bytes, face_index).map_err(|error| FontError::Parse(error.to_string()))?;
-    if face.is_variable() {
+    let font = FontRef::new(bytes).map_err(|error| FontError::Parse(error.to_string()))?;
+    if !font.axes().is_empty() {
         return Err(FontError::Unsupported("variable font"));
     }
+    let head = table_bytes(bytes, &tables, *b"head")?;
+    let maxp = table_bytes(bytes, &tables, *b"maxp")?;
     let os2 = table_bytes(bytes, &tables, *b"OS/2")?;
+    let units_per_em = read_u16(head, 18)?;
+    let glyph_count = read_u16(maxp, 4)?;
+    let metrics = font.metrics(Size::unscaled(), LocationRef::default());
+    if metrics.units_per_em != units_per_em || metrics.glyph_count != glyph_count {
+        return Err(FontError::Parse(
+            "sfnt fields and Skrifa metrics disagree".to_owned(),
+        ));
+    }
     let os2_version = read_u16(os2, 0)?;
     if os2_version > 5 {
         return Err(FontError::Unsupported("unknown OS/2 table version"));
     }
     let fs_type = read_u16(os2, 8)?;
     let permission = classify_fs_type(os2_version, fs_type)?;
-    let parser_permission = face
-        .permissions()
-        .ok_or(FontError::Unsupported("invalid OS/2 embedding permission"))?;
-    if permission != permission_from_parser(parser_permission) {
-        return Err(FontError::Parse(
-            "independent fsType interpretations disagree".to_owned(),
-        ));
+    let mut unique_names = BTreeSet::new();
+    for id in [StringId::FAMILY_NAME, StringId::TYPOGRAPHIC_FAMILY_NAME] {
+        for name in font.localized_strings(id).take(MAX_FONT_NAMES + 1) {
+            let name = name.to_string();
+            if !name.is_empty() {
+                unique_names.insert(name);
+            }
+            if unique_names.len() > MAX_FONT_NAMES {
+                return Err(FontError::ResourceLimit {
+                    resource: "family names",
+                    limit: MAX_FONT_NAMES,
+                    observed: unique_names.len(),
+                });
+            }
+        }
     }
-    let mut names = face
-        .names()
-        .into_iter()
-        .filter(|name| matches!(name.name_id, name_id::FAMILY | name_id::TYPOGRAPHIC_FAMILY))
-        .filter_map(|name| name.to_string())
-        .filter(|name| !name.is_empty())
-        .collect::<BTreeSet<_>>()
-        .into_iter()
-        .collect::<Vec<_>>();
-    if names.len() > MAX_FONT_NAMES {
-        return Err(FontError::ResourceLimit {
-            resource: "family names",
-            limit: MAX_FONT_NAMES,
-            observed: names.len(),
-        });
-    }
+    let mut names = unique_names.into_iter().collect::<Vec<_>>();
     names.shrink_to_fit();
-    let coverage = coverage_ranges(&face)?;
+    let coverage = coverage_ranges(&font)?;
     Ok(FontInspection {
         decoder_profile: OPENTYPE_STATIC_PROFILE.to_owned(),
         byte_length: bytes.len(),
         face_index,
-        units_per_em: face.units_per_em(),
-        glyph_count: face.number_of_glyphs(),
+        units_per_em,
+        glyph_count,
         names,
         coverage,
         os2_version,
         fs_type,
         permission,
-        subsetting_allowed: face.is_subsetting_allowed(),
-        outline_embedding_allowed: face.is_outline_embedding_allowed(),
+        subsetting_allowed: fs_type & 0x0100 == 0,
+        outline_embedding_allowed: fs_type & 0x0200 == 0,
         table_tags: tables
             .iter()
             .map(|table| String::from_utf8_lossy(&table.tag).into_owned())
@@ -266,15 +272,6 @@ pub fn classify_fs_type(version: u16, fs_type: u16) -> Result<EmbeddingPermissio
         }
     };
     Ok(permission)
-}
-
-fn permission_from_parser(permission: Permissions) -> EmbeddingPermission {
-    match permission {
-        Permissions::Installable => EmbeddingPermission::Installable,
-        Permissions::Restricted => EmbeddingPermission::Restricted,
-        Permissions::PreviewAndPrint => EmbeddingPermission::PreviewAndPrint,
-        Permissions::Editable => EmbeddingPermission::Editable,
-    }
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -408,23 +405,14 @@ fn validate_table_packing(
     Ok(())
 }
 
-fn coverage_ranges(face: &Face<'_>) -> Result<Vec<CodepointRange>, FontError> {
+fn coverage_ranges(font: &FontRef<'_>) -> Result<Vec<CodepointRange>, FontError> {
     let mut codepoints = vec![false; 0x11_0000];
-    let cmap = face
-        .tables()
-        .cmap
-        .ok_or(FontError::Unsupported("missing parsed cmap"))?;
-    for subtable in cmap.subtables {
-        if subtable.is_unicode() {
-            subtable.codepoints(|codepoint| {
-                if let Some(slot) = usize::try_from(codepoint)
-                    .ok()
-                    .and_then(|index| codepoints.get_mut(index))
-                    && subtable.glyph_index(codepoint).is_some()
-                {
-                    *slot = true;
-                }
-            });
+    for (codepoint, _) in font.charmap().mappings() {
+        if let Some(slot) = usize::try_from(codepoint)
+            .ok()
+            .and_then(|index| codepoints.get_mut(index))
+        {
+            *slot = true;
         }
     }
     let mut ranges = Vec::new();

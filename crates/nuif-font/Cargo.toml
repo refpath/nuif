@@ -8,8 +8,8 @@ repository.workspace = true
 [dependencies]
 nuif-core = { version = "0.0.1", path = "../nuif-core" }
 serde.workspace = true
+skrifa.workspace = true
 thiserror.workspace = true
-ttf-parser.workspace = true
 
 [dev-dependencies]
 font-test-data.workspace = true

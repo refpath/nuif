@@ -139,11 +139,11 @@
     },
     {
       "name": "skrifa",
-      "role": "safe OpenType metadata, outlines, and variations",
+      "role": "safe OpenType metadata, character maps, outlines, and variations",
       "decision": "retain",
-      "alternatives": ["FreeType", "ttf-parser"],
-      "rationale": "Skrifa is the maintained fontations parser and shares the Google Fonts stack used by Harfrust.",
-      "evidence": ["research/items/harfbuzz-unicode.md", "research/items/text-rendering-reproducibility.md"]
+      "alternatives": ["FreeType", "ttf-parser", "xberg-ttf-parser"],
+      "rationale": "Skrifa is the maintained Fontations parser used for the package-font metadata path and reference outlines. NUIF retains independent sfnt, checksum and OS/2 validation around it, while a pinned HarfBuzz capture supplies external metadata evidence after ttf-parser was retired for RUSTSEC-2026-0192.",
+      "evidence": ["research/items/fontations.md", "research/items/ttf-parser.md", "research/items/opentype-font-embedding-and-portability.md", "research/items/text-rendering-reproducibility.md"]
     },
     {
       "name": "stats_alloc",
@@ -224,14 +224,6 @@
       "alternatives": ["async-std", "smol", "manual blocking JSON-RPC loop"],
       "rationale": "rmcp is built on Tokio and the adapter needs only its current-thread runtime and stdio primitives; another runtime would add an interop layer, while a manual loop would duplicate official lifecycle and cancellation behavior.",
       "evidence": ["research/items/mcp-stateless-agent-adapter.md"]
-    },
-    {
-      "name": "ttf-parser",
-      "role": "bounded static OpenType package metadata parser",
-      "decision": "retain",
-      "alternatives": ["Skrifa/read-fonts", "FreeType"],
-      "rationale": "Its safe immutable zero-allocation API is a small production boundary for the narrow static sfnt profile; NUIF owns directory, checksum, budget and policy validation while Skrifa remains the independent oracle.",
-      "evidence": ["research/items/ttf-parser.md", "research/items/opentype-font-embedding-and-portability.md"]
     },
     {
       "name": "wasm-bindgen",

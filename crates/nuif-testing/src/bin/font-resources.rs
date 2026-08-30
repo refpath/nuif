@@ -1,7 +1,7 @@
 use nuif_codec::canonical_hash;
 use nuif_core::{
-    Asset, AssetId, AssetKind, AssetPortability, CURRENT_SCHEMA_VERSION, CodepointRange, Document,
-    EntityId, FontAsset, ResourceRole,
+    Asset, AssetId, AssetKind, AssetPortability, CURRENT_SCHEMA_VERSION, Document, EntityId,
+    FontAsset, ResourceRole,
 };
 use nuif_font::{
     EmbeddingPermission, MAX_FONT_BYTES, MAX_FONT_COVERAGE_RANGES, MAX_FONT_FEATURES,
@@ -10,12 +10,9 @@ use nuif_font::{
 };
 use nuif_package::{NuifPackage, PackageMode, ResourceResolver};
 use nuif_text::{PINNED_FONT_NAME, PINNED_FONT_SHA256, pinned_font_bytes};
+use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 use sha2::{Digest, Sha256};
-use skrifa::{
-    FontRef, MetadataProvider,
-    instance::{LocationRef, Size},
-};
 use std::collections::BTreeMap;
 use std::env;
 use std::fs;
@@ -42,13 +39,21 @@ fn run() -> Result<(), String> {
     let primary = inspect_opentype_static(bytes, 0).map_err(|error| error.to_string())?;
     let primary_micros = primary_started.elapsed().as_micros();
     let independent_started = Instant::now();
-    let independent = inspect_independent(bytes)?;
+    let independent = harfbuzz_golden()?;
     let independent_micros = independent_started.elapsed().as_micros();
 
     let parser_trials = vec![
         trial(
+            "independent_oracle_identity",
+            independent.schema_version == 1
+                && independent.tool == "hb-info"
+                && independent.version == "14.4.0",
+        ),
+        trial(
             "exact_resource_identity",
-            sha256(bytes) == PINNED_FONT_SHA256 && primary.byte_length == bytes.len(),
+            sha256(bytes) == PINNED_FONT_SHA256
+                && primary.byte_length == bytes.len()
+                && independent.font_sha256 == PINNED_FONT_SHA256,
         ),
         trial(
             "independent_metrics_agree",
@@ -56,12 +61,22 @@ fn run() -> Result<(), String> {
                 && primary.glyph_count == independent.glyph_count,
         ),
         trial(
-            "independent_coverage_agrees",
-            primary.coverage == independent.coverage,
+            "independent_unicode_coverage_agrees",
+            unicode_scalar_count(&primary.coverage) == independent.unicode_count
+                && unicode_scalar_hash(&primary.coverage) == independent.unicode_scalar_sha256,
         ),
         trial(
-            "independent_static_axis_state_agrees",
-            independent.axis_count == 0 && !primary.table_tags.iter().any(|tag| tag == "fvar"),
+            "independent_names_and_tables_agree",
+            !independent.family_names.is_empty()
+                && independent
+                    .family_names
+                    .iter()
+                    .all(|name| primary.names.contains(name))
+                && primary.table_tags == independent.table_tags,
+        ),
+        trial(
+            "static_axis_state_is_explicit",
+            !primary.table_tags.iter().any(|tag| tag == "fvar"),
         ),
         trial(
             "profile_metadata_is_exact",
@@ -91,8 +106,8 @@ fn run() -> Result<(), String> {
         "status": if passed { "passed" } else { "failed" },
         "profile": {
             "name": OPENTYPE_STATIC_PROFILE,
-            "primary_parser": "ttf-parser 0.25.1 behind NUIF sfnt range and checksum validation",
-            "independent_parser": "Skrifa 0.46.2 / read-fonts",
+            "primary_parser": "Skrifa 0.46.2 / read-fonts behind NUIF sfnt range, checksum, and OS/2 validation",
+            "independent_parser": "pinned hb-info 14.4.0 metadata capture",
             "fixture_corpus": "font-test-data 0.9.1",
             "container": "single-face TrueType-outline sfnt at face index zero",
             "policy": "exact bytes plus matching metadata, fsType evidence, license expression and explicit embedding review",
@@ -114,7 +129,7 @@ fn run() -> Result<(), String> {
             "total_microseconds": started.elapsed().as_micros(),
         },
         "inspection": primary,
-        "independent": independent.to_json(),
+        "independent": independent,
         "parser_trials": parser_trials,
         "accepted_trials": accepted_trials,
         "negative_trials": negative_trials,
@@ -123,11 +138,11 @@ fn run() -> Result<(), String> {
         "package_trials": package_trials,
         "source": source_identity(),
         "non_claims": [
-            "four accepted static TrueType fixtures with only Ahem cross-parser comparison are not broad OpenType conformance",
+            "four accepted static TrueType fixtures with only an Ahem HarfBuzz metadata golden are not broad OpenType conformance",
             "no TTC CFF CFF2 variable color bitmap SVG WOFF WOFF2 or subsetting support",
             "no shaping outline raster browser or cross-platform font reproduction is established by this gate",
             "fsType and a recorded review are policy evidence, not an automated license decision or redistribution grant",
-            "the parsers are independent libraries but the fixture author and harness remain in this repository",
+            "the HarfBuzz oracle is a committed capture rather than a live executable dependency in every run",
         ],
         "summary": {
             "parser": parser_trials.len(),
@@ -178,79 +193,51 @@ fn accepted_static_trials() -> Vec<Value> {
     .collect()
 }
 
-#[derive(Debug)]
-struct IndependentInspection {
+#[derive(Debug, Deserialize, Serialize)]
+#[serde(deny_unknown_fields)]
+struct HarfBuzzGolden {
+    schema_version: u32,
+    tool: String,
+    version: String,
+    capture_command: String,
+    font_sha256: String,
+    family_names: Vec<String>,
     units_per_em: u16,
     glyph_count: u16,
-    axis_count: usize,
-    coverage: Vec<CodepointRange>,
-    mapping_hash: String,
+    unicode_count: usize,
+    unicode_scalar_sha256: String,
+    table_tags: Vec<String>,
 }
 
-impl IndependentInspection {
-    fn to_json(&self) -> Value {
-        json!({
-            "units_per_em": self.units_per_em,
-            "glyph_count": self.glyph_count,
-            "axis_count": self.axis_count,
-            "coverage": self.coverage,
-            "mapping_sha256": self.mapping_hash,
-        })
-    }
+fn harfbuzz_golden() -> Result<HarfBuzzGolden, String> {
+    serde_json::from_str(include_str!(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../../conformance/font/harfbuzz-14.4.0-ahem.json"
+    )))
+    .map_err(|error| format!("invalid HarfBuzz font metadata golden: {error}"))
 }
 
-fn inspect_independent(bytes: &[u8]) -> Result<IndependentInspection, String> {
-    let font = FontRef::new(bytes).map_err(|error| error.to_string())?;
-    let metrics = font.metrics(Size::unscaled(), LocationRef::default());
-    let mappings = font
-        .charmap()
-        .mappings()
-        .map(|(codepoint, glyph)| (codepoint, glyph.to_u32()))
-        .collect::<Vec<_>>();
-    let mut mapping_bytes = Vec::with_capacity(mappings.len().saturating_mul(8));
-    for (codepoint, glyph) in &mappings {
-        mapping_bytes.extend_from_slice(&codepoint.to_be_bytes());
-        mapping_bytes.extend_from_slice(&glyph.to_be_bytes());
-    }
-    Ok(IndependentInspection {
-        units_per_em: metrics.units_per_em,
-        glyph_count: metrics.glyph_count,
-        axis_count: font.axes().len(),
-        coverage: coverage_from_mappings(&mappings),
-        mapping_hash: sha256(&mapping_bytes),
-    })
-}
-
-fn coverage_from_mappings(mappings: &[(u32, u32)]) -> Vec<CodepointRange> {
-    let mut codepoints = mappings
+fn unicode_scalar_count(ranges: &[nuif_core::CodepointRange]) -> usize {
+    ranges
         .iter()
-        .map(|(codepoint, _)| *codepoint)
-        .filter(|codepoint| char::from_u32(*codepoint).is_some())
-        .collect::<Vec<_>>();
-    codepoints.sort_unstable();
-    codepoints.dedup();
-    let mut ranges = Vec::new();
-    let Some(mut start) = codepoints.first().copied() else {
-        return ranges;
-    };
-    let mut previous = start;
-    for codepoint in codepoints.into_iter().skip(1) {
-        if codepoint == previous + 1 {
-            previous = codepoint;
-        } else {
-            ranges.push(CodepointRange {
-                start,
-                end: previous,
-            });
-            start = codepoint;
-            previous = codepoint;
+        .map(|range| {
+            (range.start..=range.end)
+                .filter(|codepoint| char::from_u32(*codepoint).is_some())
+                .count()
+        })
+        .sum()
+}
+
+fn unicode_scalar_hash(ranges: &[nuif_core::CodepointRange]) -> String {
+    let mut digest = Sha256::new();
+    for range in ranges {
+        for codepoint in range.start..=range.end {
+            if char::from_u32(codepoint).is_some() {
+                digest.update(format!("U+{codepoint:04X}\n").as_bytes());
+            }
         }
     }
-    ranges.push(CodepointRange {
-        start,
-        end: previous,
-    });
-    ranges
+    format!("{:x}", digest.finalize())
 }
 
 fn negative_trials(canonical: &[u8]) -> Vec<Value> {

@@ -29,9 +29,10 @@ This distinction is important: marking an open research problem as finished woul
   fixture. A three-OS CI matrix now exercises the package, image and font
   gates, while successful hosted evidence and external reproduction remain
   open.
-- OpenType, `ttf-parser` and Fontations evidence now supports one executable
-  static TrueType package baseline; broad font formats, portability outcomes
-  and shaping/raster integration remain experiment-required.
+- OpenType and Fontations evidence now supports one executable static TrueType
+  package baseline with a pinned HarfBuzz metadata oracle. The retired
+  `ttf-parser` decision remains documented; broad font formats, portability
+  outcomes and shaping/raster integration remain experiment-required.
 - Browser source capture and screenshot reconstruction are different evidence
   lanes and cannot share a blanket `lossless` claim.
 - Current screenshot-to-code work supports OCR/region/hierarchical and render-

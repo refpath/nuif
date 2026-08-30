@@ -34,7 +34,7 @@ Gate I remains open. `cargo xtask gate-i-image` now provides a narrow
 `nuif-png-rgba8-0` cross-decoder, exact-resource and repeatable CPU-render
 baseline; it deliberately excludes broader PNG colour/types, arbitrary
 transforms and cross-platform image reproduction. `cargo xtask gate-i-font`
-adds a deliberately narrow static TrueType cross-parser/package/policy baseline;
+adds a deliberately narrow static TrueType external-oracle/package/policy baseline;
 TTC, CFF, variable/color/bitmap/WOFF2 acceptance and complete item-level
 portability fidelity remain separate beyond the automated package-state outcomes.
 Cross-platform writer reproduction and total-resource allocation evidence are

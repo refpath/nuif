@@ -55,8 +55,11 @@ network request.
 
 ## Security limits and non-claims
 
-The implementation contains no unsafe code and uses pinned `ttf-parser`
-`0.25.1` only after independent sfnt directory, range, and checksum checks.
+The implementation contains no unsafe code and uses pinned Skrifa `0.46.2`
+only after NUIF-owned sfnt directory, range, packing and checksum checks. NUIF
+also reads the required `head`, `maxp` and `OS/2` fields directly, requires the
+first two to agree with Skrifa metrics, and applies its own conservative
+embedding-bit policy.
 Resource limits are validation policy, not proof that an accepted font is safe
 for every downstream native rasterizer. A renderer must preserve its own
 sandbox and work budgets.
@@ -68,8 +71,9 @@ font decoding, layout fidelity, or licensing compliance.
 ## Evidence boundary
 
 `cargo xtask gate-i-font` accepts four static TrueType fixtures from
-`font-test-data` 0.9.1 and compares the exact pinned Ahem metrics, static-axis
-state and Unicode coverage across `ttf-parser` and Skrifa. It rejects 20
+`font-test-data` 0.9.1 and compares the exact pinned Ahem metrics, family,
+tables and Unicode coverage with a committed `hb-info` 14.4.0 capture. It
+rejects 20
 synthetic and real cases spanning malformed/checksum-invalid sfnt data, TTC,
 CFF, variable, COLR, embedded bitmap, CBDT and sbix categories. Ten metadata and
 embedding-policy mutations plus six portable/private/linked/substituted/

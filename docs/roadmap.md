@@ -38,8 +38,8 @@ total-resource/media allocation evidence. A Linux/Windows/macOS resource-gate
 matrix is configured; successful hosted artifacts are still required before a
 cross-platform reproduction claim. The
 separate `nuif-opentype-static-single-0` baseline validates one exact static
-TrueType face through package encoding/resolution, compares `ttf-parser` with
-Skrifa and rejects malformed/policy/one-over cases through
+TrueType face through package encoding/resolution, compares Skrifa results with
+a pinned HarfBuzz metadata capture and rejects malformed/policy/one-over cases through
 `cargo xtask gate-i-font`. TTC, CFF/CFF2, variable/color/bitmap/WOFF2 fonts,
 item-level substitution/unavailability fidelity, shaping integration,
 successful hosted cross-platform evidence and external implementations remain open.

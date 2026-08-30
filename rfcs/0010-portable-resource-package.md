@@ -258,8 +258,9 @@ canonically packed and checksummed tables, matching family names and exact
 Unicode coverage, no variation axes, a matching `fsType` value, a non-empty
 license expression and explicit embedding review. Package encode/decode and
 resolved linked bytes run the same validation. The exact rules and non-claims
-are in `crates/nuif-font/PROFILE.md`; `cargo xtask gate-i-font` compares
-`ttf-parser` 0.25.1 with Skrifa 0.46.2 for the pinned Ahem fixture.
+are in `crates/nuif-font/PROFILE.md`; `cargo xtask gate-i-font` compares Skrifa
+0.46.2 behind NUIF-owned sfnt validation with a committed HarfBuzz 14.4.0
+metadata capture for the pinned Ahem fixture.
 
 This executable slice deliberately rejects TTC, CFF/CFF2, variable, color,
 bitmap, SVG and WOFF/WOFF2 fonts. The broader font-resource profile must pin:

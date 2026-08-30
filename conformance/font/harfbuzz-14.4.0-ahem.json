@@ -1,0 +1,27 @@
+{
+  "schema_version": 1,
+  "tool": "hb-info",
+  "version": "14.4.0",
+  "capture_command": "hb-info -q --show-family --show-upem --show-glyph-count --show-unicode-count ahem.ttf; hb-info -q --list-unicodes ahem.ttf | awk '{print $1}' | shasum -a 256; hb-info -q --list-tables ahem.ttf",
+  "font_sha256": "f0a92cd0cc45735591c9b5b1fa8aecd5194e8dc518895ca22af94a46c23550dc",
+  "family_names": [
+    "Ahem"
+  ],
+  "units_per_em": 1000,
+  "glyph_count": 281,
+  "unicode_count": 281,
+  "unicode_scalar_sha256": "8a98ce166c92382f2110824d1d84b08f9a4fe0f9000b851252bc64aee404fd4c",
+  "table_tags": [
+    "OS/2",
+    "cmap",
+    "gasp",
+    "glyf",
+    "head",
+    "hhea",
+    "hmtx",
+    "loca",
+    "maxp",
+    "name",
+    "post"
+  ]
+}

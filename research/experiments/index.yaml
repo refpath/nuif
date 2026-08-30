@@ -444,14 +444,14 @@ experiments:
     status: automated
     evidence: [nuif:research:opentype-font-embedding-and-portability, nuif:research:ttf-parser, nuif:research:fontations, nuif:research:text-rendering-reproducibility]
     implementation: [crates/nuif-font/src/lib.rs, crates/nuif-font/PROFILE.md, crates/nuif-package/src/lib.rs, crates/nuif-testing/src/bin/font-resources.rs, xtask/src/main.rs]
-    oracle: cross-parser-and-policy-metamorphic
+    oracle: external-harfbuzz-capture-and-policy-metamorphic
     acceptance:
-      - the pinned static TrueType face has identical units glyph count static-axis state and exact Unicode coverage under ttf-parser and Skrifa
+      - the pinned static TrueType face has identical units glyph count family tables and exact Unicode coverage under Skrifa and the pinned HarfBuzz metadata capture
       - exact bytes face metadata and explicit policy evidence validate together and remain digest-identical through package fixpoint and an unrelated edit
       - malformed checksum-invalid noncanonical unsupported and one-over cases fail before the resource is accepted
       - the report distinguishes technical fsType evidence from license and embedding approval
     tests:
-      - accept four real static TrueType fixtures and compare the pinned Ahem resource across ttf-parser 0.25.1 and Skrifa 0.46.2 metrics axes and selected Unicode mapping
+      - accept four real static TrueType fixtures and compare the pinned Ahem resource across Skrifa 0.46.2 and hb-info 14.4.0 metrics family tables and selected Unicode mapping
       - reject synthetic malformed cases plus real TTC CFF variable COLR embedded-bitmap CBDT and sbix fixtures
       - mutate decoder fsType license review coverage axes and feature evidence and require atomic policy failure
       - distinguish portable private-authoring linked substituted and unavailable package outcomes without implicit resolution

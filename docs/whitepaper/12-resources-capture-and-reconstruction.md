@@ -176,13 +176,14 @@ flags, but is not treated as a complete legal license decision.
 
 The executable `nuif-opentype-static-single-0` baseline accepts only one
 canonically packed, checksummed TrueType-outline sfnt face at index zero.
-`ttf-parser` 0.25.1 supplies the package-facing metadata after NUIF validates
-the directory, ranges, packing and checksums; Skrifa 0.46.2 independently
-checks metrics, static-axis state and selected Unicode coverage. Exact bytes,
-family names, coverage, `fsType`, license expression and explicit embedding
-review must agree. Package encode/decode and caller-resolved linked bytes run
-the same validation. Four static TrueType fixtures are accepted, while six
-package trials distinguish portable, private-authoring, linked, substituted and
+Skrifa 0.46.2 supplies package-facing metadata after NUIF validates the
+directory, ranges, packing and checksums and directly checks required sfnt and
+`OS/2` fields. A committed `hb-info` 14.4.0 capture independently checks Ahem
+metrics, family, tables and Unicode coverage. Exact bytes, family names,
+coverage, `fsType`, license expression and explicit embedding review must
+agree. Package encode/decode and caller-resolved linked bytes run the same
+validation. Four static TrueType fixtures are accepted, while six package
+trials distinguish portable, private-authoring, linked, substituted and
 unavailable outcomes.
 
 This is intentionally not general OpenType support. TTC, CFF/CFF2, variable,

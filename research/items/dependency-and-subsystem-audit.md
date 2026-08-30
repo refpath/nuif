@@ -25,7 +25,7 @@ relations:
     note: Benchmark and allocation tools are compared as part of the verification subsystem.
   - type: related_to
     target: nuif:research:macos-metal-block-future-incompatibility
-    note: The audit includes the reviewed editor-toolkit fork chain that removed metal-rs, rust-block, rustybuzz and its transitive ttf-parser copy.
+    note: The audit includes the reviewed editor-toolkit fork chain that removed metal-rs, rust-block and rustybuzz; the later direct ttf-parser use was retired separately.
 links:
   spec: [spec/08-serialization.md, spec/09-provenance-and-fidelity.md, spec/11-security.md]
   adr: [adrs/0002-layout-engine.md, adrs/0003-reference-renderer.md, adrs/0006-rust-native-editor.md]
@@ -36,7 +36,7 @@ links:
 
 # Summary
 
-Cargo metadata reports 33 distinct direct external crates across the workspace.
+Cargo metadata reports 32 distinct direct external crates across the workspace.
 Each is now registered with a role, a current decision, at least one considered
 alternative and repository evidence. The executable audit fails when a direct
 crate is added without ownership or when a stale registration remains. Cargo
@@ -70,11 +70,10 @@ duplicating a hex adapter across the report-producing crates.
   Zeno. The version-trial candidates are listed in the summary. The three Masonry
   packages are full-SHA Git dependencies and are therefore evaluated as one
   forked toolkit boundary rather than by crates.io maximum version.
-- `cargo deny check` passes after the reviewed Xilem and UI Events fork pins.
-  `rustybuzz`, metal-rs and rust-block remain absent from the active editor
-  graph. `ttf-parser` was later reintroduced only as the bounded `nuif-font`
-  package parser, not through the editor toolkit fork. The complete check is a
-  CI and release gate rather than a documented exception.
+- `cargo deny check` passes after the reviewed Xilem and UI Events fork pins and
+  the retirement of direct `ttf-parser` for RUSTSEC-2026-0192. `ttf-parser`,
+  `rustybuzz`, metal-rs and rust-block are absent from the active graph. The
+  complete check is a CI and release gate with no advisory exception.
 - The version trial ran all workspace unit and documentation tests, the release
   hostile-input allocation profile, text and render goldens, all seven executable
   adapter profiles, and workspace Clippy with warnings denied on rustc 1.98.0.
@@ -178,14 +177,15 @@ Layout, text and rendering
   engines as independent differential oracles. Substituting Taffy into the
   reference would erase one of the two implementations being compared; Yoga
   has the same self-oracle problem and adds a foreign-function boundary.
-- Harfrust and Skrifa remain the shaping/outline stack. The separate narrow
-  package-font profile uses `ttf-parser` behind NUIF-owned sfnt/checksum checks
-  and compares its results with Skrifa, avoiding a single-library oracle.
-  Fontations describes `read-fonts` as a no-allocation, no-copy parser suitable
-  for shaping and subjects the stack to OSS-Fuzz. `ttf-parser` likewise forbids
-  unsafe code and allocations in its parser API. Locators:
+- Harfrust and Skrifa remain the shaping/outline stack, and the separate narrow
+  package-font profile now uses Skrifa behind NUIF-owned sfnt/checksum/OS/2
+  checks. A committed HarfBuzz 14.4.0 metadata capture replaces the former
+  in-process Skrifa oracle. Fontations describes `read-fonts` as a no-allocation,
+  no-copy parser suitable for shaping, forbids unsafe code in Skrifa and subjects
+  the stack to OSS-Fuzz. The direct `ttf-parser` dependency was removed after
+  RUSTSEC-2026-0192 reported no patched version. Locators:
   https://github.com/googlefonts/fontations and
-  https://github.com/harfbuzz/ttf-parser, retrieved 2026-08-30.
+  https://rustsec.org/advisories/RUSTSEC-2026-0192.html, retrieved 2026-08-30.
 - The `png` crate owns the production RGBA8 decoding path; test-only `zune-png`
   supplies independent exact-pixel evidence with unsafe paths disabled and
   integrity checks enabled. Replacing production decoding with the oracle would

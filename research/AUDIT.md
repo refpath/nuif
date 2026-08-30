@@ -140,11 +140,12 @@ resource-aware CPU rasterization and rejects 13 unsupported/hostile cases via
 `cargo xtask gate-i-image`. Gate I does not yet pass: the general PNG colour
 and type profile, arbitrary transforms, cross-platform image reproduction,
 and a cross-platform/external writer remain required. The separate
-`nuif-opentype-static-single-0` segment compares exact Ahem metrics, static-axis
-state and Unicode coverage across `ttf-parser` and Skrifa, accepts four static
-TrueType fixtures, preserves the font through package fixpoint, requires
-explicit license/review evidence and rejects 20 synthetic/real malformed or
-out-of-profile cases plus 10 policy cases through `cargo xtask gate-i-font`.
+`nuif-opentype-static-single-0` segment compares exact Ahem metrics, family,
+tables and Unicode coverage between Skrifa and a pinned HarfBuzz metadata
+capture, accepts four static TrueType fixtures, preserves the font through
+package fixpoint, requires explicit license/review evidence and rejects 20
+synthetic/real malformed or out-of-profile cases plus 10 policy cases through
+`cargo xtask gate-i-font`.
 Six additional trials distinguish package-level portable/private/linked/
 substituted/unavailable outcomes. TTC, CFF/CFF2, variable/color/bitmap/WOFF2
 acceptance, item-level substitution/unavailability fidelity, shaping integration,
