@@ -343,7 +343,8 @@ fn render(args: &[String]) -> Result<(), CliError> {
 }
 
 fn snapshot(args: &[String]) -> Result<(), CliError> {
-    let document = load_document(required(args, 0, "input document")?)?;
+    let mut loaded = load_nuif(required(args, 0, "input document")?)?;
+    let document = loaded.document.clone();
     let directory = PathBuf::from(required(args, 1, "output directory")?);
     let width = number(args, 2, 360.0)?;
     let height = number(args, 3, 640.0)?;
@@ -353,8 +354,13 @@ fn snapshot(args: &[String]) -> Result<(), CliError> {
     let snapshot = session
         .snapshot(&profile_zero_context(width, height))
         .map_err(|error| CliError::new(1, "SNAPSHOT_FAILED", error.to_string()))?;
+    let package_path = directory.join("input.nuif");
+    let package_path = package_path
+        .to_str()
+        .ok_or_else(|| CliError::new(1, "WRITE_FAILED", "snapshot path is not valid UTF-8"))?;
+    write_loaded_document(package_path, &mut loaded)?;
     write_file(
-        &directory.join("input.nuif"),
+        &directory.join("input.nuif.json"),
         &CanonicalText.encode(&document).map_err(codec_error)?,
     )?;
     write_file(
@@ -376,7 +382,7 @@ fn snapshot(args: &[String]) -> Result<(), CliError> {
         "status": "passed",
         "canonical_hash": snapshot.canonical_hash,
         "context": {"viewport": [width, height], "scale": 1.0},
-        "artifacts": ["input.nuif", "expected.layout.json", "expected.scene.json", "expected.png"]
+        "artifacts": ["input.nuif", "input.nuif.json", "expected.layout.json", "expected.scene.json", "expected.png"]
     });
     write_file(
         &directory.join("expected.report.json"),
@@ -1121,10 +1127,13 @@ fn write_loaded_document(path: &str, loaded: &mut LoadedNuif) -> Result<(), CliE
     if path != "-" && has_extension(path, "nuif") {
         let mut package = loaded
             .package
-            .take()
+            .clone()
             .unwrap_or_else(|| NuifPackage::new(loaded.document.clone(), PackageMode::Portable));
         package.document.clone_from(&loaded.document);
-        return write_output(path, &package.encode().map_err(package_error)?);
+        let bytes = package.encode().map_err(package_error)?;
+        write_output(path, &bytes)?;
+        loaded.package = Some(package);
+        return Ok(());
     }
     write_document(path, &loaded.document)
 }

@@ -284,7 +284,7 @@ fn output_paths() -> Result<OutputPaths, String> {
     let mut outputs = OutputPaths {
         report: PathBuf::from("target/dtcg-sync-report.json"),
         source: PathBuf::from("target/dtcg-sync-output.tokens.json"),
-        edited: PathBuf::from("target/dtcg-sync-edited.nuif"),
+        edited: PathBuf::from("target/dtcg-sync-edited.nuif.json"),
     };
     while let Some(argument) = args.next() {
         let mut value = || {

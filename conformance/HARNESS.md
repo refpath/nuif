@@ -1,6 +1,6 @@
 # Test-harness architecture
 
-Status: profile-0 baseline, Gate C browser/Taffy, Gate D text/render, Gate E complete editor authoring, bounded and full-v0 Gate F HTML/CSS synchronization, Gate G independent v0 reproduction and Gate H collaboration-register convergence are implemented; fuzz packages, perceptual comparison, structural collaboration and broader adapter trials remain planned. This document specifies how round-trip trials run unattended, fail reproducibly, minimize themselves and report in machine-readable form. Evidence is cited by research record identifier.
+Status: profile-0 baseline, deterministic `nuif-package-0`, Gate C browser/Taffy, Gate D text/render, Gate E complete editor authoring, bounded and full-v0 Gate F HTML/CSS synchronization, SVG/DTCG/Penpot adapter gates, Gate G independent v0 reproduction and Gate H collaboration-register convergence are implemented. Bounded browser/screenshot capture and reconstruction contracts have unit evidence; their cross-provider accuracy corpus is not yet a release gate. Fuzz packages, perceptual comparison, structural collaboration and broader foreign-runtime trials remain planned. This document specifies how round-trip trials run unattended, fail reproducibly, minimize themselves and report in machine-readable form. Evidence is cited by research record identifier.
 
 ## Goals
 
@@ -21,12 +21,15 @@ crates/
   nuif-layout              evaluation context and profile-0 reference evaluator
   nuif-render              render scene, backends (CPU reference; Vello interactive)
   nuif-codec               nuif-text-0, nuif-cbor-0, canonicalizer, migrations
+  nuif-package             deterministic bounded .nuif ZIP package and resource policy
+  nuif-reconstruct         typed observations/proposals and finite correction loop
+  nuif-capture             browser-source and strict screenshot capture baselines
   nuif-query               semantic queries
   nuif-api                 Engine trait, report types, session driver
   nuif-cli                 command surface; JSON output; stable exit codes
   nuif-testing             seeded trials, hostile-input measurement, v0 fixture, direct Taffy/Chrome oracles, reducer and reports
 apps/
-  editor                   headless editor driver and binary; Masonry GUI shell remains pending
+  editor                   headless driver plus tested Masonry GUI shell; package-preserving I/O
 conformance/
   Cargo.toml               executable profile-0 conformance package
   src/lib.rs               v0 responsive, extension, seeded-trial and parity assertions
@@ -48,9 +51,12 @@ One directory per case. Files:
 
 | File | Content |
 |---|---|
-| `input.nuif` | authored document in `nuif-text-0`; `input.cbor` for binary-only cases |
+| `input.nuif` | deterministic `nuif-package-0` archive; resources remain content-addressed and policy-checked |
+| `input.nuif.json` | generated canonical `nuif-text-0` projection for transparent inspection or an independent implementation that intentionally tests only the document profile |
+| `input.cbor` | bare `nuif-cbor-0` input for codec-only binary cases; never labelled `.nuif` |
 | `context.toml` | evaluation context: viewport, scale factor, locale, writing direction, theme, font set (by hash), capability profile, determinism tier and tolerances |
-| `expected.canonical.nuif` | canonical form after decode and re-encode (canonicalization suite) |
+| `expected.canonical.nuif` | deterministic package form after decode and re-encode (package suite) |
+| `expected.canonical.nuif.json` | canonical bare-document form after decode and re-encode (document codec suite) |
 | `expected.layout.json` | resolved boxes and diagnostics keyed by entity identifier |
 | `expected.scene.json` | render scene serialization (render suite) |
 | `expected.png` | reference rasterization from the CPU path (render suite only) |
@@ -83,7 +89,8 @@ Persisted expectation regeneration remains a planned extension and will use one 
 | merge | assertions | three-way merges produce typed conflicts, never arbitrary winners; move and order cases from `crdt-tree-move-operation` |
 | provenance | assertions | correspondence records survive representable round trips; minimal-patch locality measured as changed source spans |
 | adapter | round trip and fidelity report | `canon(Y(X(d))) = canon(d)` on the representable subset; every deviation explained by a report entry |
-| security | measured boundary and one-over cases | readers stop at 16 MiB plus one byte; syntax depth 64 and the RFC 0009 semantic limits are enforced; release cases fail above 2 s, 64 MiB allocated or 16 MiB retained; CPU targets remain capped at 16,777,216 pixels (`resource-bounded-serde-and-ciborium`) |
+| package | independent ZIP writer plus fixpoint and corruption trials | fixed member order/metadata, exact package bytes, manifest/document/resource hashes, no traversal/symlink/encryption/compression/ZIP64 ambiguity, explicit linked-resource resolver |
+| security | measured boundary and one-over cases | bare readers stop at 16 MiB plus one byte; packages stop at 80 MiB with 32 MiB per resource, 64 MiB total embedded resources and 8,192 resources; syntax depth 64 and the RFC 0009 semantic limits are enforced; release bare-codec cases fail above 2 s, 64 MiB allocated or 16 MiB retained; CPU targets remain capped at 16,777,216 pixels (`resource-bounded-serde-and-ciborium`) |
 
 ## Trial loop
 
@@ -139,7 +146,7 @@ The layout-differential experiment writes `target/layout-differential-report.jso
 
 The text-pinning experiment writes `target/text-pinning-report.json`. It records the exact font, shaper, Unicode, outline extractor, rasterizer and independent HarfBuzz oracle pins; expected and observed glyph/outline strings; source/toolchain/platform identity; hard-break/no-soft-wrap semantic trials; repeatability and committed scene/raw-RGBA baselines at three evaluation contexts; PNG artifact hashes; and negative missing/malformed-font cases. `cargo xtask gate-d-text` fails on any pin, golden, semantic, scene/pixel baseline, repeatability or negative-case mismatch. A PNG-reference mismatch is diagnostic because the lossless compressor is outside the pixel boundary. The bounded text profile is lossless and its scene/pixel hashes agree on macOS/aarch64, Linux/aarch64 and Linux/x86_64.
 
-The independent-reproduction experiment writes `target/gate-g-report.json` plus canonical text, layout and PNG artifacts under `target/gate-g-independent`. `cargo xtask gate-g` generates reference artifacts at three viewports, runs the standard-library-only Python implementation's unit suite, then compares independently computed canonical bytes, opaque preservation, boxes, decoded RGBA and fidelity. The Python implementation does not import, link or invoke any reference package; only the outer differential harness invokes both implementations.
+The independent-reproduction experiment writes `target/gate-g-report.json` plus canonical text, layout and PNG artifacts under `target/gate-g-independent`. `cargo xtask gate-g` generates a real package and reference artifacts at three viewports, exports one generated `input.nuif.json` projection, runs the standard-library-only Python document-profile implementation's unit suite, then compares independently computed canonical document bytes, opaque preservation, boxes, decoded RGBA and fidelity. The Python implementation deliberately does not claim package parsing and does not import, link or invoke any Rust workspace package; only the outer differential harness invokes both implementations.
 
 The render-profile experiment writes `target/render-profile-report.json`. It fixes every supported paint input by value, repeats rectangle and ellipse scenes/raw-RGBA rasters/PNG artifacts, rejects out-of-range sRGB channels, and requires entity/property pointers for unsupported path, image and instance kinds plus preserved document/entity extensions. `cargo xtask gate-d-render` fails on any scene/pixel baseline, repeatability, validation or fidelity-attribution mismatch; `cargo xtask gate-d` runs both Gate D reports.
 
@@ -147,11 +154,11 @@ The HTML/CSS retentive experiment writes `target/html-sync-report.json` and `tar
 
 The full-v0 follow-on writes `target/html-sync-v0-report.json`, `target/html-sync-v0-output.html`, `target/html-sync-v0-editor-report.json` and `target/html-sync-v0-editor-output.html`. `cargo xtask gate-f-v0` checks 181 source correspondences, the unchanged-byte complement of eight model edits, exact opaque preservation and typed negative cases, then drives a semantic editor name/width edit through CLI synchronization and CLI import to byte-identical canonical NUIF. Target visual limits and arbitrary-CSS non-claims are specified in `adapters/html-css/V0-PROFILE.md`.
 
-The SVG retentive experiment writes `target/svg-sync-report.json`, a direct synchronized SVG and edited canonical NUIF, plus separate public-CLI synchronization report and SVG. `cargo xtask gate-svg` checks exact import/export, repeatability, the unchanged-byte complement of seven accessibility, paint, geometry and text edits, preserved comments and metadata, and typed unsupported-property, structural, stale-span, derived-geometry, DTD, XML-node and byte-limit cases. The CLI bridge exports the fixture, synchronizes the edited document and requires byte-identical canonical re-import. The mapped SVG 2 subset and arbitrary-SVG non-claims are specified in `adapters/svg/PROFILE.md`.
+The SVG retentive experiment writes `target/svg-sync-report.json`, a direct synchronized SVG and edited canonical document at `target/svg-sync-edited.nuif.json`, plus separate public-CLI synchronization report and SVG. `cargo xtask gate-svg` checks exact import/export, repeatability, the unchanged-byte complement of seven accessibility, paint, geometry and text edits, preserved comments and metadata, and typed unsupported-property, structural, stale-span, derived-geometry, DTD, XML-node and byte-limit cases. The CLI bridge exports a package fixture, synchronizes from the explicit bare-document projection and requires byte-identical canonical document re-import. The mapped SVG 2 subset and arbitrary-SVG non-claims are specified in `adapters/svg/PROFILE.md`.
 
-The DTCG scalar-token experiment writes `target/dtcg-sync-report.json`, a direct synchronized token file and edited canonical NUIF, plus separate public-CLI synchronization report and token file. `cargo xtask gate-dtcg` checks exact import/export, NUIF Integer/Real discrimination inside DTCG `number`, repeatability, the unchanged-byte complement of eight name/type/value/metadata edits, and root/token extension retention. Duplicate members, aliases, undeclared standard members, excessive JSON depth, one-over token count, one-over source bytes, unsupported values, structural changes and stale spans are typed failures. The CLI bridge requires byte-identical canonical re-import. The mapped DTCG 2025.10 subset and token-model limitations are specified in `adapters/dtcg/PROFILE.md`.
+The DTCG scalar-token experiment writes `target/dtcg-sync-report.json`, a direct synchronized token file and edited canonical document at `target/dtcg-sync-edited.nuif.json`, plus separate public-CLI synchronization report and token file. `cargo xtask gate-dtcg` checks exact import/export, NUIF Integer/Real discrimination inside DTCG `number`, repeatability, the unchanged-byte complement of eight name/type/value/metadata edits, and root/token extension retention. Duplicate members, aliases, undeclared standard members, excessive JSON depth, one-over token count, one-over source bytes, unsupported values, structural changes and stale spans are typed failures. The CLI bridge requires byte-identical canonical document re-import. The mapped DTCG 2025.10 subset and token-model limitations are specified in `adapters/dtcg/PROFILE.md`.
 
-The Penpot v3 package experiment writes `target/penpot-sync-report.json`, a synchronized package and edited canonical NUIF, plus separate public-CLI synchronization report and package. `cargo xtask gate-penpot` imports the fixture produced by official `@penpot/library` 1.1.0, checks deterministic export and byte-exact no-op archive retention, applies eight mapped JSON scalar edits, preserves untouched member payloads plus injected opaque binary/JSON data, and requires exact canonical re-import. Unsafe paths and one-over package/member limits are typed failures. The library importer additionally rejects excessive count/expansion/ratio/depth/value cases, duplicate names, directories, symlinks, encryption and unsupported compression. The mapped package subset and compact/components/libraries/interactions non-claims are specified in `adapters/penpot/PROFILE.md`.
+The Penpot v3 package experiment writes `target/penpot-sync-report.json`, a synchronized Penpot package and edited canonical NUIF document at `target/penpot-sync-edited.nuif.json`, plus separate public-CLI synchronization report and Penpot package. `cargo xtask gate-penpot` imports the fixture produced by official `@penpot/library` 1.1.0, checks deterministic export and byte-exact no-op archive retention, applies eight mapped JSON scalar edits, preserves untouched member payloads plus injected opaque binary/JSON data, and requires exact canonical document re-import. Unsafe paths and one-over package/member limits are typed failures. The library importer additionally rejects excessive count/expansion/ratio/depth/value cases, duplicate names, directories, symlinks, encryption and unsupported compression. The mapped package subset and compact/components/libraries/interactions non-claims are specified in `adapters/penpot/PROFILE.md`.
 
 The collaboration register experiment writes `target/collaboration-report.json`. `cargo xtask gate-h` exhausts all 5,040 deliveries through operation-set and replica-log materializers, checks multiple merge orders and duplicate delivery, requires property-attributed multi-value conflicts and inspects canonical text for leaked replica state. Structural operations fail before ingestion; the executable boundary is specified in `crates/nuif-collab/README.md` and `spec/10-collaboration-profile.md`.
 

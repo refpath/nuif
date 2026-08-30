@@ -293,7 +293,7 @@ fn output_paths() -> Result<OutputPaths, String> {
     let mut outputs = OutputPaths {
         report: PathBuf::from("target/svg-sync-report.json"),
         source: PathBuf::from("target/svg-sync-output.svg"),
-        edited: PathBuf::from("target/svg-sync-edited.nuif"),
+        edited: PathBuf::from("target/svg-sync-edited.nuif.json"),
     };
     while let Some(argument) = args.next() {
         let mut value = || {

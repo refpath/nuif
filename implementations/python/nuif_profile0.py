@@ -770,7 +770,7 @@ def verify(args: argparse.Namespace) -> int:
         )
 
         artifact_directory.mkdir(parents=True, exist_ok=True)
-        (artifact_directory / "canonical.nuif").write_bytes(canonical)
+        (artifact_directory / "canonical.nuif.json").write_bytes(canonical)
         independent_fidelity = render_fidelity(document)
         for case_argument in args.case:
             dimensions, reference_name = case_argument.split("=", 1)
@@ -892,7 +892,7 @@ def verify(args: argparse.Namespace) -> int:
             "cases": cases,
             "negative_trials": negative_trials,
             "issues": issues,
-            "artifacts": [str(artifact_directory / "canonical.nuif")],
+            "artifacts": [str(artifact_directory / "canonical.nuif.json")],
         }
     except (OSError, ValueError, KeyError, ProfileError) as error:
         report = {

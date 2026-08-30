@@ -287,7 +287,7 @@ struct Outputs {
 fn output_paths() -> Result<Outputs, String> {
     let mut report = PathBuf::from("target/penpot-sync-report.json");
     let mut package = PathBuf::from("target/penpot-sync-output.penpot");
-    let mut edited = PathBuf::from("target/penpot-sync-edited.nuif");
+    let mut edited = PathBuf::from("target/penpot-sync-edited.nuif.json");
     let mut arguments = env::args().skip(1);
     while let Some(argument) = arguments.next() {
         let target = match argument.as_str() {

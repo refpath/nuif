@@ -60,17 +60,17 @@ const VERIFICATION_ARTIFACTS: &[&str] = &[
     "target/html-sync-v0-editor-output.html",
     "target/svg-sync-report.json",
     "target/svg-sync-output.svg",
-    "target/svg-sync-edited.nuif",
+    "target/svg-sync-edited.nuif.json",
     "target/svg-sync-cli-report.json",
     "target/svg-sync-cli-output.svg",
     "target/dtcg-sync-report.json",
     "target/dtcg-sync-output.tokens.json",
-    "target/dtcg-sync-edited.nuif",
+    "target/dtcg-sync-edited.nuif.json",
     "target/dtcg-sync-cli-report.json",
     "target/dtcg-sync-cli-output.tokens.json",
     "target/penpot-sync-report.json",
     "target/penpot-sync-output.penpot",
-    "target/penpot-sync-edited.nuif",
+    "target/penpot-sync-edited.nuif.json",
     "target/penpot-sync-cli-report.json",
     "target/penpot-sync-cli-output.penpot",
     "target/gate-g-report.json",
@@ -462,7 +462,7 @@ fn gate_svg() -> Result<(), String> {
         "--source-output",
         "target/svg-sync-output.svg",
         "--edited-output",
-        "target/svg-sync-edited.nuif",
+        "target/svg-sync-edited.nuif.json",
     ])?;
     gate_svg_cli_bridge()
 }
@@ -481,11 +481,11 @@ fn gate_svg_cli_bridge() -> Result<(), String> {
     let export_report = directory.join("export-report.json");
     let imported = directory.join("imported.nuif");
     let import_report = directory.join("import-report.json");
-    let reimported = directory.join("reimported.nuif");
+    let reimported = directory.join("reimported.nuif.json");
     let reimport_report = directory.join("reimport-report.json");
     let synchronized = Path::new("target/svg-sync-cli-output.svg");
     let sync_report = Path::new("target/svg-sync-cli-report.json");
-    let edited = Path::new("target/svg-sync-edited.nuif");
+    let edited = Path::new("target/svg-sync-edited.nuif.json");
     nuif(&["fixture", "svg-profile", path(&input)?])?;
     nuif(&[
         "export",
@@ -524,7 +524,7 @@ fn gate_svg_cli_bridge() -> Result<(), String> {
     if fs::read(edited).map_err(|error| error.to_string())?
         != fs::read(&reimported).map_err(|error| error.to_string())?
     {
-        return Err("CLI SVG synchronization changed edited canonical NUIF bytes".to_owned());
+        return Err("CLI SVG synchronization changed edited canonical document bytes".to_owned());
     }
     let report = read_json(sync_report)?;
     if report["status"] != "passed" || report["edits"].as_array().map(Vec::len) != Some(7) {
@@ -552,7 +552,7 @@ fn gate_dtcg() -> Result<(), String> {
         "--source-output",
         "target/dtcg-sync-output.tokens.json",
         "--edited-output",
-        "target/dtcg-sync-edited.nuif",
+        "target/dtcg-sync-edited.nuif.json",
     ])?;
     gate_dtcg_cli_bridge()
 }
@@ -571,11 +571,11 @@ fn gate_dtcg_cli_bridge() -> Result<(), String> {
     let export_report = directory.join("export-report.json");
     let imported = directory.join("imported.nuif");
     let import_report = directory.join("import-report.json");
-    let reimported = directory.join("reimported.nuif");
+    let reimported = directory.join("reimported.nuif.json");
     let reimport_report = directory.join("reimport-report.json");
     let synchronized = Path::new("target/dtcg-sync-cli-output.tokens.json");
     let sync_report = Path::new("target/dtcg-sync-cli-report.json");
-    let edited = Path::new("target/dtcg-sync-edited.nuif");
+    let edited = Path::new("target/dtcg-sync-edited.nuif.json");
     nuif(&["fixture", "dtcg-profile", path(&input)?])?;
     nuif(&[
         "export",
@@ -614,7 +614,7 @@ fn gate_dtcg_cli_bridge() -> Result<(), String> {
     if fs::read(edited).map_err(|error| error.to_string())?
         != fs::read(&reimported).map_err(|error| error.to_string())?
     {
-        return Err("CLI DTCG synchronization changed edited canonical NUIF bytes".to_owned());
+        return Err("CLI DTCG synchronization changed edited canonical document bytes".to_owned());
     }
     let report = read_json(sync_report)?;
     if report["status"] != "passed" || report["edits"].as_array().map(Vec::len) != Some(8) {
@@ -642,7 +642,7 @@ fn gate_penpot() -> Result<(), String> {
         "--package-output",
         "target/penpot-sync-output.penpot",
         "--edited-output",
-        "target/penpot-sync-edited.nuif",
+        "target/penpot-sync-edited.nuif.json",
     ])?;
     gate_penpot_cli_bridge()
 }
@@ -661,11 +661,11 @@ fn gate_penpot_cli_bridge() -> Result<(), String> {
     let export_report = directory.join("export-report.json");
     let imported = directory.join("imported.nuif");
     let import_report = directory.join("import-report.json");
-    let reimported = directory.join("reimported.nuif");
+    let reimported = directory.join("reimported.nuif.json");
     let reimport_report = directory.join("reimport-report.json");
     let synchronized = Path::new("target/penpot-sync-cli-output.penpot");
     let sync_report = Path::new("target/penpot-sync-cli-report.json");
-    let edited = Path::new("target/penpot-sync-edited.nuif");
+    let edited = Path::new("target/penpot-sync-edited.nuif.json");
     nuif(&["fixture", "penpot-profile", path(&input)?])?;
     nuif(&[
         "export",
@@ -704,7 +704,9 @@ fn gate_penpot_cli_bridge() -> Result<(), String> {
     if fs::read(edited).map_err(|error| error.to_string())?
         != fs::read(&reimported).map_err(|error| error.to_string())?
     {
-        return Err("CLI Penpot synchronization changed edited canonical NUIF bytes".to_owned());
+        return Err(
+            "CLI Penpot synchronization changed edited canonical document bytes".to_owned(),
+        );
     }
     let report = read_json(sync_report)?;
     if report["status"] != "passed" || report["edits"].as_array().map(Vec::len) != Some(8) {
@@ -741,6 +743,7 @@ fn gate_g() -> Result<(), String> {
     }
     fs::create_dir_all(reference).map_err(|error| error.to_string())?;
     let input = reference.join("input.nuif");
+    let independent_input = reference.join("input.nuif.json");
     cargo(&[
         "run",
         "--quiet",
@@ -752,6 +755,7 @@ fn gate_g() -> Result<(), String> {
         "v0-responsive-card",
         path(&input)?,
     ])?;
+    nuif(&["migrate", path(&input)?, path(&independent_input)?])?;
     for (name, width, height) in [
         ("360x640", "360", "640"),
         ("768x768", "768", "768"),
@@ -790,7 +794,7 @@ fn gate_g() -> Result<(), String> {
             "implementations/python/nuif_profile0.py",
             "verify",
             "--input",
-            path(&input)?,
+            path(&independent_input)?,
             "--case",
             "360x640=target/gate-g-reference/360x640",
             "--case",

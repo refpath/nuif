@@ -261,6 +261,11 @@ fn write_snapshots(
         let mut snapshot_package = package.cloned();
         let package_bytes = encode_editor_file(&document, &mut snapshot_package)?;
         fs::write(output.join("input.nuif"), package_bytes).map_err(|error| error.to_string())?;
+        fs::write(
+            output.join("input.nuif.json"),
+            snapshot.canonical_document.as_bytes(),
+        )
+        .map_err(|error| error.to_string())?;
         write_json(&output.join("context.json"), &snapshot.context)?;
         write_json(&output.join("expected.layout.json"), &snapshot.layout)?;
         write_json(&output.join("expected.scene.json"), &snapshot.scene)?;
@@ -274,6 +279,7 @@ fn write_snapshots(
             "fidelity": snapshot.scene.fidelity,
             "artifacts": [
                 "input.nuif",
+                "input.nuif.json",
                 "context.json",
                 "expected.layout.json",
                 "expected.scene.json",
