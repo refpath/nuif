@@ -14,7 +14,7 @@ Packages contain the Apache-2.0 and MIT license files, a scope notice and a pack
 
 Current alpha packages are unsigned. Code signing, notarization and installer or store publication require platform credentials and remain separate release operations. The manifest records the unsigned status. Apple and Windows signing requirements are recorded in `nuif:research:github-release-delivery-and-provenance`.
 
-The Linux package expects a graphical Wayland or X11 session and a graphics driver supported by wgpu. It is a relocatable application directory, not a distribution-specific system package. The Windows application wrapper uses the GUI subsystem so a console window is not opened; the separate `nuif-editor` binary retains its headless/JSONL interface.
+The Linux package expects a graphical Wayland or X11 session, Fontconfig at runtime, and a graphics driver supported by wgpu. Building it on Debian or Ubuntu requires `libfontconfig1-dev`; CI installs that package before every workspace or editor build. The archive is a relocatable application directory, not a distribution-specific system package. The Windows application wrapper uses the GUI subsystem so a console window is not opened; the separate `nuif-editor` binary retains its headless/JSONL interface.
 
 The `native-editor` CI matrix runs the editor check, tests, semantic and visual trial, and packaging command on GitHub-hosted macOS, Windows and Linux systems. Each job uploads its archive, package manifest, semantic-node inventory and shell screenshot. This is native-host evidence; a successful cross-compilation alone is not treated as platform verification.
 

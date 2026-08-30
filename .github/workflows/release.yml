@@ -38,6 +38,8 @@ jobs:
         run: |
           rustup toolchain install 1.98.0 --profile minimal --component clippy --component rustfmt
           rustup default 1.98.0
+      - name: Install Linux native dependencies
+        run: sudo apt-get update && sudo apt-get install -y libfontconfig1-dev
       - name: Validate the tag and source version
         run: cargo xtask release-check "$RELEASE_TAG"
       - name: Run the complete verification harness
