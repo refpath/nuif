@@ -11,6 +11,9 @@ use crate::{build_editor_package, command_text, editor_version};
 
 const PRODUCT: &str = "org.nuif.editor.dev";
 const SCHEMA_VERSION: u64 = 1;
+const RELEASE_REPOSITORY: &str = "refpath/nuif";
+const RELEASE_WORKFLOW: &str = "refpath/nuif/.github/workflows/release.yml";
+const SOURCE_REPOSITORY: &str = "https://github.com/refpath/nuif.git";
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 enum Platform {
@@ -77,6 +80,33 @@ struct InstallOptions {
 #[derive(Debug)]
 struct LifecycleOptions {
     root: Option<PathBuf>,
+}
+
+#[derive(Debug)]
+struct UpdateOptions {
+    root: Option<PathBuf>,
+    check_only: bool,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+struct AlphaRelease {
+    version: String,
+    tag: String,
+    revision: String,
+    release_url: String,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+struct ReleaseCandidate {
+    version: String,
+    tag: String,
+    release_url: String,
+}
+
+#[derive(Debug)]
+struct ManagedTempDir {
+    path: PathBuf,
+    marker: PathBuf,
 }
 
 #[derive(Debug)]
@@ -194,6 +224,38 @@ pub(crate) fn uninstall(arguments: &[String]) -> Result<(), String> {
     Ok(())
 }
 
+pub(crate) fn update(arguments: &[String]) -> Result<(), String> {
+    let options = parse_update_options(arguments)?;
+    let platform = Platform::host()?;
+    let paths = install_paths(platform, options.root.as_deref())?;
+    require_update_tools()?;
+    let release = resolve_alpha_release()?;
+    let current = current_install_revision(platform, &paths)?;
+    let report = json!({
+        "schema_version": SCHEMA_VERSION,
+        "status": "resolved",
+        "channel": "alpha",
+        "available": {
+            "version": release.version,
+            "tag": release.tag,
+            "revision": release.revision,
+            "release_url": release.release_url,
+        },
+        "current_revision": current,
+        "update_required": current.as_deref() != Some(release.revision.as_str()),
+    });
+    println!(
+        "{}",
+        serde_json::to_string_pretty(&report).map_err(|error| error.to_string())?
+    );
+    if options.check_only || current.as_deref() == Some(release.revision.as_str()) {
+        return Ok(());
+    }
+    install_alpha_release(&release, options.root.as_deref())?;
+    let refreshed_paths = install_paths(platform, options.root.as_deref())?;
+    doctor_paths(platform, &refreshed_paths)
+}
+
 fn parse_install_options(arguments: &[String]) -> Result<InstallOptions, String> {
     let mut root = None;
     let mut channel = Channel::Source;
@@ -256,6 +318,30 @@ fn parse_lifecycle_options(
     }
     validate_root(root.as_deref())?;
     Ok(LifecycleOptions { root })
+}
+
+fn parse_update_options(arguments: &[String]) -> Result<UpdateOptions, String> {
+    let mut root = None;
+    let mut check_only = false;
+    let mut channel = None;
+    let mut index = 0;
+    while index < arguments.len() {
+        match arguments[index].as_str() {
+            "--user" => {}
+            "--check" => check_only = true,
+            "--root" => root = Some(next_path(arguments, &mut index, "--root")?),
+            "--channel" => {
+                channel = Some(next_value(arguments, &mut index, "--channel")?.to_owned());
+            }
+            value => return Err(format!("unknown editor-update option {value:?}")),
+        }
+        index += 1;
+    }
+    if channel.as_deref().is_some_and(|value| value != "alpha") {
+        return Err("editor-update currently supports only the alpha channel".to_owned());
+    }
+    validate_root(root.as_deref())?;
+    Ok(UpdateOptions { root, check_only })
 }
 
 fn next_value<'a>(
@@ -1352,6 +1438,342 @@ fn sha256_file(path: &Path) -> Result<String, String> {
     Ok(format!("{:x}", Sha256::digest(bytes)))
 }
 
+fn require_update_tools() -> Result<(), String> {
+    for (program, arguments) in [
+        ("git", &["--version"][..]),
+        ("gh", &["--version"][..]),
+        ("cargo", &["--version"][..]),
+        ("rustc", &["--version"][..]),
+    ] {
+        let output = Command::new(program)
+            .args(arguments)
+            .output()
+            .map_err(|error| format!("{program} is required for editor updates: {error}"))?;
+        check_status(output.status, program)?;
+    }
+    Ok(())
+}
+
+fn current_install_revision(
+    platform: Platform,
+    paths: &InstallPaths,
+) -> Result<Option<String>, String> {
+    if !paths.state_root.exists() {
+        return Ok(None);
+    }
+    validate_managed_root(paths)?;
+    if !paths.state.exists() {
+        return Ok(None);
+    }
+    let state = read_state(paths)?;
+    let active = state_string(&state, "active")?;
+    let installed = installed_version_from_receipt(platform, paths, &active)?;
+    let receipt = read_json(&installed.root.join("receipt.json"))?;
+    let revision = receipt["source"]["revision"]
+        .as_str()
+        .ok_or_else(|| "active install receipt has no source revision".to_owned())?;
+    validate_revision(revision)?;
+    Ok(Some(revision.to_owned()))
+}
+
+fn resolve_alpha_release() -> Result<AlphaRelease, String> {
+    let mut command = Command::new("gh");
+    command.args([
+        "api",
+        "-H",
+        "Accept: application/vnd.github+json",
+        "-H",
+        "X-GitHub-Api-Version: 2022-11-28",
+        "repos/refpath/nuif/releases?per_page=100",
+    ]);
+    let releases: Value = command_json(&mut command, "GitHub release query")?;
+    let candidate = select_alpha_release(&releases)?;
+    let temporary = ManagedTempDir::new("manifest")?;
+    let manifest = temporary.path.join("release-manifest.json");
+    let mut download = Command::new("gh");
+    download.args(["release", "download"]);
+    download.arg(&candidate.tag);
+    download.args([
+        "--repo",
+        RELEASE_REPOSITORY,
+        "--pattern",
+        "release-manifest.json",
+        "--dir",
+    ]);
+    download.arg(&temporary.path);
+    run_command(&mut download, "GitHub release manifest download")?;
+    let manifest_value = read_json(&manifest)?;
+    let revision = validate_release_manifest(&candidate, &manifest_value)?;
+    verify_release_manifest_attestation(&manifest, &candidate.tag, &revision)?;
+    Ok(AlphaRelease {
+        version: candidate.version,
+        tag: candidate.tag,
+        revision,
+        release_url: candidate.release_url,
+    })
+}
+
+fn select_alpha_release(releases: &Value) -> Result<ReleaseCandidate, String> {
+    let releases = releases
+        .as_array()
+        .ok_or_else(|| "GitHub release query did not return an array".to_owned())?;
+    releases
+        .iter()
+        .filter(|release| release["draft"] == false && release["prerelease"] == true)
+        .filter_map(|release| {
+            let tag = release["tag_name"].as_str()?;
+            let version = tag.strip_prefix('v')?;
+            let order = parse_alpha_version(version)?;
+            let has_manifest = release["assets"].as_array().is_some_and(|assets| {
+                assets.iter().any(|asset| {
+                    asset["name"] == "release-manifest.json" && asset["state"] == "uploaded"
+                })
+            });
+            if !has_manifest {
+                return None;
+            }
+            Some((
+                order,
+                ReleaseCandidate {
+                    version: version.to_owned(),
+                    tag: tag.to_owned(),
+                    release_url: release["html_url"].as_str().unwrap_or_default().to_owned(),
+                },
+            ))
+        })
+        .max_by_key(|(order, _)| *order)
+        .map(|(_, release)| release)
+        .ok_or_else(|| "no published alpha release with a release manifest was found".to_owned())
+}
+
+fn parse_alpha_version(version: &str) -> Option<(u64, u64, u64, u64)> {
+    let (base, alpha) = version.split_once("-alpha.")?;
+    if alpha.is_empty() || alpha.starts_with('0') && alpha != "0" {
+        return None;
+    }
+    let mut base = base.split('.');
+    let major = semver_number(base.next()?)?;
+    let minor = semver_number(base.next()?)?;
+    let patch = semver_number(base.next()?)?;
+    if base.next().is_some() {
+        return None;
+    }
+    Some((major, minor, patch, alpha.parse().ok()?))
+}
+
+fn semver_number(value: &str) -> Option<u64> {
+    if value.is_empty() || value.starts_with('0') && value != "0" {
+        return None;
+    }
+    value.parse().ok()
+}
+
+fn validate_release_manifest(
+    candidate: &ReleaseCandidate,
+    manifest: &Value,
+) -> Result<String, String> {
+    if manifest["schema_version"] != SCHEMA_VERSION
+        || manifest["tag"] != candidate.tag
+        || manifest["version"] != candidate.version
+        || manifest["packages"].as_array().map(Vec::len) != Some(5)
+        || manifest["sbom"] != format!("nuif-editor-{}.cdx.json", candidate.version)
+    {
+        return Err(format!(
+            "release manifest for {} failed its channel contract",
+            candidate.tag
+        ));
+    }
+    let revision = manifest["source_revision"]
+        .as_str()
+        .ok_or_else(|| "release manifest has no source revision".to_owned())?;
+    validate_revision(revision)?;
+    for package in manifest["packages"].as_array().into_iter().flatten() {
+        if package["status"] != "passed"
+            || package["source_dirty"] != false
+            || package["source_revision"] != revision
+            || package["version"] != candidate.version
+            || package["smoke_test"]["status"] != "passed"
+            || package["version_test"]["status"] != "passed"
+        {
+            return Err(format!(
+                "release manifest contains an invalid package for {}",
+                candidate.tag
+            ));
+        }
+    }
+    Ok(revision.to_owned())
+}
+
+fn verify_release_manifest_attestation(
+    manifest: &Path,
+    tag: &str,
+    revision: &str,
+) -> Result<(), String> {
+    let source_ref = format!("refs/tags/{tag}");
+    let mut command = Command::new("gh");
+    command.args(["attestation", "verify"]);
+    command.arg(manifest);
+    command.args([
+        "--repo",
+        RELEASE_REPOSITORY,
+        "--signer-workflow",
+        RELEASE_WORKFLOW,
+        "--source-ref",
+        &source_ref,
+        "--source-digest",
+        revision,
+        "--deny-self-hosted-runners",
+        "--format",
+        "json",
+    ]);
+    command.stdout(std::process::Stdio::null());
+    run_command(&mut command, "GitHub release manifest attestation")
+}
+
+fn install_alpha_release(release: &AlphaRelease, root: Option<&Path>) -> Result<(), String> {
+    let temporary = ManagedTempDir::new("source")?;
+    let source = temporary.path.join("source");
+    checkout_release_source(release, SOURCE_REPOSITORY, &source)?;
+
+    let mut install = Command::new("cargo");
+    install.current_dir(&source).args([
+        "xtask",
+        "editor-install",
+        "--user",
+        "--channel",
+        "alpha",
+        "--expected-tag",
+        &release.tag,
+        "--expected-revision",
+        &release.revision,
+    ]);
+    if let Some(root) = root {
+        install.arg("--root").arg(root);
+    }
+    run_command(&mut install, "attested alpha source installation")
+}
+
+fn checkout_release_source(
+    release: &AlphaRelease,
+    repository: &str,
+    source: &Path,
+) -> Result<(), String> {
+    let mut init = Command::new("git");
+    init.args(["init", "--quiet"]);
+    init.arg(source);
+    init.env("GIT_TERMINAL_PROMPT", "0");
+    run_command(&mut init, "Git source initialization")?;
+
+    let mut remote = git_source_command(source);
+    remote.args(["remote", "add", "origin", repository]);
+    run_command(&mut remote, "Git source remote configuration")?;
+    let tag_ref = format!("refs/tags/{0}:refs/tags/{0}", release.tag);
+    let mut fetch = git_source_command(source);
+    fetch.args(["fetch", "--quiet", "--depth", "1", "origin", &tag_ref]);
+    run_command(&mut fetch, "Git tagged source fetch")?;
+    let mut checkout = git_source_command(source);
+    checkout.args(["checkout", "--quiet", "--detach", &release.tag]);
+    run_command(&mut checkout, "Git tagged source checkout")?;
+
+    let mut head = git_source_command(source);
+    head.args(["rev-parse", "HEAD"]);
+    let observed_revision = command_output(&mut head, "Git source revision")?;
+    if observed_revision != release.revision {
+        return Err(format!(
+            "fetched revision {observed_revision} does not match attested revision {}",
+            release.revision
+        ));
+    }
+    let mut origin = git_source_command(source);
+    origin.args(["remote", "get-url", "origin"]);
+    if command_output(&mut origin, "Git source remote")? != repository {
+        return Err("fetched source remote changed unexpectedly".to_owned());
+    }
+    let mut status = git_source_command(source);
+    status.args(["status", "--porcelain"]);
+    if !command_output(&mut status, "Git source cleanliness")?.is_empty() {
+        return Err("fetched alpha source is not clean".to_owned());
+    }
+    Ok(())
+}
+
+fn git_source_command(source: &Path) -> Command {
+    let mut command = Command::new("git");
+    command
+        .arg("-C")
+        .arg(source)
+        .args(["-c", "core.hooksPath=/dev/null"])
+        .env("GIT_TERMINAL_PROMPT", "0");
+    command
+}
+
+fn command_json(command: &mut Command, context: &str) -> Result<Value, String> {
+    let output = command
+        .output()
+        .map_err(|error| format!("{context}: {error}"))?;
+    check_status(output.status, context)?;
+    serde_json::from_slice(&output.stdout).map_err(|error| format!("{context}: {error}"))
+}
+
+fn command_output(command: &mut Command, context: &str) -> Result<String, String> {
+    let output = command
+        .output()
+        .map_err(|error| format!("{context}: {error}"))?;
+    check_status(output.status, context)?;
+    Ok(String::from_utf8_lossy(&output.stdout).trim().to_owned())
+}
+
+fn run_command(command: &mut Command, context: &str) -> Result<(), String> {
+    let status = command
+        .status()
+        .map_err(|error| format!("{context}: {error}"))?;
+    check_status(status, context)
+}
+
+impl ManagedTempDir {
+    fn new(purpose: &str) -> Result<Self, String> {
+        if purpose.is_empty()
+            || !purpose
+                .bytes()
+                .all(|byte| byte.is_ascii_lowercase() || byte == b'-')
+        {
+            return Err("temporary directory purpose is not path-safe".to_owned());
+        }
+        let temporary_root = env::temp_dir();
+        for suffix in 0..100_u32 {
+            let path = temporary_root.join(format!(
+                "nuif-editor-update-{purpose}-{}-{suffix}",
+                std::process::id()
+            ));
+            match fs::create_dir(&path) {
+                Ok(()) => {
+                    let marker = path.join(".nuif-editor-update-temp");
+                    fs::write(&marker, PRODUCT).map_err(|error| error.to_string())?;
+                    return Ok(Self { path, marker });
+                }
+                Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists => {}
+                Err(error) => return Err(error.to_string()),
+            }
+        }
+        Err("could not reserve an update temporary directory".to_owned())
+    }
+}
+
+impl Drop for ManagedTempDir {
+    fn drop(&mut self) {
+        let safe_parent = self.path.parent() == Some(env::temp_dir().as_path());
+        let safe_name = self
+            .path
+            .file_name()
+            .and_then(|name| name.to_str())
+            .is_some_and(|name| name.starts_with("nuif-editor-update-"));
+        let marked = fs::read_to_string(&self.marker).is_ok_and(|value| value == PRODUCT);
+        if safe_parent && safe_name && marked {
+            let _ = fs::remove_dir_all(&self.path);
+        }
+    }
+}
+
 fn required_command_text(program: &str, arguments: &[&str]) -> Result<String, String> {
     command_text(program, arguments)
         .ok_or_else(|| format!("{program} {} failed", arguments.join(" ")))
@@ -1457,5 +1879,143 @@ mod tests {
         symlink(&unrelated, app).unwrap();
         assert!(preflight_install(Platform::Macos, &paths).is_err());
         fs::remove_dir_all(&root).unwrap();
+    }
+
+    #[test]
+    fn alpha_release_selection_uses_semver_order_and_requires_manifest() {
+        let releases = json!([
+            {
+                "draft": false,
+                "prerelease": true,
+                "tag_name": "v0.1.0-alpha.9",
+                "html_url": "https://example.invalid/9",
+                "assets": [{"name": "release-manifest.json", "state": "uploaded"}],
+            },
+            {
+                "draft": false,
+                "prerelease": true,
+                "tag_name": "v0.1.0-alpha.10",
+                "html_url": "https://example.invalid/10",
+                "assets": [{"name": "release-manifest.json", "state": "uploaded"}],
+            },
+            {
+                "draft": false,
+                "prerelease": true,
+                "tag_name": "v0.2.0-alpha.1",
+                "html_url": "https://example.invalid/incomplete",
+                "assets": [],
+            },
+            {
+                "draft": true,
+                "prerelease": true,
+                "tag_name": "v9.0.0-alpha.1",
+                "html_url": "https://example.invalid/draft",
+                "assets": [{"name": "release-manifest.json", "state": "uploaded"}],
+            }
+        ]);
+        let selected = select_alpha_release(&releases).unwrap();
+        assert_eq!(selected.version, "0.1.0-alpha.10");
+        assert_eq!(selected.tag, "v0.1.0-alpha.10");
+    }
+
+    #[test]
+    fn release_manifest_binds_all_packages_to_one_clean_revision() {
+        let revision = "0123456789abcdef0123456789abcdef01234567";
+        let candidate = ReleaseCandidate {
+            version: "0.1.0-alpha.2".to_owned(),
+            tag: "v0.1.0-alpha.2".to_owned(),
+            release_url: "https://example.invalid/release".to_owned(),
+        };
+        let package = json!({
+            "status": "passed",
+            "source_dirty": false,
+            "source_revision": revision,
+            "version": "0.1.0-alpha.2",
+            "smoke_test": {"status": "passed"},
+            "version_test": {"status": "passed"},
+        });
+        let manifest = json!({
+            "schema_version": 1,
+            "tag": "v0.1.0-alpha.2",
+            "version": "0.1.0-alpha.2",
+            "source_revision": revision,
+            "sbom": "nuif-editor-0.1.0-alpha.2.cdx.json",
+            "packages": [package.clone(), package.clone(), package.clone(), package.clone(), package],
+        });
+        assert_eq!(
+            validate_release_manifest(&candidate, &manifest).unwrap(),
+            revision
+        );
+        let mut dirty = manifest;
+        dirty["packages"][2]["source_dirty"] = json!(true);
+        assert!(validate_release_manifest(&candidate, &dirty).is_err());
+    }
+
+    #[test]
+    fn alpha_version_parser_rejects_mutable_or_ambiguous_versions() {
+        assert_eq!(parse_alpha_version("0.1.0-alpha.12"), Some((0, 1, 0, 12)));
+        assert!(parse_alpha_version("0.1.0-alpha.01").is_none());
+        assert!(parse_alpha_version("0.1.0-beta.1").is_none());
+        assert!(parse_alpha_version("main").is_none());
+    }
+
+    #[test]
+    fn attested_source_checkout_uses_the_exact_tag_revision() {
+        let origin = ManagedTempDir::new("fixture").unwrap();
+        let repository = origin.path.join("repository");
+        let mut init = Command::new("git");
+        init.args(["init", "--quiet"]).arg(&repository);
+        run_command(&mut init, "fixture Git initialization").unwrap();
+        for (key, value) in [
+            ("user.name", "NUIF Test"),
+            ("user.email", "test@nuif.invalid"),
+            ("commit.gpgsign", "false"),
+            ("tag.gpgsign", "false"),
+        ] {
+            let mut config = Command::new("git");
+            config
+                .arg("-C")
+                .arg(&repository)
+                .args(["config", key, value]);
+            run_command(&mut config, "fixture Git configuration").unwrap();
+        }
+        fs::write(repository.join("source.txt"), "pinned source\n").unwrap();
+        let mut add = Command::new("git");
+        add.arg("-C").arg(&repository).args(["add", "source.txt"]);
+        run_command(&mut add, "fixture Git add").unwrap();
+        let mut commit = Command::new("git");
+        commit
+            .arg("-C")
+            .arg(&repository)
+            .args(["commit", "--quiet", "-m", "fixture source"]);
+        run_command(&mut commit, "fixture Git commit").unwrap();
+        let mut tag = Command::new("git");
+        tag.arg("-C").arg(&repository).args([
+            "tag",
+            "--annotate",
+            "--message",
+            "fixture tag",
+            "v0.1.0-alpha.2",
+        ]);
+        run_command(&mut tag, "fixture Git tag").unwrap();
+        let mut revision_command = Command::new("git");
+        revision_command
+            .arg("-C")
+            .arg(&repository)
+            .args(["rev-parse", "HEAD"]);
+        let revision = command_output(&mut revision_command, "fixture revision").unwrap();
+        let release = AlphaRelease {
+            version: "0.1.0-alpha.2".to_owned(),
+            tag: "v0.1.0-alpha.2".to_owned(),
+            revision,
+            release_url: "https://example.invalid/release".to_owned(),
+        };
+        let checkout = ManagedTempDir::new("checkout").unwrap();
+        let destination = checkout.path.join("source");
+        checkout_release_source(&release, repository.to_str().unwrap(), &destination).unwrap();
+        assert_eq!(
+            fs::read_to_string(destination.join("source.txt")).unwrap(),
+            "pinned source\n"
+        );
     }
 }

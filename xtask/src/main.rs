@@ -124,11 +124,12 @@ fn run() -> Result<(), String> {
         Some("editor-doctor") => editor_install::doctor(&args.collect::<Vec<_>>()),
         Some("editor-rollback") => editor_install::rollback(&args.collect::<Vec<_>>()),
         Some("editor-uninstall") => editor_install::uninstall(&args.collect::<Vec<_>>()),
+        Some("editor-update") => editor_install::update(&args.collect::<Vec<_>>()),
         Some("release-check") => release_check(args.next().as_deref()),
         Some("manifest") => standalone_manifest(),
         Some("all") => all(),
         _ => Err(
-            "usage: cargo xtask <research|adapter-audit|dependency-audit|verify|trial [seed iterations snapshot-interval report-path]|gate-b|gate-c|gate-d|gate-d-text|gate-d-render|gate-f|gate-f-v0|gate-svg|gate-dtcg|gate-g|gate-h|browser-install|hostile-inputs|editor-hostile-inputs|performance|editor-trial|editor-gui-trial|editor-package|editor-launch|editor-install|editor-doctor|editor-rollback|editor-uninstall|release-check <tag>|manifest|all>"
+            "usage: cargo xtask <research|adapter-audit|dependency-audit|verify|trial [seed iterations snapshot-interval report-path]|gate-b|gate-c|gate-d|gate-d-text|gate-d-render|gate-f|gate-f-v0|gate-svg|gate-dtcg|gate-g|gate-h|browser-install|hostile-inputs|editor-hostile-inputs|performance|editor-trial|editor-gui-trial|editor-package|editor-launch|editor-install|editor-doctor|editor-rollback|editor-uninstall|editor-update|release-check <tag>|manifest|all>"
                 .to_owned(),
         ),
     }
