@@ -127,9 +127,9 @@ impl NuifPackage {
         {
             return Err(PackageError::DescriptorConflict { digest });
         }
+        check_resource_addition(&self.resources, &digest, &descriptor)?;
         self.resources.insert(digest.clone(), descriptor);
         self.embedded.insert(digest.clone(), Arc::from(bytes));
-        self.check_resource_collection()?;
         Ok(digest)
     }
 
@@ -162,8 +162,9 @@ impl NuifPackage {
         {
             return Err(PackageError::DescriptorConflict { digest });
         }
+        check_resource_addition(&self.resources, &digest, &descriptor)?;
         self.resources.insert(digest, descriptor);
-        self.check_resource_collection()
+        Ok(())
     }
 
     #[must_use]
@@ -338,39 +339,82 @@ impl NuifPackage {
     }
 
     fn check_resource_collection(&self) -> Result<(), PackageError> {
-        if self.resources.len() > MAX_RESOURCES {
-            return Err(PackageError::ResourceLimit {
-                resource: "resource descriptors",
-                limit: MAX_RESOURCES,
-                observed: self.resources.len(),
+        check_resource_collection(&self.resources)
+    }
+}
+
+fn check_resource_collection(
+    resources: &BTreeMap<ResourceDigest, ResourceDescriptor>,
+) -> Result<(), PackageError> {
+    checked_embedded_total(resources).map(drop)
+}
+
+fn checked_embedded_total(
+    resources: &BTreeMap<ResourceDigest, ResourceDescriptor>,
+) -> Result<usize, PackageError> {
+    if resources.len() > MAX_RESOURCES {
+        return Err(PackageError::ResourceLimit {
+            resource: "resource descriptors",
+            limit: MAX_RESOURCES,
+            observed: resources.len(),
+        });
+    }
+    let mut total = 0_usize;
+    for (digest, descriptor) in resources {
+        if digest != &descriptor.digest {
+            return Err(PackageError::InvalidManifest {
+                reason: format!(
+                    "resource map key {digest} differs from descriptor {}",
+                    descriptor.digest
+                ),
             });
         }
-        let mut total = 0_usize;
-        for (digest, descriptor) in &self.resources {
-            if digest != &descriptor.digest {
-                return Err(PackageError::InvalidManifest {
-                    reason: format!(
-                        "resource map key {digest} differs from descriptor {}",
-                        descriptor.digest
-                    ),
-                });
-            }
-            validate_descriptor(descriptor)?;
-            let size = usize::try_from(descriptor.size).unwrap_or(usize::MAX);
-            check_resource_size(size)?;
-            if matches!(descriptor.locator, ResourceLocator::Embedded { .. }) {
-                total = total.saturating_add(size);
-            }
+        validate_descriptor(descriptor)?;
+        let size = usize::try_from(descriptor.size).unwrap_or(usize::MAX);
+        check_resource_size(size)?;
+        if matches!(descriptor.locator, ResourceLocator::Embedded { .. }) {
+            total = total.saturating_add(size);
         }
-        if total > MAX_TOTAL_RESOURCE_BYTES {
+    }
+    if total > MAX_TOTAL_RESOURCE_BYTES {
+        return Err(PackageError::ResourceLimit {
+            resource: "total embedded resource bytes",
+            limit: MAX_TOTAL_RESOURCE_BYTES,
+            observed: total,
+        });
+    }
+    Ok(total)
+}
+
+fn check_resource_addition(
+    resources: &BTreeMap<ResourceDigest, ResourceDescriptor>,
+    digest: &ResourceDigest,
+    descriptor: &ResourceDescriptor,
+) -> Result<(), PackageError> {
+    let total = checked_embedded_total(resources)?;
+    if resources.contains_key(digest) {
+        return Ok(());
+    }
+    let observed = resources.len().saturating_add(1);
+    if observed > MAX_RESOURCES {
+        return Err(PackageError::ResourceLimit {
+            resource: "resource descriptors",
+            limit: MAX_RESOURCES,
+            observed,
+        });
+    }
+    if matches!(descriptor.locator, ResourceLocator::Embedded { .. }) {
+        let size = usize::try_from(descriptor.size).unwrap_or(usize::MAX);
+        let observed = total.saturating_add(size);
+        if observed > MAX_TOTAL_RESOURCE_BYTES {
             return Err(PackageError::ResourceLimit {
                 resource: "total embedded resource bytes",
                 limit: MAX_TOTAL_RESOURCE_BYTES,
-                observed: total,
+                observed,
             });
         }
-        Ok(())
     }
+    Ok(())
 }
 
 pub trait ResourceResolver {
@@ -1454,6 +1498,60 @@ mod tests {
                 )
                 .is_err()
         );
+    }
+
+    #[test]
+    fn failed_resource_additions_leave_the_package_unchanged() {
+        let mut package =
+            NuifPackage::new(Document::empty(EntityId::new(1)), PackageMode::Authoring);
+        for index in 0..MAX_RESOURCES {
+            let digest = digest(format!("existing-resource-{index}").as_bytes());
+            package.resources.insert(
+                digest.clone(),
+                ResourceDescriptor {
+                    digest,
+                    size: 0,
+                    media_type: "application/octet-stream".to_owned(),
+                    role: ResourceRole::Source,
+                    locator: ResourceLocator::Linked {
+                        uri: format!("https://example.invalid/resource/{index}"),
+                    },
+                    derivation: None,
+                },
+            );
+        }
+        let before = package.clone();
+
+        assert!(matches!(
+            package.add_embedded(
+                b"overflow".to_vec(),
+                "application/octet-stream",
+                ResourceRole::Source,
+                None,
+            ),
+            Err(PackageError::ResourceLimit {
+                resource: "resource descriptors",
+                ..
+            })
+        ));
+        assert_eq!(package, before);
+
+        let linked_bytes = b"linked-overflow";
+        assert!(matches!(
+            package.add_linked(
+                digest(linked_bytes),
+                linked_bytes.len() as u64,
+                "application/octet-stream",
+                ResourceRole::Source,
+                "https://example.invalid/overflow",
+                None,
+            ),
+            Err(PackageError::ResourceLimit {
+                resource: "resource descriptors",
+                ..
+            })
+        ));
+        assert_eq!(package, before);
     }
 
     #[test]
