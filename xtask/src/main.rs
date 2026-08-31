@@ -138,6 +138,7 @@ const VERIFICATION_ARTIFACTS: &[&str] = &[
     "target/collaboration-creation-report.json",
     "target/collaboration-nested-creation-report.json",
     "target/collaboration-nested-creation-v1-report.json",
+    "target/collaboration-mixed-report.json",
     "target/collaboration-gc-report.json",
     "target/collaboration-automerge-input.json",
     "target/collaboration-automerge-report.json",
@@ -2766,81 +2767,65 @@ fn gate_g() -> Result<(), String> {
     )
 }
 
+fn gate_h_conformance(
+    binary: &str,
+    output: &str,
+    oracle_input: Option<&str>,
+) -> Result<(), String> {
+    let mut args = vec![
+        "run",
+        "--release",
+        "--locked",
+        "-p",
+        "nuif-conformance",
+        "--bin",
+        binary,
+        "--",
+        "--output",
+        output,
+    ];
+    if let Some(input) = oracle_input {
+        args.extend(["--oracle-input", input]);
+    }
+    cargo(&args)
+}
+
 fn gate_h() -> Result<(), String> {
-    cargo(&[
-        "run",
-        "--release",
-        "--locked",
-        "-p",
-        "nuif-conformance",
-        "--bin",
+    gate_h_conformance(
         "collaboration-registers",
-        "--",
-        "--output",
         "target/collaboration-report.json",
-    ])?;
-    cargo(&[
-        "run",
-        "--release",
-        "--locked",
-        "-p",
-        "nuif-conformance",
-        "--bin",
+        None,
+    )?;
+    gate_h_conformance(
         "collaboration-structure",
-        "--",
-        "--output",
         "target/collaboration-structure-report.json",
-        "--oracle-input",
-        "target/collaboration-automerge-input.json",
-    ])?;
-    cargo(&[
-        "run",
-        "--release",
-        "--locked",
-        "-p",
-        "nuif-conformance",
-        "--bin",
+        Some("target/collaboration-automerge-input.json"),
+    )?;
+    gate_h_conformance(
         "collaboration-creation",
-        "--",
-        "--output",
         "target/collaboration-creation-report.json",
-    ])?;
-    cargo(&[
-        "run",
-        "--release",
-        "--locked",
-        "-p",
-        "nuif-conformance",
-        "--bin",
+        None,
+    )?;
+    gate_h_conformance(
         "collaboration-nested-creation",
-        "--",
-        "--output",
         "target/collaboration-nested-creation-report.json",
-    ])?;
-    cargo(&[
-        "run",
-        "--release",
-        "--locked",
-        "-p",
-        "nuif-conformance",
-        "--bin",
+        None,
+    )?;
+    gate_h_conformance(
         "collaboration-nested-creation-v1",
-        "--",
-        "--output",
         "target/collaboration-nested-creation-v1-report.json",
-    ])?;
-    cargo(&[
-        "run",
-        "--release",
-        "--locked",
-        "-p",
-        "nuif-conformance",
-        "--bin",
+        None,
+    )?;
+    gate_h_conformance(
+        "collaboration-mixed",
+        "target/collaboration-mixed-report.json",
+        None,
+    )?;
+    gate_h_conformance(
         "collaboration-gc",
-        "--",
-        "--output",
         "target/collaboration-gc-report.json",
-    ])?;
+        None,
+    )?;
     command(
         "npm",
         &[
