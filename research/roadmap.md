@@ -175,7 +175,12 @@ until its checkpoint/position contract is versioned and independently tested.
     require semantic-API promotion, stable errors/ownership, sanitizer-backed
     native consumers and real XCFramework/AAR/platform packages before
     declaring C, Swift or Kotlin binding profiles.
-15. Package the conformance kit for externally authored reproduction; do not treat the in-repository Python path or Rust adapters as external interoperability evidence.
+15. Publish `nuif-conformance-kit-0` from a clean tagged revision for
+    externally authored reproduction. The kit includes the normative specs,
+    schemas, fixtures, adapter boundaries, passed evidence reports and the
+    standard-library-only Python path; it is explicitly not a certification.
+    Do not treat the in-repository Python path or Rust adapters as external
+    interoperability evidence.
 16. Keep standards-development work behind the implementer-draft and external-support gates in `docs/STANDARDS-ROADMAP.md`.
 
 ## Update policy

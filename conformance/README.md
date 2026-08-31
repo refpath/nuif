@@ -87,3 +87,11 @@ targets from claiming executable directions.
 Run `cargo xtask diagnostic-audit` to require every model, layout and trial
 diagnostic code to appear exactly once in the public registry with a stable
 severity, category, producer and meaning.
+
+Build the external-implementer handoff with `cargo xtask conformance-kit`.
+The command verifies the passed in-repository evidence gates, then packages the
+specification, schemas, bounded fixtures, adapter profiles and independent
+Python reproduction into `target/dist/nuif-conformance-kit-<version>`. The
+archive manifest binds every member to the source revision and digest. The kit
+is a reproducibility artifact, not an interoperability certification; an
+external implementation must publish its own provenance and results.

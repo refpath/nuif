@@ -220,7 +220,16 @@ native UI and arbitrary script remain explicit exclusions.
 The standard-library-only Python implementation reads, writes, lays out and rasterizes the v0 profile without importing, invoking or linking the Rust packages. Its differential trial is exact at 360, 768 and 1,440 pixels and stays in the unified CI loop.
 
 ## Phase 8b — external reproduction and standards review
-Package the schema/conformance kit and obtain reproduction by an externally authored implementation. External provenance, interoperability review, neutral governance and a published conformance profile remain prerequisites for credible standards status; the in-repository mechanical reproduction and source adapter do not establish them.
+The versioned `nuif-conformance-kit-0` developer artifact now packages the
+schema, profile specifications, bounded fixtures, adapter profiles, reports and
+standard-library-only reproduction from one clean source revision. `cargo
+xtask conformance-kit` refuses missing or failed evidence and emits a digest-
+bound manifest plus a platform archive. Obtaining reproduction by an
+externally authored implementation is still open. External provenance,
+interoperability review, neutral governance and a published conformance profile
+remain prerequisites for credible standards status; the in-repository
+mechanical reproduction, source adapters and kit packaging do not establish
+them.
 
 ## Phase 9a — canonical research publication (complete)
 `cargo xtask docs-check` compiles the repository Markdown into one machine-readable catalog. `cargo xtask docs-build` renders that catalog without a second editable documentation source. `cargo xtask docs-paper` composes the thirteen canonical whitepaper modules into a working technical manuscript and a verified PDF. Pull requests build retained artifacts, while default-branch workflow runs deploy the static site through GitHub Pages. `CITATION.cff` describes the tagged alpha.3 software release; no DOI or peer-review claim is present.
