@@ -34,7 +34,8 @@ and source evidence are recorded in ADR 0007 and
 4. `.github/workflows/release.yml` checks out the tag and runs `cargo xtask
    release-check <tag>` followed by the complete verification harness.
 5. Native jobs build, test, package, and attest five editor host architectures;
-   a separate job builds, cross-checks, packages and attests the browser
+   those jobs also emit the experimental C ABI header/library bundle. A
+   separate job builds, cross-checks, packages and attests the browser
    binding, and two five-host matrices do the same for the MCP service and
    standalone CLI developer binaries.
 6. The publication job writes checksums and a combined release manifest,
@@ -88,6 +89,13 @@ caller-selected path and standard-stream authority; it has no background
 service or implicit network access. Developers may instead build the same
 binary from a reviewed checkout with
 `cargo install --path crates/nuif-cli --locked`.
+
+The native jobs also attach five `nuif-ffi-<version>-<os>-<architecture>` archives
+and sibling manifests. Each contains `include/nuif_ffi.h`, the platform's
+static/shared library artifacts, licenses and the ABI gate report. These are
+experimental developer bundles only; the `nuif-ffi-0` header is not a stable
+ABI and no package-store or language-binding compatibility promise follows
+from its presence in a release.
 
 SHA-256 verification on Linux uses `sha256sum -c SHA256SUMS`. macOS uses
 `shasum -a 256 -c SHA256SUMS`. PowerShell users can compare
