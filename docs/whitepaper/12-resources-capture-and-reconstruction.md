@@ -229,8 +229,8 @@ snapshot equality.
 The first RFC 0013 milestone separately checks variable TrueType `fvar`/`avar`
 metadata and five final coordinate vectors against a pinned HarfBuzz capture.
 Its follow-on matches seven HarfBuzz shapes, including FeatureVariations, while
-reusing that vector for internal Skrifa metrics/outlines. Neither alters package
-or runtime acceptance.
+reusing that vector for Skrifa metrics/outlines that exactly match HarfBuzz
+advance and draw captures. Neither alters package or runtime acceptance.
 
 This is intentionally not general OpenType support. TTC, CFF/CFF2, variable
 package/runtime, color, bitmap, SVG and WOFF/WOFF2 sources, historic ambiguous permission

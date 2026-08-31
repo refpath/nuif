@@ -8,7 +8,8 @@ tool a build dependency or turn one fixture into a general format claim.
 - `harfbuzz-14.4.0-material-symbols-variable.json` records variable-axis
   metadata, named-instance count, five normalized 2.14 coordinate vectors, and
   seven shapes including a GSUB FeatureVariations boundary through HarfBuzz's
-  public C API and `hb-shape`. Regenerate it with
+  public C API and `hb-shape`. It also records horizontal advances and canonical
+  26.6 paths from HarfBuzz draw callbacks at every shaping location. Regenerate it with
   `python3 tools/font/capture_harfbuzz_variable.py <font>` and compare the exact
   font digest before review.
 

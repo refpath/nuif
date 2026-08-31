@@ -29,6 +29,9 @@ struct GoldenShape {
     text: String,
     user: BTreeMap<String, f64>,
     serialized_glyphs: String,
+    glyph_advance_font_units: i32,
+    outline_glyph_id: u32,
+    outline_serialized_path: String,
 }
 
 fn main() {
@@ -106,8 +109,11 @@ fn run() -> Result<(), String> {
         let passed = first == second
             && first.run.serialized_glyphs == expected.serialized_glyphs
             && first.run.glyphs.len() == 1
+            && glyph.glyph_id == expected.outline_glyph_id
             && advance == glyph.x_advance
+            && advance == expected.glyph_advance_font_units
             && !outline.commands.is_empty()
+            && outline.serialized_path == expected.outline_serialized_path
             && outline == repeated_outline;
         case_trials.push(trial(
             &format!("harfbuzz_{}_shaping_agrees", expected.label),
@@ -121,6 +127,8 @@ fn run() -> Result<(), String> {
                 "ascender_font_units": first.run.ascender_font_units,
                 "glyph_advance_font_units": advance,
                 "outline_sha256": sha256(outline.serialized_path.as_bytes()),
+                "harfbuzz_outline_sha256": sha256(expected.outline_serialized_path.as_bytes()),
+                "outline_serialized_path": outline.serialized_path,
                 "outline_commands": outline.commands.len(),
             }),
         );
@@ -194,7 +202,7 @@ fn finish_report(
         "non_claims": [
             "the variable resource remains unavailable to package validation layout sessions and render fidelity claims",
             "one fixture does not establish broad FeatureVariations shaping HVAR MVAR or gvar conformance",
-            "Skrifa metric and outline checks are internal coherence evidence not independent outline or metric oracles",
+            "the HarfBuzz advance and draw-callback capture is independent of the Rust metric and outline implementation but covers only one fixture",
             "the committed HarfBuzz oracle is not executed live in offline CI",
             "test-package distribution metadata does not replace a publisher embedding and redistribution review",
         ],

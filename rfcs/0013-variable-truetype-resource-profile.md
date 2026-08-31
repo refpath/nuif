@@ -181,8 +181,9 @@ single-fixture metadata milestone, not completion of the experiment below.
 `cargo xtask gate-i-font-shaping` then delivers that exact vector to HarfRust
 and reproduces seven `hb-shape` cases, including a GSUB FeatureVariations
 boundary. Skrifa advances and unhinted outlines use the same vector and repeat
-exactly, but remain internal coherence checks rather than independent metric or
-outline oracles.
+exactly against HarfBuzz's independently captured horizontal advances and draw
+callbacks. The single fixture has no active HVAR deltas or MVAR table, so this
+does not complete variable-metric conformance.
 
 Promotion from proposed to experimental requires all of the following:
 

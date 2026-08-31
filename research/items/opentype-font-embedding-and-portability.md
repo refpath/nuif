@@ -151,12 +151,14 @@ committed HarfBuzz 14.4.0 public-C-API capture independently checks four axes,
 seven named instances and default/minimum/maximum plus two interior vectors;
 the interior `wght` values prove that an `avar` map is actually applied.
 
-This does not accept the resource in a package or runtime. `gvar`, HVAR, VVAR,
-MVAR and STAT graph limits, independent metric/outlines, rendering, allocation
+This does not accept the resource in a package or runtime. HVAR, VVAR, MVAR and
+STAT graph limits, nonzero variable-metric fixtures, rendering, allocation
 ceilings and cross-surface parity remain blocking. A second gate does reproduce
 seven HarfBuzz shapes including a GSUB FeatureVariations threshold and proves
-one coordinate vector is reused by HarfRust and Skrifa metrics/outlines. That
-single-fixture result is not independent outline/metric or package evidence.
+one coordinate vector is reused by HarfRust and Skrifa metrics/outlines. Every
+advance and canonical path now agrees with HarfBuzz's independently captured
+metric and draw callbacks. The fixture has no active HVAR regions or MVAR table,
+so the single-fixture result is not variable-metric or package evidence.
 The fixture's crate-level `MIT OR Apache-2.0` distribution metadata is retained,
 while its embedded copyright string prevents the experiment from presenting
 that fact as an automated publisher-rights determination.

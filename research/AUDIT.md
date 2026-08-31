@@ -171,8 +171,9 @@ across NUIF/Skrifa and a pinned HarfBuzz 14.4.0 public-C-API capture. It bounds
 and out-of-range coordinate tuples. It does not enable variable package,
 layout or rendering behavior. A second isolated gate reproduces seven HarfBuzz
 shapes including a GSUB FeatureVariations boundary and reuses the same vector
-for Skrifa advances/outlines; those Skrifa checks are internal coherence, not
-independent metric/outline evidence or package acceptance.
+for Skrifa advances/outlines. Each advance and canonical path agrees exactly
+with HarfBuzz's independent metric/draw callbacks. Nonzero HVAR/MVAR behavior,
+multi-fixture coverage and package acceptance remain open.
 Four accepted-font
 inspections and packaged validation now carry warmed 4 MiB allocated/2 MiB
 retained regression ceilings. Package-to-session handoff shares an 8 MiB buffer

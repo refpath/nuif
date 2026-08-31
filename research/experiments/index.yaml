@@ -711,15 +711,16 @@ experiments:
     status: automated
     evidence: [nuif:research:opentype-font-embedding-and-portability, nuif:research:fontations, nuif:research:harfbuzz-unicode, nuif:research:text-rendering-reproducibility]
     implementation: [crates/nuif-font/src/lib.rs, crates/nuif-text/src/lib.rs, crates/nuif-testing/src/bin/variable-font-shaping.rs, conformance/font/harfbuzz-14.4.0-material-symbols-variable.json, tools/font/capture_harfbuzz_variable.py, xtask/src/main.rs]
-    oracle: external-harfbuzz-shaping-and-internal-location-coherence
+    oracle: external-harfbuzz-shaping-metric-outline-and-location-coherence
     acceptance:
       - HarfRust exactly reproduces pinned HarfBuzz glyph IDs scalar clusters advances and offsets at default minimum maximum two interior and two FeatureVariations boundary positions
       - one NUIF-owned normalized coordinate vector is delivered unchanged to shaping Skrifa metrics and Skrifa unhinted outlines
-      - shaping evidence remains unavailable to package validation sessions layout and render fidelity until independent metric outline policy and resource-limit gates pass
+      - every Skrifa advance and canonical unhinted outline exactly matches the pinned HarfBuzz metric and draw-callback capture
+      - evidence remains unavailable to package validation sessions layout and render fidelity until nonzero HVAR MVAR policy corpus and resource-limit gates pass
     tests:
       - prove the GSUB FeatureVariations threshold changes the selected mail ligature immediately below versus at the declared boundary
-      - compare every shaped glyph advance with Skrifa at the identical location and repeat every shape and outline exactly
-      - require gvar to change an outline between the default and an interior coordinate without treating internal Skrifa agreement as an external outline oracle
+      - compare every shaped glyph advance and canonical unhinted outline with HarfBuzz at the identical location and repeat every result exactly
+      - require gvar to change an outline between the default and an interior coordinate while preserving exact HarfBuzz agreement
       - archive target/variable-font-shaping-report.json from cargo xtask gate-i-font-shaping
   - id: nuif:experiment:font-resource-profile
     status: planned
@@ -728,10 +729,10 @@ experiments:
     continuation:
       class: profile-design
       blocked_by:
-        - RFC 0013 metadata normalization and one FeatureVariations shaping fixture now have bounded HarfBuzz/Skrifa gates but independent outline and metric oracles variation-table graph limits allocation ceilings and a rights-reviewed multi-fixture corpus remain required before promotion
+        - RFC 0013 metadata normalization shaping advances and outlines now have one bounded HarfBuzz/Skrifa fixture but nonzero HVAR MVAR evidence variation-table graph limits allocation ceilings and a rights-reviewed multi-fixture corpus remain required before promotion
         - collection CFF/CFF2 COLR bitmap SVG-glyph and WOFF2 support remain separate capabilities with format-specific bounds and oracles
         - redistribution subsetting and derived-instance policy cannot be inferred from fsType and requires publisher-supplied license evidence plus rights-reviewed fixtures
-      next_action: Add rights-reviewed multi-fixture independent outline and HVAR MVAR metric oracles plus malformed graph and allocation ceilings before changing package acceptance or runtime fidelity.
+      next_action: Add a rights-reviewed multi-fixture corpus with nonzero HVAR and MVAR deltas plus malformed variation-graph and allocation ceilings before changing package acceptance or runtime fidelity.
     acceptance:
       - font bytes face index axes features coverage and shaping inputs are content-addressed and independently decoded
       - portable private-authoring linked substituted and unavailable policies produce distinct validated outcomes

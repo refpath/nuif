@@ -52,9 +52,11 @@ approval for a portable NUIF release.
 vector to a research-only `VariableResourceTrial`. Seven pinned `hb-shape`
 cases agree with HarfRust at default, minimum, maximum, two interior locations,
 and immediately below/at a GSUB FeatureVariations threshold. The same vector is
-then used for Skrifa advances and unhinted outlines; repeats are exact and the
-fixture's `gvar` changes the interior outline. Skrifa is shared implementation
-evidence here, not an independent metric or outline oracle.
+then used for Skrifa advances and unhinted outlines. Every advance and
+canonical 26.6 path agrees exactly with HarfBuzz's public metric and draw
+callbacks; repeats are exact and the fixture's `gvar` changes the interior
+outline. The fixture's HVAR store has no active variation regions and it has no
+MVAR table, so nonzero advance/global-metric deltas remain untested.
 
 ## Negative and security evidence
 
@@ -72,6 +74,6 @@ graphs. Parser admission is therefore not promoted to package acceptance.
 No variable font may yet pass `validate_packaged_font`, enter the evaluation
 context, participate in layout/rendering, or claim lossless fidelity under this
 candidate identifier. The next executable gate must add a rights-reviewed
-multi-fixture corpus, independent outline and HVAR/MVAR metric oracles, malformed
-variation-graph cases, and allocation/time ceilings before the shared
+multi-fixture corpus with nonzero HVAR/MVAR deltas, malformed variation-graph
+cases, and allocation/time ceilings before the shared
 package/runtime path changes.

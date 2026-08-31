@@ -53,7 +53,8 @@ This distinction is important: marking an open research problem as finished woul
   separate metadata-only RFC 0013 gate bounds four variable axes and agrees
   with a HarfBuzz capture at five normalized locations. Its isolated shaping
   follow-on agrees at seven locations including a FeatureVariations boundary,
-  without admitting the font into packages or rendering. Warmed
+  with identical HarfBuzz advances and canonical paths, without admitting the
+  font into packages or rendering. Warmed
   parser and packaged-validation allocation ceilings cover every accepted
   fixture.
 - Browser source capture and screenshot reconstruction are different evidence

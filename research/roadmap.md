@@ -162,7 +162,7 @@ until its checkpoint/position contract is versioned and independently tested.
 7. Keep `cargo xtask gate-i-package` green across CLI/editor/package changes; the Python archive oracle now provides recorded external-container evidence, while a cross-platform semantic writer and second canonical-CBOR implementation remain required before accepting the wire profile.
 8. Keep the variable-font metadata/normalization and isolated HarfBuzz shaping
    gates separate from package acceptance; next add rights-reviewed
-   multi-fixture independent outline and HVAR/MVAR metric oracles plus malformed
+   multi-fixture evidence with nonzero HVAR/MVAR deltas plus malformed
    variation-graph and allocation ceilings.
    Extend the narrow PNG and static TrueType baselines only through new declared
    fixtures, add cross-platform media reproduction, and complete the broader

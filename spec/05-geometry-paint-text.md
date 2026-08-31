@@ -129,7 +129,8 @@ RFC 0013's candidate variable-TrueType identifier remains outside package and
 runtime acceptance. Its staged experiments bound `fvar`/`avar`,
 compare final normalized coordinates with Skrifa and a pinned HarfBuzz
 capture, and reproduce isolated HarfBuzz shaping with internal metric/outline
-location coherence. They do not yet authorize variable layout, rendering or
+location coherence plus exact external advances/paths. They do not yet
+authorize variable layout, rendering or
 lossless fidelity. The evidence boundary is recorded in
 `crates/nuif-font/VARIABLE-PROFILE.md`.
 

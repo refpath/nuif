@@ -8,6 +8,7 @@ import ctypes
 import ctypes.util
 import hashlib
 import json
+import math
 import pathlib
 import subprocess
 import sys
@@ -28,6 +29,45 @@ class AxisInfo(ctypes.Structure):
 
 class Variation(ctypes.Structure):
     _fields_ = [("tag", ctypes.c_uint32), ("value", ctypes.c_float)]
+
+
+MoveCallback = ctypes.CFUNCTYPE(
+    None,
+    ctypes.c_void_p,
+    ctypes.c_void_p,
+    ctypes.c_void_p,
+    ctypes.c_float,
+    ctypes.c_float,
+    ctypes.c_void_p,
+)
+LineCallback = MoveCallback
+QuadraticCallback = ctypes.CFUNCTYPE(
+    None,
+    ctypes.c_void_p,
+    ctypes.c_void_p,
+    ctypes.c_void_p,
+    ctypes.c_float,
+    ctypes.c_float,
+    ctypes.c_float,
+    ctypes.c_float,
+    ctypes.c_void_p,
+)
+CubicCallback = ctypes.CFUNCTYPE(
+    None,
+    ctypes.c_void_p,
+    ctypes.c_void_p,
+    ctypes.c_void_p,
+    ctypes.c_float,
+    ctypes.c_float,
+    ctypes.c_float,
+    ctypes.c_float,
+    ctypes.c_float,
+    ctypes.c_float,
+    ctypes.c_void_p,
+)
+CloseCallback = ctypes.CFUNCTYPE(
+    None, ctypes.c_void_p, ctypes.c_void_p, ctypes.c_void_p, ctypes.c_void_p
+)
 
 
 CASES = [
@@ -94,6 +134,47 @@ def bind() -> ctypes.CDLL:
         ctypes.POINTER(ctypes.c_uint),
     ]
     library.hb_font_get_var_coords_normalized.restype = ctypes.POINTER(ctypes.c_int)
+    library.hb_font_get_glyph_h_advance.argtypes = [ctypes.c_void_p, ctypes.c_uint32]
+    library.hb_font_get_glyph_h_advance.restype = ctypes.c_int
+    library.hb_draw_funcs_create.restype = ctypes.c_void_p
+    library.hb_draw_funcs_set_move_to_func.argtypes = [
+        ctypes.c_void_p,
+        MoveCallback,
+        ctypes.c_void_p,
+        ctypes.c_void_p,
+    ]
+    library.hb_draw_funcs_set_line_to_func.argtypes = [
+        ctypes.c_void_p,
+        LineCallback,
+        ctypes.c_void_p,
+        ctypes.c_void_p,
+    ]
+    library.hb_draw_funcs_set_quadratic_to_func.argtypes = [
+        ctypes.c_void_p,
+        QuadraticCallback,
+        ctypes.c_void_p,
+        ctypes.c_void_p,
+    ]
+    library.hb_draw_funcs_set_cubic_to_func.argtypes = [
+        ctypes.c_void_p,
+        CubicCallback,
+        ctypes.c_void_p,
+        ctypes.c_void_p,
+    ]
+    library.hb_draw_funcs_set_close_path_func.argtypes = [
+        ctypes.c_void_p,
+        CloseCallback,
+        ctypes.c_void_p,
+        ctypes.c_void_p,
+    ]
+    library.hb_font_draw_glyph_or_fail.argtypes = [
+        ctypes.c_void_p,
+        ctypes.c_uint32,
+        ctypes.c_void_p,
+        ctypes.c_void_p,
+    ]
+    library.hb_font_draw_glyph_or_fail.restype = ctypes.c_int
+    library.hb_draw_funcs_destroy.argtypes = [ctypes.c_void_p]
     library.hb_font_destroy.argtypes = [ctypes.c_void_p]
     library.hb_face_destroy.argtypes = [ctypes.c_void_p]
     library.hb_blob_destroy.argtypes = [ctypes.c_void_p]
@@ -126,6 +207,64 @@ def shape(font: pathlib.Path, values: dict[str, float], axis_tags: list[str]) ->
         text=True,
     )
     return result.strip()
+
+
+def quantize(value: float) -> int:
+    scaled = value * 64.0
+    return math.floor(scaled + 0.5) if scaled >= 0 else math.ceil(scaled - 0.5)
+
+
+def draw(library: ctypes.CDLL, font: int, glyph_id: int) -> str:
+    commands: list[str] = []
+    contour_start: list[tuple[int, int]] = []
+
+    @MoveCallback
+    def move_to(_funcs, _data, _state, x, y, _user):
+        point = (quantize(x), quantize(y))
+        contour_start[:] = [point]
+        commands.append(f"M{point[0]},{point[1]}")
+
+    @LineCallback
+    def line_to(_funcs, _data, _state, x, y, _user):
+        commands.append(f"L{quantize(x)},{quantize(y)}")
+
+    @QuadraticCallback
+    def quadratic_to(_funcs, _data, _state, cx, cy, x, y, _user):
+        commands.append(
+            f"Q{quantize(cx)},{quantize(cy)} {quantize(x)},{quantize(y)}"
+        )
+
+    @CubicCallback
+    def cubic_to(_funcs, _data, _state, c1x, c1y, c2x, c2y, x, y, _user):
+        commands.append(
+            "C"
+            f"{quantize(c1x)},{quantize(c1y)} "
+            f"{quantize(c2x)},{quantize(c2y)} "
+            f"{quantize(x)},{quantize(y)}"
+        )
+
+    @CloseCallback
+    def close_path(_funcs, _data, _state, _user):
+        if contour_start and commands[-1] == f"L{contour_start[0][0]},{contour_start[0][1]}":
+            commands.pop()
+        commands.append("Z")
+
+    draw_funcs = library.hb_draw_funcs_create()
+    try:
+        library.hb_draw_funcs_set_move_to_func(draw_funcs, move_to, None, None)
+        library.hb_draw_funcs_set_line_to_func(draw_funcs, line_to, None, None)
+        library.hb_draw_funcs_set_quadratic_to_func(
+            draw_funcs, quadratic_to, None, None
+        )
+        library.hb_draw_funcs_set_cubic_to_func(draw_funcs, cubic_to, None, None)
+        library.hb_draw_funcs_set_close_path_func(
+            draw_funcs, close_path, None, None
+        )
+        if not library.hb_font_draw_glyph_or_fail(font, glyph_id, draw_funcs, None):
+            raise RuntimeError(f"HarfBuzz could not draw glyph {glyph_id}")
+        return "".join(commands)
+    finally:
+        library.hb_draw_funcs_destroy(draw_funcs)
 
 
 def capture(path: pathlib.Path) -> dict[str, object]:
@@ -184,15 +323,27 @@ def capture(path: pathlib.Path) -> dict[str, object]:
                     "normalized_2_14": [normalized[index] for index in range(axis_count)],
                 }
             )
-        shaping = [
-            {
-                "label": label,
-                "text": "mail",
-                "user": values,
-                "serialized_glyphs": shape(path, values, axis_tags),
-            }
-            for label, values in SHAPING_CASES
-        ]
+        shaping = []
+        for label, values in SHAPING_CASES:
+            settings = (Variation * axis_count)(
+                *(Variation(tag_value(tag), values[tag]) for tag in axis_tags)
+            )
+            library.hb_font_set_variations(font, settings, axis_count)
+            serialized_glyphs = shape(path, values, axis_tags)
+            glyph_id = int(serialized_glyphs.removeprefix("[").split("=", 1)[0])
+            shaping.append(
+                {
+                    "label": label,
+                    "text": "mail",
+                    "user": values,
+                    "serialized_glyphs": serialized_glyphs,
+                    "glyph_advance_font_units": library.hb_font_get_glyph_h_advance(
+                        font, glyph_id
+                    ),
+                    "outline_glyph_id": glyph_id,
+                    "outline_serialized_path": draw(library, font, glyph_id),
+                }
+            )
         return {
             "schema_version": 1,
             "tool": "HarfBuzz public C API and hb-shape",
