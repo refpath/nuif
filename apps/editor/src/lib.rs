@@ -8,6 +8,7 @@ use nuif_core::{
     Color, Document, Entity, EntityId, EntityKind, ExtensionDeclarations, GridPlacement, GridTrack,
     LayoutStyle, Point, SizeIntent, TextContent, Token,
 };
+use nuif_font::OPENTYPE_VARIABLE_TRUETYPE_PROFILE;
 use nuif_layout::{EvaluationContext, LayoutSnapshot};
 use nuif_package::{NuifPackage, PackageCapabilityReport, PackageMode};
 use nuif_protocol::{Anchor, Axis, Operation, Patch};
@@ -22,13 +23,13 @@ pub const MAX_SNAPSHOT_PIXELS: u64 = 16_777_216;
 
 /// Package capabilities the reference editor can evaluate completely.
 ///
-/// Profile-zero images and fonts are ordinary verified resources rather than
-/// required manifest capabilities. Behavior and future capability resources
-/// remain structurally inspectable but read-only until the editor ships and
-/// tests their complete authoring/evaluation contract.
+/// Static profile-zero resources need no manifest capability. The separately
+/// negotiated variable TrueType decoder is supported because editor snapshots
+/// and saves use the same tested package-to-raster core. Behavior and unknown
+/// future capabilities remain structurally inspectable but read-only.
 #[must_use]
 pub fn editor_package_capabilities() -> BTreeSet<String> {
-    BTreeSet::new()
+    BTreeSet::from([OPENTYPE_VARIABLE_TRUETYPE_PROFILE.to_owned()])
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -1138,7 +1139,10 @@ mod tests {
     use nuif_codec::{Decoder, canonical_hash};
     use nuif_core::ResourceRole;
     use nuif_protocol::apply_patch;
-    use nuif_testing::{responsive_card_fixture, rgba8_image_package_fixture};
+    use nuif_testing::{
+        VARIABLE_FONT_FIXTURE_TEXT, VariableFontFixtureLocation, responsive_card_fixture,
+        rgba8_image_package_fixture, variable_font_package_fixture,
+    };
 
     fn insert_fixture_entity(
         driver: &mut EditorDriver,
@@ -1561,6 +1565,59 @@ mod tests {
             ),
             Err(EditorError::PackageDocumentMismatch)
         ));
+    }
+
+    #[test]
+    fn variable_font_packages_are_editable_and_resource_exact() {
+        let package = variable_font_package_fixture(VariableFontFixtureLocation::Interior);
+        let original_resources = package.resources.clone();
+        let bytes = package.encode().unwrap();
+        let mut opened = decode_editor_file(&bytes).unwrap();
+        let report = opened.package_capability_report().unwrap();
+        assert!(report.fully_supported);
+        assert_eq!(report.supported_required, editor_package_capabilities());
+
+        let mut driver =
+            EditorDriver::new_with_package(opened.document.clone(), opened.package.as_ref())
+                .unwrap();
+        assert!(!driver.is_read_only());
+        let EditorEvent::Snapshot { snapshot } = driver
+            .execute(EditorCommand::Snapshot {
+                width: 640,
+                height: 96,
+            })
+            .unwrap()
+        else {
+            panic!("snapshot command returned a non-snapshot event");
+        };
+        let run = snapshot
+            .scene
+            .commands
+            .iter()
+            .find_map(|command| match command {
+                nuif_render::DrawCommand::Text { run, outlines, .. } => {
+                    Some((run.as_ref(), outlines.as_ref()))
+                }
+                nuif_render::DrawCommand::Rect { .. }
+                | nuif_render::DrawCommand::Ellipse { .. }
+                | nuif_render::DrawCommand::Image { .. } => None,
+            })
+            .unwrap();
+        assert_eq!(run.0.variation_coordinates.len(), 2);
+        assert!(!run.1.is_empty());
+
+        driver
+            .execute(EditorCommand::Rename {
+                entity: VARIABLE_FONT_FIXTURE_TEXT,
+                name: "edited variable text".to_owned(),
+            })
+            .unwrap();
+        opened.document = driver.document().clone();
+        let saved = encode_editor_file(&opened.document, &mut opened.package).unwrap();
+        let decoded = NuifPackage::decode(&saved).unwrap();
+        assert_eq!(decoded.document, opened.document);
+        assert_eq!(decoded.resources, original_resources);
+        assert_eq!(decoded.required_capabilities, editor_package_capabilities());
     }
 
     #[test]

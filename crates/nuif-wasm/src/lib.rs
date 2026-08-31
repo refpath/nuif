@@ -3,6 +3,7 @@
 use nuif_api::{DocumentEncoding, EngineError, NuifDocument, profile_zero_context};
 use nuif_codec::MAX_INPUT_BYTES;
 use nuif_core::{Diagnostic, Severity, is_identifier};
+use nuif_font::OPENTYPE_VARIABLE_TRUETYPE_PROFILE;
 use nuif_package::{
     MAX_CAPABILITY_BYTES, MAX_PACKAGE_BYTES, MAX_REQUIRED_CAPABILITIES, PackageCapabilityReport,
     PackageMode,
@@ -429,6 +430,7 @@ pub fn capabilities() -> Result<Vec<u8>, JsError> {
         "encodings": ["nuif-text-0", "nuif-cbor-0"],
         "containers": ["nuif-text-0", "nuif-cbor-0", "nuif-package-0"],
         "package_modes": ["portable", "authoring"],
+        "package_capabilities": [OPENTYPE_VARIABLE_TRUETYPE_PROFILE],
         "operations": ["load", "load_package", "validate", "canonical_hash", "export", "export_package", "package_capability_report", "require_package_capabilities", "snapshot_report", "apply_patch", "undo", "redo"],
         "limits": {
             "document_bytes": MAX_INPUT_BYTES,

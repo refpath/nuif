@@ -197,6 +197,9 @@ function main() {
       capabilities.containers.includes("nuif-package-0") &&
       capabilities.operations.includes("load_package") &&
       capabilities.operations.includes("require_package_capabilities") &&
+      capabilities.package_capabilities.includes(
+        "nuif-opentype-variable-truetype-single-0",
+      ) &&
       capabilities.limits.package_bytes === 80 * 1024 * 1024 &&
       capabilities.limits.required_capabilities === 256,
     validation_passed: validation.status === "passed" && validation.errors === 0,
