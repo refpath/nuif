@@ -141,6 +141,11 @@ function main() {
     Buffer.from(structuralCapabilityDocument.exportPackage("portable")),
     capabilityPackage,
   ) === 0;
+  const structuralCapabilityHash = structuralCapabilityDocument.canonicalHash();
+  const structuralCapabilityMutationRejected = rejectedCode(
+    () => structuralCapabilityDocument.applyPatch(patchBytes),
+    "NUIF_PACKAGE_CAPABILITIES_REQUIRED",
+  );
   const missingCapabilityRejected = rejectedCode(
     () => structuralCapabilityDocument.requirePackageCapabilities(emptyCapabilities),
     "NUIF_PACKAGE_CAPABILITIES_UNAVAILABLE",
@@ -190,6 +195,9 @@ function main() {
         JSON.stringify(["nuif-behavior-state-machine-0"]),
     package_capability_required_before_use:
       missingCapabilityRejected && atomicCapabilityLoadRejected,
+    package_structural_mutation_read_only:
+      structuralCapabilityMutationRejected &&
+      structuralCapabilityDocument.canonicalHash() === structuralCapabilityHash,
     package_capability_resource_preservation: capabilityPackageNoopExact,
     package_capability_exact_support:
       supportedReport.fully_supported === true &&

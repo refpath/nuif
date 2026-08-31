@@ -172,15 +172,18 @@ ASCII bytes each. Structural readers validate and preserve those requirements.
 Hosts use `capability_report` or `require_capabilities` with an explicitly
 declared supported set before claiming full package support; missing
 requirements are reported exactly. Structural decode alone is intentionally
-available to inert inspection, preservation and migration tools and is not a
+available to inert inspection, preservation and extraction tools and is not a
 semantic-support claim.
 
-A structural editor that does not support every required capability MUST keep
-the package read-only. It MAY inspect and copy the package exactly, but it MUST
-NOT change `document.cbor` while carrying capability resources forward unless a
-capability-specific authoring profile validates or explicitly detaches those
-resources. This prevents a content-addressed sidecar from being silently bound
-to a document revision it never validated.
+A structural SDK, CLI or editor that does not support every required capability
+MUST keep the package read-only. It MAY validate, hash, extract the bare
+document and copy the unchanged same-mode package, but it MUST NOT evaluate,
+change `document.cbor` or change package mode while carrying capability
+resources forward unless complete-set negotiation succeeds or a
+capability-specific authoring profile explicitly detaches those resources. A
+failed partial negotiation grants no authority. This prevents a
+content-addressed sidecar from being silently bound to a document revision it
+never validated.
 
 Every embedded resource is stored at the path derived from its SHA-256 digest.
 The path is a locator. The manifest digest remains the identity and MUST match
@@ -325,8 +328,10 @@ The reference `nuif-wasm-api-0` binding exposes structural package load,
 explicit manifest-capability negotiation and deterministic package export over
 byte arrays. Its cross-surface gate requires both no-op and edited package bytes
 to match the native SDK exactly and preserves an embedded capability resource
-without interpreting it. This is the browser/plugin package transport; host
-object access and capability execution remain separate adapters.
+without interpreting it. The same gate rejects a semantic edit through a
+structurally loaded requirement-bearing package before complete-set
+authorization. This is the browser/plugin package transport; host object access
+and capability execution remain separate adapters.
 
 ## Security
 

@@ -38,14 +38,18 @@ let cbor = document.export(DocumentEncoding::DeterministicCbor)?;
 let package = document.export_package(PackageMode::Portable)?;
 ```
 
-`load_package` retains verified descriptors and shared immutable embedded bytes
-across edits. `export_package` replaces only the package's semantic document
-and requested mode, then runs the ordinary package policy. It cannot silently
-fetch linked resources. Applying operations uses the same atomic transaction,
-revision and undo/redo implementation as the editor.
+`load_package` retains verified descriptors and shared immutable embedded bytes.
+When the manifest has requirements, its session is structural and read-only:
+validation, hashing, bare extraction and an unchanged same-mode package copy
+remain available, while semantic mutation, undo/redo, evaluation and mode
+conversion return the exact required set. Successful negotiation authorizes
+those actions for that loaded session. `export_package` then replaces only the
+package's semantic document and requested mode and runs the ordinary package
+policy; it cannot silently fetch linked resources. Applying operations uses the
+same atomic transaction, revision and undo/redo implementation as the editor.
 
 ```rust
-let structural = NuifDocument::load_package(package_bytes)?;
+let mut structural = NuifDocument::load_package(package_bytes)?;
 let report = structural.package_capability_report(&host_capabilities);
 structural.require_package_capabilities(&host_capabilities)?;
 
@@ -57,8 +61,9 @@ let supported = NuifDocument::load_package_with_capabilities(
 
 The report contains required, supported-required and missing-required sets in
 deterministic order. Extra host capabilities are ignored. Structural loading
-is appropriate for inert inspection, preservation and migration; it is not a
-claim that the host can evaluate every required profile.
+is appropriate for inert inspection, preservation and an explicit bare
+extraction before migration; it is not authorization to rewrite the package or
+a claim that the host can evaluate every required profile.
 
 Structurally invalid but syntactically decodable bare documents can be loaded
 for diagnostics; canonical export, hashing, layout and rendering still fail
@@ -75,6 +80,10 @@ Wrappers contain transport and ownership conversion only:
 - MCP bounds newline-delimited protocol messages and maps stateless tool calls
   to the same API.
 - The CLI owns files and stdout; the editor owns window and interaction state.
+- The CLI declares an empty package-capability support set. It may inspect,
+  validate, hash, extract or copy a capability-bearing package, but rejects
+  layout, render, snapshot, external-format export, changed package saves and
+  package-mode conversion with `PACKAGE_CAPABILITIES_REQUIRED`.
 - The reference editor opens unsupported capability-bearing packages only for
   structural read-only inspection and exact copying; it rejects semantic edits
   at both the session and package-save boundaries.

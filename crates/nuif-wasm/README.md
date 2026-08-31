@@ -27,10 +27,13 @@ document.free();
 ```
 
 Portable `.nuif` packages retain digest-verified embedded images, fonts and
-other inert resources across edits and deterministic export. Structural load
-is suitable for inspection or migration. A plug-in that evaluates a package
-must declare its supported capability identifiers as a bounded JSON string
-array and require the complete manifest set first:
+other inert resources across authorized edits and deterministic export.
+Structural load is suitable for inspection, bare extraction and exact
+same-mode copying. If the manifest has requirements, `applyPatch`, undo/redo
+and mode-changing package export fail with
+`NUIF_PACKAGE_CAPABILITIES_REQUIRED` until the complete set is authorized. A
+plug-in that evaluates or changes such a package must declare its supported
+capability identifiers as a bounded JSON string array first:
 
 ```js
 const text = new TextEncoder();
@@ -40,6 +43,10 @@ const report = JSON.parse(
     structural.packageCapabilityReport(text.encode(JSON.stringify(hostCapabilities))),
   ),
 );
+structural.requirePackageCapabilities(
+  text.encode(JSON.stringify(hostCapabilities)),
+);
+const authorizedOutput = structural.exportPackage("portable");
 structural.free();
 
 const document = NuifDocument.fromPackageWithCapabilities(
@@ -70,5 +77,6 @@ cargo xtask gate-wasm
 The command pins `wasm-bindgen` 0.2.127, initializes the web target in pinned
 headless Chrome, and runs the generated Node binding. It requires byte-identical
 bare and package output from the native CLI, exact preservation of a packaged
-behavior resource, and typed missing-capability rejection. The browser package
-is left under `target/nuif-wasm-web/`.
+behavior resource, read-only structural mutation rejection and typed
+missing-capability negotiation failure. The browser package is left under
+`target/nuif-wasm-web/`.

@@ -119,6 +119,7 @@ const VERIFICATION_ARTIFACTS: &[&str] = &[
     "target/behavior-package-expected.json",
     "target/behavior-package-static-report.json",
     "target/behavior-package-report.json",
+    "target/behavior-package-cli-report.json",
     "target/gate-g-report.json",
     "target/gate-g-independent",
     "target/collaboration-report.json",
@@ -481,7 +482,111 @@ fn gate_behavior_package() -> Result<(), String> {
             "target/behavior-package-static-report.json",
             "target/behavior-package-report.json",
         ],
+    )?;
+    gate_behavior_package_cli()
+}
+
+fn gate_behavior_package_cli() -> Result<(), String> {
+    cargo(&["build", "--release", "--locked", "-p", "nuif-cli"])?;
+    let executable_suffix = if cfg!(windows) { ".exe" } else { "" };
+    let binary = PathBuf::from(format!("target/release/nuif{executable_suffix}"));
+    let fixture = Path::new("target/behavior-package-fixture.nuif");
+    let copied = Path::new("target/behavior-package-cli-copy.nuif");
+
+    let inspection = Command::new(&binary)
+        .args(["inspect", path(fixture)?])
+        .output()
+        .map_err(|error| format!("could not run behavior-package CLI inspection: {error}"))?;
+    check_status(
+        inspection.status,
+        path(&binary)?,
+        &["inspect", path(fixture)?],
+    )?;
+    let inspection: serde_json::Value = serde_json::from_slice(&inspection.stdout)
+        .map_err(|error| format!("behavior-package CLI inspection is not JSON: {error}"))?;
+    let missing = &inspection["package"]["capabilities"]["missing_required"];
+    if missing != &serde_json::json!(["nuif-behavior-state-machine-0"]) {
+        return Err(format!(
+            "behavior-package CLI reported the wrong missing capabilities: {missing}"
+        ));
+    }
+
+    let exported = Command::new(&binary)
+        .args(["export", path(fixture)?, "nuif-package-0", path(copied)?])
+        .output()
+        .map_err(|error| format!("could not run behavior-package CLI copy: {error}"))?;
+    check_status(
+        exported.status,
+        path(&binary)?,
+        &["export", path(fixture)?, "nuif-package-0", path(copied)?],
+    )?;
+    if fs::read(fixture).map_err(|error| error.to_string())?
+        != fs::read(copied).map_err(|error| error.to_string())?
+    {
+        return Err("behavior-package CLI no-op copy changed package bytes".to_owned());
+    }
+
+    let render_output = Path::new("target/behavior-package-cli.png");
+    let pack_output = Path::new("target/behavior-package-cli-authoring.nuif");
+    for output in [render_output, pack_output] {
+        if output.is_file() {
+            fs::remove_file(output).map_err(|error| error.to_string())?;
+        }
+    }
+    expect_cli_capability_failure(&binary, &["render", path(fixture)?, path(render_output)?])?;
+    expect_cli_capability_failure(
+        &binary,
+        &["pack", path(fixture)?, path(pack_output)?, "--authoring"],
+    )?;
+    if render_output.exists() || pack_output.exists() {
+        return Err("behavior-package CLI wrote output after capability rejection".to_owned());
+    }
+    let report = serde_json::json!({
+        "schema_version": 1,
+        "status": "passed",
+        "profile": "nuif-package-0",
+        "missing_required": missing,
+        "checks": [
+            "structural_inspection",
+            "exact_noop_copy",
+            "render_rejected",
+            "mode_conversion_rejected",
+            "rejection_writes_no_output"
+        ]
+    });
+    fs::write(
+        "target/behavior-package-cli-report.json",
+        serde_json::to_vec_pretty(&report).map_err(|error| error.to_string())?,
     )
+    .map_err(|error| error.to_string())?;
+    println!("behavior package CLI: 5 checks, status passed");
+    Ok(())
+}
+
+fn expect_cli_capability_failure(binary: &Path, arguments: &[&str]) -> Result<(), String> {
+    let output = Command::new(binary)
+        .args(arguments)
+        .output()
+        .map_err(|error| format!("could not run behavior-package CLI rejection: {error}"))?;
+    if output.status.success() {
+        return Err(format!(
+            "{} {} unexpectedly accepted an unsupported capability package",
+            binary.display(),
+            arguments.join(" ")
+        ));
+    }
+    let error: serde_json::Value = serde_json::from_slice(&output.stderr)
+        .map_err(|decode| format!("behavior-package CLI error is not JSON: {decode}"))?;
+    if error["code"] != "PACKAGE_CAPABILITIES_REQUIRED"
+        || !error["message"]
+            .as_str()
+            .is_some_and(|message| message.contains("nuif-behavior-state-machine-0"))
+    {
+        return Err(format!(
+            "behavior-package CLI returned the wrong capability error: {error}"
+        ));
+    }
+    Ok(())
 }
 
 fn gate_web_behavior() -> Result<(), String> {

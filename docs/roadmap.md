@@ -79,8 +79,10 @@ The byte-oriented WebAssembly module wraps `nuif-api`, canonical text/CBOR,
 deterministic packages, explicit package-capability negotiation and semantic
 patches without copying the model into JavaScript. A Node/native differential
 checks exact edited bare and package bytes, packaged-resource preservation and
-typed missing-capability failures; the direct-browser target initializes its
-package API in pinned headless Chrome. Its JavaScript, TypeScript and WASM are
+typed missing-capability failures. Structural requirement-bearing packages are
+read-only until complete-set authorization, including semantic patches and
+mode conversion; the direct-browser target initializes its package API in
+pinned headless Chrome. Its JavaScript, TypeScript and WASM are
 packaged as a CI and tagged-release developer artifact. The module declares no
 filesystem, network or host-document authority. The Figma review shell now
 compiles against pinned official typings and crosses a mock snapshot into the
@@ -106,6 +108,9 @@ canonical codecs, verified package/resources and typed session operations.
 Text/CBOR load, validation, transaction application, hashes, undo/redo and
 bare/package export have one implementation; the WASM binding delegates to it
 and the system benchmark suite measures direct text, CBOR and package calls.
+The façade separates inert structural package access from session
+authorization: requirement-bearing packages reject evaluation, mutation,
+history and mode conversion until exact complete-set negotiation succeeds.
 
 No stable C ABI is claimed while the semantic API remains `0.0.x`. ADR 0011
 requires a separately reviewed unsafe `nuif-ffi` boundary, stable ownership and
@@ -127,6 +132,12 @@ and explicit filesystem/standard-stream authority; the release index records
 the packages under `tools` and includes a separate CycloneDX SBOM. Local
 macOS/AArch64 packaging passes. Successful hosted jobs and attestations remain
 release-time evidence, not a claim made from workflow configuration.
+
+The CLI declares an empty extension-capability support set. Capability-bearing
+packages remain available for structural inspection, bare extraction and exact
+copying, while evaluation, external-format conversion, semantic package
+rewrites and package-mode changes fail with the exact requirement set. Native
+package import/export preserves resources and manifest requirements.
 
 ## Phase 6a — first adapters/sync falsifier (complete for bounded HTML/CSS profile 0)
 `nuif-html-css-0` maps a declared container/text/finite-token subset through real DOM/CSS syntax with byte-span correspondence. Text, token and four-edge padding edits change only their six spans; comments and unmapped markup survive exactly; unsupported semantics have target/property fidelity. HTML/CSS was intentionally tested before SVG because Gate F and the architecture stop condition concern minimal source patches. This narrow profile remains independently automated even after the full-v0 follow-on; arbitrary HTML/CSS and SVG remain broader adapter work.

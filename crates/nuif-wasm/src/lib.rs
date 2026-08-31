@@ -1,6 +1,6 @@
 #![doc = "Byte-oriented WebAssembly bindings over the authoritative NUIF core API."]
 
-use nuif_api::{DocumentEncoding, NuifDocument};
+use nuif_api::{DocumentEncoding, EngineError, NuifDocument};
 use nuif_codec::MAX_INPUT_BYTES;
 use nuif_core::{Diagnostic, Severity, is_identifier};
 use nuif_package::{
@@ -48,6 +48,15 @@ impl BindingError {
     }
 }
 
+fn engine_binding_error(error: &EngineError, fallback_code: &'static str) -> BindingError {
+    let code = if matches!(error, EngineError::PackageCapabilitiesRequired { .. }) {
+        "NUIF_PACKAGE_CAPABILITIES_REQUIRED"
+    } else {
+        fallback_code
+    };
+    BindingError::new(code, error.to_string())
+}
+
 #[derive(Debug)]
 struct CoreDocument {
     document: NuifDocument,
@@ -89,7 +98,7 @@ impl CoreDocument {
         bytes: &[u8],
         supported: &BTreeSet<String>,
     ) -> Result<Self, BindingError> {
-        let document = Self::load_package(bytes)?;
+        let mut document = Self::load_package(bytes)?;
         document.require_package_capabilities(supported)?;
         Ok(document)
     }
@@ -121,7 +130,7 @@ impl CoreDocument {
     fn export_package(&self, mode: &str) -> Result<Vec<u8>, BindingError> {
         self.document
             .export_package(package_mode(mode)?)
-            .map_err(|error| BindingError::new("NUIF_PACKAGE_ENCODE_FAILED", error.to_string()))
+            .map_err(|error| engine_binding_error(&error, "NUIF_PACKAGE_ENCODE_FAILED"))
     }
 
     fn package_capability_report(
@@ -132,7 +141,7 @@ impl CoreDocument {
     }
 
     fn require_package_capabilities(
-        &self,
+        &mut self,
         supported: &BTreeSet<String>,
     ) -> Result<(), BindingError> {
         self.document
@@ -152,7 +161,7 @@ impl CoreDocument {
         let patch = decode_patch(bytes)?;
         self.document
             .apply_patch(&patch)
-            .map_err(|error| BindingError::new("NUIF_PATCH_APPLY_FAILED", error.to_string()))?;
+            .map_err(|error| engine_binding_error(&error, "NUIF_PATCH_APPLY_FAILED"))?;
         self.canonical_hash()
     }
 
@@ -160,7 +169,7 @@ impl CoreDocument {
         let patch = self
             .document
             .undo()
-            .map_err(|error| BindingError::new("NUIF_UNDO_FAILED", error.to_string()))?;
+            .map_err(|error| engine_binding_error(&error, "NUIF_UNDO_FAILED"))?;
         Ok((self.canonical_hash()?, patch))
     }
 
@@ -168,7 +177,7 @@ impl CoreDocument {
         let patch = self
             .document
             .redo()
-            .map_err(|error| BindingError::new("NUIF_REDO_FAILED", error.to_string()))?;
+            .map_err(|error| engine_binding_error(&error, "NUIF_REDO_FAILED"))?;
         Ok((self.canonical_hash()?, patch))
     }
 }
@@ -311,7 +320,7 @@ impl WasmDocument {
     ///
     /// Throws for malformed transport or unavailable requirements.
     #[wasm_bindgen(js_name = requirePackageCapabilities)]
-    pub fn require_package_capabilities(&self, supported: &[u8]) -> Result<(), JsError> {
+    pub fn require_package_capabilities(&mut self, supported: &[u8]) -> Result<(), JsError> {
         let supported = decode_capability_set(supported).map_err(JsError::from)?;
         self.inner
             .require_package_capabilities(&supported)
@@ -598,7 +607,7 @@ mod tests {
         package.required_capabilities.clone_from(&required);
         let bytes = package.encode().unwrap();
 
-        let structural = CoreDocument::load_package(&bytes).unwrap();
+        let mut structural = CoreDocument::load_package(&bytes).unwrap();
         assert_eq!(structural.export_package("portable").unwrap(), bytes);
         let unsupported = structural
             .package_capability_report(&BTreeSet::new())
@@ -612,6 +621,15 @@ mod tests {
                 ..
             })
         ));
+        assert!(matches!(
+            structural.apply_patch(&rename_patch(None)),
+            Err(BindingError {
+                code: "NUIF_PACKAGE_CAPABILITIES_REQUIRED",
+                ..
+            })
+        ));
+        structural.require_package_capabilities(&required).unwrap();
+        assert!(structural.apply_patch(&rename_patch(None)).is_ok());
         assert!(CoreDocument::load_package_with_capabilities(&bytes, &required).is_ok());
         assert!(CoreDocument::load_package_with_capabilities(&bytes, &BTreeSet::new()).is_err());
     }

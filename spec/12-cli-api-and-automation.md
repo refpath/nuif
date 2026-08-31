@@ -37,6 +37,13 @@ fail with the exact unavailable identifiers. A package-preserving wrapper MUST
 produce the same deterministic archive bytes as the direct SDK for the same
 document, resources, capabilities and target mode.
 
+When any requirement is unavailable, a package-aware SDK or wrapper MUST also
+reject semantic mutation, undo/redo, changed package saves and package-mode
+conversion atomically. It MAY validate, hash, extract a bare document or copy
+the unchanged same-mode package. Successful complete-set negotiation MAY
+authorize mutation and evaluation for that loaded session; a failed partial
+negotiation MUST NOT do so.
+
 An editor that lacks any required package capability MUST treat the package as
 read-only unless a capability-specific authoring profile defines how every
 affected resource is updated or explicitly detached. Structural selection,

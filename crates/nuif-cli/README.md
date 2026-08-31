@@ -18,6 +18,15 @@ commands emit JSON. Inputs are bounded by the profile limits reported by
 `nuif capabilities`; package and adapter operations fail closed outside their
 declared subsets.
 
+The CLI declares no support for package behavior or other extension
+capabilities. It can structurally validate, inspect, hash, extract and
+byte-preservingly copy a package that declares them. Commands that evaluate or
+rewrite that package—layout, render, snapshot, external adapter export, a
+changed `.nuif` save or package-mode conversion—fail atomically with
+`PACKAGE_CAPABILITIES_REQUIRED`. Native `.nuif` import/export retains verified
+resources and requirements instead of silently rebuilding a document-only
+archive.
+
 The archive is an unsigned research-preview developer package. Verify its
 SHA-256 entry and GitHub artifact attestation before use. The binary has no
 background service or implicit network authority. It reads or writes only the

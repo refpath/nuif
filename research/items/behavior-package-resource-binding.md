@@ -26,7 +26,7 @@ links:
   spec: [spec/08-serialization.md, spec/11-security.md, spec/13-semantics-accessibility-and-behavior.md]
   adr: []
   rfc: [rfcs/0010-portable-resource-package.md, rfcs/0012-behavior-package-resource.md]
-  code: [crates/nuif-package/src/lib.rs, crates/nuif-api/src/lib.rs, crates/nuif-behavior/src/lib.rs, crates/nuif-testing/src/bin/behavior-package.rs, apps/editor/src/lib.rs, apps/editor/src/bin/editor-hostile-inputs.rs, tools/behavior-oracle/package_check.py, xtask/src/main.rs]
+  code: [crates/nuif-package/src/lib.rs, crates/nuif-api/src/lib.rs, crates/nuif-cli/src/main.rs, crates/nuif-wasm/src/lib.rs, crates/nuif-behavior/src/lib.rs, crates/nuif-testing/src/bin/behavior-package.rs, apps/editor/src/lib.rs, apps/editor/src/bin/editor-hostile-inputs.rs, tools/behavior-oracle/package_check.py, tools/wasm/smoke.cjs, xtask/src/main.rs]
   experiments: [nuif:experiment:behavior-package-resource]
 ---
 
@@ -112,6 +112,12 @@ that resource while changing the document would therefore manufacture an
 unvalidated pairing. The reference editor uses structural read-only mode:
 inspection and exact copying are allowed, but its shared driver and save
 boundary reject semantic changes with the exact missing requirement set.
+The same policy now lives below the editor in `nuif-api::NuifDocument`:
+structural SDK and WASM loads reject mutation, history, evaluation and mode
+conversion until complete-set authorization succeeds. The CLI deliberately
+declares an empty support set, preserves unchanged packages and rejects its
+evaluation and rewrite paths with a stable capability error. This prevents a
+new wrapper from accidentally weakening the editor-only boundary.
 
 The behavior digest identifies only the behavior bytes. It does not claim to
 be a standalone document-specific identity. The deterministic package
@@ -139,7 +145,10 @@ independent Python standard-library ZIP reader. The foreign reader checks the
 exact archive hash, member ordering and metadata, CRC reads, media marker and
 content-addressed behavior bytes. It intentionally does not decode CBOR; the
 Rust side checks canonical CBOR and semantic references, so the report does not
-misstate container agreement as a second behavior implementation.
+misstate container agreement as a second behavior implementation. The gate also
+runs the release CLI, records its exact structural copy and requires typed
+render/mode-conversion rejection without output in
+`target/behavior-package-cli-report.json`.
 
 ## Rejected alternatives
 

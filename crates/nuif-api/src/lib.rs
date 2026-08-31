@@ -176,11 +176,12 @@ pub fn profile_zero_context(width: f64, height: f64) -> EvaluationContext {
 /// Language bindings and process adapters should translate their transport at
 /// the edge, then delegate document semantics to this type. A loaded package
 /// retains its verified resource descriptors and immutable embedded bytes
-/// across semantic edits and subsequent package export.
+/// across authorized semantic edits and subsequent package export.
 #[derive(Clone, Debug)]
 pub struct NuifDocument {
     session: Session,
     package: Option<NuifPackage>,
+    package_capabilities_authorized: bool,
 }
 
 impl NuifDocument {
@@ -189,6 +190,7 @@ impl NuifDocument {
         Self {
             session: Session::new(document),
             package: None,
+            package_capabilities_authorized: true,
         }
     }
 
@@ -205,7 +207,9 @@ impl NuifDocument {
 
     /// Loads and structurally verifies a deterministic package and its embedded
     /// bytes. Required host capabilities remain available for explicit
-    /// negotiation through [`Self::package_capability_report`].
+    /// negotiation through [`Self::package_capability_report`]. A package with
+    /// requirements is read-only for evaluation and semantic mutation until
+    /// [`Self::require_package_capabilities`] succeeds.
     ///
     /// # Errors
     ///
@@ -213,7 +217,8 @@ impl NuifDocument {
     /// digest mismatches and every declared package or session resource limit.
     pub fn load_package(bytes: &[u8]) -> Result<Self, EngineError> {
         let package = NuifPackage::decode(bytes)?;
-        Self::from_package(package)
+        let authorized = package.required_capabilities.is_empty();
+        Self::from_package(package, authorized)
     }
 
     /// Loads a package only when the caller declares every capability required
@@ -229,15 +234,19 @@ impl NuifDocument {
     ) -> Result<Self, EngineError> {
         let package = NuifPackage::decode(bytes)?;
         package.require_capabilities(supported)?;
-        Self::from_package(package)
+        Self::from_package(package, true)
     }
 
-    fn from_package(package: NuifPackage) -> Result<Self, EngineError> {
+    fn from_package(
+        package: NuifPackage,
+        package_capabilities_authorized: bool,
+    ) -> Result<Self, EngineError> {
         let session =
             Session::with_resources(package.document.clone(), package.embedded_resources())?;
         Ok(Self {
             session,
             package: Some(package),
+            package_capabilities_authorized,
         })
     }
 
@@ -263,19 +272,29 @@ impl NuifDocument {
             .map(|package| package.capability_report(supported))
     }
 
+    /// Whether a bare document or the loaded package's complete requirement
+    /// set has been authorized for evaluation and semantic mutation.
+    #[must_use]
+    pub const fn package_capabilities_authorized(&self) -> bool {
+        self.package_capabilities_authorized
+    }
+
     /// Requires full capability support for an already structurally loaded
-    /// package. Bare documents have no package requirements.
+    /// package, then authorizes this session for evaluation and semantic
+    /// mutation. Bare documents have no package requirements.
     ///
     /// # Errors
     ///
     /// Returns the exact unavailable requirement set.
     pub fn require_package_capabilities(
-        &self,
+        &mut self,
         supported: &BTreeSet<String>,
     ) -> Result<(), EngineError> {
-        self.package.as_ref().map_or(Ok(()), |package| {
-            package.require_capabilities(supported).map_err(Into::into)
-        })
+        if let Some(package) = self.package.as_ref() {
+            package.require_capabilities(supported)?;
+        }
+        self.package_capabilities_authorized = true;
+        Ok(())
     }
 
     #[must_use]
@@ -305,8 +324,10 @@ impl NuifDocument {
     ///
     /// # Errors
     ///
-    /// Rejects stale or invalid patches without changing the document.
+    /// Rejects unauthorized package capabilities, stale or invalid patches
+    /// without changing the document.
     pub fn apply_patch(&mut self, patch: &Patch) -> Result<(), EngineError> {
+        self.require_authorized_package_capabilities()?;
         self.session.apply(patch)
     }
 
@@ -314,12 +335,14 @@ impl NuifDocument {
     ///
     /// # Errors
     ///
-    /// Rejects invalid operations atomically.
+    /// Rejects unauthorized package capabilities or invalid operations
+    /// atomically.
     pub fn apply_operations(
         &mut self,
         transaction: u128,
         operations: Vec<Operation>,
     ) -> Result<Patch, EngineError> {
+        self.require_authorized_package_capabilities()?;
         self.session.apply_transaction(transaction, operations)
     }
 
@@ -337,8 +360,10 @@ impl NuifDocument {
     ///
     /// # Errors
     ///
-    /// Rejects an empty or stale history entry without changing the document.
+    /// Rejects unauthorized package capabilities or an empty/stale history
+    /// entry without changing the document.
     pub fn undo(&mut self) -> Result<Patch, EngineError> {
+        self.require_authorized_package_capabilities()?;
         self.session.undo()
     }
 
@@ -346,8 +371,10 @@ impl NuifDocument {
     ///
     /// # Errors
     ///
-    /// Rejects an empty or stale history entry without changing the document.
+    /// Rejects unauthorized package capabilities or an empty/stale history
+    /// entry without changing the document.
     pub fn redo(&mut self) -> Result<Patch, EngineError> {
+        self.require_authorized_package_capabilities()?;
         self.session.redo()
     }
 
@@ -365,8 +392,17 @@ impl NuifDocument {
     ///
     /// # Errors
     ///
-    /// Rejects invalid documents, portability-policy failures and package limits.
+    /// Rejects invalid documents, unauthorized mode changes,
+    /// portability-policy failures and package limits. An unchanged same-mode
+    /// structural package may still be copied deterministically.
     pub fn export_package(&self, mode: PackageMode) -> Result<Vec<u8>, EngineError> {
+        if self
+            .package
+            .as_ref()
+            .is_some_and(|package| package.mode != mode)
+        {
+            self.require_authorized_package_capabilities()?;
+        }
         let mut package = self
             .package
             .clone()
@@ -380,9 +416,23 @@ impl NuifDocument {
     ///
     /// # Errors
     ///
-    /// Rejects invalid documents, contexts, resources or render targets.
+    /// Rejects unauthorized package capabilities, invalid documents, contexts,
+    /// resources or render targets.
     pub fn snapshot(&self, context: &EvaluationContext) -> Result<Snapshot, EngineError> {
+        self.require_authorized_package_capabilities()?;
         self.session.snapshot(context)
+    }
+
+    fn require_authorized_package_capabilities(&self) -> Result<(), EngineError> {
+        if self.package_capabilities_authorized {
+            Ok(())
+        } else {
+            Err(EngineError::PackageCapabilitiesRequired {
+                capabilities: self.package.as_ref().map_or_else(BTreeSet::new, |package| {
+                    package.required_capabilities.clone()
+                }),
+            })
+        }
     }
 }
 
@@ -454,6 +504,10 @@ pub enum EngineError {
     EncodingUnsupported { profile: String },
     #[error("undo or redo history is empty")]
     HistoryEmpty,
+    #[error(
+        "package capabilities must be authorized before evaluation or semantic mutation: {capabilities:?}"
+    )]
+    PackageCapabilitiesRequired { capabilities: BTreeSet<String> },
     #[error("invalid evaluation context: {reason}")]
     InvalidContext { reason: &'static str },
     #[error("document validation failed with {errors} error diagnostics")]
@@ -990,6 +1044,29 @@ mod tests {
         let mut loaded = NuifDocument::load_package(&bytes).unwrap();
 
         assert_eq!(loaded.package_mode(), Some(PackageMode::Authoring));
+        assert!(!loaded.package_capabilities_authorized());
+        assert!(matches!(
+            loaded.apply_operations(
+                8,
+                vec![Operation::Rename {
+                    entity: EntityId::new(2),
+                    name: Some("must not commit".to_owned()),
+                }],
+            ),
+            Err(EngineError::PackageCapabilitiesRequired { .. })
+        ));
+        assert_eq!(
+            loaded.export_package(PackageMode::Authoring).unwrap(),
+            bytes
+        );
+        assert!(matches!(
+            loaded.export_package(PackageMode::Portable),
+            Err(EngineError::PackageCapabilitiesRequired { .. })
+        ));
+        loaded
+            .require_package_capabilities(&package.required_capabilities)
+            .unwrap();
+        assert!(loaded.package_capabilities_authorized());
         loaded
             .apply_operations(
                 9,
@@ -1024,7 +1101,7 @@ mod tests {
         let bytes = package.encode().unwrap();
         let layout_only = BTreeSet::from(["nuif-layout-profile-0".to_owned()]);
 
-        let loaded = NuifDocument::load_package(&bytes).unwrap();
+        let mut loaded = NuifDocument::load_package(&bytes).unwrap();
         let report = loaded.package_capability_report(&layout_only).unwrap();
         assert!(!report.fully_supported);
         assert_eq!(
@@ -1037,6 +1114,12 @@ mod tests {
                 PackageError::RequiredCapabilitiesUnavailable { capabilities }
             )) if capabilities == report.missing_required
         ));
+        assert!(!loaded.package_capabilities_authorized());
+        assert!(matches!(
+            loaded.snapshot(&profile_zero_context(320.0, 200.0)),
+            Err(EngineError::PackageCapabilitiesRequired { capabilities })
+                if capabilities == package.required_capabilities
+        ));
         assert!(matches!(
             NuifDocument::load_package_with_capabilities(&bytes, &layout_only),
             Err(EngineError::Package(
@@ -1048,7 +1131,7 @@ mod tests {
                 .is_ok()
         );
 
-        let bare = NuifDocument::from_document(document());
+        let mut bare = NuifDocument::from_document(document());
         assert_eq!(bare.package_capability_report(&BTreeSet::new()), None);
         assert!(bare.require_package_capabilities(&BTreeSet::new()).is_ok());
     }

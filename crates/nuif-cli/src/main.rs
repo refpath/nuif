@@ -45,6 +45,7 @@ use nuif_svg::{
 };
 use nuif_testing::{TrialConfig, reduction, run_trials};
 use serde::Deserialize;
+use std::collections::BTreeSet;
 use std::env;
 use std::fs;
 use std::io::{self, Read, Write};
@@ -149,7 +150,8 @@ fn inspect(args: &[String]) -> Result<(), CliError> {
         "package": loaded.package.as_ref().map(|package| serde_json::json!({
             "mode": package.mode,
             "resources": package.resources.len(),
-            "package_hash": package.package_hash().ok()
+            "package_hash": package.package_hash().ok(),
+            "capabilities": package.capability_report(&BTreeSet::new())
         })),
         "extensions_used": document.extension_declarations.used,
         "errors": errors
@@ -314,11 +316,15 @@ fn replay(args: &[String]) -> Result<(), CliError> {
 }
 
 fn layout(args: &[String]) -> Result<(), CliError> {
-    let document = load_document(required(args, 0, "input document")?)?;
+    let loaded = load_nuif(required(args, 0, "input document")?)?;
+    require_package_evaluation(&loaded)?;
     let width = number(args, 1, 360.0)?;
     let height = number(args, 2, 640.0)?;
     let snapshot = ReferenceEngine
-        .layout(&document, &EvaluationContext::viewport(width, height))
+        .layout(
+            &loaded.document,
+            &EvaluationContext::viewport(width, height),
+        )
         .map_err(|error| CliError::new(1, "LAYOUT_FAILED", error.to_string()))?;
     print_json(&serde_json::json!({"status": "passed", "layout": snapshot}))
 }
@@ -458,8 +464,8 @@ fn import(args: &[String]) -> Result<(), CliError> {
     }
     let input = required(args, 0, "input document")?;
     let output = args.get(1).map_or("-", String::as_str);
-    let document = load_document(input)?;
-    write_document(output, &document)?;
+    let mut loaded = load_nuif(input)?;
+    write_loaded_document(output, &mut loaded)?;
     eprintln!(
         "{}",
         serde_json::json!({"status":"passed","fidelity":[{"class":"lossless","reason":"native NUIF import"}]})
@@ -468,9 +474,14 @@ fn import(args: &[String]) -> Result<(), CliError> {
 }
 
 fn export(args: &[String]) -> Result<(), CliError> {
-    let document = load_document(required(args, 0, "input document")?)?;
+    let mut loaded = load_nuif(required(args, 0, "input document")?)?;
     let target = args.get(1).map_or("nuif-text-0", String::as_str);
     let output = args.get(2).map_or("-", String::as_str);
+    if export_requires_package_evaluation(target) {
+        require_package_evaluation(&loaded)?;
+    }
+    let document = loaded.document.clone();
+    let report_path = args.get(3).map(String::as_str);
     match target {
         "nuif-text-0" => write_output(
             output,
@@ -480,14 +491,11 @@ fn export(args: &[String]) -> Result<(), CliError> {
             output,
             &DeterministicCbor.encode(&document).map_err(codec_error)?,
         ),
-        "nuif-package-0" => write_output(
-            output,
-            &NuifPackage::new(document, PackageMode::Portable)
-                .encode()
-                .map_err(package_error)?,
-        ),
+        "nuif-package-0" => {
+            let bytes = encode_loaded_package(&mut loaded)?;
+            write_output(output, &bytes)
+        }
         "html-css-0" => {
-            let report_path = args.get(3).map(String::as_str);
             let exported = match export_html_document(&document) {
                 Ok(exported) => exported,
                 Err(error) => return adapter_failure(&error, report_path),
@@ -496,7 +504,6 @@ fn export(args: &[String]) -> Result<(), CliError> {
             emit_adapter_report(&exported.report, report_path)
         }
         "html-css-v0" => {
-            let report_path = args.get(3).map(String::as_str);
             let exported = match export_html_v0_document(&document) {
                 Ok(exported) => exported,
                 Err(error) => return adapter_failure(&error, report_path),
@@ -505,7 +512,6 @@ fn export(args: &[String]) -> Result<(), CliError> {
             emit_adapter_report(&exported.report, report_path)
         }
         "svg-0" | "nuif-svg-0" => {
-            let report_path = args.get(3).map(String::as_str);
             let exported = match export_svg_document(&document) {
                 Ok(exported) => exported,
                 Err(error) => return svg_adapter_failure(&error, report_path),
@@ -514,7 +520,6 @@ fn export(args: &[String]) -> Result<(), CliError> {
             emit_adapter_report(&exported.report, report_path)
         }
         "dtcg-scalar-0" | "nuif-dtcg-scalar-0" => {
-            let report_path = args.get(3).map(String::as_str);
             let exported = match export_dtcg_document(&document) {
                 Ok(exported) => exported,
                 Err(error) => return dtcg_adapter_failure(&error, report_path),
@@ -523,7 +528,6 @@ fn export(args: &[String]) -> Result<(), CliError> {
             emit_adapter_report(&exported.report, report_path)
         }
         "penpot-v3-0" | "nuif-penpot-v3-0" => {
-            let report_path = args.get(3).map(String::as_str);
             let exported = match export_penpot_document(&document) {
                 Ok(exported) => exported,
                 Err(error) => return penpot_adapter_failure(&error, report_path),
@@ -532,7 +536,6 @@ fn export(args: &[String]) -> Result<(), CliError> {
             emit_adapter_report(&exported.report, report_path)
         }
         "react-jsx-0" | "nuif-react-jsx-0" => {
-            let report_path = args.get(3).map(String::as_str);
             let exported = match export_react_document(&document) {
                 Ok(exported) => exported,
                 Err(error) => return react_adapter_failure(&error, report_path),
@@ -541,7 +544,6 @@ fn export(args: &[String]) -> Result<(), CliError> {
             emit_adapter_report(&exported.report, report_path)
         }
         "svelte-static-0" | "nuif-svelte-static-0" => {
-            let report_path = args.get(3).map(String::as_str);
             let exported = match export_svelte_document(&document) {
                 Ok(exported) => exported,
                 Err(error) => return svelte_adapter_failure(&error, report_path),
@@ -550,7 +552,6 @@ fn export(args: &[String]) -> Result<(), CliError> {
             emit_adapter_report(&exported.report, report_path)
         }
         "figma-plugin-snapshot-0" | "nuif-figma-plugin-snapshot-0" => {
-            let report_path = args.get(3).map(String::as_str);
             let plan = match plan_figma_import(&document, "cli-review-plan") {
                 Ok(plan) => plan,
                 Err(error) => return figma_adapter_failure(&error, report_path),
@@ -568,6 +569,10 @@ fn export(args: &[String]) -> Result<(), CliError> {
             format!("target {target} is unsupported; no data was written"),
         )),
     }
+}
+
+fn export_requires_package_evaluation(target: &str) -> bool {
+    !matches!(target, "nuif-text-0" | "nuif-cbor-0" | "nuif-package-0")
 }
 
 fn import_html(args: &[String]) -> Result<(), CliError> {
@@ -983,6 +988,11 @@ fn pack(args: &[String]) -> Result<(), CliError> {
         .unwrap_or_else(|| NuifPackage::new(loaded.document.clone(), PackageMode::Portable));
     package.document = loaded.document;
     if let Some(mode) = requested_mode {
+        if mode != package.mode {
+            package
+                .require_capabilities(&BTreeSet::new())
+                .map_err(package_capability_error)?;
+        }
         package.mode = mode;
     }
     let bytes = package.encode().map_err(package_error)?;
@@ -1216,12 +1226,21 @@ struct LoadedNuif {
 }
 
 fn session_for_loaded(loaded: &LoadedNuif) -> Result<Session, CliError> {
+    require_package_evaluation(loaded)?;
     let resources = loaded
         .package
         .as_ref()
         .map_or_else(Default::default, NuifPackage::embedded_resources);
     Session::with_resources(loaded.document.clone(), resources)
         .map_err(|error| CliError::new(1, "RESOURCE_SESSION_FAILED", error.to_string()))
+}
+
+fn require_package_evaluation(loaded: &LoadedNuif) -> Result<(), CliError> {
+    loaded.package.as_ref().map_or(Ok(()), |package| {
+        package
+            .require_capabilities(&BTreeSet::new())
+            .map_err(package_capability_error)
+    })
 }
 
 fn load_nuif(path: &str) -> Result<LoadedNuif, CliError> {
@@ -1321,6 +1340,52 @@ mod tests {
             nuif_core::Fidelity::Lossless
         );
     }
+
+    #[test]
+    fn capability_package_is_structural_until_evaluation_is_supported() {
+        let mut package = rgba8_image_package_fixture();
+        package
+            .required_capabilities
+            .insert("nuif-behavior-state-machine-0".to_owned());
+        let original = package.encode().unwrap();
+        let mut loaded = LoadedNuif {
+            document: package.document.clone(),
+            package: Some(package),
+            profile: nuif_package::PROFILE,
+        };
+
+        assert_eq!(encode_loaded_package(&mut loaded).unwrap(), original);
+        let session_error = session_for_loaded(&loaded).unwrap_err();
+        assert_eq!(session_error.code, "PACKAGE_CAPABILITIES_REQUIRED");
+
+        let root = loaded.document.roots[0];
+        loaded.document.entities.get_mut(&root).unwrap().name = Some("edited".to_owned());
+        let write_error = encode_loaded_package(&mut loaded).unwrap_err();
+        assert_eq!(write_error.code, "PACKAGE_CAPABILITIES_REQUIRED");
+        assert_eq!(loaded.package.as_ref().unwrap().encode().unwrap(), original);
+    }
+
+    #[test]
+    fn package_rewrite_preserves_embedded_resources() {
+        let package = rgba8_image_package_fixture();
+        let original_resources = package.resources.clone();
+        let digest = original_resources.keys().next().unwrap().clone();
+        let original_resource = package.embedded(&digest).unwrap().to_vec();
+        let mut loaded = LoadedNuif {
+            document: package.document.clone(),
+            package: Some(package),
+            profile: nuif_package::PROFILE,
+        };
+        let root = loaded.document.roots[0];
+        loaded.document.entities.get_mut(&root).unwrap().name = Some("renamed".to_owned());
+
+        let encoded = encode_loaded_package(&mut loaded).unwrap();
+        let decoded = NuifPackage::decode(&encoded).unwrap();
+
+        assert_eq!(decoded.document, loaded.document);
+        assert_eq!(decoded.resources, original_resources);
+        assert_eq!(decoded.embedded(&digest).unwrap(), original_resource);
+    }
 }
 
 fn write_output(path: &str, bytes: &[u8]) -> Result<(), CliError> {
@@ -1348,17 +1413,29 @@ fn write_document(path: &str, document: &Document) -> Result<(), CliError> {
 
 fn write_loaded_document(path: &str, loaded: &mut LoadedNuif) -> Result<(), CliError> {
     if path != "-" && has_extension(path, "nuif") {
-        let mut package = loaded
-            .package
-            .clone()
-            .unwrap_or_else(|| NuifPackage::new(loaded.document.clone(), PackageMode::Portable));
-        package.document.clone_from(&loaded.document);
-        let bytes = package.encode().map_err(package_error)?;
+        let bytes = encode_loaded_package(loaded)?;
         write_output(path, &bytes)?;
-        loaded.package = Some(package);
         return Ok(());
     }
     write_document(path, &loaded.document)
+}
+
+fn encode_loaded_package(loaded: &mut LoadedNuif) -> Result<Vec<u8>, CliError> {
+    if let Some(package) = loaded.package.as_ref()
+        && package.document != loaded.document
+    {
+        package
+            .require_capabilities(&BTreeSet::new())
+            .map_err(package_capability_error)?;
+    }
+    let mut package = loaded
+        .package
+        .clone()
+        .unwrap_or_else(|| NuifPackage::new(loaded.document.clone(), PackageMode::Portable));
+    package.document.clone_from(&loaded.document);
+    let bytes = package.encode().map_err(package_error)?;
+    loaded.package = Some(package);
+    Ok(bytes)
 }
 
 fn has_extension(path: &str, extension: &str) -> bool {
@@ -1403,6 +1480,10 @@ fn codec_error(error: impl std::fmt::Display) -> CliError {
 
 fn package_error(error: impl std::fmt::Display) -> CliError {
     CliError::new(1, "PACKAGE_FAILED", error.to_string())
+}
+
+fn package_capability_error(error: impl std::fmt::Display) -> CliError {
+    CliError::new(1, "PACKAGE_CAPABILITIES_REQUIRED", error.to_string())
 }
 
 fn capture_error(error: impl std::fmt::Display) -> CliError {
