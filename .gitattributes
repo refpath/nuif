@@ -1,1 +1,2 @@
-conformance/font/fixtures/**/OFL.txt text eol=lf
+conformance/font/fixtures/noto-sans-variable-subset/OFL.txt text eol=lf
+conformance/font/fixtures/recursive-variable-subset/OFL.txt text eol=lf
