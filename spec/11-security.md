@@ -115,5 +115,8 @@ metadata. Its warmed reference implementation additionally caps one inspection
 or packaged-font validation at 4 MiB allocator traffic and 2 MiB retained
 memory. The allocation ceilings are CI regressions rather than portable format
 semantics. These limits do not authorize other font containers/outlines,
-native rasterizer execution, redistribution or inclusion in CPU render profile
-0.
+external/native rasterizer execution, redistribution or inclusion in CPU
+render profile 0. The separately gated reference composition shapes and
+rasterizes one accepted non-Ahem fixture under the same session/resource limits;
+it is not evidence that every accepted font is safe in an arbitrary downstream
+font stack.

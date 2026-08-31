@@ -117,8 +117,13 @@ zero. It requires exact `font/ttf` bytes, matching family names and Unicode
 coverage, no variation axes, matching `fsType` evidence, a non-empty license
 expression and an explicit embedding review. It rejects TTC, CFF/CFF2,
 variable, color, bitmap, SVG and WOFF/WOFF2 sources. Exact limits and non-claims
-are versioned in `crates/nuif-font/PROFILE.md`. This narrow package resource
-profile does not establish shaping or raster equivalence.
+are versioned in `crates/nuif-font/PROFILE.md`. In the experimental reference
+composition, a digest-verified embedded face is registered locally, its global
+feature map is applied by the pinned shaper, its exact advances and ascent drive
+layout/baselines, and its unhinted outlines drive CPU rasterization. Missing
+bytes fail at item level without platform discovery. This proves deterministic
+behavior for the gated fixture, not foreign-shaper or cross-platform raster
+equivalence.
 
 A conformance profile that compares resolved text MUST declare the exact font bytes and hash, shaper and Unicode-data versions, direction, language, script-selection rule, feature set, cluster level, cluster coordinate unit, positioning unit and resource limits. Resolved runs contain source text plus ordered glyph identifiers, clusters, advances and offsets; they MUST NOT depend on system font discovery. Profile 0 uses Unicode-scalar indices for cluster coordinates and unscaled font units for advances and offsets.
 
@@ -139,5 +144,6 @@ Profile-0 text uses Ahem 1.50, HarfRust 0.13.3 with Unicode 17.0.0, unhinted Skr
 Path geometry, image assets, component-instance materialization and extension-defined paint/effects are not supported by CPU render profile 0. Lowering MUST emit `unsupported` or `preserved_unrenderable` fidelity with the originating entity and property pointer; it MUST NOT substitute bounds rectangles or silently omit the data. `nuif-png-rgba8-0` is an orthogonal experimental image segment and does not change profile-0 results. Future profiles may compose accepted segments explicitly.
 
 The asset and broad-font requirements above remain draft inputs for broader
-profiles. The narrow executable image and static-font resource segments do not
-implicitly enter CPU render profile 0.
+profiles. The narrow executable image and static-font resource segments compose
+with the reference renderer only under their separately declared experimental
+profiles; they do not alter the Ahem-specific CPU render profile-0 golden.

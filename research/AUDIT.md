@@ -159,16 +159,18 @@ synthetic/real malformed or out-of-profile cases plus 10 policy cases through
 `cargo xtask gate-i-font`.
 Six additional trials distinguish package-level portable/private/linked/
 substituted/unavailable outcomes. TTC, CFF/CFF2, variable/color/bitmap/WOFF2
-acceptance, cluster-level fallback, arbitrary packaged-font shaping and
-cross-platform font reproduction remain required. Six item-level trials now
-separate requested, substituted and unavailable text/font identities through
-layout and rendering. Four accepted-font
+acceptance, cluster-level fallback and cross-platform font reproduction remain
+required. Six item-level trials separate requested, substituted and unavailable
+text/font identities through layout and rendering. Six static runtime trials
+add non-Ahem exact-resource shaping, global feature delivery, layout, outlines,
+CPU pixels and deterministic repetition without implying broader font support.
+Four accepted-font
 inspections and packaged validation now carry warmed 4 MiB allocated/2 MiB
 retained regression ceilings. Package-to-session handoff shares an 8 MiB buffer
 under a 1 MiB allocation ceiling, and 1,024 image instances retain one 1 MiB
 surface under the 64 MiB preflighted scene total. Both media segments are separate
-from CPU render profile 0 and do not establish general images or packaged-font
-rendering.
+from CPU render profile 0 and do not establish general images or broad
+packaged-font rendering.
 
 ### Gate J — source-backed browser capture (local live segment automated)
 

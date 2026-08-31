@@ -60,6 +60,13 @@ the resulting units, glyph count, family, table inventory and normalized
 Unicode coverage with a digest-bound `hb-info` 14.4.0 capture before it runs
 package and policy trials.
 
+For an accepted static package resource, `nuif-text::ResourceFont` opens
+HarfRust and Skrifa views over the same digest-checked bytes. It applies the
+asset's global OpenType feature values during shaping, obtains the face ascent
+from Skrifa metrics and reuses the opened face for unique glyph outlines within
+each render item. The font gate exercises this path with Tinos in addition to
+the independent Ahem metadata and shaping goldens.
+
 ## Alternatives and decision
 
 Fontations replaces the unmaintained production parser because it is already

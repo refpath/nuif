@@ -299,8 +299,17 @@ are in `crates/nuif-font/PROFILE.md`; `cargo xtask gate-i-font` compares Skrifa
 0.46.2 behind NUIF-owned sfnt validation with a committed HarfBuzz 14.4.0
 metadata capture for the pinned Ahem fixture.
 
+The reference runtime now composes this accepted resource profile with
+HarfRust/Skrifa/Zeno: a package session registers exact embedded bytes, applies
+declared global OpenType features, uses shaped advances and face ascent for
+layout, lowers unhinted outlines and emits deterministic CPU pixels. A Tinos
+package is the blocking non-Ahem fixture. This is local implementation evidence;
+it does not make general OpenType or cross-platform raster claims.
+
 This executable slice deliberately rejects TTC, CFF/CFF2, variable, color,
-bitmap, SVG and WOFF/WOFF2 fonts. The broader font-resource profile must pin:
+bitmap, SVG and WOFF/WOFF2 fonts. Research assigns these to separate
+collection, variable-TrueType, CFF/CFF2, COLR-vector, bitmap/SVG-glyph and WOFF2
+transport capabilities. Each broader font-resource profile must pin:
 
 - parser and table/resource budgets;
 - face/collection selection;

@@ -31,7 +31,8 @@ profile. They require separately named profiles and conformance evidence.
 ## Asset binding
 
 The font asset must exactly match the parsed face index, family names, static
-axis state, and Unicode coverage. Its resource descriptor must use `font/ttf`.
+axis state, Unicode coverage, and bounded global OpenType feature settings. Its
+resource descriptor must use `font/ttf`.
 The asset records:
 
 - `font.decoder_profile = nuif-opentype-static-single-0`;
@@ -53,6 +54,25 @@ unresolved; a caller-provided resolver must return the exact bounded bytes,
 after which the same profile validation runs. Package parsing never performs a
 network request.
 
+## Reference runtime composition
+
+An exact embedded font is also an executable local input to the shared NUIF
+session. The session registers digest-verified font bytes in the evaluation
+context; layout and scene lowering never query a platform font database or
+perform I/O. Missing linked bytes remain item-level `unsupported` fidelity.
+
+The reference composition uses HarfRust 0.13.3 with Unicode 17.0.0 for shaping,
+applies every declared feature value globally, and records those values in the
+resolved run. Skrifa 0.46.2 supplies the face's unscaled ascent and unhinted
+TrueType outlines. Layout uses the exact shaped advances; CPU rasterization
+uses the resolved ascent rather than the Ahem-only profile-zero constant. A
+resource face is validated once within each evaluation stage and then reused
+for all hard lines or unique glyph outlines in that text item.
+
+This composition is intentionally not named as general CPU render profile 0,
+whose independent golden remains fixed to Ahem. It is executable evidence for
+the orthogonal static resource profile.
+
 ## Security limits and non-claims
 
 The implementation contains no unsafe code and uses pinned Skrifa `0.46.2`
@@ -70,9 +90,10 @@ or below 4 MiB total allocator traffic and 2 MiB retained memory. These are
 reference-implementation regression ceilings measured with `stats_alloc`
 0.1.10, not portable format limits or a downstream rasterizer budget.
 
-This baseline does not yet prove shaping equivalence, glyph-outline
-equivalence, subsetting, variable-axis behavior, color-font behavior, browser
-font decoding, layout fidelity, or licensing compliance.
+This baseline does not prove cross-implementation shaping or outline
+equivalence for arbitrary fonts, cross-platform raster equivalence, subsetting,
+variable-axis behavior, color-font behavior, browser font decoding, or
+licensing compliance.
 
 ## Evidence boundary
 
@@ -88,4 +109,9 @@ that those categories fail closed; they do not specify how a future profile
 will accept them. Four warmed inspection-allocation trials and one warmed
 packaged-validation allocation trial are also blocking. Six item-level trials
 prove substituted/unavailable text binding, layout fidelity and render-command
-behavior through a package round trip.
+behavior through a package round trip. Six runtime trials use a non-Ahem Tinos
+package to prove automatic exact-resource registration, declared `kern=0`
+delivery to the shaper, font-derived intrinsic width and ascent, outline-backed
+CPU pixels, lossless item fidelity and repeated snapshot equality. This is one
+rights-cleared fixture on one reference implementation, not broad OpenType or
+foreign-renderer conformance.

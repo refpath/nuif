@@ -100,8 +100,46 @@ a non-empty license expression and an explicit `approved` embedding review.
 resource, proves package byte fixpoint and resource retention, and runs 20
 malformed/unsupported, 10 policy and six portability trials. Real TTC, CFF,
 variable, COLR, embedded bitmap, CBDT and sbix fixtures prove fail-closed
-exclusion. This is an automated baseline, not completion of the broader
-font-resource experiment.
+exclusion.
+
+The same gate now loads a portable non-Ahem Tinos package through
+`nuif-api::NuifDocument`. Digest-verified bytes automatically enter the local
+evaluation context; HarfRust applies the asset's global feature map, layout uses
+the exact advances, Skrifa supplies the face ascent and unhinted outlines, and
+the CPU renderer produces deterministic pixels with lossless item fidelity.
+The resolved run records the applied features. This closes arbitrary accepted
+static-resource shaping in the reference runtime, but one fixture and one
+implementation do not establish foreign-shaper or cross-platform raster
+equivalence.
+
+## Profile decomposition decision
+
+OpenType 1.9.1 treats collections, outline technologies, variations and color
+glyph descriptions as distinct structures. A collection has multiple table
+directories and may share tables between faces; variation coordinates affect
+glyph outlines and horizontal, vertical and global metrics through multiple
+tables; color glyphs may be vector paint graphs, bitmaps or SVG documents.
+HarfBuzz likewise requires variation coordinates to be configured on the font
+before shaping. Therefore NUIF will not promote a single “general OpenType”
+switch. The next work is separated into independently versioned capabilities:
+
+1. `collection`: deterministic face selection and shared-table bounds, without
+   changing the selected face's outline/runtime profile;
+2. `variable-truetype`: exact axis definitions, normalized coordinates,
+   `avar` mapping, named-instance identity and consistent `gvar`/HVAR/VVAR/MVAR
+   application to outlines and metrics;
+3. `cff-static` and later `cff2-variable`: separate outline decoders and
+   independent malformed-input evidence;
+4. `colr-vector`: bounded COLR/CPAL paint graphs and palette selection;
+5. bitmap and SVG glyph sources: separate decode/sandbox profiles rather than
+   fallbacks inside the vector profile;
+6. WOFF2: a transport profile whose decoded sfnt identity and resource-policy
+   relationship are explicit.
+
+The OpenType font-file organization and variation-table inventory are defined
+by the OpenType 1.9.1 file and variation specifications. The decomposition is a
+NUIF design decision inferred from those structures, not a requirement imposed
+by OpenType itself.
 
 ## Open questions
 
@@ -111,3 +149,14 @@ font-resource experiment.
   shaping corpus permit it, while retaining an audit link to the source digest?
 - How should variable-font instancing be represented when the original file may
   not be redistributed but a licensed derived instance may be?
+
+## Sources added for the decomposition
+
+- OpenType 1.9.1, “The OpenType Font File”:
+  https://learn.microsoft.com/en-us/typography/opentype/spec/otff
+- OpenType 1.9.1, “OpenType Font Variations overview”:
+  https://learn.microsoft.com/en-us/typography/opentype/spec/otvaroverview
+- HarfBuzz manual, “Working with OpenType Variable Fonts”:
+  https://harfbuzz.github.io/fonts-and-faces-variable.html
+- OpenType 1.9.1, “COLR — Color Table”:
+  https://learn.microsoft.com/en-us/typography/opentype/spec/colr

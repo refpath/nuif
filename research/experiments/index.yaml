@@ -677,11 +677,12 @@ experiments:
   - id: nuif:experiment:font-resource-static-baseline
     status: automated
     evidence: [nuif:research:opentype-font-embedding-and-portability, nuif:research:ttf-parser, nuif:research:fontations, nuif:research:text-rendering-reproducibility]
-    implementation: [crates/nuif-font/src/lib.rs, crates/nuif-font/PROFILE.md, crates/nuif-package/src/lib.rs, crates/nuif-testing/src/bin/font-resources.rs, xtask/src/main.rs]
-    oracle: external-harfbuzz-capture-and-policy-metamorphic
+    implementation: [crates/nuif-font/src/lib.rs, crates/nuif-font/PROFILE.md, crates/nuif-package/src/lib.rs, crates/nuif-text/src/lib.rs, crates/nuif-layout/src/lib.rs, crates/nuif-render/src/lib.rs, crates/nuif-api/src/lib.rs, crates/nuif-testing/src/bin/font-resources.rs, xtask/src/main.rs]
+    oracle: external-harfbuzz-capture-policy-metamorphic-and-reference-runtime
     acceptance:
       - the pinned static TrueType face has identical units glyph count family tables and exact Unicode coverage under Skrifa and the pinned HarfBuzz metadata capture
       - exact bytes face metadata and explicit policy evidence validate together and remain digest-identical through package fixpoint and an unrelated edit
+      - one non-Ahem exact package drives declared global features shaping intrinsic metrics outlines and deterministic CPU pixels without host font discovery
       - malformed checksum-invalid noncanonical unsupported and one-over cases fail before the resource is accepted
       - the report distinguishes technical fsType evidence from license and embedding approval
     tests:
@@ -690,6 +691,7 @@ experiments:
       - mutate decoder fsType license review coverage axes and feature evidence and require atomic policy failure
       - distinguish portable private-authoring linked substituted and unavailable package outcomes without implicit resolution
       - round-trip one exact font resource through deterministic package encoding and decoding
+      - load a Tinos package through the shared API and require automatic digest registration feature delivery font-derived layout outline-backed pixels lossless fidelity and repeated snapshot equality
       - archive target/font-resources-report.json from cargo xtask gate-i-font
   - id: nuif:experiment:font-resource-profile
     status: planned
@@ -698,9 +700,9 @@ experiments:
     continuation:
       class: profile-design
       blocked_by:
-        - no reviewed profile chooses whether collections variable axes CFF color bitmap or WOFF2 are separate capabilities or one portability level
+        - collection variable-TrueType CFF/CFF2 COLR bitmap SVG-glyph and WOFF2 support require separately named capabilities with format-specific bounds and oracles
         - redistribution subsetting and derived-instance policy cannot be inferred from fsType and requires publisher-supplied license evidence plus rights-reviewed fixtures
-      next_action: Draft separate collection variable-outline and color-glyph RFCs, then promote only the smallest profile with two parsers shaping evidence and rights-cleared fixtures.
+      next_action: Draft the variable-TrueType RFC first around fvar avar gvar HVAR VVAR MVAR and STAT, then promote it only with two parsers shaping and outline evidence plus rights-cleared fixtures; keep collection CFF color bitmap SVG and WOFF2 profiles independent.
     acceptance:
       - font bytes face index axes features coverage and shaping inputs are content-addressed and independently decoded
       - portable private-authoring linked substituted and unavailable policies produce distinct validated outcomes

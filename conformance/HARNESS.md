@@ -200,8 +200,11 @@ byte fixpoint and resource retention, mutates metadata and embedding evidence,
 distinguishes six portability outcomes, and rejects synthetic malformed cases
 plus real TTC, CFF, variable, COLR, bitmap, CBDT and sbix inputs. The report
 explicitly excludes TTC, CFF/CFF2, variable, color, bitmap, SVG and WOFF/WOFF2
-fonts; it does not claim shaping/raster equivalence or that technical flags
-grant redistribution rights.
+fonts. Six runtime trials additionally load a non-Ahem exact package and require
+automatic digest registration, declared feature delivery, font-derived layout,
+outline-backed CPU pixels, lossless fidelity and repeated snapshot equality.
+The report does not claim foreign-shaper/cross-platform raster equivalence or
+that technical flags grant redistribution rights.
 
 The HTML/CSS retentive experiment writes `target/html-sync-report.json` and `target/html-sync-output.html`. It pins Tree-sitter and both grammars, exactly re-imports the declared subset, repeats synchronization, checks the complete unchanged-byte complement of six text/token/padding edits, preserves injected comments/unmapped markup and requires typed stale-span, unsupported-property and one-over-size failures. `cargo xtask gate-f` is blocking; the bounded profile and its non-claims are specified in `adapters/html-css/PROFILE.md`.
 

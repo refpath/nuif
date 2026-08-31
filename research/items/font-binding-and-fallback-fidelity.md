@@ -104,9 +104,12 @@ six blocking trials. The declared replacement is the already pinned Ahem
 resource, so this establishes whole-text item semantics, not a general fallback
 engine.
 
-Cluster-level fallback, missing-glyph reporting, multiple faces per run,
-variable axes, feature-dependent substitution, shaping with arbitrary packaged
-font bytes and cross-platform raster equivalence remain separate work.
+Six additional runtime trials load a non-Ahem static TrueType package through
+the shared API and prove automatic digest-bound registration, exact-resource
+layout, declared feature delivery, outline-backed raster output, lossless
+fidelity and deterministic repetition. Cluster-level fallback, missing-glyph
+reporting, multiple faces per run, variable axes, feature-dependent fallback
+selection and cross-platform raster equivalence remain separate work.
 
 ## NUIF relevance
 

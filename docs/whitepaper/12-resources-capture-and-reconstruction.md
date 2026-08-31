@@ -217,13 +217,21 @@ asset, render with an available declared replacement as `approximated`, and
 emit no text command with item-level `unsupported` fidelity when replacement
 bytes or the font are unavailable.
 
+The shared session now also evaluates one non-Ahem exact package end to end.
+It registers the embedded digest without host setup, applies declared global
+features in HarfRust, uses the font's shaped advances and ascent for layout,
+extracts unhinted Skrifa outlines and produces deterministic CPU pixels. Six
+blocking runtime trials cover those facts plus lossless fidelity and repeated
+snapshot equality.
+
 This is intentionally not general OpenType support. TTC, CFF/CFF2, variable,
 color, bitmap, SVG and WOFF/WOFF2 sources, historic ambiguous permission
-combinations, subsetting, cluster-level fallback, arbitrary packaged-font
-shaping and cross-platform raster behavior remain separate fixtures and
-profiles. The configured three-OS parser/package matrix does not establish
-cross-platform raster behavior. Parser acceptance and `fsType` do not grant
-redistribution rights.
+combinations, subsetting, cluster-level fallback and cross-platform raster
+behavior remain separate fixtures and profiles. Collections,
+variable-TrueType, CFF/CFF2, COLR-vector, bitmap/SVG-glyph and WOFF2 transport
+are deliberately separate capability tracks. The configured three-OS
+parser/package matrix does not establish cross-platform raster behavior.
+Parser acceptance and `fsType` do not grant redistribution rights.
 
 Browser capture can identify platform fonts used for a node and capture
 downloaded web-font response bodies. It generally cannot retrieve arbitrary
