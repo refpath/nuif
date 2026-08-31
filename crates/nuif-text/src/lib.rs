@@ -88,6 +88,8 @@ pub struct ShapedRun {
     pub ascender_font_units: i32,
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub features: BTreeMap<String, u32>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub variation_coordinates: Vec<nuif_font::VariableCoordinate>,
     pub direction: TextDirection,
     pub language: String,
     pub shaper: String,
@@ -399,7 +401,7 @@ impl<'a> ResourceFont<'a> {
         shape_with_font(
             request,
             &self.harf,
-            None,
+            VariationContext::Static,
             self.identity.clone(),
             self.ascender_font_units,
             &self.features,
@@ -554,7 +556,10 @@ impl<'a> VariableResourceFont<'a> {
             run: shape_with_font(
                 request,
                 &self.harf,
-                Some(&self.instance),
+                VariationContext::Variable {
+                    instance: &self.instance,
+                    coordinates: &self.coordinates,
+                },
                 self.identity.clone(),
                 self.ascender_font_units,
                 &self.features,
@@ -777,7 +782,7 @@ pub fn shape(request: &ShapeRequest<'_>) -> Result<ShapedRun, TextError> {
     shape_with_font(
         request,
         &font,
-        None,
+        VariationContext::Static,
         pinned_font_identity(),
         PINNED_FONT_ASCENDER,
         &[],
@@ -817,10 +822,35 @@ pub fn shape_hard_lines_resource(
     ResourceFont::new(bytes, request.font_sha256, family, license)?.shape_hard_lines(request)
 }
 
+#[derive(Clone, Copy)]
+enum VariationContext<'a> {
+    Static,
+    Variable {
+        instance: &'a ShaperInstance,
+        coordinates: &'a [nuif_font::VariableCoordinate],
+    },
+}
+
+impl VariationContext<'_> {
+    fn instance(&self) -> Option<&ShaperInstance> {
+        match self {
+            Self::Static => None,
+            Self::Variable { instance, .. } => Some(instance),
+        }
+    }
+
+    fn coordinates(&self) -> &[nuif_font::VariableCoordinate] {
+        match self {
+            Self::Static => &[],
+            Self::Variable { coordinates, .. } => coordinates,
+        }
+    }
+}
+
 fn shape_with_font(
     request: &ShapeRequest<'_>,
     font: &HarfFontRef<'_>,
-    instance: Option<&ShaperInstance>,
+    variation: VariationContext<'_>,
     identity: FontIdentity,
     ascender_font_units: i32,
     features: &[Feature],
@@ -838,7 +868,10 @@ fn shape_with_font(
     }
     let language = Language::from_str(request.language).map_err(|_| TextError::InvalidLanguage)?;
     let shaper_data = ShaperData::new(font);
-    let shaper = shaper_data.shaper(font).instance(instance).build();
+    let shaper = shaper_data
+        .shaper(font)
+        .instance(variation.instance())
+        .build();
     let mut buffer = UnicodeBuffer::new();
     if !buffer.reserve(codepoints) {
         return Err(TextError::BufferAllocationFailed);
@@ -880,6 +913,7 @@ fn shape_with_font(
         units_per_em: u16::try_from(shaper.units_per_em()).unwrap_or(u16::MAX),
         ascender_font_units,
         features: feature_settings.clone(),
+        variation_coordinates: variation.coordinates().to_vec(),
         direction: request.direction,
         language: request.language.to_owned(),
         shaper: SHAPER_NAME.to_owned(),
