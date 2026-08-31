@@ -145,6 +145,9 @@ const VERIFICATION_ARTIFACTS: &[&str] = &[
     "target/collaboration-automerge-input.json",
     "target/collaboration-automerge-report.json",
     "target/package-resources-report.json",
+    "target/package-resources-fixture.nuif",
+    "target/package-resources-foreign.nuif",
+    "target/package-foreign-oracle-report.json",
     "target/image-resources-report.json",
     "target/font-resources-report.json",
     "target/capture-reconstruction-report.json",
@@ -327,7 +330,21 @@ fn gate_i_package() -> Result<(), String> {
         "--",
         "--output",
         "target/package-resources-report.json",
-    ])
+        "--package-output",
+        "target/package-resources-fixture.nuif",
+    ])?;
+    command(
+        "python3",
+        &[
+            "implementations/python/nuif_package_oracle.py",
+            "--input",
+            "target/package-resources-fixture.nuif",
+            "--output",
+            "target/package-resources-foreign.nuif",
+            "--report",
+            "target/package-foreign-oracle-report.json",
+        ],
+    )
 }
 
 fn gate_i_image() -> Result<(), String> {

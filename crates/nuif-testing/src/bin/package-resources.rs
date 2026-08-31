@@ -40,7 +40,7 @@ fn main() {
 }
 
 fn run() -> Result<(), String> {
-    let output = output_path()?;
+    let (output, package_output) = output_paths()?;
     let started = Instant::now();
     let (package, resource, resource_bytes) = fixture()?;
     let semantic_hash = canonical_hash(&package.document).map_err(|error| error.to_string())?;
@@ -118,6 +118,18 @@ fn run() -> Result<(), String> {
     {
         fs::create_dir_all(parent).map_err(|error| error.to_string())?;
     }
+    if let Some(parent) = package_output.parent()
+        && !parent.as_os_str().is_empty()
+    {
+        fs::create_dir_all(parent).map_err(|error| error.to_string())?;
+    }
+    fs::write(&package_output, &encoded).map_err(|error| error.to_string())?;
+    let report = if let Value::Object(mut report) = report {
+        report.insert("artifacts".to_owned(), json!({"package": package_output}));
+        Value::Object(report)
+    } else {
+        return Err("package report is not an object".to_owned());
+    };
     fs::write(
         &output,
         serde_json::to_vec_pretty(&report).map_err(|error| error.to_string())?,
@@ -664,9 +676,10 @@ fn command_text(program: &str, arguments: &[&str]) -> Option<String> {
         .map(|value| value.trim().to_owned())
 }
 
-fn output_path() -> Result<PathBuf, String> {
+fn output_paths() -> Result<(PathBuf, PathBuf), String> {
     let mut arguments = env::args().skip(1);
     let mut output = PathBuf::from("target/package-resources-report.json");
+    let mut package_output = PathBuf::from("target/package-resources-fixture.nuif");
     while let Some(argument) = arguments.next() {
         match argument.as_str() {
             "--output" => {
@@ -675,9 +688,20 @@ fn output_path() -> Result<PathBuf, String> {
                     .ok_or_else(|| "--output requires a path".to_owned())?
                     .into();
             }
-            "--help" | "-h" => return Err("usage: package-resources [--output <json>]".to_owned()),
+            "--package-output" => {
+                package_output = arguments
+                    .next()
+                    .ok_or_else(|| "--package-output requires a path".to_owned())?
+                    .into();
+            }
+            "--help" | "-h" => {
+                return Err(
+                    "usage: package-resources [--output <json>] [--package-output <nuif>]"
+                        .to_owned(),
+                );
+            }
             unknown => return Err(format!("unknown argument {unknown:?}")),
         }
     }
-    Ok(output)
+    Ok((output, package_output))
 }

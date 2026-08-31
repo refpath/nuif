@@ -21,3 +21,12 @@ does not decode canonical CBOR, recompute the canonical hash, or reimplement
 the higher-level concurrent semantic-conflict classifier.
 
 The complete cross-implementation run is exposed through `cargo xtask gate-g`.
+
+`nuif_package_oracle.py` is a separate standard-library-only archive oracle for
+`nuif-package-0`. It parses and rewrites the stored ZIP container without
+`zipfile` or a Rust dependency, checking deterministic headers, member order,
+offsets, CRCs and the exact MIME/member paths. `cargo xtask gate-i-package`
+compares its bytes with the Rust package writer and records the two opaque
+canonical payloads (`document.cbor` and `manifest.cbor`) explicitly. This is
+archive-level cross-writer evidence; it does not claim that Python implements
+the NUIF semantic model or canonical CBOR encoder.

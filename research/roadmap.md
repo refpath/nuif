@@ -98,7 +98,8 @@ its 24-delivery causal operation-set acceptance; creation, deletion and
 multi-operation-dot boundaries remain explicit.
 
 The package segment of `nuif:experiment:portable-package-resources` is active:
-the manual writer agrees byte-for-byte with an independent ZIP writer, identity
+the Rust writer agrees byte-for-byte with its independent in-repository ZIP
+writer and with the standard-library-only Python archive oracle, identity
 relations and explicit resolution are exercised, and 15 hostile/one-over cases
 produce `target/package-resources-report.json`. RFC 0010 remains proposed and
 Gate I remains open. `cargo xtask gate-i-image` now provides a narrow
@@ -158,7 +159,7 @@ until its checkpoint/position contract is versioned and independently tested.
    tracks require a separately versioned schema and foreign-oracle matrix.
 5. Keep the tested Masonry shell attached only through the editor driver boundary; extend the implemented one-transaction freeform move, eight-handle freeform resize, trailing managed resize, Shift-proportional corner gesture and resolved-axis Stack/Flex reorder only when a tested semantic operation exists. Cross-parent/tree drag and Grid/Constraint reorder remain separate design work.
 6. Treat soft wrapping, gradients, strokes, paths, images and instance materialization as a separately versioned expanded profile; do not weaken profile-0 exactness to add them.
-7. Keep `cargo xtask gate-i-package` green across CLI/editor/package changes and add a recorded cross-platform/external writer before accepting the wire profile.
+7. Keep `cargo xtask gate-i-package` green across CLI/editor/package changes; the Python archive oracle now provides recorded external-container evidence, while a cross-platform semantic writer and second canonical-CBOR implementation remain required before accepting the wire profile.
 8. Extend the narrow PNG and static TrueType baselines only through new declared fixtures, add cross-platform media reproduction, and complete the broader OpenType format/policy matrix with calibrated allocation/time budgets; do not expand profile 0 by fallback.
 9. Extend the passing local live-browser segment to cross-OS reproduction, opaque/cross-origin cases, matched-style/source correlation and licensed real pages before defining a portable browser-capture profile; keep WebDriver BiDi as the standards-track transport watch path.
 10. Freeze the reconstruction corpus and evaluator, then compare deterministic OCR/CV, one-shot, observation-assisted, hierarchical and corrective-loop baselines through the existing typed boundary.

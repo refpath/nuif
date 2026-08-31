@@ -35,7 +35,8 @@ portable `.nuif` package, images or general font resources.
 ## Phase 4b — portable package and resources (active; container segment implemented)
 RFC 0010 now has a package layer above `nuif-codec`, stable assets in the core,
 explicit verified resource resolution and package-preserving CLI/editor I/O.
-The manual writer and an independent ZIP writer produce identical bytes;
+The Rust writer, an independent in-repository writer and a standard-library-only
+Python archive oracle produce identical bytes;
 semantic/resource/package hashes obey distinct fixtures; hostile archives and
 package/resource/count one-over cases are blocking through
 `cargo xtask gate-i-package`. Existing raw `.nuif` inputs migrate read-only and

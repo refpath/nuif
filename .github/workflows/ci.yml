@@ -165,6 +165,9 @@ jobs:
           if-no-files-found: error
           path: |
             target/package-resources-report.json
+            target/package-resources-fixture.nuif
+            target/package-resources-foreign.nuif
+            target/package-foreign-oracle-report.json
             target/image-resources-report.json
             target/font-resources-report.json
       - name: Upload live browser capture evidence
