@@ -1,7 +1,7 @@
 # Variable TrueType metadata research profile
 
-Status: implemented metadata/normalization experiment; not an executable font,
-package, shaping, or rendering capability.
+Status: implemented metadata/normalization and isolated shaping experiments;
+not an executable package, session, layout, rendering, or fidelity capability.
 
 Candidate identifier: `nuif-opentype-variable-truetype-single-0`
 
@@ -48,6 +48,14 @@ and “All Rights Reserved.” That combination is recorded as test-distribution
 evidence, not treated as an automated legal conclusion or sufficient publisher
 approval for a portable NUIF release.
 
+`cargo xtask gate-i-font-shaping` additionally applies that exact normalized
+vector to a research-only `VariableResourceTrial`. Seven pinned `hb-shape`
+cases agree with HarfRust at default, minimum, maximum, two interior locations,
+and immediately below/at a GSUB FeatureVariations threshold. The same vector is
+then used for Skrifa advances and unhinted outlines; repeats are exact and the
+fixture's `gvar` changes the interior outline. Skrifa is shared implementation
+evidence here, not an independent metric or outline oracle.
+
 ## Negative and security evidence
 
 The gate rejects static, CFF2-variable, color-variable, and nonzero-face inputs,
@@ -62,9 +70,8 @@ graphs. Parser admission is therefore not promoted to package acceptance.
 ## Explicit non-claims and next gate
 
 No variable font may yet pass `validate_packaged_font`, enter the evaluation
-context, shape text, provide location-adjusted metrics/outlines, or claim
-lossless fidelity under this candidate identifier. The next executable gate
-must add a rights-reviewed multi-fixture corpus and compare shaping at default,
-boundary, named, and interior locations—including FeatureVariations—before the
-shared package/runtime path changes. Outline and metric coherence remain a
-separate blocking stage within RFC 0013.
+context, participate in layout/rendering, or claim lossless fidelity under this
+candidate identifier. The next executable gate must add a rights-reviewed
+multi-fixture corpus, independent outline and HVAR/MVAR metric oracles, malformed
+variation-graph cases, and allocation/time ceilings before the shared
+package/runtime path changes.

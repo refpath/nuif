@@ -51,8 +51,9 @@ This distinction is important: marking an open research problem as finished woul
   `ttf-parser` decision remains documented; broad font formats, portability
   outcomes and shaping/raster integration remain experiment-required. A
   separate metadata-only RFC 0013 gate bounds four variable axes and agrees
-  with a HarfBuzz capture at five normalized locations without admitting the
-  font into packages or rendering. Warmed
+  with a HarfBuzz capture at five normalized locations. Its isolated shaping
+  follow-on agrees at seven locations including a FeatureVariations boundary,
+  without admitting the font into packages or rendering. Warmed
   parser and packaged-validation allocation ceilings cover every accepted
   fixture.
 - Browser source capture and screenshot reconstruction are different evidence

@@ -26,6 +26,8 @@ struct Golden {
     axes: Vec<GoldenAxis>,
     named_instance_count: usize,
     coordinates: Vec<GoldenCoordinates>,
+    #[serde(rename = "shaping")]
+    _shaping: Vec<Value>,
 }
 
 #[derive(Deserialize)]
@@ -65,7 +67,7 @@ fn run() -> Result<(), String> {
         trial(
             "pinned_oracle_identity",
             golden.schema_version == 1
-                && golden.tool == "HarfBuzz public C API"
+                && golden.tool == "HarfBuzz public C API and hb-shape"
                 && golden.version == "14.4.0"
                 && !golden.capture_command.is_empty(),
         ),

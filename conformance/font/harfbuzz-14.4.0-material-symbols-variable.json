@@ -88,7 +88,86 @@
   ],
   "font_sha256": "fdd9bade0cde742725168298e39291309c95a826acb979cef1142063f17f44ab",
   "named_instance_count": 7,
+  "shaping": [
+    {
+      "label": "default",
+      "serialized_glyphs": "[1=0+960]",
+      "text": "mail",
+      "user": {
+        "FILL": 0.0,
+        "GRAD": 0.0,
+        "opsz": 24.0,
+        "wght": 400.0
+      }
+    },
+    {
+      "label": "maximum",
+      "serialized_glyphs": "[2=0+960]",
+      "text": "mail",
+      "user": {
+        "FILL": 1.0,
+        "GRAD": 200.0,
+        "opsz": 48.0,
+        "wght": 700.0
+      }
+    },
+    {
+      "label": "minimum",
+      "serialized_glyphs": "[1=0+960]",
+      "text": "mail",
+      "user": {
+        "FILL": 0.0,
+        "GRAD": -50.0,
+        "opsz": 20.0,
+        "wght": 100.0
+      }
+    },
+    {
+      "label": "positive_interior",
+      "serialized_glyphs": "[1=0+960]",
+      "text": "mail",
+      "user": {
+        "FILL": 0.5,
+        "GRAD": 75.0,
+        "opsz": 36.0,
+        "wght": 550.0
+      }
+    },
+    {
+      "label": "negative_interior",
+      "serialized_glyphs": "[1=0+960]",
+      "text": "mail",
+      "user": {
+        "FILL": 0.25,
+        "GRAD": -25.0,
+        "opsz": 22.0,
+        "wght": 250.0
+      }
+    },
+    {
+      "label": "feature_variation_below",
+      "serialized_glyphs": "[1=0+960]",
+      "text": "mail",
+      "user": {
+        "FILL": 0.98,
+        "GRAD": 0.0,
+        "opsz": 24.0,
+        "wght": 400.0
+      }
+    },
+    {
+      "label": "feature_variation_at",
+      "serialized_glyphs": "[2=0+960]",
+      "text": "mail",
+      "user": {
+        "FILL": 0.99,
+        "GRAD": 0.0,
+        "opsz": 24.0,
+        "wght": 400.0
+      }
+    }
+  ],
   "schema_version": 1,
-  "tool": "HarfBuzz public C API",
+  "tool": "HarfBuzz public C API and hb-shape",
   "version": "14.4.0"
 }

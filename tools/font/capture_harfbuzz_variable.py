@@ -38,6 +38,17 @@ CASES = [
     ("negative_interior", {"FILL": 0.25, "GRAD": -25.0, "opsz": 22.0, "wght": 250.0}),
 ]
 
+SHAPING_CASES = CASES + [
+    (
+        "feature_variation_below",
+        {"FILL": 0.98, "GRAD": 0.0, "opsz": 24.0, "wght": 400.0},
+    ),
+    (
+        "feature_variation_at",
+        {"FILL": 0.99, "GRAD": 0.0, "opsz": 24.0, "wght": 400.0},
+    ),
+]
+
 
 def library_path() -> str:
     discovered = ctypes.util.find_library("harfbuzz")
@@ -100,6 +111,23 @@ def tag_text(tag: int) -> str:
     return int(tag).to_bytes(4, "big").decode("ascii")
 
 
+def shape(font: pathlib.Path, values: dict[str, float], axis_tags: list[str]) -> str:
+    variations = ",".join(f"{tag}={values[tag]:g}" for tag in axis_tags)
+    result = subprocess.check_output(
+        [
+            "hb-shape",
+            str(font),
+            "mail",
+            "--direction=ltr",
+            "--language=en",
+            "--no-glyph-names",
+            f"--variations={variations}",
+        ],
+        text=True,
+    )
+    return result.strip()
+
+
 def capture(path: pathlib.Path) -> dict[str, object]:
     library = bind()
     blob = library.hb_blob_create_from_file(str(path).encode())
@@ -109,6 +137,12 @@ def capture(path: pathlib.Path) -> dict[str, object]:
     font = library.hb_font_create(face)
     try:
         library.hb_ot_font_set_funcs(font)
+        version = library.hb_version_string().decode("ascii")
+        shape_version = subprocess.check_output(
+            ["hb-shape", "--version"], text=True
+        ).splitlines()[0].split()[-1]
+        if shape_version != version:
+            raise RuntimeError("HarfBuzz library and hb-shape versions differ")
         axis_count = library.hb_ot_var_get_axis_count(face)
         requested = ctypes.c_uint(axis_count)
         axis_array = (AxisInfo * axis_count)()
@@ -150,10 +184,19 @@ def capture(path: pathlib.Path) -> dict[str, object]:
                     "normalized_2_14": [normalized[index] for index in range(axis_count)],
                 }
             )
+        shaping = [
+            {
+                "label": label,
+                "text": "mail",
+                "user": values,
+                "serialized_glyphs": shape(path, values, axis_tags),
+            }
+            for label, values in SHAPING_CASES
+        ]
         return {
             "schema_version": 1,
-            "tool": "HarfBuzz public C API",
-            "version": library.hb_version_string().decode("ascii"),
+            "tool": "HarfBuzz public C API and hb-shape",
+            "version": version,
             "capture_command": (
                 "python3 tools/font/capture_harfbuzz_variable.py "
                 "material_symbols_subset.ttf"
@@ -162,6 +205,7 @@ def capture(path: pathlib.Path) -> dict[str, object]:
             "axes": axes,
             "named_instance_count": library.hb_ot_var_get_named_instance_count(face),
             "coordinates": coordinates,
+            "shaping": shaping,
         }
     finally:
         library.hb_font_destroy(font)

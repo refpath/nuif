@@ -157,10 +157,12 @@ resource-aware CPU rendering. `cargo xtask gate-i-font` compares the narrow
 exact package metadata and explicit embedding review, and rejects malformed and
 one-over resources. `cargo xtask gate-i-font-metadata` separately checks the
 first RFC 0013 variable-font metadata and normalization milestone against a
-pinned HarfBuzz capture without enabling package/runtime support. Gate I still
+pinned HarfBuzz capture; `cargo xtask gate-i-font-shaping` separately reproduces
+seven shapes including a FeatureVariations boundary while retaining one shared
+metric/outline location. Neither enables package/runtime support. Gate I still
 lacks the broader PNG and OpenType matrices,
 external writer and successful hosted cross-platform package/media evidence.
-The CI workflow now runs all four narrow resource gates independently on
+The CI workflow now runs all five narrow resource gates independently on
 Linux, Windows and macOS and archives each platform report; that configuration
 does not become reproduction evidence until the hosted jobs pass. RFC
 0011/specification 14 have executable

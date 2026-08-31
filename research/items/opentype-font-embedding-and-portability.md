@@ -27,8 +27,8 @@ links:
   spec: [spec/05-geometry-paint-text.md, spec/08-serialization.md, spec/11-security.md]
   adr: [adrs/0003-reference-renderer.md]
   rfc: [rfcs/0010-portable-resource-package.md, rfcs/0013-variable-truetype-resource-profile.md]
-  code: [crates/nuif-text, crates/nuif-font, crates/nuif-package, crates/nuif-testing/src/bin/font-resources.rs, crates/nuif-testing/src/bin/variable-font-metadata.rs, conformance/font/harfbuzz-14.4.0-material-symbols-variable.json]
-  experiments: [nuif:experiment:font-resource-static-baseline, nuif:experiment:variable-font-metadata-baseline, nuif:experiment:font-resource-profile]
+  code: [crates/nuif-text, crates/nuif-font, crates/nuif-package, crates/nuif-testing/src/bin/font-resources.rs, crates/nuif-testing/src/bin/variable-font-metadata.rs, crates/nuif-testing/src/bin/variable-font-shaping.rs, conformance/font/harfbuzz-14.4.0-material-symbols-variable.json]
+  experiments: [nuif:experiment:font-resource-static-baseline, nuif:experiment:variable-font-metadata-baseline, nuif:experiment:variable-font-shaping-baseline, nuif:experiment:font-resource-profile]
 ---
 
 # Summary
@@ -152,11 +152,14 @@ seven named instances and default/minimum/maximum plus two interior vectors;
 the interior `wght` values prove that an `avar` map is actually applied.
 
 This does not accept the resource in a package or runtime. `gvar`, HVAR, VVAR,
-MVAR, STAT internals, FeatureVariations, shaping, metrics, outlines, rendering,
-allocation ceilings and cross-surface parity remain blocking. The fixture's
-crate-level `MIT OR Apache-2.0` distribution metadata is retained, while its
-embedded copyright string prevents the experiment from presenting that fact as
-an automated publisher-rights determination.
+MVAR and STAT graph limits, independent metric/outlines, rendering, allocation
+ceilings and cross-surface parity remain blocking. A second gate does reproduce
+seven HarfBuzz shapes including a GSUB FeatureVariations threshold and proves
+one coordinate vector is reused by HarfRust and Skrifa metrics/outlines. That
+single-fixture result is not independent outline/metric or package evidence.
+The fixture's crate-level `MIT OR Apache-2.0` distribution metadata is retained,
+while its embedded copyright string prevents the experiment from presenting
+that fact as an automated publisher-rights determination.
 
 ## Open questions
 

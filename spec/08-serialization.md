@@ -40,8 +40,9 @@ OpenType interpretation plus cross-platform/external package and media evidence
 remain incomplete.
 
 `cargo xtask gate-i-font-metadata` is research evidence for RFC 0013 axis
-decoding and coordinate normalization only. It does not make variable fonts a
-package resource profile.
+decoding and coordinate normalization; `cargo xtask gate-i-font-shaping` adds an
+isolated shaping and internal location-coherence trial. Neither makes variable
+fonts a package resource profile.
 
 ## Numeric and string rules (RFC 0005)
 

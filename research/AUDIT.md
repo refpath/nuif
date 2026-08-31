@@ -169,7 +169,10 @@ ordered variable axes, seven named instances and five final normalized vectors
 across NUIF/Skrifa and a pinned HarfBuzz 14.4.0 public-C-API capture. It bounds
 `fvar` 1.0 and `avar` 1.0 metadata and rejects incomplete, unknown, non-finite
 and out-of-range coordinate tuples. It does not enable variable package,
-shaping, metric, outline or rendering behavior.
+layout or rendering behavior. A second isolated gate reproduces seven HarfBuzz
+shapes including a GSUB FeatureVariations boundary and reuses the same vector
+for Skrifa advances/outlines; those Skrifa checks are internal coherence, not
+independent metric/outline evidence or package acceptance.
 Four accepted-font
 inspections and packaged validation now carry warmed 4 MiB allocated/2 MiB
 retained regression ceilings. Package-to-session handoff shares an 8 MiB buffer

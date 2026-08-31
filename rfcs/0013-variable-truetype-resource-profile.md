@@ -6,10 +6,11 @@ status: proposed
 
 # RFC 0013 — Variable TrueType resource profile
 
-Status: proposed research contract. Its metadata and coordinate-normalization
-stage has executable evidence, but no package, shaping, outline, metric,
-rendering, or conformance-profile claim is made. `nuif-opentype-static-single-0`
-remains the only executable font-resource profile.
+Status: proposed research contract. Its metadata, coordinate-normalization and
+isolated shaping stages have executable evidence, but no package, layout,
+rendering, fidelity, or conformance-profile claim is made.
+`nuif-opentype-static-single-0` remains the only executable font-resource
+profile.
 
 ## Motivation
 
@@ -177,6 +178,11 @@ decoded by the NUIF path and Skrifa, while a committed HarfBuzz 14.4.0 C-API
 capture independently checks axis metadata, named-instance count, and five
 final normalized vectors including non-identity `avar` results. This is a
 single-fixture metadata milestone, not completion of the experiment below.
+`cargo xtask gate-i-font-shaping` then delivers that exact vector to HarfRust
+and reproduces seven `hb-shape` cases, including a GSUB FeatureVariations
+boundary. Skrifa advances and unhinted outlines use the same vector and repeat
+exactly, but remain internal coherence checks rather than independent metric or
+outline oracles.
 
 Promotion from proposed to experimental requires all of the following:
 

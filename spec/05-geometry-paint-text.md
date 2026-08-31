@@ -126,10 +126,11 @@ behavior for the gated fixture, not foreign-shaper or cross-platform raster
 equivalence.
 
 RFC 0013's candidate variable-TrueType identifier remains outside package and
-runtime acceptance. Its metadata-only experiment bounds `fvar`/`avar` and
-compares final normalized coordinates with Skrifa and a pinned HarfBuzz
-capture; it does not yet authorize variable shaping, metrics, outlines or
-rendering. The evidence boundary is recorded in
+runtime acceptance. Its staged experiments bound `fvar`/`avar`,
+compare final normalized coordinates with Skrifa and a pinned HarfBuzz
+capture, and reproduce isolated HarfBuzz shaping with internal metric/outline
+location coherence. They do not yet authorize variable layout, rendering or
+lossless fidelity. The evidence boundary is recorded in
 `crates/nuif-font/VARIABLE-PROFILE.md`.
 
 A conformance profile that compares resolved text MUST declare the exact font bytes and hash, shaper and Unicode-data versions, direction, language, script-selection rule, feature set, cluster level, cluster coordinate unit, positioning unit and resource limits. Resolved runs contain source text plus ordered glyph identifiers, clusters, advances and offsets; they MUST NOT depend on system font discovery. Profile 0 uses Unicode-scalar indices for cluster coordinates and unscaled font units for advances and offsets.

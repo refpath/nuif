@@ -1,8 +1,8 @@
 #![doc = "Pinned profile-0 font resources and deterministic resolved text shaping."]
 
 use harfrust::{
-    Direction, Feature, FontRef as HarfFontRef, Language, SerializeFlags, ShapeOptions, ShaperData,
-    UnicodeBuffer,
+    Direction, Feature, FontRef as HarfFontRef, Language, NormalizedCoord, SerializeFlags,
+    ShapeOptions, ShaperData, ShaperInstance, UnicodeBuffer,
 };
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
@@ -262,6 +262,31 @@ pub struct ResourceFont<'a> {
     feature_settings: BTreeMap<String, u32>,
 }
 
+/// One variable TrueType face opened only for the staged RFC 0013 experiment.
+///
+/// This type deliberately has no package/session integration. It proves that
+/// the already-bounded coordinate vector can be delivered unchanged to
+/// shaping, metrics, and outline extraction before the candidate profile is
+/// eligible for package acceptance.
+pub struct VariableResourceTrial<'a> {
+    harf: HarfFontRef<'a>,
+    skrifa: SkrifaFontRef<'a>,
+    instance: ShaperInstance,
+    location: Vec<NormalizedCoord>,
+    coordinates: Vec<nuif_font::VariableCoordinate>,
+    identity: FontIdentity,
+    ascender_font_units: i32,
+    features: Vec<Feature>,
+    feature_settings: BTreeMap<String, u32>,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct VariableShapedRun {
+    pub coordinates: Vec<nuif_font::VariableCoordinate>,
+    pub run: ShapedRun,
+}
+
 impl<'a> ResourceFont<'a> {
     /// Validates and opens an exact packaged static TrueType font.
     ///
@@ -357,6 +382,7 @@ impl<'a> ResourceFont<'a> {
         shape_with_font(
             request,
             &self.harf,
+            None,
             self.identity.clone(),
             self.ascender_font_units,
             &self.features,
@@ -404,6 +430,148 @@ impl<'a> ResourceFont<'a> {
     }
 }
 
+impl<'a> VariableResourceTrial<'a> {
+    /// Opens the exact single-face TrueType variable resource and applies one
+    /// complete user-coordinate tuple for the RFC 0013 experiment.
+    ///
+    /// # Errors
+    ///
+    /// Rejects digest, metadata, family, license, feature, or coordinate
+    /// disagreement before any shaping or outline operation can run.
+    pub fn new_with_features(
+        bytes: &'a [u8],
+        expected_sha256: &str,
+        family: &str,
+        license: &str,
+        axis_settings: &BTreeMap<String, f64>,
+        feature_settings: &BTreeMap<String, u32>,
+    ) -> Result<Self, TextError> {
+        let observed = format!("{:x}", Sha256::digest(bytes));
+        if observed != expected_sha256 {
+            return Err(TextError::FontDigestMismatch {
+                expected: expected_sha256.to_owned(),
+                observed,
+            });
+        }
+        let inspection = nuif_font::inspect_opentype_variable_metadata(bytes, 0)
+            .map_err(|error| TextError::InvalidResourceFont(error.to_string()))?;
+        if family.is_empty() || !inspection.font.names.iter().any(|name| name == family) {
+            return Err(TextError::InvalidResourceFont(
+                "asset family is absent from the inspected variable font".to_owned(),
+            ));
+        }
+        if license.trim().is_empty() {
+            return Err(TextError::InvalidResourceFont(
+                "asset license expression is empty".to_owned(),
+            ));
+        }
+        let coordinates = nuif_font::normalize_variable_coordinates(bytes, axis_settings)
+            .map_err(|error| TextError::InvalidResourceFont(error.to_string()))?;
+        let location = coordinates
+            .iter()
+            .map(|coordinate| NormalizedCoord::from_bits(coordinate.normalized_2_14))
+            .collect::<Vec<_>>();
+        let harf = HarfFontRef::new(bytes)
+            .map_err(|error| TextError::InvalidResourceFont(error.to_string()))?;
+        let skrifa = SkrifaFontRef::new(bytes)
+            .map_err(|error| TextError::InvalidResourceFont(error.to_string()))?;
+        let instance = ShaperInstance::from_coords(&harf, location.iter().copied());
+        let instance_agrees = if location
+            .iter()
+            .all(|coordinate| *coordinate == NormalizedCoord::ZERO)
+        {
+            instance.coords().is_empty()
+        } else {
+            instance.coords() == location
+        };
+        if !instance_agrees {
+            return Err(TextError::InvalidResourceFont(
+                "HarfRust changed the normalized coordinate vector".to_owned(),
+            ));
+        }
+        let ascent = skrifa
+            .metrics(Size::unscaled(), LocationRef::new(&location))
+            .ascent;
+        let ascender_font_units = integral_font_metric(ascent, "variable font ascent")?;
+        let features = feature_settings
+            .iter()
+            .map(|(tag, value)| {
+                Feature::from_str(&format!("{tag}={value}"))
+                    .map_err(|_| TextError::InvalidResourceFont("invalid feature tag".to_owned()))
+            })
+            .collect::<Result<Vec<_>, _>>()?;
+        Ok(Self {
+            harf,
+            skrifa,
+            instance,
+            location,
+            coordinates,
+            identity: FontIdentity {
+                family: family.to_owned(),
+                version: "unreported".to_owned(),
+                sha256: expected_sha256.to_owned(),
+                byte_length: bytes.len(),
+                license: license.to_owned(),
+            },
+            ascender_font_units,
+            features,
+            feature_settings: feature_settings.clone(),
+        })
+    }
+
+    /// Shapes one run with the exact normalized vector retained beside the
+    /// result.
+    ///
+    /// # Errors
+    ///
+    /// Returns typed request, digest, or shaping failures.
+    pub fn shape(&self, request: &ShapeRequest<'_>) -> Result<VariableShapedRun, TextError> {
+        if request.font_sha256 != self.identity.sha256 {
+            return Err(TextError::FontDigestMismatch {
+                expected: self.identity.sha256.clone(),
+                observed: request.font_sha256.to_owned(),
+            });
+        }
+        Ok(VariableShapedRun {
+            coordinates: self.coordinates.clone(),
+            run: shape_with_font(
+                request,
+                &self.harf,
+                Some(&self.instance),
+                self.identity.clone(),
+                self.ascender_font_units,
+                &self.features,
+                &self.feature_settings,
+            )?,
+        })
+    }
+
+    /// Returns Skrifa's location-adjusted unscaled advance for one glyph.
+    ///
+    /// # Errors
+    ///
+    /// Returns a typed failure when the glyph or metric is unavailable or the
+    /// resulting value cannot be represented in the profile's integer units.
+    pub fn glyph_advance_font_units(&self, glyph_id: u32) -> Result<i32, TextError> {
+        let advance = self
+            .skrifa
+            .glyph_metrics(Size::unscaled(), LocationRef::new(&self.location))
+            .advance_width(GlyphId::new(glyph_id))
+            .ok_or(TextError::GlyphOutlineUnavailable { glyph_id })?;
+        integral_font_metric(advance, "variable glyph advance")
+    }
+
+    /// Extracts an unhinted outline at the identical normalized location used
+    /// by shaping and metrics.
+    ///
+    /// # Errors
+    ///
+    /// Returns a typed unavailable-glyph or outline-geometry failure.
+    pub fn outline_glyph(&self, glyph_id: u32) -> Result<GlyphOutline, TextError> {
+        outline_from_font_at(&self.skrifa, glyph_id, LocationRef::new(&self.location))
+    }
+}
+
 #[expect(
     clippy::cast_possible_truncation,
     reason = "the finite rounded value is range-checked before conversion"
@@ -436,6 +604,7 @@ pub fn shape(request: &ShapeRequest<'_>) -> Result<ShapedRun, TextError> {
     shape_with_font(
         request,
         &font,
+        None,
         pinned_font_identity(),
         PINNED_FONT_ASCENDER,
         &[],
@@ -478,6 +647,7 @@ pub fn shape_hard_lines_resource(
 fn shape_with_font(
     request: &ShapeRequest<'_>,
     font: &HarfFontRef<'_>,
+    instance: Option<&ShaperInstance>,
     identity: FontIdentity,
     ascender_font_units: i32,
     features: &[Feature],
@@ -495,7 +665,7 @@ fn shape_with_font(
     }
     let language = Language::from_str(request.language).map_err(|_| TextError::InvalidLanguage)?;
     let shaper_data = ShaperData::new(font);
-    let shaper = shaper_data.shaper(font).build();
+    let shaper = shaper_data.shaper(font).instance(instance).build();
     let mut buffer = UnicodeBuffer::new();
     if !buffer.reserve(codepoints) {
         return Err(TextError::BufferAllocationFailed);
@@ -593,12 +763,20 @@ pub fn outline_resource_glyph(
 }
 
 fn outline_from_font(font: &SkrifaFontRef<'_>, glyph_id: u32) -> Result<GlyphOutline, TextError> {
+    outline_from_font_at(font, glyph_id, LocationRef::default())
+}
+
+fn outline_from_font_at(
+    font: &SkrifaFontRef<'_>,
+    glyph_id: u32,
+    location: LocationRef<'_>,
+) -> Result<GlyphOutline, TextError> {
     let glyph = font
         .outline_glyphs()
         .get(GlyphId::new(glyph_id))
         .ok_or(TextError::GlyphOutlineUnavailable { glyph_id })?;
-    let settings = DrawSettings::unhinted(Size::unscaled(), LocationRef::default())
-        .with_path_style(PathStyle::HarfBuzz);
+    let settings =
+        DrawSettings::unhinted(Size::unscaled(), location).with_path_style(PathStyle::HarfBuzz);
     let mut elements = Vec::<PathElement>::new();
     glyph
         .draw(settings, &mut elements)
@@ -706,12 +884,39 @@ pub fn pinned_font_hash_is_valid() -> bool {
 mod tests {
     use super::*;
 
+    const VARIABLE_FIXTURE_SHA256: &str =
+        "fdd9bade0cde742725168298e39291309c95a826acb979cef1142063f17f44ab";
+
     fn request(text: &str, direction: TextDirection) -> ShapeRequest<'_> {
         ShapeRequest {
             text,
             font_sha256: PINNED_FONT_SHA256,
             font_size: 18.0,
             direction,
+            language: "en",
+        }
+    }
+
+    fn variable_axes(
+        fill: f64,
+        grade: f64,
+        optical_size: f64,
+        weight: f64,
+    ) -> BTreeMap<String, f64> {
+        BTreeMap::from([
+            ("FILL".to_owned(), fill),
+            ("GRAD".to_owned(), grade),
+            ("opsz".to_owned(), optical_size),
+            ("wght".to_owned(), weight),
+        ])
+    }
+
+    fn variable_request(text: &str) -> ShapeRequest<'_> {
+        ShapeRequest {
+            text,
+            font_sha256: VARIABLE_FIXTURE_SHA256,
+            font_size: 24.0,
+            direction: TextDirection::LeftToRight,
             language: "en",
         }
     }
@@ -816,6 +1021,65 @@ mod tests {
         assert!(runs[0].ascender_font_units > 0);
         let outline = font.outline_glyph(runs[0].glyphs[0].glyph_id).unwrap();
         assert!(!outline.commands.is_empty());
+    }
+
+    #[test]
+    fn variable_trial_reuses_one_location_for_shaping_metrics_and_outlines() {
+        let default = VariableResourceTrial::new_with_features(
+            font_test_data::MATERIAL_SYMBOLS_SUBSET,
+            VARIABLE_FIXTURE_SHA256,
+            "Material Symbols Outlined",
+            "font-test-data package: MIT OR Apache-2.0; publisher review not asserted",
+            &variable_axes(0.0, 0.0, 24.0, 400.0),
+            &BTreeMap::new(),
+        )
+        .unwrap();
+        let filled = VariableResourceTrial::new_with_features(
+            font_test_data::MATERIAL_SYMBOLS_SUBSET,
+            VARIABLE_FIXTURE_SHA256,
+            "Material Symbols Outlined",
+            "font-test-data package: MIT OR Apache-2.0; publisher review not asserted",
+            &variable_axes(1.0, 200.0, 48.0, 700.0),
+            &BTreeMap::new(),
+        )
+        .unwrap();
+        let default_run = default.shape(&variable_request("mail")).unwrap();
+        let filled_run = filled.shape(&variable_request("mail")).unwrap();
+        assert_eq!(default_run.run.serialized_glyphs, "[1=0+960]");
+        assert_eq!(filled_run.run.serialized_glyphs, "[2=0+960]");
+        assert_eq!(default_run.coordinates.len(), 4);
+        assert_eq!(filled_run.coordinates.len(), 4);
+        assert_eq!(
+            default.glyph_advance_font_units(1).unwrap(),
+            default_run.run.glyphs[0].x_advance
+        );
+        assert_eq!(
+            filled.glyph_advance_font_units(2).unwrap(),
+            filled_run.run.glyphs[0].x_advance
+        );
+        let default_outline = default.outline_glyph(1).unwrap();
+        let filled_outline = filled.outline_glyph(2).unwrap();
+        assert!(!default_outline.commands.is_empty());
+        assert!(!filled_outline.commands.is_empty());
+        assert_ne!(
+            default_outline.serialized_path,
+            filled_outline.serialized_path
+        );
+    }
+
+    #[test]
+    fn variable_trial_rejects_partial_coordinates_before_shaping() {
+        assert!(
+            VariableResourceTrial::new_with_features(
+                font_test_data::MATERIAL_SYMBOLS_SUBSET,
+                VARIABLE_FIXTURE_SHA256,
+                "Material Symbols Outlined",
+                "test-only",
+                &BTreeMap::from([("wght".to_owned(), 400.0)]),
+                &BTreeMap::new(),
+            )
+            .is_err()
+        );
     }
 
     #[test]
