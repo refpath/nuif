@@ -28,7 +28,7 @@ local transactions, undo/redo, layout, scene construction, CPU rasterization
 and complete SDK snapshots over bounded fixture scales.
 
 `system_surfaces` measures direct SDK text/CBOR/package calls, structural and
-authorized package-capability paths, entity queries, both collaboration
+authorized package-capability paths, register and advanced collaboration
 materializers, package/resource profiles and every integrated adapter profile:
 
 - HTML/CSS profile 0 and full-v0 import/export/synchronization;
@@ -36,6 +36,11 @@ materializers, package/resource profiles and every integrated adapter profile:
 - Penpot native/foreign package import, export and no-op/edited synchronization;
 - Figma snapshot import and mutation-plan generation;
 - web accessibility and finite behavior projection.
+
+The `collaboration/advanced_profiles` group also measures the bounded nested
+creation profile 1 and mixed property/structure materializer on prevalidated
+fixtures. These are diagnostic in-process costs, not throughput claims for a
+networked collaboration service.
 
 Figma and browser profiles measure pure mapping only; live host latency belongs
 to a separately versioned host trial. WASM, MCP and CLI process startup belong

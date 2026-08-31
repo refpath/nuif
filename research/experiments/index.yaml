@@ -105,6 +105,7 @@ experiments:
       - validate canonical text deterministic CBOR protocol layout and scene work at 1024 entities
       - measure CPU raster and end-to-end snapshot latency at representative viewport sizes
       - measure both HTML CSS profiles SVG DTCG Penpot static React JSX static Svelte normalized Figma snapshot web accessibility and web behavior boundaries including official-foreign Penpot import and exact no-op package synchronization
+      - measure bounded nested creation anchors and mixed property/structure checkpoint materialization on prevalidated fixtures
       - measure bounded PNG inspection and decode static TrueType inspection image and font package encode decode and resource-aware scene raster paths
       - smoke direct SDK package capability package resource query collaboration all ten integrated adapter profile layout render and history benchmark paths
       - retain statistical baselines under target for controlled before-and-after comparisons

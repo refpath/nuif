@@ -1,8 +1,12 @@
 use criterion::{BatchSize, BenchmarkId, Criterion, Throughput, criterion_group, criterion_main};
 use nuif_api::{DocumentEncoding, NuifDocument};
 use nuif_codec::{CanonicalText, DeterministicCbor, Encoder};
+use nuif_collab::creation::{CreationAnchor, CreationChange, CreationOperation};
+use nuif_collab::mixed::{MixedChange, MixedOperation, MixedOperationSetEngine};
+use nuif_collab::nested_creation::ArbitraryAnchorCreationOperationSetEngine;
+use nuif_collab::structural::{StructuralAnchor, StructuralOperation};
 use nuif_collab::{Change, ChangeId, OperationSetEngine, ReplicaLogEngine};
-use nuif_core::{EntityId, EntityKind, PropertyValue, SizeIntent};
+use nuif_core::{Document, Entity, EntityId, EntityKind, PropertyValue, SizeIntent};
 use nuif_package::{NuifPackage, PackageMode};
 use nuif_protocol::Operation;
 use nuif_testing::{performance_fixture, responsive_card_fixture};
@@ -149,6 +153,80 @@ fn benchmark_collaboration(criterion: &mut Criterion) {
             bencher.iter(|| replica_logs.checkpoint(black_box(&base)).unwrap());
         });
     }
+    group.finish();
+}
+
+fn benchmark_advanced_collaboration(criterion: &mut Criterion) {
+    const ROOT: EntityId = EntityId::new(10);
+    const LEFT: EntityId = EntityId::new(11);
+    const RIGHT: EntityId = EntityId::new(12);
+    let mut base = Document::empty(EntityId::new(1));
+    let mut root = Entity::new(ROOT, EntityKind::Container);
+    root.children.extend([LEFT, RIGHT]);
+    base.roots.push(ROOT);
+    base.entities.insert(ROOT, root);
+    base.entities
+        .insert(LEFT, Entity::new(LEFT, EntityKind::Container));
+    base.entities
+        .insert(RIGHT, Entity::new(RIGHT, EntityKind::Container));
+
+    let creation_changes = vec![
+        CreationChange {
+            id: ChangeId::new("alice", 1),
+            context: BTreeMap::new(),
+            operation: CreationOperation::Insert {
+                parent: Some(ROOT),
+                anchor: CreationAnchor::Start,
+                entity: Box::new(Entity::new(EntityId::new(20), EntityKind::Container)),
+            },
+        },
+        CreationChange {
+            id: ChangeId::new("bob", 1),
+            context: BTreeMap::from([("alice".to_owned(), 1)]),
+            operation: CreationOperation::Insert {
+                parent: Some(EntityId::new(20)),
+                anchor: CreationAnchor::Start,
+                entity: Box::new(Entity::new(EntityId::new(21), EntityKind::Container)),
+            },
+        },
+    ];
+    let mut nested = ArbitraryAnchorCreationOperationSetEngine::new(base.clone()).unwrap();
+    for change in creation_changes {
+        nested.ingest(change).unwrap();
+    }
+
+    let mixed_changes = vec![
+        MixedChange {
+            id: ChangeId::new("alice", 1),
+            context: BTreeMap::new(),
+            operation: MixedOperation::Structure(StructuralOperation::Move {
+                entity: RIGHT,
+                new_parent: Some(LEFT),
+                anchor: StructuralAnchor::Start,
+            }),
+        },
+        MixedChange {
+            id: ChangeId::new("bob", 1),
+            context: BTreeMap::new(),
+            operation: MixedOperation::Property(Operation::Rename {
+                entity: RIGHT,
+                name: Some("benchmark".to_owned()),
+            }),
+        },
+    ];
+    let mut mixed = MixedOperationSetEngine::new(base).unwrap();
+    for change in mixed_changes {
+        mixed.ingest(change).unwrap();
+    }
+
+    let mut group = criterion.benchmark_group("collaboration/advanced_profiles");
+    group.throughput(Throughput::Elements(2));
+    group.bench_function("nested_creation_v1", |bencher| {
+        bencher.iter(|| nested.checkpoint().unwrap());
+    });
+    group.bench_function("mixed_property_structure", |bencher| {
+        bencher.iter(|| mixed.checkpoint().unwrap());
+    });
     group.finish();
 }
 
@@ -488,6 +566,7 @@ criterion_group! {
         benchmark_package_capabilities,
         benchmark_queries,
         benchmark_collaboration,
+        benchmark_advanced_collaboration,
         benchmark_package,
         benchmark_resource_profiles,
         benchmark_html_adapter,
