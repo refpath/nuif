@@ -10,5 +10,8 @@ targets.
 The profile is deliberately not stable. Before promotion it needs a pinned
 header/symbol compatibility check, panic and allocator tests under sanitizers,
 consumer fixtures in C/C++/Swift/Kotlin, a declared threading contract and
-real target packages. Until those gates pass, the WASM package or CLI remains
+real target packages. The release workflow now emits an experimental
+`nuif-ffi-<version>-<platform>-<architecture>` archive containing the header,
+native library artifacts and checksums; this does not promote the ABI to
+stable. Until those gates pass, the WASM package or CLI remains
 the supported foreign-language integration path.

@@ -87,6 +87,8 @@ jobs:
             target/figma-plugin-fixture-report.json
             target/figma-plugin-plan-validation.json
             target/nuif-figma-plugin-review-shell
+            target/canva-current-page-report.json
+            target/ffi-header-report.json
             target/wasm-conformance-report.json
             target/mcp-conformance-report.json
             target/editor-gui-trial/report.json
@@ -139,16 +141,26 @@ jobs:
         env:
           NUIF_BUILD_NUMBER: ${{ github.run_number }}
         run: cargo xtask editor-package
+      - name: Build the experimental C ABI developer package
+        run: cargo xtask ffi-package
       - name: Locate release assets
         id: assets
         shell: bash
         run: |
-          archive=$(find target/dist -maxdepth 1 -type f \( -name '*.tar.gz' -o -name '*.zip' \) -print -quit)
+          archive=$(find target/dist -maxdepth 1 -type f -name 'nuif-editor-*' \( -name '*.tar.gz' -o -name '*.zip' \) -print -quit)
           manifest=$(find target/dist -maxdepth 1 -type f -name 'nuif-editor-*.manifest.json' -print -quit)
+          ffi_archive=$(find target/dist -maxdepth 1 -type f -name 'nuif-ffi-*' \( -name '*.tar.gz' -o -name '*.zip' \) -print -quit)
+          ffi_manifest=$(find target/dist -maxdepth 1 -type f -name 'nuif-ffi-*.manifest.json' -print -quit)
           test -n "$archive"
           test -n "$manifest"
-          printf 'archive=%s\n' "$archive" >> "$GITHUB_OUTPUT"
-          printf 'manifest=%s\n' "$manifest" >> "$GITHUB_OUTPUT"
+          test -n "$ffi_archive"
+          test -n "$ffi_manifest"
+          {
+            printf 'archive=%s\n' "$archive"
+            printf 'manifest=%s\n' "$manifest"
+            printf 'ffi_archive=%s\n' "$ffi_archive"
+            printf 'ffi_manifest=%s\n' "$ffi_manifest"
+          } >> "$GITHUB_OUTPUT"
       - name: Validate macOS bundle metadata
         if: runner.os == 'macOS'
         shell: bash
@@ -159,6 +171,8 @@ jobs:
           subject-path: |
             ${{ steps.assets.outputs.archive }}
             ${{ steps.assets.outputs.manifest }}
+            ${{ steps.assets.outputs.ffi_archive }}
+            ${{ steps.assets.outputs.ffi_manifest }}
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: release-package-${{ matrix.platform }}
@@ -167,6 +181,8 @@ jobs:
           path: |
             ${{ steps.assets.outputs.archive }}
             ${{ steps.assets.outputs.manifest }}
+            ${{ steps.assets.outputs.ffi_archive }}
+            ${{ steps.assets.outputs.ffi_manifest }}
 
   wasm-package:
     needs: validate
@@ -457,6 +473,23 @@ jobs:
           jq -e '.bomFormat == "CycloneDX" and .metadata.component.version == $version' \
             --arg version "$cli_version" \
             "release-assets/nuif-cli-${cli_version}.cdx.json"
+          ffi_version=$(cargo metadata --locked --format-version 1 --no-deps \
+            | jq -r '.packages[] | select(.name == "nuif-ffi") | .version')
+          SOURCE_DATE_EPOCH=$source_date_epoch \
+            "$tool_dir/cargo-cyclonedx" cyclonedx \
+              --manifest-path crates/nuif-ffi/Cargo.toml \
+              --format json \
+              --target all \
+              --override-filename "nuif-ffi-${ffi_version}" \
+              --spec-version 1.5 \
+              --no-build-deps
+          jq --arg root "$GITHUB_WORKSPACE" \
+            'walk(if type == "string" then (split($root) | join("/src")) else . end)' \
+            "crates/nuif-ffi/nuif-ffi-${ffi_version}.json" \
+            > "release-assets/nuif-ffi-${ffi_version}.cdx.json"
+          jq -e '.bomFormat == "CycloneDX" and .metadata.component.version == $version' \
+            --arg version "$ffi_version" \
+            "release-assets/nuif-ffi-${ffi_version}.cdx.json"
       - name: Assemble checksums and release manifest
         shell: bash
         run: |
@@ -466,6 +499,8 @@ jobs:
           test "$(find . -maxdepth 1 -type f -name 'nuif-editor-*' \( -name '*.tar.gz' -o -name '*.zip' \) | wc -l | tr -d ' ')" = 5
           test "$(find . -maxdepth 1 -type f -name 'nuif-wasm-*-web.tar.gz' | wc -l | tr -d ' ')" = 1
           test "$(find . -maxdepth 1 -type f -name 'nuif-editor-*.manifest.json' | wc -l | tr -d ' ')" = 5
+          test "$(find . -maxdepth 1 -type f -name 'nuif-ffi-*' \( -name '*.tar.gz' -o -name '*.zip' \) | wc -l | tr -d ' ')" = 5
+          test "$(find . -maxdepth 1 -type f -name 'nuif-ffi-*.manifest.json' | wc -l | tr -d ' ')" = 5
           test "$(find . -maxdepth 1 -type f -name 'nuif-mcp-*' \( -name '*.tar.gz' -o -name '*.zip' \) | wc -l | tr -d ' ')" = 5
           test "$(find . -maxdepth 1 -type f -name 'nuif-mcp-*.manifest.json' | wc -l | tr -d ' ')" = 5
           test "$(find . -maxdepth 1 -type f -name 'nuif-cli-*' \( -name '*.tar.gz' -o -name '*.zip' \) | wc -l | tr -d ' ')" = 5
@@ -474,8 +509,10 @@ jobs:
           test -f "nuif-editor-${version}.cdx.json"
           test "$(find . -maxdepth 1 -type f -name 'nuif-mcp-*.cdx.json' | wc -l | tr -d ' ')" = 1
           test "$(find . -maxdepth 1 -type f -name 'nuif-cli-*.cdx.json' | wc -l | tr -d ' ')" = 1
+          test "$(find . -maxdepth 1 -type f -name 'nuif-ffi-*.cdx.json' | wc -l | tr -d ' ')" = 1
           mcp_sbom=$(find . -maxdepth 1 -type f -name 'nuif-mcp-*.cdx.json' -printf '%f\n' -quit)
           cli_sbom=$(find . -maxdepth 1 -type f -name 'nuif-cli-*.cdx.json' -printf '%f\n' -quit)
+          ffi_sbom=$(find . -maxdepth 1 -type f -name 'nuif-ffi-*.cdx.json' -printf '%f\n' -quit)
           binding=$(find . -maxdepth 1 -type f -name '*.binding.json' -print -quit)
           jq -e --arg revision "$revision" '
             .schema_version == 1 and
@@ -539,6 +576,27 @@ jobs:
             test -f "$tool_archive"
             test "$(sha256sum "$tool_archive" | cut -d ' ' -f 1)" = "$(jq -r '.archive.sha256' "$tool")"
           done
+          for ffi in ./nuif-ffi-*.manifest.json; do
+            jq -e --arg revision "$revision" '
+              .schema_version == 1 and
+              .status == "passed" and
+              .name == "nuif-ffi" and
+              .api_profile == "nuif-ffi-0" and
+              .source_revision == $revision and
+              .source_dirty == false and
+              .stability == "experimental; not ABI-stable" and
+              (.files | length > 0) and
+              all(.files[]; (.bytes > 0) and (.sha256 | test("^[0-9a-f]{64}$"))) and
+              (.archive.sha256 | test("^[0-9a-f]{64}$"))
+            ' "$ffi"
+            ffi_archive=$(jq -r '.archive.name' "$ffi")
+            case "$ffi_archive" in
+              nuif-ffi-*.tar.gz|nuif-ffi-*.zip) ;;
+              *) printf 'unsafe C ABI archive name: %s\n' "$ffi_archive" >&2; exit 1 ;;
+            esac
+            test -f "$ffi_archive"
+            test "$(sha256sum "$ffi_archive" | cut -d ' ' -f 1)" = "$(jq -r '.archive.sha256' "$ffi")"
+          done
           find . -maxdepth 1 -type f \( -name '*.tar.gz' -o -name '*.zip' -o -name '*.manifest.json' -o -name '*.binding.json' -o -name '*.cdx.json' \) -print0 \
             | sort -z \
             | xargs -0 sha256sum \
@@ -549,7 +607,8 @@ jobs:
             --arg revision "$revision" \
             --arg mcp_sbom "$mcp_sbom" \
             --arg cli_sbom "$cli_sbom" \
-            '{schema_version: 1, version: $version, tag: $tag, source_revision: $revision, sbom: ("nuif-editor-" + $version + ".cdx.json"), sboms: {editor: ("nuif-editor-" + $version + ".cdx.json"), mcp: $mcp_sbom, cli: $cli_sbom}, packages: .}' \
+            --arg ffi_sbom "$ffi_sbom" \
+            '{schema_version: 1, version: $version, tag: $tag, source_revision: $revision, sbom: ("nuif-editor-" + $version + ".cdx.json"), sboms: {editor: ("nuif-editor-" + $version + ".cdx.json"), mcp: $mcp_sbom, cli: $cli_sbom, ffi: $ffi_sbom}, packages: .}' \
             ./nuif-editor-*.manifest.json > release-manifest.json
           jq --slurpfile bindings ./nuif-wasm-*-web.binding.json \
             '. + {bindings: $bindings}' \
@@ -560,9 +619,13 @@ jobs:
           jq --slurpfile tools ./nuif-cli-*.manifest.json \
             '. + {tools: $tools}' \
             release-manifest.with-services.json > release-manifest.with-tools.json
+          jq --slurpfile ffi ./nuif-ffi-*.manifest.json \
+            '. + {ffi: $ffi}' \
+            release-manifest.with-tools.json > release-manifest.with-ffi.json
           rm release-manifest.with-bindings.json
           rm release-manifest.with-services.json
-          mv release-manifest.with-tools.json release-manifest.json
+          rm release-manifest.with-tools.json
+          mv release-manifest.with-ffi.json release-manifest.json
       - name: Attest release index
         uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
         with:

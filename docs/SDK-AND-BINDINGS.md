@@ -109,6 +109,11 @@ panic containment. It exposes no internal model structs and grants no
 filesystem, network or host-product authority. The checked draft header is
 `bindings/nuif_ffi.h`; `cargo xtask gate-ffi` runs the Rust ABI tests, a C
 header-consumer syntax check and a release-library runtime smoke on POSIX.
+Release workflows additionally run `cargo xtask ffi-package` on each native
+matrix target. The resulting versioned archive contains the header, available
+static/shared library artifacts, conformance report, licenses and a manifest
+with per-file SHA-256 digests. It is a developer package for experiments, not
+a promise of ABI stability or a platform store distribution.
 
 Rust's native ABI has no stability guarantee. A C-compatible ABI adds an unsafe
 ownership boundary whose handle lifetime, buffer allocation and release, panic

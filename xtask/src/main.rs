@@ -220,6 +220,7 @@ fn run() -> Result<(), String> {
         Some("wasm-package") => wasm_package(),
         Some("mcp-package") => mcp_package(),
         Some("cli-package") => cli_package(),
+        Some("ffi-package") => ffi_package(),
         Some("gate-g") => gate_g(),
         Some("gate-h") => gate_h(),
         Some("gate-i-package") => gate_i_package(),
@@ -263,7 +264,7 @@ fn run() -> Result<(), String> {
         Some("manifest") => standalone_manifest(),
         Some("all") => all(),
         _ => Err(
-            "usage: cargo xtask <research|workflow-audit|adapter-audit|dependency-audit|diagnostic-audit|docs-check|docs-build|docs-paper|docs-serve|docs-setup|verify|trial [seed iterations snapshot-interval report-path]|gate-b|gate-c|gate-d|gate-d-text|gate-d-render|gate-f|gate-f-v0|gate-svg|gate-dtcg|gate-penpot|gate-react|gate-svelte|gate-figma|gate-canva|gate-behavior|gate-behavior-package|gate-web-behavior|gate-web-hosts|gate-wasm|gate-mcp|gate-ffi|gate-g|gate-h|gate-i-package|gate-i-image|gate-i-font|gate-j-live|gate-accessibility|capture-baselines|reconstruction-provider-manifest|reconstruction-corpus-audit|reconstruction-evaluation|confidence-calibration|browser-install|wasm-install|wasm-package|mcp-package|cli-package|hostile-inputs|reduction-profile|editor-hostile-inputs|fuzz-smoke|codec-benchmark|performance|editor-trial|editor-gui-trial|editor-install-trial|editor-package|editor-launch|editor-install|editor-doctor|editor-rollback|editor-uninstall|editor-update|release-check <tag>|manifest|all>"
+            "usage: cargo xtask <research|workflow-audit|adapter-audit|dependency-audit|diagnostic-audit|docs-check|docs-build|docs-paper|docs-serve|docs-setup|verify|trial [seed iterations snapshot-interval report-path]|gate-b|gate-c|gate-d|gate-d-text|gate-d-render|gate-f|gate-f-v0|gate-svg|gate-dtcg|gate-penpot|gate-react|gate-svelte|gate-figma|gate-canva|gate-behavior|gate-behavior-package|gate-web-behavior|gate-web-hosts|gate-wasm|gate-mcp|gate-ffi|gate-g|gate-h|gate-i-package|gate-i-image|gate-i-font|gate-j-live|gate-accessibility|capture-baselines|reconstruction-provider-manifest|reconstruction-corpus-audit|reconstruction-evaluation|confidence-calibration|browser-install|wasm-install|wasm-package|mcp-package|cli-package|ffi-package|hostile-inputs|reduction-profile|editor-hostile-inputs|fuzz-smoke|codec-benchmark|performance|editor-trial|editor-gui-trial|editor-install-trial|editor-package|editor-launch|editor-install|editor-doctor|editor-rollback|editor-uninstall|editor-update|release-check <tag>|manifest|all>"
                 .to_owned(),
         ),
     }
@@ -1625,6 +1626,120 @@ fn cli_package() -> Result<(), String> {
     )?;
     println!("packaged NUIF CLI: {}", archive.display());
     Ok(())
+}
+
+fn ffi_package() -> Result<(), String> {
+    gate_ffi()?;
+    cargo(&["build", "--release", "--locked", "-p", "nuif-ffi"])?;
+    let target_root =
+        env::var_os("CARGO_TARGET_DIR").map_or_else(|| PathBuf::from("target"), PathBuf::from);
+    let version = workspace_package_version("nuif-ffi")?;
+    let package_name = format!(
+        "nuif-ffi-{version}-{}-{}",
+        env::consts::OS,
+        env::consts::ARCH
+    );
+    let dist = target_root.join("dist");
+    let package_root = dist.join(&package_name);
+    if package_root.exists() {
+        fs::remove_dir_all(&package_root).map_err(|error| error.to_string())?;
+    }
+    let include = package_root.join("include");
+    let libraries = package_root.join("lib");
+    fs::create_dir_all(&include).map_err(|error| error.to_string())?;
+    fs::create_dir_all(&libraries).map_err(|error| error.to_string())?;
+    fs::copy("bindings/nuif_ffi.h", include.join("nuif_ffi.h"))
+        .map_err(|error| error.to_string())?;
+    fs::copy("bindings/README.md", package_root.join("README.md"))
+        .map_err(|error| error.to_string())?;
+    fs::copy(
+        "target/ffi-header-report.json",
+        package_root.join("conformance-report.json"),
+    )
+    .map_err(|error| error.to_string())?;
+    for license in ["LICENSE-APACHE", "LICENSE-MIT"] {
+        fs::copy(license, package_root.join(license)).map_err(|error| error.to_string())?;
+    }
+
+    let release = target_root.join("release");
+    let copied = copy_ffi_libraries(&release, &libraries)?;
+    let files = copied
+        .iter()
+        .map(|path| {
+            let bytes = fs::read(path).map_err(|error| error.to_string())?;
+            Ok(serde_json::json!({
+                "name": path.strip_prefix(&package_root).unwrap_or(path),
+                "bytes": bytes.len(),
+                "sha256": format!("{:x}", Sha256::digest(&bytes))
+            }))
+        })
+        .collect::<Result<Vec<_>, String>>()?;
+    let manifest = serde_json::json!({
+        "schema_version": 1,
+        "status": "passed",
+        "name": "nuif-ffi",
+        "version": version,
+        "api_profile": "nuif-ffi-0",
+        "platform": env::consts::OS,
+        "architecture": env::consts::ARCH,
+        "source_revision": command_text("git", &["rev-parse", "HEAD"]),
+        "source_dirty": command_text("git", &["status", "--porcelain"])
+            .map(|value| !value.is_empty()),
+        "header": {"path": "include/nuif_ffi.h"},
+        "files": files,
+        "stability": "experimental; not ABI-stable"
+    });
+    fs::write(
+        package_root.join("manifest.json"),
+        serde_json::to_vec_pretty(&manifest).map_err(|error| error.to_string())?,
+    )
+    .map_err(|error| error.to_string())?;
+    let archive = create_editor_archive(&dist, &package_root, &package_name)?;
+    let archive_bytes = fs::read(&archive).map_err(|error| error.to_string())?;
+    let mut release_manifest = manifest;
+    release_manifest["archive"] = serde_json::json!({
+        "name": archive.file_name().and_then(|name| name.to_str()),
+        "bytes": archive_bytes.len(),
+        "sha256": format!("{:x}", Sha256::digest(&archive_bytes))
+    });
+    fs::write(
+        dist.join(format!("{package_name}.manifest.json")),
+        serde_json::to_vec_pretty(&release_manifest).map_err(|error| error.to_string())?,
+    )
+    .map_err(|error| error.to_string())?;
+    println!("packaged experimental C ABI: {}", archive.display());
+    Ok(())
+}
+
+fn copy_ffi_libraries(release: &Path, destination_root: &Path) -> Result<Vec<PathBuf>, String> {
+    let mut copied = Vec::new();
+    for entry in fs::read_dir(release).map_err(|error| error.to_string())? {
+        let path = entry.map_err(|error| error.to_string())?.path();
+        let Some(name) = path.file_name().and_then(|name| name.to_str()) else {
+            continue;
+        };
+        let is_library = name.starts_with("libnuif_ffi") || name.starts_with("nuif_ffi");
+        let extension = path.extension().and_then(|extension| extension.to_str());
+        let is_supported_extension = matches!(
+            (env::consts::OS, extension),
+            ("linux", Some("so" | "a"))
+                | ("macos", Some("dylib" | "a"))
+                | ("windows", Some("dll" | "lib"))
+        );
+        if is_library && is_supported_extension {
+            let destination = destination_root.join(name);
+            fs::copy(&path, &destination).map_err(|error| error.to_string())?;
+            copied.push(destination);
+        }
+    }
+    if copied.is_empty() {
+        return Err(format!(
+            "release C ABI library artifacts are absent in {}",
+            release.display()
+        ));
+    }
+    copied.sort();
+    Ok(copied)
 }
 
 fn write_cli_package_manifest(
