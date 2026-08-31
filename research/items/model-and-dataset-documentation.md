@@ -21,8 +21,8 @@ links:
   spec: [spec/09-provenance-and-fidelity.md]
   adr: []
   rfc: []
-  code: []
-  experiments: [nuif:experiment:reconstruction-distillation]
+  code: [crates/nuif-reconstruct/src/evaluation/corpus.rs, crates/nuif-testing/src/bin/reconstruction-corpus-audit.rs]
+  experiments: [nuif:experiment:reconstruction-corpus-integrity, nuif:experiment:reconstruction-distillation]
 ---
 
 # Summary

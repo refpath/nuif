@@ -343,6 +343,16 @@ and semantically useless. Structural/text/resource/edit-task metrics prevent
 that reward shortcut. Dataset splits group by origin, template, component,
 font, resource and generator; near duplicates cannot cross splits.
 
+The executable `nuif-reconstruction-corpus-manifest-0` turns that rule into a
+bounded audit. It pins the data snapshot, dataset card, evaluator and every
+input/target by digest; records public/restricted/withheld disclosure and
+evaluation/calibration/adaptation/redistribution permission independently; and rejects
+exact artifact or declared family reuse across adaptation, calibration,
+validation and test. Private/authenticated records also require explicit
+authorization and a withdrawal-policy artifact. This is declaration integrity,
+not automated legal review or duplicate discovery; real records and their group
+assignments still need independent human/tool review.
+
 The ablation ladder is deterministic OCR/CV, one-shot reasoner, observation-
 assisted reasoner, hierarchical crops, multi-viewport ranking, correction loop,
 then any tuned or distilled student. Every addition uses the same frozen

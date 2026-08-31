@@ -266,13 +266,19 @@ family, preserves empty denominators as unscored, rejects screenshot-only
 source-resource recall claims and keeps unavailable hardware measurements
 explicit. Its deterministic synthetic fixture validates the evaluator
 contract, not reconstruction quality. The missing OCR/model baselines, licensed
-real and leak-resistant held-out corpus, predeclared FLIP thresholds/viewing
+real held-out corpus, independently reviewed group/near-duplicate assignments,
+predeclared FLIP thresholds/viewing
 contexts, statistical uncertainty method and independent evaluator keep the
 phase open. The pinned test-only LDR-FLIP implementation proves that exact and
 perceptual diagnostics can coexist and refuses implicit alpha handling; its one
 synthetic local error is not threshold calibration. A deterministic three-example fixture exercises typed
 distribution aggregation, including micro/macro separation and explicit
 missingness, without presenting it as empirical accuracy evidence.
+The typed corpus manifest and audit now pin snapshot/card/evaluator/artifact
+digests, separate disclosure and allowed-use policy, and reject exact or
+family-level leakage across all four partitions. Its four synthetic policy
+records prove the auditor, not the existence, legality, coverage or independence
+of a real corpus.
 
 ## Phase 12 — calibration and conditional adaptation (calibration primitive active; adaptation blocked on Phase 11)
 

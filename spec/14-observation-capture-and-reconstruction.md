@@ -222,9 +222,22 @@ and as distributions; local/small-element errors MUST NOT be hidden by a large
 background average.
 
 Synthetic exact fixtures and licensed/human-reviewed real fixtures are separate
-corpora. Splits MUST prevent origin, template, component, font, resource and
-near-duplicate leakage. Benchmark families MUST NOT appear in adaptation or
-distillation data.
+corpora. Splits MUST prevent origin, template, component, font, resource,
+generator and near-duplicate leakage. Benchmark families MUST NOT appear in
+adaptation or distillation data.
+
+`nuif-reconstruction-corpus-manifest-0` is the executable integrity contract.
+It content-addresses the immutable data snapshot, dataset card, evaluator,
+inputs and targets; separates public, restricted and withheld artifacts; and
+records collection class, rights evidence, permitted evaluation/calibration/
+adaptation/redistribution uses, sensitivity review and leakage groups per example. Its
+derived `nuif-reconstruction-corpus-audit-0` rejects identities shared across
+any distinct adaptation, calibration, validation or test split. Screenshot-only
+records cannot carry exact source/resource bundles, source-backed records
+require source bytes, retained real records require a withdrawal-policy
+artifact, and private/authenticated records require explicit authorization. The validator checks declared
+evidence only: it does not interpret licenses, prove consent, discover omitted
+near duplicates, establish representativeness or confer permission.
 
 ## Provider neutrality and artifacts
 

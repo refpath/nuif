@@ -5,6 +5,7 @@ use std::collections::BTreeSet;
 use thiserror::Error;
 
 pub mod aggregation;
+pub mod corpus;
 
 pub const EVALUATION_PROFILE: &str = "nuif-reconstruction-evaluation-0";
 pub const MAX_EVALUATION_ITEMS: usize = 100_000;
@@ -16,7 +17,7 @@ pub const MAX_CALIBRATION_BINS: usize = 100;
 pub const MAX_PIXEL_COUNT: usize = 16 * 1024 * 1024;
 const MAX_CALIBRATION_BINS_U32: u32 = 100;
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum EvaluationSuite {
     SyntheticExact,

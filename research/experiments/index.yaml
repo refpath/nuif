@@ -706,6 +706,21 @@ experiments:
       - reject zero-denominator perfection oversized edit work duplicate examples mixed suites calibration drift evaluator drift and mixed currencies
       - compute nv-flip 0.1.2 mean at 67 PPD and reject transparency or dimension ambiguity before FFI
       - archive target/reconstruction-evaluation-report.json from cargo xtask reconstruction-evaluation
+  - id: nuif:experiment:reconstruction-corpus-integrity
+    status: automated
+    evidence: [nuif:research:reconstruction-corpus-integrity, nuif:research:model-and-dataset-documentation, nuif:research:websight-synthetic-screenshot-html]
+    implementation: [crates/nuif-reconstruct/src/evaluation/corpus.rs, crates/nuif-testing/src/bin/reconstruction-corpus-audit.rs, xtask/src/main.rs, .github/workflows/ci.yml, .github/workflows/release.yml]
+    oracle: typed-manifest-and-adversarial-policy-fixtures
+    acceptance:
+      - immutable snapshot dataset-card evaluator input and target identities are content-addressed
+      - origin template component font resource generator and near-duplicate groups never cross adaptation calibration validation or test partitions
+      - evaluation calibration and adaptation uses require explicit evidence while public restricted and withheld artifacts remain distinct
+      - evidence-suite and private-capture declarations fail closed when their required source authorization review or withdrawal evidence is absent
+    tests:
+      - JSON-round-trip a four-partition manifest and its exactly derived audit
+      - inject every family leakage dimension and an exact artifact collision across partitions
+      - reject forbidden adaptation calibration and evaluation uses screenshot-only source claims missing near-duplicate assignments and unauditable private captures
+      - archive target/reconstruction-corpus-audit-report.json from cargo xtask reconstruction-corpus-audit
   - id: nuif:experiment:reconstruction-closed-loop
     status: active
     evidence: [nuif:research:ui-code-generation-boundaries, nuif:research:visrefiner-render-difference-learning, nuif:research:flip-perceptual-difference-metric, nuif:research:lpips-learned-perceptual-similarity, nuif:research:model-agnostic-screenshot-reconstruction-and-training]
