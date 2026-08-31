@@ -113,28 +113,7 @@ fn run() -> Result<(), String> {
             "blocking_failures": positive.iter().chain(&negative).filter(|case| case["passed"] != true).count(),
         }
     });
-    if let Some(parent) = output.parent()
-        && !parent.as_os_str().is_empty()
-    {
-        fs::create_dir_all(parent).map_err(|error| error.to_string())?;
-    }
-    if let Some(parent) = package_output.parent()
-        && !parent.as_os_str().is_empty()
-    {
-        fs::create_dir_all(parent).map_err(|error| error.to_string())?;
-    }
-    fs::write(&package_output, &encoded).map_err(|error| error.to_string())?;
-    let report = if let Value::Object(mut report) = report {
-        report.insert("artifacts".to_owned(), json!({"package": package_output}));
-        Value::Object(report)
-    } else {
-        return Err("package report is not an object".to_owned());
-    };
-    fs::write(
-        &output,
-        serde_json::to_vec_pretty(&report).map_err(|error| error.to_string())?,
-    )
-    .map_err(|error| error.to_string())?;
+    write_outputs(&output, &package_output, &encoded, report)?;
     println!(
         "package resources: {} positive, {} negative, status {}",
         positive.len(),
@@ -146,6 +125,33 @@ fn run() -> Result<(), String> {
     } else {
         Err(format!("report failed; inspect {}", output.display()))
     }
+}
+
+fn write_outputs(
+    output: &PathBuf,
+    package_output: &PathBuf,
+    encoded: &[u8],
+    report: Value,
+) -> Result<(), String> {
+    for path in [output, package_output] {
+        if let Some(parent) = path.parent()
+            && !parent.as_os_str().is_empty()
+        {
+            fs::create_dir_all(parent).map_err(|error| error.to_string())?;
+        }
+    }
+    fs::write(package_output, encoded).map_err(|error| error.to_string())?;
+    let report = if let Value::Object(mut report) = report {
+        report.insert("artifacts".to_owned(), json!({"package": package_output}));
+        Value::Object(report)
+    } else {
+        return Err("package report is not an object".to_owned());
+    };
+    fs::write(
+        output,
+        serde_json::to_vec_pretty(&report).map_err(|error| error.to_string())?,
+    )
+    .map_err(|error| error.to_string())
 }
 
 fn fixture() -> Result<(NuifPackage, ResourceDigest, Vec<u8>), String> {
