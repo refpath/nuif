@@ -76,19 +76,21 @@ cap-height and line metrics at eight 13-axis locations in a reproducibly
 subsetted OFL fixture. A fifth structurally preflights `gvar`, HVAR, MVAR and
 STAT, rejects 38 checksum-repaired graph, profile and packed point/delta
 mutations, and enforces warmed parser allocation/time regression ceilings. A
-sixth candidate gate proves resource-only package fixpoint,
-unrelated-edit retention, explicit linked resolution, and asset-policy
-validation, but keeps typed package binding rejected until layout and rendering
-consume the selected coordinate vector. A seventh gate adds reproducible
+sixth gate proves resource-only package fixpoint, unrelated-edit retention,
+explicit linked resolution, asset-policy validation, capability-gated typed
+package admission and a byte fixpoint. A seventh gate adds reproducible
 OFL-1.1 Noto Sans and Recursive subsets with distinct 2- and 5-axis graphs.
 Eight HarfBuzz pipeline oracles agree exactly for metadata, normalization,
 shaping, HVAR advances and MVAR metrics; seven outlines are exact and one
 five-axis interior control coordinate is within the declared one-unit 26.6
 bound. A generated-sfnt gate adds 16 accepted and three rejected packed-`gvar`
 boundary cases, including repeated points, shared/private precedence and the
-32,767 maximum count. Typed variable package/layout/rendering and VVAR remain
-unimplemented capabilities; byte-exhaustive malformed enumeration is a
-non-claim rather than a practical promotion criterion.
+32,767 maximum count. The runtime gate then carries default and interior Noto
+Sans coordinates through authorized package loading, shaping, HVAR intrinsic
+layout, `gvar` outlines and deterministic CPU pixels while retaining the
+normalized record in every resolved run. Direct Rust API delivery is now
+executable; cross-surface parity, VVAR and byte-exhaustive malformed enumeration
+remain non-claims rather than hidden promotion assumptions.
 
 ## Phase 5 — editor (complete for the headless profile-0 instrument)
 The entire v0 fixture is authored from an empty document through identity-addressed semantic actions. Direct generation, editor output and operation replay are byte-identical, and the editor writes canonical document, context, layout, scene, CPU raster and fidelity report artifacts. The Rust-native Masonry shell from ADR 0006 and the later Svelte/WASM demonstration are non-normative interface work and cannot redefine this headless result.

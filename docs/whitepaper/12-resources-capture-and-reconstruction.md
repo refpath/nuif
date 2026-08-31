@@ -30,11 +30,11 @@ The recommended direction is:
    repeatable learnable error distribution.
 
 RFC 0010, RFC 0011 and the variable-TrueType proposal in RFC 0013 remain
-proposed contracts. Their bounded package, narrow PNG/static-font and
+proposed contracts. Their bounded package, narrow PNG/font and
 capture/reconstruction experiments are implementation evidence only for the
-named subsets; RFC 0013 has metadata/normalization and isolated shaping gates
-but no executable package or runtime profile yet. None is a published
-conformance or standards claim.
+named subsets; RFC 0013 now has capability-gated direct package-to-raster
+evidence, but not the required binding/process parity or a published
+conformance and standards claim.
 
 ## One core, two import lanes
 
@@ -230,10 +230,13 @@ The first RFC 0013 milestone separately checks variable TrueType `fvar`/`avar`
 metadata and five final coordinate vectors against a pinned HarfBuzz capture.
 Its follow-on matches seven HarfBuzz shapes, including FeatureVariations, while
 reusing that vector for Skrifa metrics/outlines that exactly match HarfBuzz
-advance and draw captures. Neither alters package or runtime acceptance.
+advance and draw captures. The later direct runtime gate requires explicit
+package capability authorization, records the same normalized vector in shaped
+runs, and matches default/interior HarfBuzz advances and paths through layout
+and CPU rasterization.
 
 This is intentionally not general OpenType support. TTC, CFF/CFF2, variable
-package/runtime, color, bitmap, SVG and WOFF/WOFF2 sources, historic ambiguous permission
+cross-surface parity, color, bitmap, SVG and WOFF/WOFF2 sources, historic ambiguous permission
 combinations, subsetting, cluster-level fallback and cross-platform raster
 behavior remain separate fixtures and profiles. Collections,
 variable-TrueType, CFF/CFF2, COLR-vector, bitmap/SVG-glyph and WOFF2 transport

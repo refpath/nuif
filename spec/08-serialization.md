@@ -41,8 +41,10 @@ remain incomplete.
 
 `cargo xtask gate-i-font-metadata` is research evidence for RFC 0013 axis
 decoding and coordinate normalization; `cargo xtask gate-i-font-shaping` adds an
-isolated shaping and internal location-coherence trial. Neither makes variable
-fonts a package resource profile.
+isolated shaping and internal location-coherence trial. Those gates alone do
+not admit packages; `cargo xtask gate-i-font-package` and
+`cargo xtask gate-i-font-runtime` separately require capability-gated typed
+admission and direct coordinate delivery. Binding/process parity remains open.
 
 ## Numeric and string rules (RFC 0005)
 

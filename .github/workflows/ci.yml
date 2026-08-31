@@ -204,6 +204,7 @@ jobs:
             target/variable-font-package-report.json
             target/variable-font-corpus-report.json
             target/variable-font-gvar-generated-report.json
+            target/variable-font-runtime-report.json
       - name: Upload live browser capture evidence
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
@@ -460,6 +461,7 @@ jobs:
           cargo xtask gate-i-font-package
           cargo xtask gate-i-font-corpus
           cargo xtask gate-i-font-gvar-generated
+          cargo xtask gate-i-font-runtime
       - name: Upload platform resource evidence
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
@@ -478,6 +480,7 @@ jobs:
             target/variable-font-package-report.json
             target/variable-font-corpus-report.json
             target/variable-font-gvar-generated-report.json
+            target/variable-font-runtime-report.json
 
   accessibility:
     name: web host browser oracles

@@ -82,6 +82,7 @@ jobs:
             target/variable-font-package-report.json
             target/variable-font-corpus-report.json
             target/variable-font-gvar-generated-report.json
+            target/variable-font-runtime-report.json
             target/capture-reconstruction-report.json
             target/reconstruction-provider-manifest-report.json
             target/reconstruction-corpus-audit-report.json

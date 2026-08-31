@@ -159,11 +159,14 @@ one-over resources. `cargo xtask gate-i-font-metadata` separately checks the
 first RFC 0013 variable-font metadata and normalization milestone against a
 pinned HarfBuzz capture; `cargo xtask gate-i-font-shaping` separately reproduces
 seven shapes including a FeatureVariations boundary while retaining one shared
-metric/outline location and matching HarfBuzz advances/paths. Neither enables
-package/runtime support. Gate I still
+metric/outline location and matching HarfBuzz advances/paths. The later
+`cargo xtask gate-i-font-runtime` admits only capability-declared variable
+packages and matches default/interior shaping, HVAR-driven intrinsic layout,
+`gvar` outlines and deterministic CPU pixels while retaining normalized
+coordinates in resolved runs. Gate I still
 lacks the broader PNG and OpenType matrices,
 external writer and successful hosted cross-platform package/media evidence.
-The CI workflow now runs all five narrow resource gates independently on
+The CI workflow now runs the complete narrow resource-gate sequence on
 Linux, Windows and macOS and archives each platform report; that configuration
 does not become reproduction evidence until the hosted jobs pass. RFC
 0011/specification 14 have executable

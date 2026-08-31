@@ -160,12 +160,12 @@ until its checkpoint/position contract is versioned and independently tested.
 5. Keep the tested Masonry shell attached only through the editor driver boundary; extend the implemented one-transaction freeform move, eight-handle freeform resize, trailing managed resize, Shift-proportional corner gesture and resolved-axis Stack/Flex reorder only when a tested semantic operation exists. Cross-parent/tree drag and Grid/Constraint reorder remain separate design work.
 6. Treat soft wrapping, gradients, strokes, paths, images and instance materialization as a separately versioned expanded profile; do not weaken profile-0 exactness to add them.
 7. Keep `cargo xtask gate-i-package` green across CLI/editor/package changes; the Python archive oracle now provides recorded external-container evidence, while a cross-platform semantic writer and second canonical-CBOR implementation remain required before accepting the wire profile.
-8. Keep the variable-font metadata/normalization and isolated HarfBuzz shaping
-   gates separate from package acceptance; retain the implemented malformed
-   variation-graph/allocation ceilings and resource-only package/policy
-   evidence plus representative packed `gvar` negatives, the independently
-   authored Noto Sans/Recursive OFL corpus and generated packing-boundary
-   matrix, then implement typed package/runtime coordinate delivery.
+8. Keep the variable-font capability explicit: retain the implemented
+   metadata/normalization, HarfBuzz shaping, malformed graph/allocation,
+   package-policy, independently authored Noto Sans/Recursive corpus, generated
+   packing-boundary, and capability-gated package-to-raster coordinate-delivery
+   evidence. Reproduce the same typed coordinate record through each applicable
+   process or language-binding surface before proposing profile promotion.
    Extend the narrow PNG and static TrueType baselines only through new declared
    fixtures, add cross-platform media reproduction, and complete the broader
    OpenType format/policy matrix with calibrated allocation/time budgets; do

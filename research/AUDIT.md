@@ -189,11 +189,14 @@ five-axis interior control coordinate differs by the declared maximum of one
 26.6 unit. Generated sfnt trials additionally cover 16 valid packed-`gvar`
 boundary combinations and three malformed counts through production admission,
 including repeated/shared/private points and the 32,767 maximum count.
-Byte-exhaustive enumeration remains a non-claim; VVAR semantics, side-bearing
-and typed package/runtime evidence remain open. A separate candidate package gate now proves exact bytes through
-resource-only fixpoint, unrelated edits, and explicit digest-pinned linked
-resolution while intentionally verifying that typed variable-font package
-binding remains fail-closed until runtime coordinate delivery exists.
+Byte-exhaustive enumeration remains a non-claim; VVAR semantics and
+side-bearing expansion remain open. A separate package gate proves exact bytes
+through resource-only fixpoint, unrelated edits, explicit digest-pinned linked
+resolution, and capability-gated typed asset admission. The runtime gate then
+authorizes default and interior Noto Sans packages through the direct API,
+retains normalized coordinates in shaped runs, matches HarfBuzz shaping/HVAR
+advances and `gvar` paths, drives intrinsic layout and deterministic CPU pixels,
+and repeats exactly. Process-adapter and language-binding parity remain open.
 Four accepted-font
 inspections and packaged validation now carry warmed 4 MiB allocated/2 MiB
 retained regression ceilings. Package-to-session handoff shares an 8 MiB buffer

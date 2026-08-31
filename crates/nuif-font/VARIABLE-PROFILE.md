@@ -95,7 +95,7 @@ coordinate differs by one 26.6 unit, so the cross-implementation rule permits
 at most that measured 1/64-font-unit tie. The two graph shapes cover 639 `gvar`
 tuples, 24,024 explicit deltas, 11 HVAR data subtables, and four MVAR data
 subtables between them. Both exact assets pass candidate metadata/policy
-validation without becoming typed package/runtime inputs.
+validation before the separate typed package/runtime gate consumes them.
 
 `cargo xtask gate-i-font-gvar-generated` independently constructs canonically
 packed and checksummed sfnt values around a synthetic 300-point glyph, then
@@ -132,23 +132,24 @@ These ceilings are implementation regression guards measured on one machine,
 not portable timing or allocation semantics. Byte-exhaustive packed-input
 enumeration, VVAR, and process-level cancellation/sandbox evidence remain open;
 the declared count/run/type packing boundaries are now generated. Parser
-admission is therefore not promoted to package acceptance.
+admission alone therefore grants neither package capability authorization nor
+runtime fidelity.
 
 `cargo xtask gate-i-font-package` adds a candidate asset validator that checks
 exact variable bytes, complete coordinates, names, coverage, feature bounds,
 `fsType`, decoder profile, license expression, explicit embedding review, and
-portability as one transaction. Nineteen trials prove resource-only package
+portability as one transaction. Twenty-one trials prove resource-only package
 fixpoint, exact-byte retention across an unrelated semantic edit, declared
-capability negotiation, explicit digest-pinned linked resolution, and eleven
-stale/policy rejections. The typed font asset is also required to remain
-rejected by the package dispatcher: this prevents the static reference runtime
-from silently evaluating the selected instance as a default instance.
+capability negotiation, explicit digest-pinned linked resolution, typed
+admission and eleven stale/policy rejections. Omitting the exact decoder
+capability rejects the package before evaluation.
 
-## Explicit non-claims and next gate
+## Explicit non-claims and continuation
 
-No variable font may yet pass `validate_packaged_font`, enter the evaluation
-context, participate in layout/rendering, or claim lossless fidelity under this
-candidate identifier. Resource-only package retention, candidate policy, and a
-broader OFL HVAR/MVAR/`gvar` corpus are now evidenced, but typed package binding
-remains off. The next executable gate must wire the selected coordinates
-through package, layout, and runtime without weakening the fail-closed boundary.
+`cargo xtask gate-i-font-runtime` now admits a typed variable asset only behind
+the declared capability, retains the exact normalized coordinates in resolved
+runs, matches default/interior HarfBuzz shaping and `gvar` paths, and drives
+HVAR intrinsic layout plus deterministic CPU pixels with lossless item
+fidelity. Cross-surface parity remains off until each applicable binding or
+process adapter proves the same canonical hash, coordinate record, diagnostics
+and fidelity; VVAR and other font profiles remain separate.

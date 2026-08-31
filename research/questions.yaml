@@ -122,7 +122,7 @@ questions:
     question: How should exact font bytes, embedding signals, explicit license evidence, links, substitution and unavailability interact across portable and private-authoring profiles?
     status: research
     evidence: [nuif:research:opentype-font-embedding-and-portability, nuif:research:ttf-parser, nuif:research:fontations, nuif:research:text-rendering-reproducibility]
-    note: The static single-face TrueType baseline and its package-level portable private linked substituted unavailable outcomes plus item-level substitution and unavailability fidelity are automated; TTC CFF variable color bitmap WOFF2 subsetting and derived-instance policy remain open.
+    note: The static single-face TrueType baseline and its package-level portability outcomes are automated; the variable TrueType candidate now has capability-gated direct package-to-raster evidence while cross-surface parity remains open. TTC CFF/CFF2 color bitmap WOFF2 subsetting and derived-instance policy remain separate.
   - id: nuif:question:browser-capture-profile
     topic: adapters
     question: Which pinned browser context, settling policy, CDP observations and privacy exclusions are sufficient for a reproducible source-backed Web capture profile?

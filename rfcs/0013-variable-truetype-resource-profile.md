@@ -6,11 +6,11 @@ status: proposed
 
 # RFC 0013 — Variable TrueType resource profile
 
-Status: proposed research contract. Its metadata, coordinate-normalization and
-isolated shaping stages have executable evidence, but no package, layout,
-rendering, fidelity, or conformance-profile claim is made.
-`nuif-opentype-static-single-0` remains the only executable font-resource
-profile.
+Status: proposed research contract. Metadata, coordinate normalization, typed
+package admission and direct package-to-raster delivery have executable
+evidence. Cross-surface parity and hosted cross-platform reproduction remain
+open, so no published conformance-profile claim is made. The static profile
+remains the required baseline; this variable profile is separately negotiated.
 
 ## Motivation
 
@@ -85,10 +85,15 @@ policy.
   never font or instance identity; the exact byte digest plus complete
   coordinate tuple is authoritative.
 
-The asset records:
+The asset sets the executable semantic field:
 
 ```text
-font.decoder_profile = nuif-opentype-variable-truetype-single-0
+FontAsset.decoder_profile = nuif-opentype-variable-truetype-single-0
+```
+
+Its separate policy-evidence map records:
+
+```text
 opentype.fs_type = 0xNNNN
 license.expression = publisher-reviewed expression
 license.embedding_review = approved
@@ -210,7 +215,7 @@ with HarfBuzz on metadata, normalization, shaping, HVAR advances and MVAR
 global metrics. Seven unhinted outlines are byte-exact; one Recursive interior
 control coordinate differs by one 26.6 unit under identical path topology, so
 the corpus enforces that measured bound instead of making a false exactness
-claim. Both fixtures pass candidate asset validation without typed admission.
+claim. Both fixtures pass candidate asset validation.
 
 `cargo xtask gate-i-font-gvar-generated` replaces the source fixture's `glyf`,
 `loca`, and `gvar` tables in memory, rebuilds canonical packing and checksums,
@@ -225,10 +230,16 @@ boundary coverage, not a claim of enumerating all byte strings.
 bytes survive a resource-only deterministic package fixpoint and unrelated
 semantic edit, and that a digest-pinned linked descriptor resolves only through
 an explicit verifying resolver. Its candidate asset validator rejects stale
-axes, names, coverage and policy. The package dispatcher still rejects the
-typed variable-font binding, so promotion requirement 5 is only partially met:
-the reference layout/runtime must first consume the same normalized coordinates
-instead of silently using the default instance.
+axes, names, coverage and policy. The package dispatcher admits the typed asset
+only when the manifest requires the exact variable decoder capability.
+
+`cargo xtask gate-i-font-runtime` exercises two authorized Noto Sans packages
+at default and interior locations. The exact digest and normalized coordinate
+record reach the shaped run; glyphs, HVAR advances and unhinted `gvar` paths
+match the committed HarfBuzz oracle, intrinsic layout uses those advances, and
+the deterministic CPU raster changes with the coordinates. Repeated snapshots
+are identical and exact item fidelity is lossless. This closes direct runtime
+delivery, not promotion requirement 9 for other bindings and processes.
 
 Promotion from proposed to experimental requires all of the following:
 
@@ -268,14 +279,17 @@ metamorphic checks and implementation-specific allocation measurements.
 
 Existing static font assets have an empty axis map and remain valid only for
 `nuif-opentype-static-single-0`. A variable resource cannot be silently opened
-under the static profile. Adding the new capability does not change canonical
-bytes for existing documents.
+under the static profile. Documents already carrying the explicit static
+decoder field do not change when a host adds the optional variable capability.
 
-The current `FontAsset.axes` field can encode the complete user tuple. Before
-implementation, the schema and diagnostics must make profile selection
-unambiguous and add a resolved normalized-coordinate record without using
-policy-evidence strings as semantic storage. If that cannot be done compatibly
-during alpha, the model version must migrate explicitly.
+`FontAsset.axes` encodes the complete user tuple and the explicit
+`FontAsset.decoder_profile` selects the decoder without treating policy evidence
+as semantic storage. Resolved runs retain the normalized coordinate record.
+The field was added during alpha; pre-field records decode it as empty and fail
+model validation instead of guessing a profile. They must be reimported from
+their exact resource bytes through a declared decoder profile; the generic
+canonical migration command intentionally cannot invent this value. The
+resulting document has a new canonical identity.
 
 ## Alternatives rejected
 
