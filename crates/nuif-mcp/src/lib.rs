@@ -1,7 +1,9 @@
 #![doc = "Stateless Model Context Protocol tools over the authoritative NUIF core API."]
 
-use nuif_api::{DocumentEncoding, NuifDocument};
-use nuif_core::{Diagnostic, Fidelity, Severity};
+use base64::{Engine as _, engine::general_purpose::STANDARD as BASE64};
+use nuif_api::{DocumentEncoding, EngineError, NuifDocument, profile_zero_context};
+use nuif_core::{Diagnostic, Fidelity, Severity, is_identifier};
+use nuif_package::{MAX_CAPABILITY_BYTES, MAX_REQUIRED_CAPABILITIES, PackageError};
 use nuif_protocol::{Patch, PatchLimits, enforce_patch_limits};
 use rmcp::{
     Json, ServerHandler, ServiceExt,
@@ -12,6 +14,7 @@ use rmcp::{
 use serde::{Deserialize, Serialize};
 use std::{
     borrow::Cow,
+    collections::BTreeSet,
     io,
     pin::Pin,
     task::{Context, Poll},
@@ -24,8 +27,10 @@ pub const MAX_PATCH_BYTES: usize = 1024 * 1024;
 pub const MAX_PATCH_TRANSACTIONS: usize = 1024;
 pub const MAX_PATCH_OPERATIONS: usize = 16_384;
 pub const MAX_MESSAGE_BYTES: usize = 4 * 1024 * 1024;
+pub const MAX_PACKAGE_BYTES: usize = 1024 * 1024;
+pub const MAX_SNAPSHOT_REPORT_BYTES: usize = 3 * 1024 * 1024;
 
-const INSTRUCTIONS: &str = "Stateless NUIF profile nuif-mcp-tools-0. Every tool is pure, accepts inline canonical NUIF text, returns a new value, and has no filesystem, network, host-document, credential, or hidden session authority.";
+const INSTRUCTIONS: &str = "Stateless NUIF profile nuif-mcp-tools-0. Every tool is pure and has no filesystem, network, host-document, credential, or hidden session authority. Document tools accept inline canonical NUIF text; the bounded snapshot tool accepts an inline base64 package plus explicit capabilities.";
 
 #[derive(Clone, Debug)]
 pub struct NuifMcp {
@@ -61,6 +66,17 @@ pub struct ApplyPatchInput {
     pub document: String,
     /// A JSON-encoded NUIF semantic Patch.
     pub patch: String,
+}
+
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct PackageSnapshotInput {
+    /// Canonical base64 for one bounded deterministic `.nuif` package.
+    pub package_base64: String,
+    /// Complete package capabilities explicitly supported by the caller.
+    pub capabilities: Vec<String>,
+    pub width: f64,
+    pub height: f64,
 }
 
 #[derive(Debug, Serialize, schemars::JsonSchema)]
@@ -123,6 +139,16 @@ pub struct ApplyPatchOutput {
     pub document: String,
     pub transactions: usize,
     pub operations: usize,
+}
+
+#[derive(Debug, Serialize, schemars::JsonSchema)]
+pub struct PackageSnapshotOutput {
+    pub schema_version: u32,
+    pub status: String,
+    pub canonical_hash: String,
+    pub layout: serde_json::Value,
+    pub scene: serde_json::Value,
+    pub raster: serde_json::Value,
 }
 
 #[tool_router(router = tool_router)]
@@ -272,6 +298,58 @@ impl NuifMcp {
             operations: usage.operations,
         }))
     }
+
+    /// Evaluates a bounded, capability-authorized package through the shared
+    /// layout and render runtime without granting filesystem or network access.
+    ///
+    /// # Errors
+    ///
+    /// Returns coded failures for malformed transport, unsupported package
+    /// requirements, invalid context, unresolved resources, or excessive
+    /// output.
+    #[tool(
+        name = "nuif_snapshot_package",
+        description = "Evaluate an inline base64 nuif-package-0 with explicit capabilities and return the shared canonical snapshot report.",
+        annotations(
+            title = "Snapshot NUIF package",
+            read_only_hint = true,
+            destructive_hint = false,
+            idempotent_hint = true,
+            open_world_hint = false
+        )
+    )]
+    pub fn snapshot_package(
+        &self,
+        Parameters(input): Parameters<PackageSnapshotInput>,
+    ) -> Result<Json<PackageSnapshotOutput>, String> {
+        let package = decode_package(&input.package_base64)?;
+        let capabilities = decode_capabilities(input.capabilities)?;
+        let document = NuifDocument::load_package_with_capabilities(&package, &capabilities)
+            .map_err(|error| coded(package_load_error_code(&error), error))?;
+        let snapshot = document
+            .snapshot(&profile_zero_context(input.width, input.height))
+            .map_err(|error| coded("NUIF_SNAPSHOT_FAILED", error))?;
+        let report = snapshot.report();
+        let encoded = serde_json::to_vec(&report)
+            .map_err(|error| coded("NUIF_REPORT_ENCODE_FAILED", error))?;
+        if encoded.len() > MAX_SNAPSHOT_REPORT_BYTES {
+            return Err(format!(
+                "NUIF_SNAPSHOT_REPORT_LIMIT_EXCEEDED: report exceeds {MAX_SNAPSHOT_REPORT_BYTES} bytes (observed {})",
+                encoded.len()
+            ));
+        }
+        Ok(Json(PackageSnapshotOutput {
+            schema_version: report.schema_version,
+            status: report.status,
+            canonical_hash: report.canonical_hash,
+            layout: serde_json::to_value(report.layout)
+                .map_err(|error| coded("NUIF_REPORT_ENCODE_FAILED", error))?,
+            scene: serde_json::to_value(report.scene)
+                .map_err(|error| coded("NUIF_REPORT_ENCODE_FAILED", error))?,
+            raster: serde_json::to_value(report.raster)
+                .map_err(|error| coded("NUIF_REPORT_ENCODE_FAILED", error))?,
+        }))
+    }
 }
 
 #[allow(
@@ -295,6 +373,63 @@ fn decode_document(input: &str) -> Result<NuifDocument, String> {
     enforce_document_bytes(input)?;
     NuifDocument::load(input.as_bytes(), DocumentEncoding::CanonicalText)
         .map_err(|error| coded("NUIF_DOCUMENT_DECODE_FAILED", error))
+}
+
+fn decode_package(input: &str) -> Result<Vec<u8>, String> {
+    let max_base64_bytes = MAX_PACKAGE_BYTES.div_ceil(3).saturating_mul(4);
+    if input.len() > max_base64_bytes {
+        return Err(format!(
+            "NUIF_PACKAGE_LIMIT_EXCEEDED: base64 package exceeds {max_base64_bytes} bytes (observed {})",
+            input.len()
+        ));
+    }
+    let bytes = BASE64
+        .decode(input)
+        .map_err(|error| coded("NUIF_PACKAGE_BASE64_INVALID", error))?;
+    if bytes.len() > MAX_PACKAGE_BYTES {
+        return Err(format!(
+            "NUIF_PACKAGE_LIMIT_EXCEEDED: decoded package exceeds {MAX_PACKAGE_BYTES} bytes (observed {})",
+            bytes.len()
+        ));
+    }
+    Ok(bytes)
+}
+
+fn decode_capabilities(values: Vec<String>) -> Result<BTreeSet<String>, String> {
+    if values.len() > MAX_REQUIRED_CAPABILITIES {
+        return Err(format!(
+            "NUIF_CAPABILITY_SET_LIMIT_EXCEEDED: capability count exceeds {MAX_REQUIRED_CAPABILITIES} (observed {})",
+            values.len()
+        ));
+    }
+    if let Some(value) = values
+        .iter()
+        .find(|value| value.len() > MAX_CAPABILITY_BYTES || !is_identifier(value))
+    {
+        return Err(format!(
+            "NUIF_CAPABILITY_SET_INVALID: capability {value:?} is not a bounded identifier"
+        ));
+    }
+    let observed = values.len();
+    let capabilities = values.into_iter().collect::<BTreeSet<_>>();
+    if capabilities.len() != observed {
+        return Err(
+            "NUIF_CAPABILITY_SET_INVALID: duplicate capability declarations are not canonical"
+                .to_owned(),
+        );
+    }
+    Ok(capabilities)
+}
+
+const fn package_load_error_code(error: &EngineError) -> &'static str {
+    if matches!(
+        error,
+        EngineError::Package(PackageError::RequiredCapabilitiesUnavailable { .. })
+    ) {
+        "NUIF_PACKAGE_CAPABILITIES_UNAVAILABLE"
+    } else {
+        "NUIF_PACKAGE_DECODE_FAILED"
+    }
 }
 
 fn enforce_document_bytes(input: &str) -> Result<(), String> {
@@ -483,8 +618,9 @@ pub fn run_stdio() -> Result<(), Box<dyn std::error::Error>> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use nuif_codec::{CanonicalText, Encoder};
+    use nuif_codec::{CanonicalText, Decoder, Encoder};
     use nuif_core::{Document, Entity, EntityId, EntityKind};
+    use nuif_package::{NuifPackage, PackageMode};
     use tokio::io::AsyncReadExt;
 
     fn document_text() -> String {
@@ -493,6 +629,17 @@ mod tests {
         document.roots.push(root.id);
         document.entities.insert(root.id, root);
         String::from_utf8(CanonicalText.encode(&document).unwrap()).unwrap()
+    }
+
+    fn package_bytes(required_capability: Option<&str>) -> Vec<u8> {
+        let mut package = NuifPackage::new(
+            CanonicalText.decode(document_text().as_bytes()).unwrap(),
+            PackageMode::Portable,
+        );
+        if let Some(capability) = required_capability {
+            package.required_capabilities.insert(capability.to_owned());
+        }
+        package.encode().unwrap()
     }
 
     #[test]
@@ -568,6 +715,69 @@ mod tests {
                 .unwrap()
                 .starts_with("NUIF_PATCH_LIMIT_EXCEEDED:")
         );
+        assert!(
+            server
+                .snapshot_package(Parameters(PackageSnapshotInput {
+                    package_base64: "not base64".to_owned(),
+                    capabilities: Vec::new(),
+                    width: 10.0,
+                    height: 12.0,
+                }))
+                .err()
+                .unwrap()
+                .starts_with("NUIF_PACKAGE_BASE64_INVALID:")
+        );
+        assert!(
+            server
+                .snapshot_package(Parameters(PackageSnapshotInput {
+                    package_base64: BASE64.encode(package_bytes(None)),
+                    capabilities: vec!["feature.example".to_owned(); 2],
+                    width: 10.0,
+                    height: 12.0,
+                }))
+                .err()
+                .unwrap()
+                .starts_with("NUIF_CAPABILITY_SET_INVALID:")
+        );
+    }
+
+    #[test]
+    fn package_snapshot_requires_capability_and_matches_direct_api() {
+        let package = package_bytes(Some("feature.example"));
+        let server = NuifMcp::new();
+        let unavailable = server
+            .snapshot_package(Parameters(PackageSnapshotInput {
+                package_base64: BASE64.encode(&package),
+                capabilities: Vec::new(),
+                width: 10.0,
+                height: 12.0,
+            }))
+            .err()
+            .unwrap();
+        assert!(unavailable.starts_with("NUIF_PACKAGE_CAPABILITIES_UNAVAILABLE:"));
+
+        let supported = BTreeSet::from(["feature.example".to_owned()]);
+        let direct = NuifDocument::load_package_with_capabilities(&package, &supported)
+            .unwrap()
+            .snapshot(&profile_zero_context(10.0, 12.0))
+            .unwrap()
+            .report();
+        let mcp = server
+            .snapshot_package(Parameters(PackageSnapshotInput {
+                package_base64: BASE64.encode(&package),
+                capabilities: supported.into_iter().collect(),
+                width: 10.0,
+                height: 12.0,
+            }))
+            .unwrap()
+            .0;
+
+        assert_eq!(mcp.schema_version, direct.schema_version);
+        assert_eq!(mcp.status, direct.status);
+        assert_eq!(mcp.canonical_hash, direct.canonical_hash);
+        assert_eq!(mcp.layout, serde_json::to_value(direct.layout).unwrap());
+        assert_eq!(mcp.scene, serde_json::to_value(direct.scene).unwrap());
+        assert_eq!(mcp.raster, serde_json::to_value(direct.raster).unwrap());
     }
 
     #[tokio::test]

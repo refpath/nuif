@@ -2668,9 +2668,11 @@ dependencies = [
 name = "nuif-mcp"
 version = "0.0.1"
 dependencies = [
+ "base64",
  "nuif-api",
  "nuif-codec",
  "nuif-core",
+ "nuif-package",
  "nuif-protocol",
  "rmcp",
  "serde",

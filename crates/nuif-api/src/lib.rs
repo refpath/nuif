@@ -863,6 +863,48 @@ pub struct Snapshot {
     pub raster: RasterImage,
 }
 
+/// Transport-neutral, bounded snapshot evidence shared by process and language
+/// bindings. Raster bytes remain a separate binary artifact; their digest
+/// commits this report to the exact resolved pixels.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct SnapshotReport {
+    pub schema_version: u32,
+    pub status: String,
+    pub canonical_hash: String,
+    pub layout: LayoutSnapshot,
+    pub scene: RenderScene,
+    pub raster: RasterReport,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct RasterReport {
+    pub width: u32,
+    pub height: u32,
+    pub rgba_sha256: String,
+}
+
+impl Snapshot {
+    /// Projects one resolved snapshot into the common adapter report without
+    /// duplicating document, layout, render, fidelity, or hashing semantics.
+    #[must_use]
+    pub fn report(&self) -> SnapshotReport {
+        SnapshotReport {
+            schema_version: 1,
+            status: "passed".to_owned(),
+            canonical_hash: self.canonical_hash.clone(),
+            layout: self.layout.clone(),
+            scene: self.scene.clone(),
+            raster: RasterReport {
+                width: self.raster.width,
+                height: self.raster.height,
+                rgba_sha256: format!("{:x}", Sha256::digest(&self.raster.rgba)),
+            },
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1000,6 +1042,13 @@ mod tests {
         let snapshot = session.snapshot(&context).unwrap();
         assert_eq!(snapshot.raster.width, 20);
         assert_eq!(snapshot.raster.height, 24);
+        let report = snapshot.report();
+        assert_eq!(report.canonical_hash, snapshot.canonical_hash);
+        assert_eq!(report.layout, snapshot.layout);
+        assert_eq!(report.scene, snapshot.scene);
+        assert_eq!(report.raster.width, 20);
+        assert_eq!(report.raster.height, 24);
+        assert_eq!(report.raster.rgba_sha256.len(), 64);
     }
 
     #[test]

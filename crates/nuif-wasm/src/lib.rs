@@ -1,6 +1,6 @@
 #![doc = "Byte-oriented WebAssembly bindings over the authoritative NUIF core API."]
 
-use nuif_api::{DocumentEncoding, EngineError, NuifDocument};
+use nuif_api::{DocumentEncoding, EngineError, NuifDocument, profile_zero_context};
 use nuif_codec::MAX_INPUT_BYTES;
 use nuif_core::{Diagnostic, Severity, is_identifier};
 use nuif_package::{
@@ -157,6 +157,15 @@ impl CoreDocument {
             .map_err(|error| BindingError::new("NUIF_CANONICAL_HASH_FAILED", error.to_string()))
     }
 
+    fn snapshot_report(&self, width: f64, height: f64) -> Result<Vec<u8>, BindingError> {
+        let snapshot = self
+            .document
+            .snapshot(&profile_zero_context(width, height))
+            .map_err(|error| engine_binding_error(&error, "NUIF_SNAPSHOT_FAILED"))?;
+        serde_json::to_vec(&snapshot.report())
+            .map_err(|error| BindingError::new("NUIF_REPORT_ENCODE_FAILED", error.to_string()))
+    }
+
     fn apply_patch(&mut self, bytes: &[u8]) -> Result<String, BindingError> {
         let patch = decode_patch(bytes)?;
         self.document
@@ -298,6 +307,23 @@ impl WasmDocument {
         self.inner.export_package(mode).map_err(Into::into)
     }
 
+    /// Evaluates the loaded document or authorized package through the shared
+    /// layout/render runtime and returns the transport-neutral snapshot report.
+    ///
+    /// Raster bytes remain outside the JSON report; `rgba_sha256` commits the
+    /// report to the exact reference pixels.
+    ///
+    /// # Errors
+    ///
+    /// Throws for unauthorized package capabilities, invalid viewport values,
+    /// document errors, unresolved resources, or render failures.
+    #[wasm_bindgen(js_name = snapshotReport)]
+    pub fn snapshot_report(&self, width: f64, height: f64) -> Result<Vec<u8>, JsError> {
+        self.inner
+            .snapshot_report(width, height)
+            .map_err(Into::into)
+    }
+
     /// Reports exact required, supported-required and missing-required sets as
     /// JSON. A bare document returns JSON `null`.
     ///
@@ -403,7 +429,7 @@ pub fn capabilities() -> Result<Vec<u8>, JsError> {
         "encodings": ["nuif-text-0", "nuif-cbor-0"],
         "containers": ["nuif-text-0", "nuif-cbor-0", "nuif-package-0"],
         "package_modes": ["portable", "authoring"],
-        "operations": ["load", "load_package", "validate", "canonical_hash", "export", "export_package", "package_capability_report", "require_package_capabilities", "apply_patch", "undo", "redo"],
+        "operations": ["load", "load_package", "validate", "canonical_hash", "export", "export_package", "package_capability_report", "require_package_capabilities", "snapshot_report", "apply_patch", "undo", "redo"],
         "limits": {
             "document_bytes": MAX_INPUT_BYTES,
             "package_bytes": MAX_PACKAGE_BYTES,
@@ -628,7 +654,18 @@ mod tests {
                 ..
             })
         ));
+        assert!(matches!(
+            structural.snapshot_report(10.0, 12.0),
+            Err(BindingError {
+                code: "NUIF_PACKAGE_CAPABILITIES_REQUIRED",
+                ..
+            })
+        ));
         structural.require_package_capabilities(&required).unwrap();
+        let report: nuif_api::SnapshotReport =
+            serde_json::from_slice(&structural.snapshot_report(10.0, 12.0).unwrap()).unwrap();
+        assert_eq!(report.raster.width, 10);
+        assert_eq!(report.raster.height, 12);
         assert!(structural.apply_patch(&rename_patch(None)).is_ok());
         assert!(CoreDocument::load_package_with_capabilities(&bytes, &required).is_ok());
         assert!(CoreDocument::load_package_with_capabilities(&bytes, &BTreeSet::new()).is_err());

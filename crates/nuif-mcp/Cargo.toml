@@ -7,9 +7,11 @@ repository.workspace = true
 publish = false
 
 [dependencies]
+base64.workspace = true
 nuif-api = { version = "0.0.0", path = "../nuif-api" }
 nuif-codec = { version = "0.0.0", path = "../nuif-codec" }
 nuif-core = { version = "0.0.1", path = "../nuif-core" }
+nuif-package = { version = "0.0.1", path = "../nuif-package" }
 nuif-protocol = { version = "0.0.1", path = "../nuif-protocol" }
 rmcp.workspace = true
 serde.workspace = true
