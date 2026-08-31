@@ -226,6 +226,23 @@ experiments:
       - compare a partitioned operation-set merge with the complete checkpoint
       - reject nested entities, unknown parents/anchors and incomplete causal history before mutation
       - write and archive target/collaboration-creation-report.json
+  - id: nuif:experiment:crdt-causal-compaction
+    status: automated
+    evidence: [nuif:research:automerge-yjs, nuif:research:crdt-tree-move-operation, nuif:research:content-addressed-versioning]
+    implementation: [crates/nuif-collab/src/gc.rs, crates/nuif-collab/src/lib.rs, crates/nuif-collab/src/structural.rs, conformance/src/bin/collaboration-gc.rs, crates/nuif-collab/README.md, spec/10-collaboration-profile.md, xtask/src/main.rs]
+    oracle: deterministic-checkpoint-receipt
+    acceptance:
+      - a caller-attested frontier exactly matching local replica clocks compacts a complete history
+      - register and structural checkpoints retain identical canonical hashes and semantic documents
+      - receipts record source profile, source base, compacted hash, frontier and dropped change IDs
+      - canonical documents contain no collaboration metadata after compaction
+      - partial and ahead frontiers fail closed without implicit context or position-anchor rebasing
+    tests:
+      - compare operation-set and replica-log register compaction receipts
+      - compact an existing-tree structural history and compare its pre/post checkpoint
+      - exercise empty history and metadata absence
+      - reject partial and ahead frontiers with typed errors
+      - write and archive target/collaboration-gc-report.json
   - id: nuif:experiment:accessibility-mapping
     status: automated
     evidence: [nuif:research:accessibility-semantics]

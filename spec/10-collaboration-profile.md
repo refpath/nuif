@@ -104,5 +104,38 @@ checks merge convergence, same-anchor ordering, explicit ID-collision
 diagnostics, canonical metadata absence and typed failures for nested entities,
 unknown parents/anchors and incomplete causal history. This profile does not
 claim nested creation, deletion/resurrection, mixed property/structure
-transactions, causal garbage collection or an independently authored tree
-materializer.
+transactions or an independently authored tree materializer.
+
+## Causal-stability compaction profile 0
+
+`nuif-collab-gc-0` is an explicit, conservative history-collection profile. It
+does not infer stability from a local log and it never deletes canonical
+document data. A host supplies a `StabilityFrontier`, a replica-to-counter map
+attesting that every participant has observed the corresponding history. The
+frontier MUST exactly match every locally observed replica clock. A missing,
+behind or ahead counter is an unsafe-compaction error and MUST leave the
+operation set unchanged.
+
+When the frontier is exact, a register or existing-tree materializer may emit a
+`CompactionReceipt` and replace its complete operation history with the
+metadata-free canonical checkpoint it already materializes. The receipt records
+the source profile, source base hash, compacted checkpoint hash, frontier and
+every dropped change identifier. The checkpoint's canonical hash and semantic
+content MUST equal the pre-compaction checkpoint; replica IDs, clocks, conflict
+candidates, positions, tombstones and receipts MUST remain outside the
+canonical `Document`.
+
+Profile 0 intentionally supports complete-history checkpoint compaction only.
+It MUST NOT prune a stable prefix while retaining later changes, rebase causal
+contexts, or rewrite structural position anchors. Those operations require a
+versioned checkpoint-as-causal-base protocol and remain a future profile. A
+caller MUST retain or archive the receipt and checkpoint according to its sync
+and recovery policy; compaction is not an interoperability claim for arbitrary
+CRDT logs.
+
+`cargo xtask gate-h` runs the register operation-set and replica-log
+materializers plus the structural materializer through complete-history
+compaction. It checks exact checkpoint equivalence, complete dropped-history
+receipts, empty-history behavior, metadata absence and typed refusal of partial
+and ahead frontiers. The release report is
+`target/collaboration-gc-report.json`.

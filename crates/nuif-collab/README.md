@@ -97,5 +97,23 @@ creation below a concurrently created parent, deletion/resurrection and mixed
 property/structural transactions are rejected by the profile boundary. The
 four-change conformance fixture exhausts all 24 delivery orders, checks merge
 convergence and metadata absence, and exercises typed negative cases. This is
-an executable bounded profile, not a claim that general tree creation or
-causally stable garbage collection is solved.
+an executable bounded profile, not a claim that general tree creation is
+solved.
+
+## Causal-stability compaction profile 0
+
+`nuif-collab-gc-0` provides the first executable history-collection boundary.
+`gc::StabilityFrontier` is caller-attested and must exactly cover every
+locally observed replica clock. `OperationSetEngine`, `ReplicaLogEngine` and
+`StructuralOperationSetEngine` expose `compact_stable`; each validates the
+existing checkpoint first, then returns a `CompactionReceipt` alongside the
+unchanged canonical checkpoint. The receipt is the audit trail for the source
+base, compacted hash, frontier and dropped change IDs.
+
+The profile collects a complete history only. Partial pruning, causal-context
+rebasing, structural position-anchor rewriting and recovery from unseen remote
+changes are refused with `CollaborationError::UnsafeCompaction` and remain
+future protocol work. Compaction never mutates the canonical document or puts
+collaboration metadata into it. Gate H writes
+`target/collaboration-gc-report.json` and checks both successful and refused
+paths.

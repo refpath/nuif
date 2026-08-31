@@ -286,6 +286,15 @@ into the canonical document.
 
 The separate existing-tree experiment writes `target/collaboration-structure-report.json`, exhausts 5,040 deliveries of seven move/delete/cycle/stable-anchor changes through sorted-set and incremental rollback/replay materializers, requires one-parent/acyclic checkpoints plus explicit move, deletion, cycle and anchor conflicts, and runs a 4,096-change release scaling guard. `tools/automerge-oracle` uses pinned `@automerge/automerge` 3.4.1 to merge the seven immutable operation records in different orders and through save/load, writing `target/collaboration-automerge-report.json`. This is foreign transport evidence; Automerge does not provide the NUIF tree materializer. Both executable boundaries are specified in `crates/nuif-collab/README.md` and `spec/10-collaboration-profile.md`.
 
+The causal-stability experiment writes `target/collaboration-gc-report.json`.
+It exercises `nuif-collab-gc-0` over the register operation-set, replica-log and
+existing-tree materializers. A caller-attested `StabilityFrontier` must exactly
+match the locally observed clocks; a complete frontier produces a receipt and
+the same metadata-free canonical checkpoint, while empty, partial and ahead
+frontiers are checked explicitly. The profile does not attempt partial history
+pruning or causal-context/position-anchor rebasing. This keeps collection
+safe until a versioned checkpoint-as-causal-base protocol is specified.
+
 The capture/reconstruction contract experiment writes
 `target/capture-reconstruction-report.json`. `cargo xtask capture-baselines`
 uses fixed browser-provider and strict PNG inputs to exercise repeatability,
