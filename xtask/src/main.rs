@@ -221,6 +221,7 @@ fn run() -> Result<(), String> {
         Some("mcp-package") => mcp_package(),
         Some("cli-package") => cli_package(),
         Some("ffi-package") => ffi_package(),
+        Some("conformance-kit") => conformance_kit(),
         Some("gate-g") => gate_g(),
         Some("gate-h") => gate_h(),
         Some("gate-i-package") => gate_i_package(),
@@ -264,7 +265,7 @@ fn run() -> Result<(), String> {
         Some("manifest") => standalone_manifest(),
         Some("all") => all(),
         _ => Err(
-            "usage: cargo xtask <research|workflow-audit|adapter-audit|dependency-audit|diagnostic-audit|docs-check|docs-build|docs-paper|docs-serve|docs-setup|verify|trial [seed iterations snapshot-interval report-path]|gate-b|gate-c|gate-d|gate-d-text|gate-d-render|gate-f|gate-f-v0|gate-svg|gate-dtcg|gate-penpot|gate-react|gate-svelte|gate-figma|gate-canva|gate-behavior|gate-behavior-package|gate-web-behavior|gate-web-hosts|gate-wasm|gate-mcp|gate-ffi|gate-g|gate-h|gate-i-package|gate-i-image|gate-i-font|gate-j-live|gate-accessibility|capture-baselines|reconstruction-provider-manifest|reconstruction-corpus-audit|reconstruction-evaluation|confidence-calibration|browser-install|wasm-install|wasm-package|mcp-package|cli-package|ffi-package|hostile-inputs|reduction-profile|editor-hostile-inputs|fuzz-smoke|codec-benchmark|performance|editor-trial|editor-gui-trial|editor-install-trial|editor-package|editor-launch|editor-install|editor-doctor|editor-rollback|editor-uninstall|editor-update|release-check <tag>|manifest|all>"
+            "usage: cargo xtask <research|workflow-audit|adapter-audit|dependency-audit|diagnostic-audit|docs-check|docs-build|docs-paper|docs-serve|docs-setup|verify|trial [seed iterations snapshot-interval report-path]|gate-b|gate-c|gate-d|gate-d-text|gate-d-render|gate-f|gate-f-v0|gate-svg|gate-dtcg|gate-penpot|gate-react|gate-svelte|gate-figma|gate-canva|gate-behavior|gate-behavior-package|gate-web-behavior|gate-web-hosts|gate-wasm|gate-mcp|gate-ffi|gate-g|gate-h|gate-i-package|gate-i-image|gate-i-font|gate-j-live|gate-accessibility|capture-baselines|reconstruction-provider-manifest|reconstruction-corpus-audit|reconstruction-evaluation|confidence-calibration|browser-install|wasm-install|wasm-package|mcp-package|cli-package|ffi-package|conformance-kit|hostile-inputs|reduction-profile|editor-hostile-inputs|fuzz-smoke|codec-benchmark|performance|editor-trial|editor-gui-trial|editor-install-trial|editor-package|editor-launch|editor-install|editor-doctor|editor-rollback|editor-uninstall|editor-update|release-check <tag>|manifest|all>"
                 .to_owned(),
         ),
     }
@@ -1709,6 +1710,200 @@ fn ffi_package() -> Result<(), String> {
     .map_err(|error| error.to_string())?;
     println!("packaged experimental C ABI: {}", archive.display());
     Ok(())
+}
+
+fn conformance_kit() -> Result<(), String> {
+    let version = editor_version()?;
+    verify_kit_reports()?;
+    let package_name = format!("nuif-conformance-kit-{version}");
+    let dist = Path::new("target/dist");
+    let package_root = dist.join(&package_name);
+    if package_root.exists() {
+        fs::remove_dir_all(&package_root).map_err(|error| error.to_string())?;
+    }
+    fs::create_dir_all(&package_root).map_err(|error| error.to_string())?;
+    copy_kit_sources(&package_root)?;
+    copy_kit_reports(&package_root)?;
+
+    let source_revision = command_text("git", &["rev-parse", "HEAD"])
+        .ok_or("could not read the conformance-kit source revision")?;
+    let source_dirty = command_text("git", &["status", "--porcelain"])
+        .ok_or("could not inspect the conformance-kit source tree")?;
+    if !source_dirty.is_empty() {
+        return Err("conformance kit requires a clean source tree".to_owned());
+    }
+    let files = kit_file_manifest(&package_root)?;
+    let manifest = serde_json::json!({
+        "schema_version": 1,
+        "status": "passed",
+        "name": "nuif-conformance-kit",
+        "version": version,
+        "profile": "nuif-conformance-kit-0",
+        "source_revision": source_revision,
+        "source_dirty": false,
+        "files": files,
+        "scope": {
+            "specification": "nuif-v0-profile-0",
+            "independent_reproduction": "python-standard-library",
+            "certification": "not-claimed"
+        },
+        "publication": "github-release-developer-artifact"
+    });
+    write_kit_manifest(&package_root, &manifest)?;
+    let archive = create_editor_archive(dist, &package_root, &package_name)?;
+    let archive_bytes = fs::read(&archive).map_err(|error| error.to_string())?;
+    let mut release_manifest = manifest;
+    release_manifest["archive"] = serde_json::json!({
+        "name": archive.file_name().and_then(|name| name.to_str()),
+        "bytes": archive_bytes.len(),
+        "sha256": format!("{:x}", Sha256::digest(&archive_bytes))
+    });
+    fs::write(
+        dist.join(format!("{package_name}.manifest.json")),
+        serde_json::to_vec_pretty(&release_manifest).map_err(|error| error.to_string())?,
+    )
+    .map_err(|error| error.to_string())?;
+    println!("packaged conformance kit: {}", archive.display());
+    Ok(())
+}
+
+fn verify_kit_reports() -> Result<(), String> {
+    for path in [
+        "target/gate-g-report.json",
+        "target/package-resources-report.json",
+        "target/adapter-coverage-report.json",
+    ] {
+        let report = read_json(Path::new(path))?;
+        if report["status"] != "passed" {
+            return Err(format!("conformance evidence report is not passed: {path}"));
+        }
+    }
+    Ok(())
+}
+
+fn copy_kit_sources(package_root: &Path) -> Result<(), String> {
+    for (source, relative) in [
+        ("spec", "spec"),
+        ("adapters", "adapters"),
+        ("conformance", "conformance"),
+        ("implementations/python", "implementations/python"),
+        ("docs/schema", "docs/schema"),
+    ] {
+        copy_kit_tree(Path::new(source), &package_root.join(relative))?;
+    }
+    for source in ["README.md", "LICENSE-APACHE", "LICENSE-MIT", "CITATION.cff"] {
+        fs::copy(source, package_root.join(source)).map_err(|error| error.to_string())?;
+    }
+    Ok(())
+}
+
+fn copy_kit_reports(package_root: &Path) -> Result<(), String> {
+    let reports = package_root.join("reports");
+    fs::create_dir_all(&reports).map_err(|error| error.to_string())?;
+    for source in [
+        "gate-g-report.json",
+        "package-resources-report.json",
+        "adapter-coverage-report.json",
+    ] {
+        fs::copy(Path::new("target").join(source), reports.join(source))
+            .map_err(|error| error.to_string())?;
+    }
+    Ok(())
+}
+
+fn copy_kit_tree(source: &Path, destination: &Path) -> Result<(), String> {
+    let file_type = fs::symlink_metadata(source)
+        .map_err(|error| format!("could not inspect kit source {}: {error}", source.display()))?
+        .file_type();
+    if file_type.is_symlink() {
+        return Err(format!(
+            "symlink is not allowed in conformance kit: {}",
+            source.display()
+        ));
+    }
+    if file_type.is_file() {
+        if let Some(parent) = destination.parent() {
+            fs::create_dir_all(parent).map_err(|error| error.to_string())?;
+        }
+        fs::copy(source, destination).map_err(|error| error.to_string())?;
+        return Ok(());
+    }
+    if !file_type.is_dir() {
+        return Err(format!(
+            "unsupported conformance kit source: {}",
+            source.display()
+        ));
+    }
+    if source
+        .file_name()
+        .is_some_and(|name| matches!(name.to_str(), Some("node_modules" | "target")))
+    {
+        return Ok(());
+    }
+    fs::create_dir_all(destination).map_err(|error| error.to_string())?;
+    let mut entries = fs::read_dir(source)
+        .map_err(|error| error.to_string())?
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|error| error.to_string())?;
+    entries.sort_by_key(std::fs::DirEntry::file_name);
+    for entry in entries {
+        copy_kit_tree(&entry.path(), &destination.join(entry.file_name()))?;
+    }
+    Ok(())
+}
+
+fn kit_file_manifest(root: &Path) -> Result<Vec<serde_json::Value>, String> {
+    let mut paths = Vec::new();
+    collect_kit_files(root, root, &mut paths)?;
+    paths.sort();
+    paths
+        .into_iter()
+        .map(|relative| {
+            let path = root.join(&relative);
+            let bytes = fs::read(&path).map_err(|error| error.to_string())?;
+            Ok(serde_json::json!({
+                "name": relative,
+                "bytes": bytes.len(),
+                "sha256": format!("{:x}", Sha256::digest(bytes))
+            }))
+        })
+        .collect()
+}
+
+fn collect_kit_files(root: &Path, directory: &Path, paths: &mut Vec<String>) -> Result<(), String> {
+    let mut entries = fs::read_dir(directory)
+        .map_err(|error| error.to_string())?
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|error| error.to_string())?;
+    entries.sort_by_key(std::fs::DirEntry::file_name);
+    for entry in entries {
+        let path = entry.path();
+        let file_type = entry.file_type().map_err(|error| error.to_string())?;
+        if file_type.is_dir() {
+            collect_kit_files(root, &path, paths)?;
+        } else if file_type.is_file() {
+            let relative = path
+                .strip_prefix(root)
+                .map_err(|error| error.to_string())?
+                .to_str()
+                .ok_or_else(|| format!("kit path is not UTF-8: {}", path.display()))?;
+            paths.push(relative.replace(std::path::MAIN_SEPARATOR, "/"));
+        } else {
+            return Err(format!(
+                "unsupported generated kit entry: {}",
+                path.display()
+            ));
+        }
+    }
+    Ok(())
+}
+
+fn write_kit_manifest(package_root: &Path, manifest: &serde_json::Value) -> Result<(), String> {
+    fs::write(
+        package_root.join("manifest.json"),
+        serde_json::to_vec_pretty(manifest).map_err(|error| error.to_string())?,
+    )
+    .map_err(|error| error.to_string())
 }
 
 fn copy_ffi_libraries(release: &Path, destination_root: &Path) -> Result<Vec<PathBuf>, String> {
