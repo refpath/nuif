@@ -90,7 +90,7 @@ impl ConfidenceEvaluationConfig {
             || !self.calibrator_artifact.is_valid()
             || !self.evaluator_artifact.is_valid()
             || self.bins == 0
-            || self.bins as usize > MAX_CONFIDENCE_BINS
+            || usize::try_from(self.bins).unwrap_or(usize::MAX) > MAX_CONFIDENCE_BINS
             || !probability(self.automatic_risk_limit)
             || !probability(self.review_risk_limit)
             || self.automatic_risk_limit > self.review_risk_limit
@@ -169,9 +169,9 @@ impl ConfidenceScoreSummary {
             .iter()
             .filter(|bin| bin.samples != 0)
             .map(|bin| {
-                let count = bin.samples as f64;
-                (count / samples as f64)
-                    * (bin.confidence_sum / count - bin.correct as f64 / count).abs()
+                let count = bounded_u64_f64(bin.samples);
+                (count / bounded_u64_f64(samples))
+                    * (bin.confidence_sum / count - bounded_u64_f64(bin.correct) / count).abs()
             })
             .sum::<f64>();
         let risk_coverage = risk_coverage(cases, calibrated);
@@ -180,15 +180,15 @@ impl ConfidenceScoreSummary {
             .scan(0_u64, |previous, point| {
                 let added = point.selected - *previous;
                 *previous = point.selected;
-                Some(point.risk * added as f64 / samples as f64)
+                Some(point.risk * bounded_u64_f64(added) / bounded_u64_f64(samples))
             })
             .sum();
         let summary = Self {
             samples,
             correct,
-            accuracy: correct as f64 / samples as f64,
+            accuracy: bounded_u64_f64(correct) / bounded_u64_f64(samples),
             brier_error_sum,
-            brier_score: brier_error_sum / samples as f64,
+            brier_score: brier_error_sum / bounded_u64_f64(samples),
             expected_calibration_error,
             reliability,
             risk_coverage,
@@ -202,9 +202,9 @@ impl ConfidenceScoreSummary {
         if self.samples == 0
             || self.samples > MAX_CONFIDENCE_CASES as u64
             || self.correct > self.samples
-            || self.reliability.len() != bins as usize
+            || self.reliability.len() != usize::try_from(bins).unwrap_or(usize::MAX)
             || self.risk_coverage.is_empty()
-            || self.risk_coverage.len() > self.samples as usize
+            || u64::try_from(self.risk_coverage.len()).unwrap_or(u64::MAX) > self.samples
             || !probability(self.accuracy)
             || !probability(self.brier_score)
             || !probability(self.expected_calibration_error)
@@ -219,14 +219,20 @@ impl ConfidenceScoreSummary {
         if reliability_samples != self.samples
             || reliability_correct != self.correct
             || self.reliability.iter().enumerate().any(|(index, bin)| {
-                bin.index as usize != index
+                usize::try_from(bin.index).unwrap_or(usize::MAX) != index
                     || bin.correct > bin.samples
                     || !bin.confidence_sum.is_finite()
                     || bin.confidence_sum < 0.0
-                    || bin.confidence_sum > bin.samples as f64
+                    || bin.confidence_sum > bounded_u64_f64(bin.samples)
             })
-            || !same(self.accuracy, self.correct as f64 / self.samples as f64)
-            || !same(self.brier_score, self.brier_error_sum / self.samples as f64)
+            || !same(
+                self.accuracy,
+                bounded_u64_f64(self.correct) / bounded_u64_f64(self.samples),
+            )
+            || !same(
+                self.brier_score,
+                self.brier_error_sum / bounded_u64_f64(self.samples),
+            )
         {
             return Err(ConfidenceEvaluationError::InvalidReport);
         }
@@ -235,9 +241,9 @@ impl ConfidenceScoreSummary {
             .iter()
             .filter(|bin| bin.samples != 0)
             .map(|bin| {
-                let count = bin.samples as f64;
-                (count / self.samples as f64)
-                    * (bin.confidence_sum / count - bin.correct as f64 / count).abs()
+                let count = bounded_u64_f64(bin.samples);
+                (count / bounded_u64_f64(self.samples))
+                    * (bin.confidence_sum / count - bounded_u64_f64(bin.correct) / count).abs()
             })
             .sum::<f64>();
         if !same(ece, self.expected_calibration_error) {
@@ -254,12 +260,19 @@ impl ConfidenceScoreSummary {
                 || point.selected > self.samples
                 || point.errors < previous_errors
                 || point.errors > point.selected
-                || !same(point.coverage, point.selected as f64 / self.samples as f64)
-                || !same(point.risk, point.errors as f64 / point.selected as f64)
+                || !same(
+                    point.coverage,
+                    bounded_u64_f64(point.selected) / bounded_u64_f64(self.samples),
+                )
+                || !same(
+                    point.risk,
+                    bounded_u64_f64(point.errors) / bounded_u64_f64(point.selected),
+                )
             {
                 return Err(ConfidenceEvaluationError::InvalidReport);
             }
-            aurc += point.risk * (point.selected - previous_selected) as f64 / self.samples as f64;
+            aurc += point.risk * bounded_u64_f64(point.selected - previous_selected)
+                / bounded_u64_f64(self.samples);
             previous_selected = point.selected;
             previous_errors = point.errors;
             previous_threshold = point.threshold;
@@ -301,10 +314,16 @@ impl SelectionOutcome {
             || self.risk.is_some_and(|value| !probability(value))
             || self.threshold.is_some() != (self.selected != 0)
             || self.risk.is_some() != (self.selected != 0)
-            || !same(self.coverage, self.selected as f64 / samples as f64)
-            || self
-                .risk
-                .is_some_and(|risk| !same(risk, self.errors as f64 / self.selected as f64))
+            || !same(
+                self.coverage,
+                bounded_u64_f64(self.selected) / bounded_u64_f64(samples),
+            )
+            || self.risk.is_some_and(|risk| {
+                !same(
+                    risk,
+                    bounded_u64_f64(self.errors) / bounded_u64_f64(self.selected),
+                )
+            })
         {
             Err(ConfidenceEvaluationError::InvalidReport)
         } else {
@@ -331,7 +350,7 @@ impl SelectivePolicy {
             review_or_better = automatic;
         }
         Self {
-            calibration_samples: cases.len() as u64,
+            calibration_samples: u64::try_from(cases.len()).unwrap_or(u64::MAX),
             automatic_risk_limit: automatic_limit,
             review_risk_limit: review_limit,
             automatic,
@@ -588,10 +607,11 @@ fn validate_cases(cases: &[ConfidenceCase]) -> Result<(), ConfidenceEvaluationEr
             .map(|case| (case.raw_confidence, case.calibrated_confidence))
             .collect::<Vec<_>>();
         mapping.sort_by(|left, right| left.0.total_cmp(&right.0));
-        if mapping
-            .windows(2)
-            .any(|pair| (pair[0].0 == pair[1].0 && pair[0].1 != pair[1].1) || pair[0].1 > pair[1].1)
-        {
+        if mapping.windows(2).any(|pair| {
+            (pair[0].0.to_bits() == pair[1].0.to_bits()
+                && pair[0].1.to_bits() != pair[1].1.to_bits())
+                || pair[0].1 > pair[1].1
+        }) {
             return Err(ConfidenceEvaluationError::NonMonotonicCalibration);
         }
     }
@@ -609,7 +629,9 @@ fn risk_coverage(cases: &[&ConfidenceCase], calibrated: bool) -> Vec<RiskCoverag
     let mut index = 0;
     while index < ordered.len() {
         let threshold = case_confidence(ordered[index], calibrated);
-        while index < ordered.len() && case_confidence(ordered[index], calibrated) == threshold {
+        while index < ordered.len()
+            && case_confidence(ordered[index], calibrated).to_bits() == threshold.to_bits()
+        {
             selected += 1;
             errors += u64::from(!ordered[index].correct);
             index += 1;
@@ -618,8 +640,8 @@ fn risk_coverage(cases: &[&ConfidenceCase], calibrated: bool) -> Vec<RiskCoverag
             threshold,
             selected,
             errors,
-            coverage: selected as f64 / ordered.len() as f64,
-            risk: errors as f64 / selected as f64,
+            coverage: bounded_u64_f64(selected) / bounded_usize_f64(ordered.len()),
+            risk: bounded_u64_f64(errors) / bounded_u64_f64(selected),
         });
     }
     points
@@ -648,7 +670,7 @@ fn policy_outcome(cases: &[&ConfidenceCase], policy: &SelectivePolicy) -> Policy
         samples: cases.len() as u64,
         automatic,
         review_or_better,
-        always_answer_risk: errors as f64 / cases.len() as f64,
+        always_answer_risk: bounded_u64_f64(errors) / bounded_usize_f64(cases.len()),
     }
 }
 
@@ -668,13 +690,22 @@ fn apply_threshold(cases: &[&ConfidenceCase], threshold: Option<f64>) -> Selecti
         threshold: Some(threshold),
         selected: selected.len() as u64,
         errors,
-        coverage: selected.len() as f64 / cases.len() as f64,
-        risk: Some(errors as f64 / selected.len() as f64),
+        coverage: bounded_usize_f64(selected.len()) / bounded_usize_f64(cases.len()),
+        risk: Some(bounded_u64_f64(errors) / bounded_usize_f64(selected.len())),
     }
 }
 
 fn confidence_bin(confidence: f64, bins: u32) -> usize {
-    ((confidence * bins as f64).floor() as usize).min(bins as usize - 1)
+    let bins = usize::try_from(bins).unwrap_or(usize::MAX);
+    if confidence >= 1.0 {
+        return bins - 1;
+    }
+    for boundary in 1..bins {
+        if confidence * bounded_usize_f64(boundary) < 1.0 {
+            return boundary - 1;
+        }
+    }
+    bins - 1
 }
 
 fn case_confidence(case: &ConfidenceCase, calibrated: bool) -> f64 {
@@ -691,6 +722,14 @@ fn probability(value: f64) -> bool {
 
 fn negative_zero(value: f64) -> bool {
     value.to_bits() == (-0.0_f64).to_bits()
+}
+
+fn bounded_u64_f64(value: u64) -> f64 {
+    u32::try_from(value).map_or(f64::INFINITY, f64::from)
+}
+
+fn bounded_usize_f64(value: usize) -> f64 {
+    u32::try_from(value).map_or(f64::INFINITY, f64::from)
 }
 
 fn same(left: f64, right: f64) -> bool {

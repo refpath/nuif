@@ -25,7 +25,13 @@ fn run() -> Result<(), String> {
     let bytes = serde_json::to_vec(&report).map_err(|error| error.to_string())?;
     let decoded: ConfidenceEvaluationReport =
         serde_json::from_slice(&bytes).map_err(|error| error.to_string())?;
-    let round_trip = decoded.validate().is_ok() && decoded == report;
+    let reencoded = serde_json::to_vec(&decoded).map_err(|error| error.to_string())?;
+    let decoded_valid = decoded.validate().is_ok();
+    let original_value: Value =
+        serde_json::from_slice(&bytes).map_err(|error| error.to_string())?;
+    let reencoded_value: Value =
+        serde_json::from_slice(&reencoded).map_err(|error| error.to_string())?;
+    let round_trip = decoded_valid && original_value == reencoded_value;
     let decisions = report.decisions.len();
     let shifted_conditions = report
         .decisions
