@@ -111,111 +111,132 @@ fn config() -> ConfidenceEvaluationConfig {
 }
 
 fn cases() -> Vec<ConfidenceCase> {
-    let mut cases = Vec::new();
-    for (decision, prefix) in [
+    [
         (DecisionKind::Text, "text"),
         (DecisionKind::Geometry, "geometry"),
-    ] {
-        cases.extend([
-            case(
-                prefix,
-                "cal-1",
-                ConfidencePartition::Calibration,
-                0.2,
-                0.25,
-                false,
-                decision,
-                DistributionCondition::InDistribution,
-            ),
-            case(
-                prefix,
-                "cal-2",
-                ConfidencePartition::Calibration,
-                0.4,
-                0.45,
-                true,
-                decision,
-                DistributionCondition::InDistribution,
-            ),
-            case(
-                prefix,
-                "cal-3",
-                ConfidencePartition::Calibration,
-                0.7,
-                0.75,
-                true,
-                decision,
-                DistributionCondition::InDistribution,
-            ),
-            case(
-                prefix,
-                "cal-4",
-                ConfidencePartition::Calibration,
-                0.9,
-                0.9,
-                true,
-                decision,
-                DistributionCondition::InDistribution,
-            ),
-            case(
-                prefix,
-                "test-1",
-                ConfidencePartition::Test,
-                0.15,
-                0.2,
-                false,
-                decision,
-                DistributionCondition::InDistribution,
-            ),
-            case(
-                prefix,
-                "test-2",
-                ConfidencePartition::Test,
-                0.5,
-                0.55,
-                true,
-                decision,
-                DistributionCondition::InDistribution,
-            ),
-            case(
-                prefix,
-                "test-3",
-                ConfidencePartition::Test,
-                0.85,
-                0.88,
-                true,
-                decision,
-                DistributionCondition::InDistribution,
-            ),
-            case(
-                prefix,
-                "shift-1",
-                ConfidencePartition::Test,
-                0.3,
-                0.35,
-                false,
-                decision,
-                DistributionCondition::Shifted {
-                    axis: ShiftAxis::Font,
-                    label: "unseen-font".to_owned(),
-                },
-            ),
-            case(
-                prefix,
-                "shift-2",
-                ConfidencePartition::Test,
-                0.6,
-                0.65,
-                true,
-                decision,
-                DistributionCondition::Shifted {
-                    axis: ShiftAxis::Font,
-                    label: "unseen-font".to_owned(),
-                },
-            ),
-        ]);
-    }
+    ]
+    .into_iter()
+    .flat_map(|(decision, prefix)| cases_for(decision, prefix))
+    .collect()
+}
+
+fn cases_for(decision: DecisionKind, prefix: &str) -> Vec<ConfidenceCase> {
+    let mut cases = calibration_cases(decision, prefix);
+    cases.extend(in_distribution_test_cases(decision, prefix));
+    cases.extend(shifted_test_cases(decision, prefix));
     cases
+}
+
+fn calibration_cases(decision: DecisionKind, prefix: &str) -> Vec<ConfidenceCase> {
+    vec![
+        case(
+            prefix,
+            "cal-1",
+            ConfidencePartition::Calibration,
+            0.2,
+            0.25,
+            false,
+            decision,
+            DistributionCondition::InDistribution,
+        ),
+        case(
+            prefix,
+            "cal-2",
+            ConfidencePartition::Calibration,
+            0.4,
+            0.45,
+            true,
+            decision,
+            DistributionCondition::InDistribution,
+        ),
+        case(
+            prefix,
+            "cal-3",
+            ConfidencePartition::Calibration,
+            0.7,
+            0.75,
+            true,
+            decision,
+            DistributionCondition::InDistribution,
+        ),
+        case(
+            prefix,
+            "cal-4",
+            ConfidencePartition::Calibration,
+            0.9,
+            0.9,
+            true,
+            decision,
+            DistributionCondition::InDistribution,
+        ),
+    ]
+}
+
+fn in_distribution_test_cases(decision: DecisionKind, prefix: &str) -> Vec<ConfidenceCase> {
+    vec![
+        case(
+            prefix,
+            "test-1",
+            ConfidencePartition::Test,
+            0.15,
+            0.2,
+            false,
+            decision,
+            DistributionCondition::InDistribution,
+        ),
+        case(
+            prefix,
+            "test-2",
+            ConfidencePartition::Test,
+            0.5,
+            0.55,
+            true,
+            decision,
+            DistributionCondition::InDistribution,
+        ),
+        case(
+            prefix,
+            "test-3",
+            ConfidencePartition::Test,
+            0.85,
+            0.88,
+            true,
+            decision,
+            DistributionCondition::InDistribution,
+        ),
+    ]
+}
+
+fn shifted_test_cases(decision: DecisionKind, prefix: &str) -> Vec<ConfidenceCase> {
+    vec![
+        case(
+            prefix,
+            "shift-1",
+            ConfidencePartition::Test,
+            0.3,
+            0.35,
+            false,
+            decision,
+            shifted_font_condition(),
+        ),
+        case(
+            prefix,
+            "shift-2",
+            ConfidencePartition::Test,
+            0.6,
+            0.65,
+            true,
+            decision,
+            shifted_font_condition(),
+        ),
+    ]
+}
+
+fn shifted_font_condition() -> DistributionCondition {
+    DistributionCondition::Shifted {
+        axis: ShiftAxis::Font,
+        label: "unseen-font".to_owned(),
+    }
 }
 
 #[allow(clippy::too_many_arguments)]
