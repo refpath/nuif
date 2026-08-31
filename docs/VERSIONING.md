@@ -41,6 +41,13 @@ and source evidence are recorded in ADR 0007 and
 6. The publication job writes checksums and a combined release manifest,
    creates a draft release, uploads all assets, and publishes the prerelease.
 
+Every push and pull request also builds the WASM, MCP, CLI and experimental FFI
+archives on pinned Ubuntu 24.04 x86-64 and retains them together as the
+`developer-packages-linux-x86_64` workflow artifact. This is a package-command
+regression gate and an ephemeral developer download, not a release: it has no
+tag, release index, cross-host matrix, attestation or publisher signature.
+Durable distribution continues to use the reviewed tag workflow above.
+
 The workflow can be rerun manually for an existing unpublished tag. It refuses
 to replace a published release. GitHub's immutable-release setting is compatible
 with the draft-attach-publish sequence but remains a user-managed repository

@@ -76,6 +76,26 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y libfontconfig1-dev
       - name: Complete automated research and conformance loop
         run: cargo xtask all
+      - name: Build Linux developer packages
+        run: |
+          cargo xtask wasm-package
+          cargo xtask mcp-package
+          cargo xtask cli-package
+          cargo xtask ffi-package
+      - name: Upload Linux developer packages
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: developer-packages-linux-x86_64
+          if-no-files-found: error
+          path: |
+            target/dist/nuif-wasm-*.tar.gz
+            target/dist/nuif-wasm-*.binding.json
+            target/dist/nuif-mcp-*.tar.gz
+            target/dist/nuif-mcp-*.manifest.json
+            target/dist/nuif-cli-*.tar.gz
+            target/dist/nuif-cli-*.manifest.json
+            target/dist/nuif-ffi-*.tar.gz
+            target/dist/nuif-ffi-*.manifest.json
       - name: Build external conformance kit
         run: cargo xtask conformance-kit
       - name: Upload external conformance kit
