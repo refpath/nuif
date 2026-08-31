@@ -135,6 +135,7 @@ const VERIFICATION_ARTIFACTS: &[&str] = &[
     "target/gate-g-independent",
     "target/collaboration-report.json",
     "target/collaboration-structure-report.json",
+    "target/collaboration-tree-foreign-report.json",
     "target/collaboration-creation-report.json",
     "target/collaboration-nested-creation-report.json",
     "target/collaboration-nested-creation-v1-report.json",
@@ -2801,6 +2802,14 @@ fn gate_h() -> Result<(), String> {
         "collaboration-structure",
         "target/collaboration-structure-report.json",
         Some("target/collaboration-automerge-input.json"),
+    )?;
+    command(
+        "python3",
+        &[
+            "implementations/python/nuif_tree_materializer.py",
+            "target/collaboration-automerge-input.json",
+            "target/collaboration-tree-foreign-report.json",
+        ],
     )?;
     gate_h_conformance(
         "collaboration-creation",

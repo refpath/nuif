@@ -12,4 +12,12 @@ Run its local unit tests with:
 python3 -m unittest discover -s implementations/python/tests -p 'test_*.py'
 ```
 
+The same standard-library boundary now includes `nuif_tree_materializer.py`.
+It independently replays the bounded structural profile's parent, sibling
+order, stable-anchor, cycle-rejection, and replay-conflict decisions from the
+Gate H fixture. It compares a structural projection (roots, children, active
+positions, and replay conflicts) with the Rust checkpoint. It intentionally
+does not decode canonical CBOR, recompute the canonical hash, or reimplement
+the higher-level concurrent semantic-conflict classifier.
+
 The complete cross-implementation run is exposed through `cargo xtask gate-g`.

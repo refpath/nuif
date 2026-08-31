@@ -87,9 +87,11 @@ and the register-only causal-prefix falsifier covers a causally closed dropped
 prefix, retained suffix replay and typed refusal of unsafe concurrent pruning.
 The nested-creation falsifier covers causal parent chains; its separately
 versioned arbitrary-anchor extension is complete under a 24-delivery causal
-sibling-chain acceptance. The next collaboration falsifiers are structural
-partial garbage collection and a foreign materializer of the tree algorithm
-itself.
+sibling-chain acceptance. The structural projection now has a foreign
+standard-library replay oracle; its explicit non-claims are canonical CBOR
+hashing and semantic-conflict classification. The next collaboration
+falsifier is structural partial garbage collection with a versioned
+position/checkpoint protocol.
 The separately versioned mixed property/structure profile is complete under
 its 24-delivery causal operation-set acceptance; creation, deletion and
 multi-operation-dot boundaries remain explicit.
@@ -147,8 +149,9 @@ from that loop rather than a standing implementation commitment.
 3. Extend the bounded collaboration profiles only where a versioned causal
 base can be proven: the register-only prefix profile is complete, while
 structural anchor rebasing, concurrent stable-versus-retained conflicts and
-frontier inference require new falsifiers. Obtain a foreign tree materializer
-rather than treating the completed Automerge transport oracle as one.
+frontier inference require new falsifiers. The foreign tree materializer is
+now an executable bounded oracle; do not expand structural partial collection
+until its checkpoint/position contract is versioned and independently tested.
 4. Keep the implemented fixed/`fr`, sparse-flow, explicit-placement Grid subset
    exact; intrinsic, percentage, named, repeated, implicit, subgrid and masonry
    tracks require a separately versioned schema and foreign-oracle matrix.

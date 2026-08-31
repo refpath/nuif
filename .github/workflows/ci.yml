@@ -350,6 +350,7 @@ jobs:
           path: |
             target/collaboration-report.json
             target/collaboration-structure-report.json
+            target/collaboration-tree-foreign-report.json
             target/collaboration-creation-report.json
             target/collaboration-nested-creation-report.json
             target/collaboration-nested-creation-v1-report.json

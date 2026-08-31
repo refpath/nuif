@@ -77,10 +77,13 @@ Pinned `@automerge/automerge` 3.4.1 independently merges immutable structural
 change records forward, reverse and in a different partition order, then
 checks duplicate merge and save/load. Automerge is the foreign convergent
 transport oracle only: it does not implement NUIF's tree move, cycle, trash or
-semantic-conflict rules. Concurrent creation, partial causal garbage
-collection, combined property/structure transactions and an independently
-authored tree materializer remain outside this profile; complete-history
-compaction is specified separately below.
+semantic-conflict rules. The standard-library-only
+`implementations/python/nuif_tree_materializer.py` is a separate foreign
+replay oracle for the bounded parent/order/anchor projection and active
+positions. It does not decode canonical CBOR, recompute hashes or classify
+higher-level semantic conflicts. Concurrent creation, partial causal garbage
+collection and combined property/structure transactions remain outside this
+profile; complete-history compaction is specified separately below.
 
 ## Concurrent creation profile 0
 

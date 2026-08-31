@@ -81,6 +81,15 @@ the exact immutable operation set through different merge orders and
 save/load. That foreign check covers convergent transport only; it is not an
 independent implementation of these tree semantics.
 
+Gate H also runs `implementations/python/nuif_tree_materializer.py`, a
+standard-library-only replay oracle over the same base document and immutable
+changes. It independently computes parent transitions, stable sibling order,
+cycle rejection, unavailable/self anchors, reachable pruning and active
+position projection, then compares those results with the Rust checkpoint.
+This is a foreign tree-materializer check, not a second canonical NUIF codec:
+the oracle does not decode CBOR, recompute the canonical hash or classify the
+higher-level concurrent semantic-conflict families.
+
 ## Executable concurrent-creation profile 0
 
 `nuif-collab-tree-create-0` is a separate bounded profile for concurrent

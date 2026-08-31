@@ -575,6 +575,20 @@ fn write_oracle_input(
             "profile": nuif_collab::structural::PROFILE_NAME,
             "base_canonical_hash": canonical_hash(base).map_err(|error| error.to_string())?,
             "expected_canonical_hash": expected.canonical_hash,
+            "base_document": base,
+            "expected_tree": {
+                "roots": expected.document.roots,
+                "children": expected.document.entities.iter().map(|(entity, value)| {
+                    (entity.to_string(), value.children.clone())
+                }).collect::<BTreeMap<_, _>>(),
+                "active_positions": expected.active_positions,
+                "replay_conflicts": expected.conflicts.iter().filter(|conflict| matches!(
+                    conflict,
+                    StructuralConflict::CycleRejected { .. }
+                        | StructuralConflict::AnchorUnavailable { .. }
+                        | StructuralConflict::SelfAnchor { .. }
+                )).collect::<Vec<_>>(),
+            },
             "replicas": replicas,
             "expected_changes": changes,
         }),
