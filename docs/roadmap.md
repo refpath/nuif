@@ -92,7 +92,7 @@ Sans coordinates through authorized package loading, shaping, HVAR intrinsic
 layout, `gvar` outlines and deterministic CPU pixels while retaining the
 normalized record in every resolved run. Direct Rust API delivery is now
 executable. A follow-on gate requires the same complete snapshot through the
-CLI, generated Node/browser WASM and stdio MCP surfaces. Hosted cross-platform
+CLI, generated Node/browser WASM, stdio MCP and linked POSIX C surfaces. Hosted cross-platform
 raster comparison, VVAR and byte-exhaustive malformed enumeration remain
 non-claims rather than hidden promotion assumptions.
 
