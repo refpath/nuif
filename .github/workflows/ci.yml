@@ -357,6 +357,7 @@ jobs:
             target/canva-app-plan.json
             target/canva-app-plan-report.json
             target/canva-app-plan-validation.json
+            target/canva-app-benchmark-report.json
             target/nuif-canva-review-app
       - name: Upload behavior portability evidence
         if: always()

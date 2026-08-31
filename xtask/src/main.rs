@@ -135,6 +135,7 @@ const VERIFICATION_ARTIFACTS: &[&str] = &[
     "target/canva-app-plan.json",
     "target/canva-app-plan-report.json",
     "target/canva-app-plan-validation.json",
+    "target/canva-app-benchmark-report.json",
     "target/nuif-canva-review-app",
     "target/behavior-portability-fixture.json",
     "target/behavior-portability-static-report.json",
@@ -2634,8 +2635,21 @@ fn gate_canva_app_shell(rust_plan: &Path) -> Result<(), String> {
     if validated["status"] != "passed" || validated["profile"] != "nuif-canva-design-editing-0" {
         return Err("compiled Canva shell rejected the Rust mutation plan".to_owned());
     }
+    let benchmark = root.join("target/canva-app-benchmark-report.json");
+    command(
+        "npm",
+        &["--prefix", APP, "run", "benchmark", "--", path(&benchmark)?],
+    )?;
+    let benchmark_report = read_json(&benchmark)?;
+    if benchmark_report["status"] != "passed"
+        || benchmark_report["live_host"]["status"] != "not_run"
+        || benchmark_report["hostile_rejection"]["rejected"]
+            != benchmark_report["hostile_rejection"]["expected"]
+    {
+        return Err("Canva review app benchmark contract failed".to_owned());
+    }
     package_canva_app_shell(APP, &second_build)?;
-    write_canva_app_report(&second_build, &validated)
+    write_canva_app_report(&second_build, &validated, &benchmark_report)
 }
 
 fn package_canva_app_shell(app: &str, build: &serde_json::Value) -> Result<(), String> {
@@ -2669,6 +2683,7 @@ fn package_canva_app_shell(app: &str, build: &serde_json::Value) -> Result<(), S
 fn write_canva_app_report(
     build: &serde_json::Value,
     validation: &serde_json::Value,
+    benchmark: &serde_json::Value,
 ) -> Result<(), String> {
     let lock = read_json(Path::new("adapters/canva/app/package-lock.json"))?;
     let adapter = read_json(Path::new("target/canva-app-fixture-report.json"))?;
@@ -2685,6 +2700,7 @@ fn write_canva_app_report(
         },
         "build": build,
         "rust_plan_validation": validation,
+        "benchmark": benchmark,
         "fixture": {
             "canonical_hash": adapter["canonical_hash"],
             "fidelity_entries": adapter["fidelity"].as_array().map_or(0, Vec::len),

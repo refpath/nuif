@@ -7,6 +7,7 @@
     "node": ">=24.20.0 <27"
   },
   "scripts": {
+    "benchmark": "node scripts/benchmark.mjs",
     "build": "npm run prepare-types && node scripts/build.mjs",
     "check": "npm run prepare-types && tsc --noEmit && node scripts/build.mjs && npm test",
     "prepare-types": "node scripts/prepare-types.mjs",

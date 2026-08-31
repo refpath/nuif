@@ -11,6 +11,7 @@ Use the pinned Node range from `package.json`:
 ```sh
 npm ci --ignore-scripts --no-audit --no-fund
 npm run check
+npm run benchmark -- ../../../target/canva-app-benchmark-report.json
 ```
 
 The build compiles against the exact stable `@canva/design` package, produces
@@ -28,6 +29,11 @@ removes it only in a generated type-check copy under `target/`, and records the
 source and result hashes. The runtime build continues to resolve the untouched
 official package. Any upstream declaration change makes this normalization
 fail for review instead of silently rewriting new code.
+
+The benchmark records parse/validate and host-preflight scaling through the
+16,384-element profile maximum, a 1,024-element mock one-sync transaction and
+duplicate-ID rejection. Results are informational until repeated CI runs and a
+named live Canva trial establish enforceable latency budgets.
 
 The resulting `dist/app.js` is the standalone JavaScript bundle used as the
 app source in Canva's local development flow. Canva owns the app ID, intent,
