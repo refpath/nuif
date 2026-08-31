@@ -105,15 +105,15 @@ experiments:
       - catastrophic-regression budgets pass on supported CI hosts
       - stable Criterion suite compiles and measures scaling from 8 through 4096 entities
       - every integrated adapter measures each declared import or export direction and retentive synchronization when its profile defines synchronization
-      - embedded image and font paths measure profile inspection exact-resource package round trips and resolved image rendering
+      - embedded image static-font and variable-font paths measure profile inspection exact-resource package round trips capability authorization and resolved rendering
       - every Criterion path executes at least once in the unified performance gate
     tests:
       - validate canonical text deterministic CBOR protocol layout and scene work at 1024 entities
       - measure CPU raster and end-to-end snapshot latency at representative viewport sizes
-      - measure both HTML CSS profiles SVG DTCG Penpot static React JSX static Svelte normalized Figma snapshot web accessibility and web behavior boundaries including official-foreign Penpot import and exact no-op package synchronization
+      - measure both HTML CSS profiles SVG DTCG Penpot static React JSX static Svelte normalized Figma snapshot Canva current-page web accessibility and web behavior boundaries including official-foreign Penpot import and exact no-op package synchronization
       - measure bounded nested creation anchors, mixed property/structure checkpoint materialization and register-prefix compaction on prevalidated fixtures
-      - measure bounded PNG inspection and decode static TrueType inspection image and font package encode decode and resource-aware scene raster paths
-      - smoke direct SDK package capability package resource query collaboration all ten integrated adapter profile layout render and history benchmark paths
+      - measure bounded PNG inspection and decode static TrueType inspection image and font package encode decode resource-aware scene raster and variable-font load authorize snapshot paths
+      - smoke direct SDK package capability package resource query collaboration all eleven integrated adapter profile layout render and history benchmark paths
       - retain statistical baselines under target for controlled before-and-after comparisons
       - write and archive target/performance-profile-report.json and target/criterion-smoke-report.json
   - id: nuif:experiment:react-jsx-retentive-sync

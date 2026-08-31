@@ -151,8 +151,9 @@ authorization: requirement-bearing packages reject evaluation, mutation,
 history and mode conversion until exact complete-set negotiation succeeds.
 The unified performance gate executes every Criterion path once and audits
 per-profile adapter direction coverage; controlled benchmarks include package
-capability negotiation and all ten integrated adapter profiles without treating
-shared CI timing noise as a regression threshold.
+capability negotiation, variable-font package delivery and all eleven
+integrated adapter profiles without treating shared CI timing noise as a
+regression threshold.
 
 The experimental `nuif-ffi-0` crate now provides opaque handles, bounded
 byte-oriented document/package load and export, capability negotiation,

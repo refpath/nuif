@@ -338,8 +338,9 @@ The unified performance gate also records portable release latency and
 allocation budgets, audits direction coverage from the per-profile adapter
 catalog and executes every Criterion path once. Its controlled-hardware suites
 cover core scaling, queries, both collaboration materializers, packages,
-resources, package-capability negotiation and all ten integrated adapter
-profiles. One-way accessibility and behavior projections are measured only as
+resources, package-capability negotiation, variable-font package delivery and
+all eleven integrated adapter profiles. One-way accessibility and behavior
+projections are measured only as
 exports; the catalog no longer invents import or synchronization directions for
 them. Shared-runner Criterion timing remains smoke evidence, not a regression
 threshold.

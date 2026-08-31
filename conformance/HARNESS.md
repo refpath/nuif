@@ -272,7 +272,7 @@ maximum latency with a catastrophic two-second p95 budget; this smoke
 distribution is not a controlled throughput benchmark.
 
 `cargo xtask gate-i-font-surfaces` aggregates the direct runtime, CLI, both
-compiled WASM targets and live MCP results into
+compiled WASM targets, live MCP and the linked POSIX C consumer into
 `target/variable-font-surface-report.json`. It compares exact hash, coordinate
 objects, diagnostics, fidelity and raster identity while preserving
 cross-platform raster comparison as a separate hosted-evidence requirement.
@@ -281,8 +281,9 @@ The performance gate follows the same distinction. `cargo xtask performance`
 records portable release-mode latency/allocation budgets for catastrophic
 regressions and executes both Criterion suites once in test mode. The
 controlled-hardware suites cover core scaling, resources, package-capability
-negotiation and every declared direction of all ten integrated adapter
-profiles. Statistical before/after measurements, machine controls and explicit
+negotiation, variable-font package delivery and every declared direction of all
+eleven integrated adapter profiles. Statistical before/after measurements,
+machine controls and explicit
 exclusions are defined in [`BENCHMARKS.md`](BENCHMARKS.md); shared-runner timing
 noise is not a merge threshold.
 

@@ -54,10 +54,10 @@ An implementer draft requires all of the following evidence:
   by qualified counsel.
 
 The present repository has an independent Python profile-zero evaluator and
-ten executable adapter profiles, including a normalized Figma mapping and
-compiled no-network review shell that explicitly exclude live host behavior,
-plus bounded three-engine web-accessibility and finite web-behavior
-projections.
+eleven executable adapter profiles, including normalized Figma and Canva
+mappings with compiled no-network review shells that explicitly exclude live
+host behavior, plus bounded three-engine web-accessibility and finite
+web-behavior projections.
 The behavior program also has one deterministic content-addressed package
 transport with an independent ZIP reader; it remains outside the canonical
 semantic document and is not a second complete implementation.

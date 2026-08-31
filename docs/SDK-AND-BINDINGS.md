@@ -103,7 +103,9 @@ additionally requires a complete variable-font snapshot report—hash,
 coordinates, diagnostics, fidelity, outlines and raster digest—to agree across
 direct Rust, CLI, generated Node/browser WASM, live stdio MCP and a linked C
 release-library consumer on POSIX. The Criterion `sdk/direct_document` group
-measures direct text, CBOR and package loading plus canonical export.
+measures direct text, CBOR and package loading plus canonical export; the
+resource group separately measures variable-package authorization, an
+already-authorized snapshot and the combined delivery path.
 
 ## C, C++, Swift and Kotlin decision
 
