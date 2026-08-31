@@ -34,6 +34,7 @@ pub enum CanvasAction {
     Move {
         entity: EntityId,
         document_delta: (f64, f64),
+        document_position: (f64, f64),
         snap_to_pixel: bool,
     },
     Resize {
@@ -311,6 +312,62 @@ impl DocumentCanvas {
         self.resize_handles().contains(&handle).then_some(())?;
         Some(self.resize_handle_point(rect, handle))
     }
+
+    fn finish_drag(
+        &mut self,
+        point: Point,
+        snap_to_pixel: bool,
+        preserve_aspect_ratio: bool,
+    ) -> Option<CanvasAction> {
+        let mut drag = self.drag.take()?;
+        drag.current_screen = point;
+        drag.current_document = Some(self.document_coordinates(point));
+        drag.preserve_aspect_ratio = preserve_aspect_ratio;
+        let moved = (drag.current_screen - drag.start_screen).hypot2() >= 9.0;
+        Some(
+            match (
+                moved,
+                drag.entity,
+                drag.start_document,
+                drag.current_document,
+                drag.kind,
+            ) {
+                (true, Some(entity), Some(start), Some(current), CanvasDragKind::Move) => {
+                    CanvasAction::Move {
+                        entity,
+                        document_delta: (current.x - start.x, current.y - start.y),
+                        document_position: (current.x, current.y),
+                        snap_to_pixel,
+                    }
+                }
+                (
+                    true,
+                    Some(entity),
+                    Some(start),
+                    Some(current),
+                    CanvasDragKind::Resize { handle, start_rect },
+                ) => {
+                    let resized = resized_rect(
+                        start_rect,
+                        handle,
+                        current - start,
+                        drag.preserve_aspect_ratio,
+                    );
+                    CanvasAction::Resize {
+                        entity,
+                        start_size: (start_rect.width, start_rect.height),
+                        document_size: (resized.width, resized.height),
+                        handle,
+                        snap_to_pixel,
+                    }
+                }
+                _ => CanvasAction::Activate {
+                    entity: drag.entity,
+                    document_position: drag.start_document.map(|point| (point.x, point.y)),
+                },
+            },
+        )
+    }
 }
 
 fn resized_rect(
@@ -517,53 +574,11 @@ impl Widget for DocumentCanvas {
                 if matches!(event.button, None | Some(PointerButton::Primary)) =>
             {
                 let point = ctx.local_position(event.state.position);
-                let document = self.document_coordinates(point);
-                if let Some(mut drag) = self.drag.take() {
-                    drag.current_screen = point;
-                    drag.current_document = Some(document);
-                    drag.preserve_aspect_ratio = event.state.modifiers.shift();
-                    let screen_delta = drag.current_screen - drag.start_screen;
-                    let moved = screen_delta.hypot2() >= 9.0;
-                    let action = match (
-                        moved,
-                        drag.entity,
-                        drag.start_document,
-                        drag.current_document,
-                        drag.kind,
-                    ) {
-                        (true, Some(entity), Some(start), Some(current), CanvasDragKind::Move) => {
-                            CanvasAction::Move {
-                                entity,
-                                document_delta: (current.x - start.x, current.y - start.y),
-                                snap_to_pixel: !event.state.modifiers.ctrl(),
-                            }
-                        }
-                        (
-                            true,
-                            Some(entity),
-                            Some(start),
-                            Some(current),
-                            CanvasDragKind::Resize { handle, start_rect },
-                        ) => {
-                            let resized = resized_rect(
-                                start_rect,
-                                handle,
-                                current - start,
-                                drag.preserve_aspect_ratio,
-                            );
-                            CanvasAction::Resize {
-                                entity,
-                                start_size: (start_rect.width, start_rect.height),
-                                document_size: (resized.width, resized.height),
-                                handle,
-                                snap_to_pixel: !event.state.modifiers.ctrl(),
-                            }
-                        }
-                        _ => CanvasAction::Activate {
-                            entity: drag.entity,
-                            document_position: drag.start_document.map(|point| (point.x, point.y)),
-                        },
-                    };
+                if let Some(action) = self.finish_drag(
+                    point,
+                    !event.state.modifiers.ctrl(),
+                    event.state.modifiers.shift(),
+                ) {
                     ctx.submit_action::<Self::Action>(action);
                     ctx.request_paint_only();
                     ctx.set_handled();

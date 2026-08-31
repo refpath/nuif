@@ -96,6 +96,8 @@ struct Assertions {
     operation_count: Option<usize>,
     #[serde(default)]
     values: Vec<ValueAssertion>,
+    #[serde(default)]
+    child_orders: Vec<ChildOrderAssertion>,
 }
 
 #[derive(Clone, Debug, Deserialize)]
@@ -104,6 +106,13 @@ struct ValueAssertion {
     author_id: EntityId,
     label: String,
     value: String,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct ChildOrderAssertion {
+    parent: EntityId,
+    children: Vec<EntityId>,
 }
 
 #[derive(Debug, Serialize)]
@@ -615,6 +624,20 @@ fn verify_assertions(driver: &Driver, assertions: &Assertions) -> Result<(), Str
             return Err(format!(
                 "value mismatch for {} {}: expected {:?}, observed {observed:?}",
                 expected.author_id, expected.label, expected.value
+            ));
+        }
+    }
+    for expected in &assertions.child_orders {
+        let observed = driver
+            .editor
+            .document()
+            .entities
+            .get(&expected.parent)
+            .map(|entity| entity.children.as_slice());
+        if observed != Some(expected.children.as_slice()) {
+            return Err(format!(
+                "child order mismatch for {}: expected {:?}, observed {observed:?}",
+                expected.parent, expected.children
             ));
         }
     }

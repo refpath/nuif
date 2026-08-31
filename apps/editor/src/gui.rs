@@ -35,6 +35,7 @@ use nuif_core::{
     GridPlacement, GridStyle, GridTrack, LayoutFamily, Point, ShapeKind, SizeIntent, TextContent,
     validate,
 };
+use nuif_layout::Rect as LayoutRect;
 use nuif_package::{MAX_PACKAGE_BYTES, NuifPackage};
 use nuif_protocol::{Anchor, Axis as ProtocolAxis, Operation};
 use std::collections::{BTreeMap, HashMap};
@@ -332,6 +333,7 @@ struct Driver {
     show_grid: bool,
     show_rulers: bool,
     canvas_widget_id: Option<WidgetId>,
+    canvas_boxes: BTreeMap<EntityId, LayoutRect>,
     actions: HashMap<WidgetId, UiAction>,
     entity_widgets: HashMap<EntityId, WidgetId>,
     control_widgets: HashMap<(EntityId, &'static str), WidgetId>,
@@ -368,6 +370,7 @@ impl Driver {
             show_grid: true,
             show_rulers: true,
             canvas_widget_id: None,
+            canvas_boxes: BTreeMap::new(),
             actions: HashMap::new(),
             entity_widgets: HashMap::new(),
             control_widgets: HashMap::new(),
@@ -382,6 +385,7 @@ impl Driver {
         self.control_widgets.clear();
         self.text_fields.clear();
         self.canvas_widget_id = None;
+        self.canvas_boxes.clear();
 
         let snapshot = match self.editor.execute(EditorCommand::Snapshot {
             width: self.viewport_width,
@@ -427,6 +431,7 @@ impl Driver {
                 )
             },
         );
+        self.canvas_boxes.extend(boxes.iter().copied());
         let canvas =
             DocumentCanvas::new(self.viewport_width, VIEWPORT_HEIGHT, rgba, boxes, selection)
                 .with_view_options(self.zoom, self.show_grid, self.show_rulers)
@@ -1391,6 +1396,7 @@ impl Driver {
                 CanvasAction::Move {
                     entity,
                     document_delta,
+                    document_position,
                     snap_to_pixel,
                 } => {
                     if self.tool != Tool::Move {
@@ -1398,9 +1404,12 @@ impl Driver {
                             .clone_into(&mut self.status);
                         return;
                     }
-                    if let Err(error) =
-                        self.move_freeform_entity(entity, document_delta, snap_to_pixel)
-                    {
+                    if let Err(error) = self.move_canvas_entity(
+                        entity,
+                        document_delta,
+                        document_position,
+                        snap_to_pixel,
+                    ) {
                         let _ = self.editor.execute(EditorCommand::Select { entity });
                         self.drafts.clear();
                         self.status = error;
@@ -1518,6 +1527,141 @@ impl Driver {
             position.y,
             if snap_to_pixel { " · snapped" } else { "" }
         );
+        Ok(())
+    }
+
+    fn move_canvas_entity(
+        &mut self,
+        entity: EntityId,
+        document_delta: (f64, f64),
+        document_position: (f64, f64),
+        snap_to_pixel: bool,
+    ) -> Result<(), String> {
+        let document = self.editor.document();
+        let parent = document
+            .parent_of(entity)
+            .ok_or_else(|| "Page roots cannot be moved on the canvas".to_owned())?;
+        match document.entities[&parent].authored.layout.family {
+            LayoutFamily::Freeform => {
+                self.move_freeform_entity(entity, document_delta, snap_to_pixel)
+            }
+            LayoutFamily::Stack | LayoutFamily::Flex => {
+                self.reorder_managed_entity(entity, document_position)
+            }
+            LayoutFamily::Grid => Err(
+                "Grid canvas reorder is unavailable because explicit and auto placement require different semantics"
+                    .to_owned(),
+            ),
+            LayoutFamily::Constraint => Err(
+                "Constraint canvas movement requires a declared constraint operation".to_owned(),
+            ),
+        }
+    }
+
+    fn reorder_managed_entity(
+        &mut self,
+        entity: EntityId,
+        document_position: (f64, f64),
+    ) -> Result<(), String> {
+        if !document_position.0.is_finite() || !document_position.1.is_finite() {
+            return Err("Canvas reorder position must be finite".to_owned());
+        }
+        if document_position.0.abs() > MAX_DIRECT_DIMENSION
+            || document_position.1.abs() > MAX_DIRECT_DIMENSION
+        {
+            return Err(format!(
+                "Canvas reorder position must be within ±{MAX_DIRECT_DIMENSION} px"
+            ));
+        }
+        let document = self.editor.document();
+        if !document.entities.contains_key(&entity) {
+            return Err(format!("Entity {entity} no longer exists"));
+        }
+        let parent = document
+            .parent_of(entity)
+            .ok_or_else(|| "Page roots cannot be reordered".to_owned())?;
+        let container = &document.entities[&parent];
+        if !matches!(
+            container.authored.layout.family,
+            LayoutFamily::Stack | LayoutFamily::Flex
+        ) {
+            return Err("Canvas reorder is available only for Stack or Flex children".to_owned());
+        }
+        if matches!(container.kind, EntityKind::Instance { .. }) {
+            return Err(
+                "Instance child order must be changed on its component definition".to_owned(),
+            );
+        }
+        let original = container.children.clone();
+        if original.len() < 2 {
+            self.editor
+                .execute(EditorCommand::Select { entity })
+                .map_err(|error| error.to_string())?;
+            "The managed container has no sibling to reorder against".clone_into(&mut self.status);
+            return Ok(());
+        }
+        let mut resolved = Vec::with_capacity(original.len());
+        for sibling in original.iter().copied() {
+            let rect = self
+                .canvas_boxes
+                .get(&sibling)
+                .ok_or_else(|| format!("Sibling {sibling} has no resolved canvas box"))?;
+            resolved.push((
+                sibling,
+                rect.x + rect.width * 0.5,
+                rect.y + rect.height * 0.5,
+            ));
+        }
+        let x_range = coordinate_range(&resolved, |(_, x, _)| *x);
+        let y_range = coordinate_range(&resolved, |(_, _, y)| *y);
+        let horizontal = if (x_range - y_range).abs() < f64::EPSILON {
+            container.authored.layout.direction == FlowDirection::Row
+        } else {
+            x_range > y_range
+        };
+        let siblings = resolved
+            .into_iter()
+            .filter(|(candidate, _, _)| *candidate != entity)
+            .collect::<Vec<_>>();
+        let drop_coordinate = if horizontal {
+            document_position.0
+        } else {
+            document_position.1
+        };
+        let insert_at = siblings
+            .iter()
+            .position(|(_, x, y)| drop_coordinate < if horizontal { *x } else { *y })
+            .unwrap_or(siblings.len());
+        let mut reordered = siblings
+            .iter()
+            .map(|(sibling, _, _)| *sibling)
+            .collect::<Vec<_>>();
+        reordered.insert(insert_at, entity);
+        if reordered == original {
+            self.editor
+                .execute(EditorCommand::Select { entity })
+                .map_err(|error| error.to_string())?;
+            "Managed-layout order did not change".clone_into(&mut self.status);
+            return Ok(());
+        }
+        let anchor = insert_at
+            .checked_sub(1)
+            .map_or(Anchor::Start, |index| Anchor::After(reordered[index]));
+        self.editor
+            .execute(EditorCommand::Apply {
+                operations: vec![Operation::Move {
+                    entity,
+                    new_parent: Some(parent),
+                    anchor,
+                }],
+            })
+            .map_err(|error| error.to_string())?;
+        self.editor
+            .execute(EditorCommand::Select { entity })
+            .map_err(|error| error.to_string())?;
+        self.drafts.clear();
+        self.dirty = true;
+        self.status = format!("Reordered {entity} to managed-layout position {insert_at}");
         Ok(())
     }
 
@@ -2667,6 +2811,24 @@ fn default_grid_style(child_count: usize) -> GridStyle {
     }
 }
 
+fn coordinate_range(
+    values: &[(EntityId, f64, f64)],
+    coordinate: impl Fn(&(EntityId, f64, f64)) -> f64,
+) -> f64 {
+    let mut minimum = f64::INFINITY;
+    let mut maximum = f64::NEG_INFINITY;
+    for value in values {
+        let coordinate = coordinate(value);
+        minimum = minimum.min(coordinate);
+        maximum = maximum.max(coordinate);
+    }
+    if minimum.is_finite() && maximum.is_finite() {
+        maximum - minimum
+    } else {
+        0.0
+    }
+}
+
 fn parse_size_intent(value: &str) -> Result<SizeIntent, String> {
     let value = value.trim();
     match value {
@@ -3003,7 +3165,7 @@ mod tests {
     }
 
     #[test]
-    fn canvas_move_rejects_managed_layout_children_atomically() {
+    fn freeform_position_path_rejects_managed_layout_children_atomically() {
         let (_, mut driver) = harness();
         let surface = driver.editor.document().roots[0];
         driver
@@ -3026,6 +3188,67 @@ mod tests {
         );
         assert_eq!(driver.editor.document(), &before_document);
         assert_eq!(driver.editor.operation_log().len(), before_operations);
+    }
+
+    #[test]
+    fn managed_canvas_reorder_commits_one_move_transaction() {
+        let (_, mut driver) = harness();
+        let surface = driver.editor.document().roots[0];
+        let mut children = Vec::new();
+        for x in [40.0, 80.0, 120.0] {
+            driver
+                .insert_entity(Tool::Rectangle, Some(surface), x, 60.0)
+                .unwrap();
+            children.push(driver.editor.selection()[0]);
+        }
+        driver
+            .editor
+            .execute(EditorCommand::Select { entity: surface })
+            .unwrap();
+        driver.set_selected_layout_family(LayoutFamily::Stack);
+        let _harness = harness_from_driver(&mut driver);
+        let before = driver.editor.operation_log().len();
+
+        driver
+            .reorder_managed_entity(children[0], (10_000.0, 0.0))
+            .unwrap();
+
+        assert_eq!(
+            driver.editor.document().entities[&surface].children,
+            vec![children[1], children[2], children[0]]
+        );
+        assert_eq!(driver.editor.operation_log().len(), before + 1);
+        assert!(matches!(
+            driver.editor.operation_log().last().unwrap().transactions[0].operations.as_slice(),
+            [Operation::Move { entity, new_parent: Some(parent), .. }]
+                if *entity == children[0] && *parent == surface
+        ));
+    }
+
+    #[test]
+    fn managed_canvas_reorder_noop_does_not_create_history() {
+        let (_, mut driver) = harness();
+        let surface = driver.editor.document().roots[0];
+        for x in [40.0, 80.0] {
+            driver
+                .insert_entity(Tool::Rectangle, Some(surface), x, 60.0)
+                .unwrap();
+        }
+        let last = driver.editor.selection()[0];
+        driver
+            .editor
+            .execute(EditorCommand::Select { entity: surface })
+            .unwrap();
+        driver.set_selected_layout_family(LayoutFamily::Stack);
+        let _harness = harness_from_driver(&mut driver);
+        let before = driver.editor.operation_log().len();
+
+        driver
+            .reorder_managed_entity(last, (10_000.0, 0.0))
+            .unwrap();
+
+        assert_eq!(driver.editor.operation_log().len(), before);
+        assert!(driver.status.contains("did not change"));
     }
 
     #[test]
@@ -3199,6 +3422,7 @@ mod tests {
         driver.handle_canvas_action(CanvasAction::Move {
             entity,
             document_delta: (20.0, 20.0),
+            document_position: (60.0, 80.0),
             snap_to_pixel: true,
         });
         driver.handle_canvas_action(CanvasAction::Resize {
