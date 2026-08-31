@@ -150,6 +150,20 @@ transactions and anchors to non-selected collision candidates. Gate H exhausts
 all 24 deliveries of a causal sibling-chain fixture and checks merge
 convergence, metadata absence and the typed negative boundaries.
 
+## Executable mixed property/structure profile 0
+
+`nuif-collab-mixed-0` uses one causal operation set for existing-tree structural
+changes and register-like property changes. A checkpoint materializes the
+structural operation-set result first, then applies the property register
+frontiers to that document. Property and structural conflicts remain distinct,
+and a property change whose entity was removed by the selected structural
+result fails with `PropertyTargetUnavailable`; it is never silently discarded.
+
+The profile does not admit creation operations or multiple semantic operations
+under one change dot. Gate H exhausts all 24 deliveries of a four-change
+fixture, checks merge convergence, explicit conflict sets and metadata-free
+output, and rejects deleted targets and cross-kind missing dependencies.
+
 ## Causal-stability compaction profile 0
 
 `nuif-collab-gc-0` is an explicit, conservative history-collection profile. It

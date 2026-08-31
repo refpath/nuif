@@ -274,6 +274,21 @@ experiments:
       - compare a partitioned operation-set merge with the complete checkpoint
       - reject unavailable, non-causal and wrong-parent anchors and incomplete history
       - write and archive target/collaboration-nested-creation-v1-report.json
+  - id: nuif:experiment:crdt-mixed-property-structure
+    status: automated
+    evidence: [nuif:research:crdt-tree-move-operation, nuif:research:automerge-yjs, nuif:research:crdt-registers]
+    implementation: [crates/nuif-collab/src/mixed.rs, conformance/src/bin/collaboration-mixed.rs, crates/nuif-collab/README.md, spec/10-collaboration-profile.md, xtask/src/main.rs]
+    oracle: structure-then-register-operation-set
+    acceptance:
+      - one causal set can carry existing-tree structure and register property changes
+      - structure materializes before properties and property/structural conflicts remain separate
+      - property targets removed by structure fail with typed diagnostics
+      - canonical checkpoints contain no collaboration metadata
+    tests:
+      - exhaust all 24 deliveries of the concurrent move and property-conflict fixture
+      - compare a partitioned mixed operation-set merge with the complete checkpoint
+      - reject deleted property targets and cross-kind missing dependencies
+      - write and archive target/collaboration-mixed-report.json
   - id: nuif:experiment:accessibility-mapping
     status: automated
     evidence: [nuif:research:accessibility-semantics]

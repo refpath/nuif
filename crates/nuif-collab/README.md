@@ -132,6 +132,17 @@ anchors to collision losers remain outside its contract. Gate H exhausts all
 24 deliveries of a four-change fixture and checks causal, unknown-anchor and
 wrong-parent failures.
 
+## Mixed property/structure profile 0
+
+`nuif-collab-mixed-0` carries existing-tree structural changes and
+register-like property changes in one causal operation set. The materializer
+resolves structure first, then applies property registers to the resulting
+document, so a property edit targeting an entity removed by structure is a
+typed `PropertyTargetUnavailable` error rather than a silently lost update.
+Property and structural conflict sets remain separate and the canonical
+checkpoint contains no collaboration metadata. Creation changes and multiple
+operations under one change dot remain outside this profile.
+
 ## Causal-stability compaction profile 0
 
 `nuif-collab-gc-0` provides the first executable history-collection boundary.

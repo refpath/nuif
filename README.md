@@ -140,6 +140,10 @@ collaboration garbage collection, combined property/structure transactions,
 foreign tree materialization, external reproduction and signed distribution
 remain open.
 
+The mixed collaboration profile is also executable: existing-tree structure and
+property changes share one causal set, structure resolves before properties,
+and removed property targets fail explicitly.
+
 Gates I through L are not complete. The package segment of Gate I is now
 executable: `.nuif` is a deterministic bounded package, stable assets and exact
 resources have distinct identities, resolution is explicit, and the CLI/editor

@@ -301,6 +301,14 @@ with typed errors. The report also checks merge convergence and metadata-free
 canonical output. It is a separate profile, so profile 0 remains strict about
 rejecting created-parent `After` anchors.
 
+The mixed collaboration experiment writes
+`target/collaboration-mixed-report.json`. It exhausts all 24 deliveries of one
+causal operation set containing concurrent structure and property edits,
+materializes structure before properties, and requires separate explicit
+conflicts. A property edit targeting a structurally removed entity and a
+cross-kind missing dependency both fail with typed errors; the canonical
+document retains no collaboration metadata.
+
 The separate existing-tree experiment writes `target/collaboration-structure-report.json`, exhausts 5,040 deliveries of seven move/delete/cycle/stable-anchor changes through sorted-set and incremental rollback/replay materializers, requires one-parent/acyclic checkpoints plus explicit move, deletion, cycle and anchor conflicts, and runs a 4,096-change release scaling guard. `tools/automerge-oracle` uses pinned `@automerge/automerge` 3.4.1 to merge the seven immutable operation records in different orders and through save/load, writing `target/collaboration-automerge-report.json`. This is foreign transport evidence; Automerge does not provide the NUIF tree materializer. Both executable boundaries are specified in `crates/nuif-collab/README.md` and `spec/10-collaboration-profile.md`.
 
 The causal-stability experiment writes `target/collaboration-gc-report.json`.
