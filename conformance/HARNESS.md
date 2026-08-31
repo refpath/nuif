@@ -1,6 +1,6 @@
 # Test-harness architecture
 
-Status: profile-0 baseline, deterministic `nuif-package-0`, narrow cross-decoder `nuif-png-rgba8-0`, Gate C browser/Taffy, Gate D text/render, Gate E complete editor authoring, bounded and full-v0 Gate F HTML/CSS synchronization, SVG/DTCG/Penpot/React/Svelte retentive adapter gates, the pure Figma snapshot mapping gate, the three-engine bounded web-accessibility projection, the Rust/Node bounded behavior state-machine differential, `nuif-wasm-api-0`, Gate G independent v0 reproduction, Gate H property-register and existing-tree convergence, and a bounded five-target sanitizer fuzz suite are implemented. Bounded browser/screenshot capture and reconstruction contracts plus the pinned local live-Chromium segment have executable evidence; their portable cross-provider accuracy corpus is not yet a release gate. Perceptual reconstruction comparison, concurrent entity creation and broader foreign-runtime trials remain planned. This document specifies how round-trip trials run unattended, fail reproducibly, minimize themselves and report in machine-readable form. Evidence is cited by research record identifier.
+Status: profile-0 baseline, deterministic `nuif-package-0`, narrow cross-decoder `nuif-png-rgba8-0`, Gate C browser/Taffy, Gate D text/render, Gate E complete editor authoring, bounded and full-v0 Gate F HTML/CSS synchronization, SVG/DTCG/Penpot/React/Svelte retentive adapter gates, the pure Figma snapshot mapping gate, the three-engine bounded web-accessibility projection, the Rust/Node bounded behavior state-machine differential, `nuif-wasm-api-0`, Gate G independent v0 reproduction, Gate H property-register and existing-tree convergence, and a bounded five-target sanitizer fuzz suite are implemented. Bounded browser/screenshot capture and reconstruction contracts, a typed per-example reconstruction-evaluation contract and the pinned local live-Chromium segment have executable evidence; their portable cross-provider accuracy corpus is not yet a release gate. Standard perceptual implementations and distributional reconstruction comparison, concurrent entity creation and broader foreign-runtime trials remain planned. This document specifies how round-trip trials run unattended, fail reproducibly, minimize themselves and report in machine-readable form. Evidence is cited by research record identifier.
 
 ## Goals
 
@@ -286,6 +286,18 @@ typed atomic proposal application, flat-copy rejection, observation codec
 fixpoints, calibration interpolation/selective review and finite loop stops.
 The report carries explicit non-claims for live browser capture, OCR/model
 accuracy, a broad or held-out corpus, independent evaluation and training.
+
+The reconstruction-evaluation contract writes
+`target/reconstruction-evaluation-report.json`. `cargo xtask
+reconstruction-evaluation` computes and validates the complete typed
+`nuif-reconstruction-evaluation-0` per-example family over one deterministic
+synthetic fixture. It keeps exact rate evidence, nullable unavailable resource
+measurements and suite-specific resource claims, and asserts that one local
+pixel difference and one missed element remain independently visible. It also
+rejects inconsistent derived rates and edit-distance work beyond its bound.
+The report explicitly disclaims OCR/model accuracy, a real or held-out corpus,
+standard perceptual metrics, calibrated distributions and independent
+evaluation.
 
 The separate live capture experiment writes
 `target/live-browser-capture-report.json`. `cargo xtask gate-j-live` installs or

@@ -231,10 +231,16 @@ round-trips observation bytes, distinguishes observed pixels from inference,
 records four unavailable evidence categories, applies typed proposals, rejects
 screenshot-derived flat-copy assets by default and exercises improved,
 repeated-state, no-proposal, provider-call and memory-budget loop stops. A two-
-point interpolation/selective-review fixture verifies the calibration API. No
-OCR engine is evaluated, no real or held-out reconstruction corpus is scored,
-the required metric families are incomplete and no independent evaluator has
-reproduced a result; Gate K remains open.
+point interpolation/selective-review fixture verifies the calibration API.
+`cargo xtask reconstruction-evaluation` additionally validates a bounded typed
+report containing every required per-example metric family, explicit
+numerators/denominators, nullable unavailable cost measurements and separate
+local-pixel/element failures. It rejects derived-rate drift, oversized edit
+work and exact source-resource claims in screenshot-only suites. This is one
+synthetic contract fixture: no OCR/model baseline, licensed real or
+leak-resistant held-out accuracy corpus, standard perceptual evaluator,
+distribution aggregation or independent reproduction exists. Gate K remains
+open.
 
 ### Gate L — conditional adaptation and distillation (blocked on Gate K)
 

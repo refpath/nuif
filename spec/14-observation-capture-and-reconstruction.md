@@ -197,6 +197,16 @@ Required metric families for an editable screenshot profile are:
 - calibrated confidence, abstention and risk/coverage;
 - latency, peak RAM/VRAM, iterations and external cost.
 
+The executable `nuif-reconstruction-evaluation-0` report implements these as
+typed, bounded per-example fields in
+`crates/nuif-reconstruct/src/evaluation.rs`. Rates retain their integer
+numerator and denominator; a zero denominator serializes with no value and is
+never treated as perfect. Unavailable RAM/VRAM or latency measurements remain
+null rather than zero. Screenshot-only suites MUST leave exact source-resource
+recall unscored. `cargo xtask reconstruction-evaluation` exercises the schema,
+derived-value validation, resource-claim boundary, local-error visibility and
+hostile work limits. This synthetic contract fixture is not an accuracy corpus.
+
 No visual metric alone establishes conformance. Metrics are reported per example
 and as distributions; local/small-element errors MUST NOT be hidden by a large
 background average.

@@ -41,7 +41,7 @@ links:
   spec: [spec/04-layout.md, spec/05-geometry-paint-text.md, spec/09-provenance-and-fidelity.md, spec/11-security.md, spec/13-semantics-accessibility-and-behavior.md, spec/14-observation-capture-and-reconstruction.md]
   adr: []
   rfc: [rfcs/0003-authored-resolved-provenance.md, rfcs/0004-headless-qa-contract.md, rfcs/0011-observation-and-inference-provenance.md]
-  code: [crates/nuif-api, crates/nuif-protocol, crates/nuif-render, crates/nuif-testing]
+  code: [crates/nuif-api, crates/nuif-protocol, crates/nuif-reconstruct/src/evaluation.rs, crates/nuif-render, crates/nuif-testing/src/bin/reconstruction-evaluation.rs]
   experiments: [nuif:experiment:screenshot-reconstruction-baseline, nuif:experiment:reconstruction-closed-loop, nuif:experiment:inference-confidence-calibration, nuif:experiment:reconstruction-distillation]
 ---
 

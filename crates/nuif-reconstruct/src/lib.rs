@@ -1,5 +1,6 @@
 #![doc = "Model-neutral observation, reconstruction, calibration, and correction contracts."]
 
+pub mod evaluation;
 pub mod layout_inference;
 
 use nuif_codec::{

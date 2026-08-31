@@ -57,10 +57,12 @@
   until broad media/font matrices, the configured Linux/Windows/macOS jobs
   produce passing hosted evidence, external reproduction, calibrated aggregate
   budgets and interoperability review pass.
-- **Capture and reconstruction are proposed, not implemented.** RFC 0011 and
-  specification 14 define evidence/fidelity ceilings and provider boundaries.
-  No current release claims browser-capture or screenshot-reconstruction
-  accuracy.
+- **Capture and reconstruction accuracy remains unestablished.** RFC 0011 and
+  specification 14 now have bounded fixed-input contracts, a local pinned
+  browser fixture and a typed synthetic evaluation report. They establish
+  interfaces, refusal rules and metric consistency, not portable
+  browser-capture or screenshot-reconstruction accuracy. No current release
+  makes those accuracy claims.
 
 ## Thesis falsifiers
 
