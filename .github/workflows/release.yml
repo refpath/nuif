@@ -685,10 +685,17 @@ jobs:
               .source_dirty == false and
               .stability == "experimental; not ABI-stable" and
               .header.path == "include/nuif_ffi.h" and
+              .header.generator == "cbindgen 0.29.4" and
+              .header.config == "abi/cbindgen.toml" and
               .symbol_baseline.path == "abi/nuif_ffi.symbols" and
               .symbol_baseline.status == "experimental" and
+              .examples.c == "examples/header-smoke.c" and
+              .examples.cplusplus == "examples/header-smoke.cpp" and
+              .examples.swift == "examples/swift-smoke.swift" and
               .evidence.directory == "evidence" and
               (.files | length > 0) and
+              ((.files | map(.path)) | index("abi/cbindgen.toml") != null) and
+              ((.files | map(.path)) | index("examples/swift-smoke.swift") != null) and
               all(.files[]; (.bytes > 0) and (.sha256 | test("^[0-9a-f]{64}$"))) and
               (.archive.sha256 | test("^[0-9a-f]{64}$"))
             ' "$ffi"
