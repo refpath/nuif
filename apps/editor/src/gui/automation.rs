@@ -77,6 +77,11 @@ enum TrialAction {
         delta_x: f64,
         delta_y: f64,
     },
+    ResizeCanvas {
+        author_id: EntityId,
+        delta_width: f64,
+        delta_height: f64,
+    },
     Undo,
     Redo,
 }
@@ -314,15 +319,21 @@ fn validate_scenario(scenario: &Scenario) -> Result<(), String> {
         ));
     }
     for action in &scenario.actions {
-        if let TrialAction::DragCanvas {
-            delta_x, delta_y, ..
-        } = action
-            && (!delta_x.is_finite()
-                || !delta_y.is_finite()
-                || delta_x.abs() > 1_000_000.0
-                || delta_y.abs() > 1_000_000.0)
+        let deltas = match action {
+            TrialAction::DragCanvas {
+                delta_x, delta_y, ..
+            } => Some((*delta_x, *delta_y)),
+            TrialAction::ResizeCanvas {
+                delta_width,
+                delta_height,
+                ..
+            } => Some((*delta_width, *delta_height)),
+            _ => None,
+        };
+        if let Some((x, y)) = deltas
+            && (!x.is_finite() || !y.is_finite() || x.abs() > 1_000_000.0 || y.abs() > 1_000_000.0)
         {
-            return Err("canvas drag deltas must be finite and at most 1,000,000 px".to_owned());
+            return Err("canvas gesture deltas must be finite and at most 1,000,000 px".to_owned());
         }
     }
     Ok(())
@@ -396,43 +407,91 @@ fn execute_action(
             author_id,
             delta_x,
             delta_y,
-        } => {
-            let canvas_id = driver
-                .canvas_widget_id
-                .ok_or_else(|| "document canvas is absent".to_owned())?;
-            let (start, end) = {
-                let canvas = harness
-                    .get_widget_with_id(canvas_id)
-                    .downcast::<DocumentCanvas>()
-                    .ok_or_else(|| "document canvas has the wrong widget type".to_owned())?;
-                let local_start = canvas
-                    .local_entity_center(*author_id)
-                    .ok_or_else(|| format!("entity {author_id} has no resolved canvas box"))?;
-                let local_end = local_start + canvas.local_document_delta((*delta_x, *delta_y));
-                let transform = canvas.ctx().window_transform();
-                (transform * local_start, transform * local_end)
-            };
-            harness.mouse_move(start);
-            harness.mouse_button_press(Some(PointerButton::Primary));
-            harness.mouse_move(end);
-            harness.mouse_button_release(Some(PointerButton::Primary));
-            let (emitted, source) = harness
-                .pop_action::<CanvasAction>()
-                .ok_or_else(|| format!("canvas drag for {author_id} emitted no action"))?;
-            require_source(canvas_id, source)?;
-            if !matches!(emitted, CanvasAction::Move { entity, .. } if entity == *author_id) {
-                return Err(format!(
-                    "canvas drag targeted {author_id} but emitted {emitted:?}"
-                ));
-            }
-            driver.handle_canvas_action(emitted);
-        }
+        } => drive_canvas_gesture(
+            driver,
+            &mut harness,
+            *author_id,
+            (*delta_x, *delta_y),
+            CanvasGestureKind::Move,
+        )?,
+        TrialAction::ResizeCanvas {
+            author_id,
+            delta_width,
+            delta_height,
+        } => drive_canvas_gesture(
+            driver,
+            &mut harness,
+            *author_id,
+            (*delta_width, *delta_height),
+            CanvasGestureKind::Resize,
+        )?,
         TrialAction::Undo => press_command(driver, &mut harness, UiAction::Undo)?,
         TrialAction::Redo => press_command(driver, &mut harness, UiAction::Redo)?,
     }
     if harness.pop_action_erased().is_some() {
         return Err("native widget emitted an unexpected extra action".to_owned());
     }
+    Ok(())
+}
+
+#[derive(Clone, Copy)]
+enum CanvasGestureKind {
+    Move,
+    Resize,
+}
+
+fn drive_canvas_gesture(
+    driver: &mut Driver,
+    harness: &mut TestHarness<SizedBox>,
+    author_id: EntityId,
+    document_delta: (f64, f64),
+    kind: CanvasGestureKind,
+) -> Result<(), String> {
+    let canvas_id = driver
+        .canvas_widget_id
+        .ok_or_else(|| "document canvas is absent".to_owned())?;
+    let (start, end) = {
+        let canvas = harness
+            .get_widget_with_id(canvas_id)
+            .downcast::<DocumentCanvas>()
+            .ok_or_else(|| "document canvas has the wrong widget type".to_owned())?;
+        let local_start = match kind {
+            CanvasGestureKind::Move => canvas
+                .local_entity_center(author_id)
+                .ok_or_else(|| format!("entity {author_id} has no resolved canvas box"))?,
+            CanvasGestureKind::Resize => {
+                canvas.local_resize_handle(author_id).ok_or_else(|| {
+                    format!("entity {author_id} is not selected or has no resize handle")
+                })?
+            }
+        };
+        let local_end = local_start + canvas.local_document_delta(document_delta);
+        let transform = canvas.ctx().window_transform();
+        (transform * local_start, transform * local_end)
+    };
+    harness.mouse_move(start);
+    harness.mouse_button_press(Some(PointerButton::Primary));
+    harness.mouse_move(end);
+    harness.mouse_button_release(Some(PointerButton::Primary));
+    let label = match kind {
+        CanvasGestureKind::Move => "move",
+        CanvasGestureKind::Resize => "resize",
+    };
+    let (emitted, source) = harness
+        .pop_action::<CanvasAction>()
+        .ok_or_else(|| format!("canvas {label} for {author_id} emitted no action"))?;
+    require_source(canvas_id, source)?;
+    let matches_expected = match (kind, emitted) {
+        (CanvasGestureKind::Move, CanvasAction::Move { entity, .. })
+        | (CanvasGestureKind::Resize, CanvasAction::Resize { entity, .. }) => entity == author_id,
+        _ => false,
+    };
+    if !matches_expected {
+        return Err(format!(
+            "canvas {label} targeted {author_id} but emitted {emitted:?}"
+        ));
+    }
+    driver.handle_canvas_action(emitted);
     Ok(())
 }
 

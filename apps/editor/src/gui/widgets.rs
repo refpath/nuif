@@ -21,6 +21,8 @@ const RULER_BORDER: Color = Color::from_rgba8(0x00, 0x00, 0x00, 0x70);
 const PAGE_BORDER: Color = Color::from_rgba8(0x00, 0x00, 0x00, 0x55);
 const SELECTION: Color = Color::from_rgb8(0x55, 0x8D, 0xFF);
 const RULER_SIZE: f64 = 24.0;
+const RESIZE_HANDLE_SIZE: f64 = 8.0;
+const RESIZE_HIT_SIZE: f64 = 16.0;
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum CanvasAction {
@@ -33,12 +35,24 @@ pub enum CanvasAction {
         document_delta: (f64, f64),
         snap_to_pixel: bool,
     },
+    Resize {
+        entity: EntityId,
+        document_size: (f64, f64),
+        snap_to_pixel: bool,
+    },
     Shortcut(CanvasShortcut),
+}
+
+#[derive(Clone, Copy, Debug)]
+enum CanvasDragKind {
+    Move,
+    ResizeSouthEast { start_size: Size },
 }
 
 #[derive(Clone, Copy, Debug)]
 struct CanvasDrag {
     entity: Option<EntityId>,
+    kind: CanvasDragKind,
     start_screen: Point,
     start_document: Option<Point>,
     current_screen: Point,
@@ -169,6 +183,22 @@ impl DocumentCanvas {
         Point::new((point.x - offset.x) / scale, (point.y - offset.y) / scale)
     }
 
+    fn resize_target(&self, point: Point) -> Option<(EntityId, Size)> {
+        let entity = self.selection?;
+        let (_, rect) = self.boxes.iter().find(|(id, _)| *id == entity)?;
+        let (scale, offset) = self.page_transform();
+        let handle = Point::new(
+            offset.x + (rect.x + rect.width) * scale,
+            offset.y + (rect.y + rect.height) * scale,
+        );
+        let half = RESIZE_HIT_SIZE * 0.5;
+        (point.x >= handle.x - half
+            && point.x <= handle.x + half
+            && point.y >= handle.y - half
+            && point.y <= handle.y + half)
+            .then_some((entity, Size::new(rect.width, rect.height)))
+    }
+
     #[cfg(feature = "editor-automation")]
     pub(super) fn local_entity_center(&self, entity: EntityId) -> Option<Point> {
         let (_, rect) = self.boxes.iter().find(|(id, _)| *id == entity)?;
@@ -183,6 +213,17 @@ impl DocumentCanvas {
     pub(super) fn local_document_delta(&self, delta: (f64, f64)) -> Vec2 {
         let (scale, _) = self.page_transform();
         Vec2::new(delta.0 * scale, delta.1 * scale)
+    }
+
+    #[cfg(feature = "editor-automation")]
+    pub(super) fn local_resize_handle(&self, entity: EntityId) -> Option<Point> {
+        (self.selection == Some(entity)).then_some(())?;
+        let (_, rect) = self.boxes.iter().find(|(id, _)| *id == entity)?;
+        let (scale, offset) = self.page_transform();
+        Some(Point::new(
+            offset.x + (rect.x + rect.width) * scale,
+            offset.y + (rect.y + rect.height) * scale,
+        ))
     }
 }
 
@@ -309,8 +350,13 @@ impl Widget for DocumentCanvas {
                 ctx.request_focus();
                 ctx.capture_pointer();
                 let point = ctx.local_position(event.state.position);
+                let resize = self.resize_target(point);
                 self.drag = Some(CanvasDrag {
-                    entity: self.entity_at(point),
+                    entity: resize
+                        .map_or_else(|| self.entity_at(point), |(entity, _)| Some(entity)),
+                    kind: resize.map_or(CanvasDragKind::Move, |(_, start_size)| {
+                        CanvasDragKind::ResizeSouthEast { start_size }
+                    }),
                     start_screen: point,
                     start_document: self.document_position(point).map(|(x, y)| Point::new(x, y)),
                     current_screen: point,
@@ -343,10 +389,27 @@ impl Widget for DocumentCanvas {
                         drag.entity,
                         drag.start_document,
                         drag.current_document,
+                        drag.kind,
                     ) {
-                        (true, Some(entity), Some(start), Some(current)) => CanvasAction::Move {
+                        (true, Some(entity), Some(start), Some(current), CanvasDragKind::Move) => {
+                            CanvasAction::Move {
+                                entity,
+                                document_delta: (current.x - start.x, current.y - start.y),
+                                snap_to_pixel: !event.state.modifiers.ctrl(),
+                            }
+                        }
+                        (
+                            true,
+                            Some(entity),
+                            Some(start),
+                            Some(current),
+                            CanvasDragKind::ResizeSouthEast { start_size },
+                        ) => CanvasAction::Resize {
                             entity,
-                            document_delta: (current.x - start.x, current.y - start.y),
+                            document_size: (
+                                (start_size.width + current.x - start.x).max(1.0),
+                                (start_size.height + current.y - start.y).max(1.0),
+                            ),
                             snap_to_pixel: !event.state.modifiers.ctrl(),
                         },
                         _ => CanvasAction::Activate {
@@ -493,24 +556,46 @@ impl Widget for DocumentCanvas {
 
         let mut selection = self.selection;
         let mut preview_delta = Vec2::ZERO;
+        let mut resize_preview = false;
         if let Some(drag) = &self.drag {
             selection = drag.entity.or(selection);
             if let (Some(start), Some(current)) = (drag.start_document, drag.current_document) {
                 preview_delta = current - start;
             }
+            resize_preview = matches!(drag.kind, CanvasDragKind::ResizeSouthEast { .. });
         }
         if let Some(selection) = selection
             && let Some((_, rect)) = self.boxes.iter().find(|(entity, _)| *entity == selection)
         {
+            let (x, y, width, height) = if resize_preview {
+                (
+                    rect.x,
+                    rect.y,
+                    (rect.width + preview_delta.x).max(1.0),
+                    (rect.height + preview_delta.y).max(1.0),
+                )
+            } else {
+                (
+                    rect.x + preview_delta.x,
+                    rect.y + preview_delta.y,
+                    rect.width,
+                    rect.height,
+                )
+            };
             let selected = Rect::new(
-                offset.x + (rect.x + preview_delta.x) * scale,
-                offset.y + (rect.y + preview_delta.y) * scale,
-                offset.x + (rect.x + rect.width + preview_delta.x) * scale,
-                offset.y + (rect.y + rect.height + preview_delta.y) * scale,
+                offset.x + x * scale,
+                offset.y + y * scale,
+                offset.x + (x + width) * scale,
+                offset.y + (y + height) * scale,
             );
             painter
                 .stroke(selected, &Stroke::new(2.0), SELECTION)
                 .draw();
+            let handle = Rect::from_center_size(
+                Point::new(selected.x1, selected.y1),
+                Size::new(RESIZE_HANDLE_SIZE, RESIZE_HANDLE_SIZE),
+            );
+            painter.fill(handle, SELECTION).draw();
         }
         if self.show_rulers {
             paint_rulers(painter, content, scale, offset);

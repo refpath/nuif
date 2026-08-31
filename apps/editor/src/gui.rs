@@ -51,6 +51,7 @@ const BORDER: UiColor = UiColor::from_rgb8(0x39, 0x39, 0x39);
 const TEXT: UiColor = UiColor::from_rgb8(0xEE, 0xEE, 0xEE);
 const MUTED: UiColor = UiColor::from_rgb8(0xA7, 0xA7, 0xA7);
 const ACCENT: UiColor = UiColor::from_rgb8(0x55, 0x8D, 0xFF);
+const MAX_DIRECT_DIMENSION: f64 = 1_000_000.0;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 enum Tool {
@@ -1384,6 +1385,17 @@ impl Driver {
                         self.status = error;
                     }
                 }
+                CanvasAction::Resize {
+                    entity,
+                    document_size,
+                    snap_to_pixel,
+                } => {
+                    if let Err(error) = self.resize_entity(entity, document_size, snap_to_pixel) {
+                        let _ = self.editor.execute(EditorCommand::Select { entity });
+                        self.drafts.clear();
+                        self.status = error;
+                    }
+                }
                 CanvasAction::Shortcut(shortcut) => self.handle_shortcut(shortcut),
                 CanvasAction::Activate { .. } => unreachable!(),
             }
@@ -1474,6 +1486,67 @@ impl Driver {
             "Moved {entity} to {} px, {} px{}",
             position.x,
             position.y,
+            if snap_to_pixel { " · snapped" } else { "" }
+        );
+        Ok(())
+    }
+
+    fn resize_entity(
+        &mut self,
+        entity: EntityId,
+        document_size: (f64, f64),
+        snap_to_pixel: bool,
+    ) -> Result<(), String> {
+        if !document_size.0.is_finite() || !document_size.1.is_finite() {
+            return Err("Canvas size must be finite".to_owned());
+        }
+        if !self.editor.document().entities.contains_key(&entity) {
+            return Err(format!("Entity {entity} no longer exists"));
+        }
+        if self.editor.document().parent_of(entity).is_none() {
+            return Err(
+                "Page roots use the evaluation viewport and cannot be resized on the canvas"
+                    .to_owned(),
+            );
+        }
+        let mut width = document_size.0;
+        let mut height = document_size.1;
+        if snap_to_pixel {
+            width = width.round();
+            height = height.round();
+        }
+        if width <= 0.0
+            || height <= 0.0
+            || width > MAX_DIRECT_DIMENSION
+            || height > MAX_DIRECT_DIMENSION
+        {
+            return Err(format!(
+                "Canvas dimensions must be within (0, {MAX_DIRECT_DIMENSION}] px"
+            ));
+        }
+        self.editor
+            .execute(EditorCommand::Apply {
+                operations: vec![
+                    Operation::SetSize {
+                        entity,
+                        axis: ProtocolAxis::Horizontal,
+                        value: SizeIntent::Fixed(width),
+                    },
+                    Operation::SetSize {
+                        entity,
+                        axis: ProtocolAxis::Vertical,
+                        value: SizeIntent::Fixed(height),
+                    },
+                ],
+            })
+            .map_err(|error| error.to_string())?;
+        self.editor
+            .execute(EditorCommand::Select { entity })
+            .map_err(|error| error.to_string())?;
+        self.drafts.clear();
+        self.dirty = true;
+        self.status = format!(
+            "Resized {entity} to {width} × {height} px{}",
             if snap_to_pixel { " · snapped" } else { "" }
         );
         Ok(())
@@ -2881,6 +2954,69 @@ mod tests {
                 .move_freeform_entity(entity, (8.0, 8.0), true)
                 .unwrap_err()
                 .contains("layout order")
+        );
+        assert_eq!(driver.editor.document(), &before_document);
+        assert_eq!(driver.editor.operation_log().len(), before_operations);
+    }
+
+    #[test]
+    fn canvas_resize_sets_both_fixed_axes_in_one_transaction() {
+        let (_, mut driver) = harness();
+        let surface = driver.editor.document().roots[0];
+        driver
+            .insert_entity(Tool::Rectangle, Some(surface), 40.0, 60.0)
+            .unwrap();
+        let entity = driver.editor.selection()[0];
+        let before = driver.editor.operation_log().len();
+
+        driver.resize_entity(entity, (247.4, 95.6), true).unwrap();
+
+        let resized = &driver.editor.document().entities[&entity];
+        assert_eq!(resized.authored.width, SizeIntent::Fixed(247.0));
+        assert_eq!(resized.authored.height, SizeIntent::Fixed(96.0));
+        assert_eq!(driver.editor.operation_log().len(), before + 1);
+        assert!(matches!(
+            driver.editor.operation_log().last().unwrap().transactions[0].operations.as_slice(),
+            [Operation::SetSize { entity: horizontal, axis: ProtocolAxis::Horizontal, .. }, Operation::SetSize { entity: vertical, axis: ProtocolAxis::Vertical, .. }]
+                if *horizontal == entity && *vertical == entity
+        ));
+    }
+
+    #[test]
+    fn canvas_resize_can_preserve_subpixel_size() {
+        let (_, mut driver) = harness();
+        let surface = driver.editor.document().roots[0];
+        driver
+            .insert_entity(Tool::Rectangle, Some(surface), 40.0, 60.0)
+            .unwrap();
+        let entity = driver.editor.selection()[0];
+
+        driver.resize_entity(entity, (247.4, 95.6), false).unwrap();
+
+        let resized = &driver.editor.document().entities[&entity];
+        assert_eq!(resized.authored.width, SizeIntent::Fixed(247.4));
+        assert_eq!(resized.authored.height, SizeIntent::Fixed(95.6));
+        assert!(!driver.status.contains("snapped"));
+    }
+
+    #[test]
+    fn canvas_resize_rejects_roots_and_unbounded_sizes_atomically() {
+        let (_, mut driver) = harness();
+        let surface = driver.editor.document().roots[0];
+        let before_document = driver.editor.document().clone();
+        let before_operations = driver.editor.operation_log().len();
+
+        assert!(
+            driver
+                .resize_entity(surface, (320.0, 240.0), true)
+                .unwrap_err()
+                .contains("evaluation viewport")
+        );
+        assert!(
+            driver
+                .resize_entity(EntityId::new(0x20), (f64::INFINITY, 20.0), true)
+                .unwrap_err()
+                .contains("finite")
         );
         assert_eq!(driver.editor.document(), &before_document);
         assert_eq!(driver.editor.operation_log().len(), before_operations);

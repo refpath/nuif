@@ -8,7 +8,7 @@ source:
   authors: [Figma]
   published_at: "unknown"
   license: proprietary help-center and blog content (Figma); facts only recorded here
-retrieved_at: 2026-08-29
+retrieved_at: 2026-08-31
 tags: [figma, ui3, editor-ui, layout, properties-panel, layers-panel, toolbar, canvas, reference-editor]
 confidence: 0.86
 claims: [nuif:claim:semantic-automation]
@@ -44,7 +44,7 @@ NUIF interpretation: the layout is a stable, documented target for a test editor
 
 ## Evidence
 
-Each bullet is one claim, followed by its locator. Retrieval date for all locators: 2026-08-29.
+Each bullet is one claim, followed by its locator. Retrieval dates: 2026-08-29 through 2026-08-31.
 
 - A design file has five regions, lettered A–E: navigation bar, left sidebar, canvas, right sidebar, toolbar. The toolbar "contains various creation tools, the quick actions menu, and switcher to switch between file modes". https://help.figma.com/hc/en-us/articles/15297425105303-Explore-design-files — region legend.
 - The right sidebar "contains actions like sharing and exporting"; viewers see Comment and Properties tabs, editors see Design and Prototype tabs. Same article, region D.
@@ -63,6 +63,7 @@ Each bullet is one claim, followed by its locator. Retrieval date for all locato
 - Right sidebar tabs and property groups: Design and Prototype for editors; Comment and Properties for viewers; listed property groups include alignment/rotation/position, frame size, corner radius, constraints, layout guides, component properties, instance, auto layout, blend modes, text, fill, stroke, effects, export settings. With nothing selected the tab shows styles, local variables, canvas background colour and page export. A dropdown "next to the 100% zoom percentage" exposes "Property labels". https://help.figma.com/hc/en-us/articles/360039832014-Design-prototype-and-explore-layer-properties-in-the-right-sidebar.
 - Zoom percentage is shown "in the top-right corner"; clicking it opens the Zoom/view options menu (zoom in/out, zoom to fit, pixel grid, snap to pixel grid, pixel preview, layout guides, multiplayer cursors). https://help.figma.com/hc/en-us/articles/360041065034-Adjust-your-zoom-and-view-options.
 - Position section: alignment row (align left/right/top/bottom/horizontal centres/vertical centres, Option/Alt + A/D/W/S/H/V), X/Y measured from the top-left of the layer bounds, rotation field "at the top of the Design panel", flips via Shift H / Shift V, W/H fields with aspect-ratio lock. https://help.figma.com/hc/en-us/articles/360039956914-Adjust-alignment-rotation-position-and-dimensions.
+- Selected layers can be resized by dragging their canvas bounding box or by editing W/H; Shift temporarily preserves aspect ratio when it is unlocked, while Control temporarily suspends an existing aspect-ratio lock. The NUIF alpha editor implements only an independently sized south-east handle and therefore does not claim aspect-ratio parity. https://help.figma.com/hc/en-us/articles/360039956914-Adjust-alignment-rotation-position-and-dimensions — "Resize layers" and "Lock aspect ratio", retrieved 2026-08-31.
 - Constraints are opened "from the Position section of the right sidebar"; options Left/Right/Left and right/Center/Scale and Top/Bottom/Top and bottom/Center/Scale; not available for layers outside a frame or inside an auto-layout frame. https://help.figma.com/hc/en-us/articles/360039957734-Apply-constraints-to-define-how-layers-resize.
 - Auto layout section controls: flow (vertical, horizontal with wrap, grid), gap (numeric or auto spacing), padding (uniform or per side), alignment, resizing (hug contents, fill container, fixed), min/max width and height. Shortcut Shift A. https://help.figma.com/hc/en-us/articles/360040451373-Guide-to-auto-layout.
 - The controls sit under a right-panel section labelled "Auto layout"; removal via "Remove auto layout" or Option Shift A / Alt Shift A. https://help.figma.com/hc/en-us/articles/5731482952599-Toggle-on-auto-layout-in-designs.

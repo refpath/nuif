@@ -46,6 +46,12 @@
       "delta_y": 5.6
     },
     {
+      "action": "resize_canvas",
+      "author_id": "00000000000000000000000000000026",
+      "delta_width": 8.4,
+      "delta_height": 3.6
+    },
+    {
       "action": "undo"
     },
     {
@@ -57,7 +63,7 @@
       "00000000000000000000000000000026"
     ],
     "entity_count": 8,
-    "operation_count": 8,
+    "operation_count": 9,
     "values": [
       {
         "author_id": "00000000000000000000000000000020",
@@ -93,6 +99,16 @@
         "author_id": "00000000000000000000000000000026",
         "label": "y",
         "value": "6"
+      },
+      {
+        "author_id": "00000000000000000000000000000026",
+        "label": "width",
+        "value": "24"
+      },
+      {
+        "author_id": "00000000000000000000000000000026",
+        "label": "height",
+        "value": "20"
       }
     ]
   }
