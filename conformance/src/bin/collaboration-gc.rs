@@ -19,6 +19,23 @@ const ROOT: EntityId = EntityId::new(10);
 const LEFT: EntityId = EntityId::new(11);
 const RIGHT: EntityId = EntityId::new(12);
 
+struct RegisterEvidence {
+    changes: Vec<Change>,
+    before: nuif_collab::Checkpoint,
+    compacted: nuif_collab::CompactedCheckpoint,
+    replica_compacted: nuif_collab::CompactedCheckpoint,
+}
+
+struct StructuralEvidence {
+    before: nuif_collab::structural::StructuralCheckpoint,
+    compacted: nuif_collab::structural::StructuralCompaction,
+}
+
+struct CreationEvidence {
+    before: nuif_collab::creation::CreationCheckpoint,
+    compacted: nuif_collab::creation::CreationCompaction,
+}
+
 fn main() {
     if let Err(error) = run() {
         eprintln!("collaboration-gc: {error}");
@@ -28,66 +45,11 @@ fn main() {
 
 fn run() -> Result<(), String> {
     let output = output_path()?;
+    let register = register_evidence()?;
+    let structural = structural_evidence()?;
+    let creation = creation_evidence()?;
+    let empty = empty_compaction()?;
     let register_base = nuif_testing::responsive_card_fixture();
-    let register_changes = vec![
-        register_change("alice", 1, "Alice"),
-        register_change("bob", 1, "Bob"),
-    ];
-    let register_frontier = frontier(&[("alice", 1), ("bob", 1)])?;
-    let register_before = register_checkpoint(&register_base, &register_changes)?;
-    let register_compacted =
-        register_compaction(&register_base, &register_changes, &register_frontier)
-            .map_err(|error| error.to_string())?;
-    let register_replica_compacted =
-        replica_compaction(&register_base, &register_changes, &register_frontier)?;
-
-    let structural_base = structural_fixture();
-    let structural_change = StructuralChange {
-        id: ChangeId::new("alice", 1),
-        context: BTreeMap::new(),
-        operation: StructuralOperation::Move {
-            entity: RIGHT,
-            new_parent: Some(LEFT),
-            anchor: StructuralAnchor::Start,
-        },
-    };
-    let mut structural_engine =
-        StructuralOperationSetEngine::new(structural_base).map_err(|e| e.to_string())?;
-    structural_engine
-        .ingest(structural_change)
-        .map_err(|e| e.to_string())?;
-    let structural_before = structural_engine.checkpoint().map_err(|e| e.to_string())?;
-    let structural_frontier = frontier(&[("alice", 1)])?;
-    let structural_compacted = structural_engine
-        .compact_stable(&structural_frontier)
-        .map_err(|e| e.to_string())?;
-
-    let creation_base = structural_fixture();
-    let creation_change = CreationChange {
-        id: ChangeId::new("alice", 1),
-        context: BTreeMap::new(),
-        operation: CreationOperation::Insert {
-            parent: Some(ROOT),
-            anchor: CreationAnchor::Start,
-            entity: Box::new(Entity::new(EntityId::new(20), EntityKind::Container)),
-        },
-    };
-    let mut creation_engine =
-        CreationOperationSetEngine::new(creation_base).map_err(|e| e.to_string())?;
-    creation_engine
-        .ingest(creation_change)
-        .map_err(|e| e.to_string())?;
-    let creation_before = creation_engine.checkpoint().map_err(|e| e.to_string())?;
-    let creation_compacted = creation_engine
-        .compact_stable(&structural_frontier)
-        .map_err(|e| e.to_string())?;
-
-    let empty = OperationSetEngine::default()
-        .compact_stable(
-            &register_base,
-            &StabilityFrontier::new(BTreeMap::new()).map_err(|e| e.to_string())?,
-        )
-        .map_err(|e| e.to_string())?;
     let partial = StabilityFrontier::new(BTreeMap::from([("alice".to_owned(), 1)]))
         .map_err(|e| e.to_string())?;
     let ahead = StabilityFrontier::new(BTreeMap::from([
@@ -96,34 +58,34 @@ fn run() -> Result<(), String> {
     ]))
     .map_err(|e| e.to_string())?;
     let partial_is_typed = matches!(
-        register_compaction(&register_base, &register_changes, &partial),
+        register_compaction(&register_base, &register.changes, &partial),
         Err(CollaborationError::UnsafeCompaction { .. })
     );
     let ahead_is_typed = matches!(
-        register_compaction(&register_base, &register_changes, &ahead),
+        register_compaction(&register_base, &register.changes, &ahead),
         Err(CollaborationError::UnsafeCompaction { .. })
     );
     let checks = json!({
-        "register_materializer_exact": register_compacted.checkpoint == register_before,
-        "replica_log_materializer_exact": register_replica_compacted.checkpoint == register_before,
-        "materializer_receipts_exact": register_compacted.receipt == register_replica_compacted.receipt,
-        "register_history_fully_dropped": register_compacted.receipt.dropped.len() == register_changes.len()
-            && register_compacted.receipt.retained.is_empty(),
-        "structural_checkpoint_exact": structural_compacted.checkpoint == structural_before,
-        "structural_history_fully_dropped": structural_compacted.receipt.dropped.len() == 1
-            && structural_compacted.receipt.retained.is_empty(),
-        "creation_checkpoint_exact": creation_compacted.checkpoint == creation_before,
-        "creation_history_fully_dropped": creation_compacted.receipt.dropped.len() == 1
-            && creation_compacted.receipt.retained.is_empty(),
+        "register_materializer_exact": register.compacted.checkpoint == register.before,
+        "replica_log_materializer_exact": register.replica_compacted.checkpoint == register.before,
+        "materializer_receipts_exact": register.compacted.receipt == register.replica_compacted.receipt,
+        "register_history_fully_dropped": register.compacted.receipt.dropped.len() == register.changes.len()
+            && register.compacted.receipt.retained.is_empty(),
+        "structural_checkpoint_exact": structural.compacted.checkpoint == structural.before,
+        "structural_history_fully_dropped": structural.compacted.receipt.dropped.len() == 1
+            && structural.compacted.receipt.retained.is_empty(),
+        "creation_checkpoint_exact": creation.compacted.checkpoint == creation.before,
+        "creation_history_fully_dropped": creation.compacted.receipt.dropped.len() == 1
+            && creation.compacted.receipt.retained.is_empty(),
         "empty_history_compacts": empty.receipt.dropped.is_empty() && empty.receipt.retained.is_empty(),
         "partial_frontier_refused": partial_is_typed,
         "ahead_frontier_refused": ahead_is_typed,
-        "metadata_absent_from_register_document": metadata_absent(&register_compacted.checkpoint.document)?,
-        "metadata_absent_from_structural_document": metadata_absent(&structural_compacted.checkpoint.document)?,
-        "metadata_absent_from_creation_document": metadata_absent(&creation_compacted.checkpoint.document)?,
-        "profile_receipt_versioned": register_compacted.receipt.profile == nuif_collab::gc::PROFILE_NAME
-            && structural_compacted.receipt.profile == nuif_collab::gc::PROFILE_NAME
-            && creation_compacted.receipt.profile == nuif_collab::gc::PROFILE_NAME,
+        "metadata_absent_from_register_document": metadata_absent(&register.compacted.checkpoint.document)?,
+        "metadata_absent_from_structural_document": metadata_absent(&structural.compacted.checkpoint.document)?,
+        "metadata_absent_from_creation_document": metadata_absent(&creation.compacted.checkpoint.document)?,
+        "profile_receipt_versioned": register.compacted.receipt.profile == nuif_collab::gc::PROFILE_NAME
+            && structural.compacted.receipt.profile == nuif_collab::gc::PROFILE_NAME
+            && creation.compacted.receipt.profile == nuif_collab::gc::PROFILE_NAME,
     });
     let passed = checks
         .as_object()
@@ -151,21 +113,21 @@ fn run() -> Result<(), String> {
             ],
         },
         "summary": {
-            "register_changes": register_changes.len(),
+            "register_changes": register.changes.len(),
             "structural_changes": 1,
             "creation_changes": 1,
-            "register_checkpoint_hash": register_compacted.checkpoint.canonical_hash,
-            "structural_checkpoint_hash": structural_compacted.checkpoint.canonical_hash,
-            "creation_checkpoint_hash": creation_compacted.checkpoint.canonical_hash,
-            "dropped_register_changes": register_compacted.receipt.dropped,
-            "dropped_structural_changes": structural_compacted.receipt.dropped,
+            "register_checkpoint_hash": register.compacted.checkpoint.canonical_hash,
+            "structural_checkpoint_hash": structural.compacted.checkpoint.canonical_hash,
+            "creation_checkpoint_hash": creation.compacted.checkpoint.canonical_hash,
+            "dropped_register_changes": register.compacted.receipt.dropped,
+            "dropped_structural_changes": structural.compacted.receipt.dropped,
         },
         "checks": checks,
     });
     write_json(&output, &report)?;
     println!(
         "causal compaction: {} register + {} structural + {} creation changes, status {}",
-        register_changes.len(),
+        register.changes.len(),
         1,
         1,
         report["status"]
@@ -175,6 +137,78 @@ fn run() -> Result<(), String> {
     } else {
         Err(format!("report failed; inspect {}", output.display()))
     }
+}
+
+fn register_evidence() -> Result<RegisterEvidence, String> {
+    let base = nuif_testing::responsive_card_fixture();
+    let changes = vec![
+        register_change("alice", 1, "Alice"),
+        register_change("bob", 1, "Bob"),
+    ];
+    let frontier = frontier(&[("alice", 1), ("bob", 1)])?;
+    let before = register_checkpoint(&base, &changes)?;
+    let compacted =
+        register_compaction(&base, &changes, &frontier).map_err(|error| error.to_string())?;
+    let replica_compacted = replica_compaction(&base, &changes, &frontier)?;
+    Ok(RegisterEvidence {
+        changes,
+        before,
+        compacted,
+        replica_compacted,
+    })
+}
+
+fn structural_evidence() -> Result<StructuralEvidence, String> {
+    let mut engine = StructuralOperationSetEngine::new(structural_fixture())
+        .map_err(|error| error.to_string())?;
+    engine
+        .ingest(StructuralChange {
+            id: ChangeId::new("alice", 1),
+            context: BTreeMap::new(),
+            operation: StructuralOperation::Move {
+                entity: RIGHT,
+                new_parent: Some(LEFT),
+                anchor: StructuralAnchor::Start,
+            },
+        })
+        .map_err(|error| error.to_string())?;
+    let before = engine.checkpoint().map_err(|error| error.to_string())?;
+    let frontier = frontier(&[("alice", 1)])?;
+    let compacted = engine
+        .compact_stable(&frontier)
+        .map_err(|error| error.to_string())?;
+    Ok(StructuralEvidence { before, compacted })
+}
+
+fn creation_evidence() -> Result<CreationEvidence, String> {
+    let mut engine =
+        CreationOperationSetEngine::new(structural_fixture()).map_err(|error| error.to_string())?;
+    engine
+        .ingest(CreationChange {
+            id: ChangeId::new("alice", 1),
+            context: BTreeMap::new(),
+            operation: CreationOperation::Insert {
+                parent: Some(ROOT),
+                anchor: CreationAnchor::Start,
+                entity: Box::new(Entity::new(EntityId::new(20), EntityKind::Container)),
+            },
+        })
+        .map_err(|error| error.to_string())?;
+    let before = engine.checkpoint().map_err(|error| error.to_string())?;
+    let frontier = frontier(&[("alice", 1)])?;
+    let compacted = engine
+        .compact_stable(&frontier)
+        .map_err(|error| error.to_string())?;
+    Ok(CreationEvidence { before, compacted })
+}
+
+fn empty_compaction() -> Result<nuif_collab::CompactedCheckpoint, String> {
+    OperationSetEngine::default()
+        .compact_stable(
+            &nuif_testing::responsive_card_fixture(),
+            &StabilityFrontier::new(BTreeMap::new()).map_err(|error| error.to_string())?,
+        )
+        .map_err(|error| error.to_string())
 }
 
 fn register_change(replica: &str, counter: u64, name: &str) -> Change {

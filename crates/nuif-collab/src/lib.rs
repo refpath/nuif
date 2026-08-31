@@ -337,6 +337,11 @@ impl ReplicaLogEngine {
 
     /// Replaces a complete, causally stable history with its canonical
     /// metadata-free checkpoint. See [`OperationSetEngine::compact_stable`].
+    ///
+    /// # Errors
+    ///
+    /// Rejects incomplete causal history, an unsafe frontier or an unhashable
+    /// base.
     pub fn compact_stable(
         &self,
         base: &Document,

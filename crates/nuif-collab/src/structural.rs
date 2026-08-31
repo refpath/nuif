@@ -270,6 +270,11 @@ impl StructuralOperationSetEngine {
     /// exactly cover every locally observed structural change; this avoids
     /// rebasing position anchors and causal contexts without a versioned
     /// checkpoint protocol.
+    ///
+    /// # Errors
+    ///
+    /// Rejects incomplete causal history, an unsafe stability frontier or an
+    /// invalid resulting checkpoint.
     pub fn compact_stable(
         &self,
         frontier: &StabilityFrontier,

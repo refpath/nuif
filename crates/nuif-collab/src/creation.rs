@@ -284,6 +284,11 @@ impl CreationOperationSetEngine {
     /// Profile 0 intentionally rejects partial collection. The frontier must
     /// exactly cover every locally observed creation change; no nested payload
     /// or position-anchor rebasing is attempted.
+    ///
+    /// # Errors
+    ///
+    /// Rejects incomplete causal history, an unsafe stability frontier or an
+    /// invalid resulting checkpoint.
     pub fn compact_stable(
         &self,
         frontier: &StabilityFrontier,
