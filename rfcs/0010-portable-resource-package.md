@@ -175,6 +175,13 @@ requirements are reported exactly. Structural decode alone is intentionally
 available to inert inspection, preservation and migration tools and is not a
 semantic-support claim.
 
+A structural editor that does not support every required capability MUST keep
+the package read-only. It MAY inspect and copy the package exactly, but it MUST
+NOT change `document.cbor` while carrying capability resources forward unless a
+capability-specific authoring profile validates or explicitly detaches those
+resources. This prevents a content-addressed sidecar from being silently bound
+to a document revision it never validated.
+
 Every embedded resource is stored at the path derived from its SHA-256 digest.
 The path is a locator. The manifest digest remains the identity and MUST match
 the bytes even if a future profile permits another physical layout.

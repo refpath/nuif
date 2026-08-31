@@ -38,7 +38,7 @@ use nuif_core::{
 use nuif_layout::Rect as LayoutRect;
 use nuif_package::{MAX_PACKAGE_BYTES, NuifPackage};
 use nuif_protocol::{Anchor, Axis as ProtocolAxis, Operation};
-use std::collections::{BTreeMap, HashMap};
+use std::collections::{BTreeMap, BTreeSet, HashMap};
 use std::env;
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -56,6 +56,21 @@ const TEXT: UiColor = UiColor::from_rgb8(0xEE, 0xEE, 0xEE);
 const MUTED: UiColor = UiColor::from_rgb8(0xA7, 0xA7, 0xA7);
 const ACCENT: UiColor = UiColor::from_rgb8(0x55, 0x8D, 0xFF);
 const MAX_DIRECT_DIMENSION: f64 = 1_000_000.0;
+
+fn capability_summary(capabilities: Option<&BTreeSet<String>>) -> Option<String> {
+    let capabilities = capabilities.filter(|value| !value.is_empty())?;
+    let shown = capabilities
+        .iter()
+        .take(3)
+        .map(String::as_str)
+        .collect::<Vec<_>>()
+        .join(", ");
+    if capabilities.len() > 3 {
+        Some(format!("{shown}, +{} more", capabilities.len() - 3))
+    } else {
+        Some(shown)
+    }
+}
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 enum Tool {
@@ -350,6 +365,10 @@ impl Driver {
     ) -> Result<Self, String> {
         let editor = EditorDriver::new_with_package(document, package.as_ref())
             .map_err(|error| error.to_string())?;
+        let status = capability_summary(editor.missing_required_capabilities()).map_or_else(
+            || "Ready · profile 0 · px · 768 × 640".to_owned(),
+            |missing| format!("Opened structurally · read-only · missing {missing}"),
+        );
         Ok(Self {
             window_id,
             root_widget_id: None,
@@ -357,7 +376,7 @@ impl Driver {
             package,
             document_path,
             dirty: false,
-            status: "Ready · profile 0 · px · 768 × 640".to_owned(),
+            status,
             tool: Tool::Move,
             left_panel: LeftPanel::Layers,
             viewport_width: VIEWPORT_WIDTH,
@@ -1135,10 +1154,15 @@ impl Driver {
     }
 
     fn build_status(&self) -> NewWidget<dyn Widget> {
+        let package_access = capability_summary(self.editor.missing_required_capabilities())
+            .map_or_else(String::new, |missing| {
+                format!(" · READ ONLY · missing {missing}")
+            });
         let history = format!(
-            "px · Grid {} · Rulers {}{}{}",
+            "px · Grid {} · Rulers {}{}{}{}",
             if self.show_grid { "on" } else { "off" },
             if self.show_rulers { "on" } else { "off" },
+            package_access,
             if self.editor.can_undo() {
                 " · Undo available"
             } else {
@@ -1224,7 +1248,16 @@ impl Driver {
             .and_then(Path::file_name)
             .and_then(|name| name.to_str())
             .unwrap_or("Untitled.nuif");
-        format!("{}{} — NUIF", if self.dirty { "● " } else { "" }, file)
+        format!(
+            "{}{}{} — NUIF",
+            if self.dirty { "● " } else { "" },
+            if self.editor.is_read_only() {
+                "Read only · "
+            } else {
+                ""
+            },
+            file
+        )
     }
 
     #[expect(
@@ -2341,7 +2374,15 @@ impl Driver {
         self.document_path = Some(path.to_path_buf());
         self.dirty = false;
         self.drafts.clear();
-        self.status = format!("Opened {}", path.display());
+        self.status = capability_summary(self.editor.missing_required_capabilities()).map_or_else(
+            || format!("Opened {}", path.display()),
+            |missing| {
+                format!(
+                    "Opened {} structurally · read-only · missing {missing}",
+                    path.display()
+                )
+            },
+        );
         Ok(())
     }
 
@@ -3014,6 +3055,26 @@ mod tests {
                 .access_node(surface_widget)
                 .is_some_and(|node| node.author_id() == Some(surface.as_str()))
         );
+    }
+
+    #[test]
+    fn unsupported_package_capabilities_are_persistently_visible() {
+        let document = new_native_document(EntityId::new(1));
+        let mut package = NuifPackage::new(document.clone(), nuif_package::PackageMode::Portable);
+        package
+            .required_capabilities
+            .insert("feature.example".to_owned());
+        let driver = Driver::new(
+            WindowId::next(),
+            document,
+            Some(PathBuf::from("example.nuif")),
+            Some(package),
+        )
+        .unwrap();
+        assert!(driver.editor.is_read_only());
+        assert!(driver.status.contains("read-only"));
+        assert!(driver.status.contains("feature.example"));
+        assert!(driver.window_title().contains("Read only"));
     }
 
     #[test]

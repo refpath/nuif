@@ -26,7 +26,7 @@ links:
   spec: [spec/08-serialization.md, spec/11-security.md, spec/13-semantics-accessibility-and-behavior.md]
   adr: []
   rfc: [rfcs/0010-portable-resource-package.md, rfcs/0012-behavior-package-resource.md]
-  code: [crates/nuif-package/src/lib.rs, crates/nuif-api/src/lib.rs, crates/nuif-behavior/src/lib.rs, crates/nuif-testing/src/bin/behavior-package.rs, tools/behavior-oracle/package_check.py, xtask/src/main.rs]
+  code: [crates/nuif-package/src/lib.rs, crates/nuif-api/src/lib.rs, crates/nuif-behavior/src/lib.rs, crates/nuif-testing/src/bin/behavior-package.rs, apps/editor/src/lib.rs, apps/editor/src/bin/editor-hostile-inputs.rs, tools/behavior-oracle/package_check.py, xtask/src/main.rs]
   experiments: [nuif:experiment:behavior-package-resource]
 ---
 
@@ -104,6 +104,14 @@ BehaviorRuntime::new      caller-supplied effect-capability authorization
 There is no automatic transition from one level to the next. In particular,
 resource presence never grants script, filesystem, network or host mutation
 authority.
+
+This separation also constrains generic authoring. An editor that cannot
+interpret a required capability cannot know whether an opaque resource binds
+entity references, a document hash or other semantic preconditions. Preserving
+that resource while changing the document would therefore manufacture an
+unvalidated pairing. The reference editor uses structural read-only mode:
+inspection and exact copying are allowed, but its shared driver and save
+boundary reject semantic changes with the exact missing requirement set.
 
 The behavior digest identifies only the behavior bytes. It does not claim to
 be a standalone document-specific identity. The deterministic package

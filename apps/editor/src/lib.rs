@@ -9,20 +9,43 @@ use nuif_core::{
     LayoutStyle, Point, SizeIntent, TextContent, Token,
 };
 use nuif_layout::{EvaluationContext, LayoutSnapshot};
-use nuif_package::{NuifPackage, PackageMode};
+use nuif_package::{NuifPackage, PackageCapabilityReport, PackageMode};
 use nuif_protocol::{Anchor, Axis, Operation, Patch};
 use nuif_render::RenderScene;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
+use std::collections::BTreeSet;
 use thiserror::Error;
 
 pub const MAX_SNAPSHOT_EDGE: u32 = 4_096;
 pub const MAX_SNAPSHOT_PIXELS: u64 = 16_777_216;
 
+/// Package capabilities the reference editor can evaluate completely.
+///
+/// Profile-zero images and fonts are ordinary verified resources rather than
+/// required manifest capabilities. Behavior and future capability resources
+/// remain structurally inspectable but read-only until the editor ships and
+/// tests their complete authoring/evaluation contract.
+#[must_use]
+pub fn editor_package_capabilities() -> BTreeSet<String> {
+    BTreeSet::new()
+}
+
 #[derive(Clone, Debug, PartialEq)]
 pub struct EditorFile {
     pub document: Document,
     pub package: Option<NuifPackage>,
+}
+
+impl EditorFile {
+    /// Reports package requirements against the editor's explicitly supported
+    /// capability set. Bare documents have no package report.
+    #[must_use]
+    pub fn package_capability_report(&self) -> Option<PackageCapabilityReport> {
+        self.package
+            .as_ref()
+            .map(|package| package.capability_report(&editor_package_capabilities()))
+    }
 }
 
 /// Decodes a deterministic package or a historical alpha bare document.
@@ -62,6 +85,17 @@ pub fn encode_editor_file(
     document: &Document,
     package: &mut Option<NuifPackage>,
 ) -> Result<Vec<u8>, String> {
+    if let Some(opened) = package.as_ref()
+        && opened.document != *document
+    {
+        let report = opened.capability_report(&editor_package_capabilities());
+        if !report.fully_supported {
+            return Err(format!(
+                "package is read-only because the editor does not support required capabilities: {:?}",
+                report.missing_required
+            ));
+        }
+    }
     let mut value = package
         .clone()
         .unwrap_or_else(|| NuifPackage::new(document.clone(), PackageMode::Portable));
@@ -228,6 +262,12 @@ pub enum EditorError {
     AccessibilityValueInvalid { label: String, value: String },
     #[error("accessibility set-value action is unsupported for {label:?}")]
     AccessibilityActionUnsupported { label: String },
+    #[error(
+        "package is read-only because the editor does not support required capabilities: {capabilities:?}"
+    )]
+    PackageReadOnly { capabilities: BTreeSet<String> },
+    #[error("editor document does not match the package document")]
+    PackageDocumentMismatch,
 }
 
 #[derive(Clone, Debug)]
@@ -235,6 +275,7 @@ pub struct EditorDriver {
     session: Session,
     next_transaction: u128,
     operation_log: Vec<Patch>,
+    package_capability_report: Option<PackageCapabilityReport>,
 }
 
 impl EditorDriver {
@@ -244,6 +285,7 @@ impl EditorDriver {
             session: Session::new(document),
             next_transaction: 1,
             operation_log: Vec::new(),
+            package_capability_report: None,
         }
     }
 
@@ -258,11 +300,17 @@ impl EditorDriver {
         document: Document,
         package: Option<&NuifPackage>,
     ) -> Result<Self, EditorError> {
+        if package.is_some_and(|package| package.document != document) {
+            return Err(EditorError::PackageDocumentMismatch);
+        }
         let resources = package.map_or_else(Default::default, NuifPackage::embedded_resources);
+        let package_capability_report =
+            package.map(|package| package.capability_report(&editor_package_capabilities()));
         Ok(Self {
             session: Session::with_resources(document, resources)?,
             next_transaction: 1,
             operation_log: Vec::new(),
+            package_capability_report,
         })
     }
 
@@ -274,6 +322,29 @@ impl EditorDriver {
     #[must_use]
     pub fn operation_log(&self) -> &[Patch] {
         &self.operation_log
+    }
+
+    /// Returns the deterministic package negotiation result captured when the
+    /// editor session was opened. Bare documents return no report.
+    #[must_use]
+    pub const fn package_capability_report(&self) -> Option<&PackageCapabilityReport> {
+        self.package_capability_report.as_ref()
+    }
+
+    /// Whether semantic mutation is disabled because the opened package
+    /// declares a capability the reference editor cannot fully evaluate.
+    #[must_use]
+    pub fn is_read_only(&self) -> bool {
+        self.package_capability_report
+            .as_ref()
+            .is_some_and(|report| !report.fully_supported)
+    }
+
+    #[must_use]
+    pub fn missing_required_capabilities(&self) -> Option<&BTreeSet<String>> {
+        self.package_capability_report
+            .as_ref()
+            .map(|report| &report.missing_required)
     }
 
     #[must_use]
@@ -379,11 +450,13 @@ impl EditorDriver {
             }
             EditorCommand::Apply { operations } => self.apply_operations(operations),
             EditorCommand::Undo => {
+                self.require_editable()?;
                 let patch = self.session.undo()?;
                 self.operation_log.push(patch);
                 Ok(EditorEvent::HistoryChanged)
             }
             EditorCommand::Redo => {
+                self.require_editable()?;
                 let patch = self.session.redo()?;
                 self.operation_log.push(patch);
                 Ok(EditorEvent::HistoryChanged)
@@ -625,11 +698,25 @@ impl EditorDriver {
     }
 
     fn apply_operations(&mut self, operations: Vec<Operation>) -> Result<EditorEvent, EditorError> {
+        self.require_editable()?;
         let transaction = self.next_transaction;
         let patch = self.session.apply_transaction(transaction, operations)?;
         self.next_transaction += 1;
         self.operation_log.push(patch);
         Ok(EditorEvent::PatchApplied { transaction })
+    }
+
+    fn require_editable(&self) -> Result<(), EditorError> {
+        if self.is_read_only() {
+            Err(EditorError::PackageReadOnly {
+                capabilities: self
+                    .missing_required_capabilities()
+                    .cloned()
+                    .unwrap_or_default(),
+            })
+        } else {
+            Ok(())
+        }
     }
 
     fn snapshot(&self, width: u32, height: u32) -> Result<EditorEvent, EditorError> {
@@ -1416,6 +1503,64 @@ mod tests {
             Some(b"inert source evidence".as_slice())
         );
         assert_eq!(decoded.mode, PackageMode::Portable);
+    }
+
+    #[test]
+    fn unsupported_package_capabilities_are_inspectable_but_read_only() {
+        let document = responsive_card_fixture();
+        let mut original = NuifPackage::new(document.clone(), PackageMode::Portable);
+        original
+            .required_capabilities
+            .insert("feature.example".to_owned());
+        let bytes = original.encode().unwrap();
+        let opened = decode_editor_file(&bytes).unwrap();
+        let report = opened.package_capability_report().unwrap();
+        assert!(!report.fully_supported);
+        assert_eq!(
+            report.missing_required,
+            BTreeSet::from(["feature.example".to_owned()])
+        );
+
+        let mut driver =
+            EditorDriver::new_with_package(opened.document.clone(), opened.package.as_ref())
+                .unwrap();
+        assert!(driver.is_read_only());
+        driver
+            .execute(EditorCommand::Select {
+                entity: EntityId::new(0x20),
+            })
+            .unwrap();
+        assert!(matches!(
+            driver.execute(EditorCommand::Rename {
+                entity: EntityId::new(0x20),
+                name: "must not commit".to_owned(),
+            }),
+            Err(EditorError::PackageReadOnly { capabilities })
+                if capabilities == BTreeSet::from(["feature.example".to_owned()])
+        ));
+        assert_eq!(driver.document(), &document);
+        assert!(driver.operation_log().is_empty());
+
+        let mut no_op_package = opened.package.clone();
+        assert_eq!(
+            encode_editor_file(&opened.document, &mut no_op_package).unwrap(),
+            bytes
+        );
+        let package_before = opened.package.clone();
+        let mut changed = opened.document;
+        changed.entities.get_mut(&EntityId::new(0x20)).unwrap().name =
+            Some("must not save".to_owned());
+        let mut rejected_package = opened.package;
+        assert!(encode_editor_file(&changed, &mut rejected_package).is_err());
+        assert_eq!(rejected_package, package_before);
+
+        assert!(matches!(
+            EditorDriver::new_with_package(
+                Document::empty(EntityId::new(0xff)),
+                package_before.as_ref()
+            ),
+            Err(EditorError::PackageDocumentMismatch)
+        ));
     }
 
     #[test]

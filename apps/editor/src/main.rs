@@ -191,6 +191,7 @@ fn run() -> Result<(), String> {
         "replay_hash": replay_hash,
         "expected_hash": expected_hash,
         "expected_exact_match": expected_exact_match,
+        "package_capabilities": driver.package_capability_report(),
         "events": summaries,
         "operations": driver.operation_log(),
         "snapshot_artifacts": snapshot_artifacts

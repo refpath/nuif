@@ -21,6 +21,16 @@ nodes, atomic multi-operation failure, empty history, redo invalidation and
 complete operation-log replay; it writes
 `target/editor-hostile-input-report.json`.
 
+Opening a package is not a capability grant. Packages with no required
+capabilities remain editable and preserve their verified embedded resources.
+A package requiring behavior or another capability the reference editor does
+not implement opens structurally in persistent read-only mode. Selection,
+inspection, static snapshots and byte-exact Save As remain available; semantic
+commands, accessibility mutations, undo/redo mutation and a changed package
+save fail with the exact missing set. `cargo xtask editor-hostile-inputs`
+exercises both the driver and save boundary so opaque resources cannot be
+silently rebound to an unvalidated document revision.
+
 The draft `UI-SPEC.md` is broader than executable profile zero. Multi-selection, cross-parent/tree drag, Grid/Constraint reorder, persisted aspect-ratio constraints, object smart guides, managed leading-edge resize, in-editor token editing, component authoring, advanced paint/effects, arbitrary foreign formats and non-PNG rendering export remain gated on corresponding model, protocol, layout, adapter or renderer profiles. The shell does not present inert controls for those features.
 
 Use `cargo xtask editor-package` to build and verify the native package for the host platform, or `cargo xtask editor-launch` to package and open it without installation. macOS produces `NUIF Editor.app`, Windows produces a GUI-subsystem executable, and Linux produces a relocatable desktop application directory. Version tags produce five GitHub prerelease archives with checksums and provenance attestations. Those archives are release evidence and an expert opt-in path; developer installation builds locally according to ADR 0009. See `INSTALLING.md`, `PACKAGING.md` and `docs/VERSIONING.md`.

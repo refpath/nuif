@@ -67,6 +67,12 @@ The entire v0 fixture is authored from an empty document through identity-addres
 ## Phase 5b — native editor research preview (complete through alpha.3)
 The native shell exposes the semantic driver through identity-backed canvas selection, a file menu with canonical and declared adapter import/export routes, document-aligned background grid and pixel rulers, layer and component browsing, insertion tools, evaluation widths, zoom, inspector transactions, bounded explicit Grid authoring and source-built developer installation. Captured pointer movement for freeform children previews locally and commits one semantic position operation on release; it snaps to whole pixels by default and supports Control-suspended snapping. Stack/Flex drags infer the effective responsive axis from resolved siblings and commit one same-parent `Move`; unchanged order creates no history, while Grid, Constraint, cross-parent and instance-child cases fail closed. Freeform selections expose eight handles; managed-layout children expose the three trailing handles. Resize previews resolved geometry and atomically commits the changed fixed axes plus an anchored freeform position when required; Shift preserves corner aspect ratio and invalid, root or semantically ineffective paths fail closed. Grid track, flow, atomic item position and span edits use the same validated operations as the headless and accessibility surfaces. Open packages pass their digest-verified embedded resources through the same bounded session used by CLI render/snapshot, so the narrow RGBA8 image segment renders without implicit fetching. `cargo xtask editor-gui-trial`, `cargo xtask editor-hostile-inputs` and `cargo xtask editor-install-trial` exercise the semantic, visual, adversarial and lifecycle boundaries. The broader `apps/editor/UI-SPEC.md` remains a draft; multi-selection, persisted aspect-ratio constraints, object smart guides, cross-parent/tree drag, Grid/Constraint reorder and managed leading-edge resize, token authoring and expanded paint are not claimed by this phase.
 
+Packages declaring capabilities outside the editor's explicit empty support
+set open structurally but read-only. The driver, accessibility surface and
+changed-package save boundary return the exact missing set, while an unmodified
+copy stays byte-identical. This conservative boundary is included in the editor
+hostile-interaction gate.
+
 ## Phase 5c — browser and plug-in binding (complete for `nuif-wasm-api-0`)
 
 The byte-oriented WebAssembly module wraps `nuif-api`, canonical text/CBOR,

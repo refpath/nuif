@@ -75,6 +75,9 @@ Wrappers contain transport and ownership conversion only:
 - MCP bounds newline-delimited protocol messages and maps stateless tool calls
   to the same API.
 - The CLI owns files and stdout; the editor owns window and interaction state.
+- The reference editor opens unsupported capability-bearing packages only for
+  structural read-only inspection and exact copying; it rejects semantic edits
+  at both the session and package-save boundaries.
 - A host plug-in owns vendor objects, permissions and undo grouping. WASM does
   not become the Figma or Adobe adapter merely because it runs in a plug-in.
 

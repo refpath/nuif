@@ -3,8 +3,9 @@ use nuif_core::{
 };
 use nuif_editor::{
     AccessibilityAction, EditorCommand, EditorDriver, EditorError, EditorEvent, MAX_SNAPSHOT_EDGE,
-    MAX_SNAPSHOT_PIXELS,
+    MAX_SNAPSHOT_PIXELS, encode_editor_file,
 };
+use nuif_package::{NuifPackage, PackageMode};
 use nuif_protocol::{Operation, apply_patch};
 use serde_json::{Value, json};
 use std::env;
@@ -35,6 +36,7 @@ fn run() -> Result<(), String> {
         "empty_history_atomic": empty_history_atomic(),
         "redo_invalidation_exact": redo_invalidation_exact(),
         "history_log_replays_exactly": history_log_replays_exactly(),
+        "unsupported_package_capability_is_read_only": unsupported_package_capability_is_read_only(),
     });
     let elapsed_micros = started.elapsed().as_micros();
     let passed = checks
@@ -291,6 +293,58 @@ fn history_log_replays_exactly() -> bool {
         }
     }
     &replayed == driver.document()
+}
+
+fn unsupported_package_capability_is_read_only() -> bool {
+    let base = editor_fixture();
+    let mut package = NuifPackage::new(base.clone(), PackageMode::Portable);
+    package
+        .required_capabilities
+        .insert("feature.example".to_owned());
+    let Ok(encoded) = package.encode() else {
+        return false;
+    };
+    let Ok(mut driver) = EditorDriver::new_with_package(base.clone(), Some(&package)) else {
+        return false;
+    };
+    let selected = driver
+        .execute(EditorCommand::Select {
+            entity: EntityId::new(0x20),
+        })
+        .is_ok();
+    let rejected = matches!(
+        driver.execute(EditorCommand::Rename {
+            entity: EntityId::new(0x20),
+            name: "must not commit".to_owned(),
+        }),
+        Err(EditorError::PackageReadOnly { capabilities })
+            if capabilities == std::collections::BTreeSet::from(["feature.example".to_owned()])
+    );
+    let mut no_op_package = Some(package.clone());
+    let no_op_exact =
+        encode_editor_file(&base, &mut no_op_package).is_ok_and(|bytes| bytes == encoded);
+    let mut changed = base.clone();
+    changed
+        .entities
+        .get_mut(&EntityId::new(0x20))
+        .expect("fixture card exists")
+        .name = Some("must not save".to_owned());
+    let mut rejected_package = Some(package.clone());
+    let save_rejected = encode_editor_file(&changed, &mut rejected_package).is_err();
+    let mismatched_document_rejected = matches!(
+        EditorDriver::new_with_package(Document::empty(EntityId::new(0xff)), Some(&package)),
+        Err(EditorError::PackageDocumentMismatch)
+    );
+
+    selected
+        && driver.is_read_only()
+        && rejected
+        && driver.document() == &base
+        && driver.operation_log().is_empty()
+        && no_op_exact
+        && save_rejected
+        && mismatched_document_rejected
+        && rejected_package == Some(package)
 }
 
 fn output_path() -> Result<PathBuf, String> {

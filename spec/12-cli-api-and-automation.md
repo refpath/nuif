@@ -37,6 +37,13 @@ fail with the exact unavailable identifiers. A package-preserving wrapper MUST
 produce the same deterministic archive bytes as the direct SDK for the same
 document, resources, capabilities and target mode.
 
+An editor that lacks any required package capability MUST treat the package as
+read-only unless a capability-specific authoring profile defines how every
+affected resource is updated or explicitly detached. Structural selection,
+inspection and exact package copying MAY remain available. A semantic mutation
+or changed save MUST fail atomically with the unavailable requirement set;
+silently carrying opaque resources onto a new document revision is forbidden.
+
 A future C ABI is a separate versioned profile. It MUST define opaque-handle
 lifetime, byte-buffer ownership and release, panic containment, stable error
 classes, threading, calling convention and exported-symbol compatibility. C,

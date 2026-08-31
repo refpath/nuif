@@ -11,7 +11,7 @@ use masonry_testing::{TestHarness, TestHarnessParams};
 use masonry_winit::app::WindowId;
 use nuif_codec::{canonical_hash, read_bounded as read_bounded_stream};
 use nuif_core::EntityId;
-use nuif_package::MAX_PACKAGE_BYTES;
+use nuif_package::{MAX_PACKAGE_BYTES, PackageCapabilityReport};
 use nuif_protocol::apply_patch;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
@@ -147,6 +147,7 @@ struct Report {
     selection: Vec<EntityId>,
     entities: usize,
     operations: usize,
+    package_capabilities: Option<PackageCapabilityReport>,
     semantic_nodes: usize,
     file_menu_routes: Vec<String>,
     actions: Vec<TrialAction>,
@@ -245,6 +246,7 @@ pub fn run() -> Result<(), String> {
         selection: driver.editor.selection().to_vec(),
         entities: driver.editor.document().entities.len(),
         operations: driver.editor.operation_log().len(),
+        package_capabilities: driver.editor.package_capability_report().cloned(),
         semantic_nodes: semantics.len(),
         file_menu_routes,
         actions: scenario.actions,
