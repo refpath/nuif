@@ -3,6 +3,7 @@
 const crypto = require("node:crypto");
 const fs = require("node:fs");
 const path = require("node:path");
+const { isDeepStrictEqual } = require("node:util");
 
 function fail(message) {
   throw new Error(message);
@@ -34,8 +35,8 @@ function rejectedCode(action, code) {
 }
 
 function main() {
-  if (process.argv.length !== 10) {
-    fail("usage: smoke.cjs binding.js input.nuif.json output.nuif.json patch.json report.json input.nuif output.nuif capability-input.nuif");
+  if (process.argv.length !== 12) {
+    fail("usage: smoke.cjs binding.js input.nuif.json output.nuif.json patch.json report.json input.nuif output.nuif capability-input.nuif variable-font.nuif variable-font-report.json");
   }
   const [
     bindingPath,
@@ -46,6 +47,8 @@ function main() {
     packageInputPath,
     packageOutputPath,
     capabilityPackagePath,
+    variableFontPackagePath,
+    variableFontReportPath,
   ] = process.argv.slice(2);
   const nuif = require(path.resolve(bindingPath));
   const input = fs.readFileSync(inputPath);
@@ -168,6 +171,27 @@ function main() {
     "NUIF_CAPABILITY_SET_DECODE_FAILED",
   );
 
+  const variableFontPackage = fs.readFileSync(variableFontPackagePath);
+  const variableFontExpected = JSON.parse(fs.readFileSync(variableFontReportPath, "utf8"));
+  const variableCapability = "nuif-opentype-variable-truetype-single-0";
+  const variableStructural = nuif.NuifDocument.fromPackage(variableFontPackage);
+  const variableMissing = parseBytes(
+    variableStructural.packageCapabilityReport(emptyCapabilities),
+  );
+  const variableSnapshotRejected = rejectedCode(
+    () => variableStructural.snapshotReport(640, 96),
+    "NUIF_PACKAGE_CAPABILITIES_REQUIRED",
+  );
+  const variableSupported = jsonBytes([variableCapability]);
+  const variableDocument = nuif.NuifDocument.fromPackageWithCapabilities(
+    variableFontPackage,
+    variableSupported,
+  );
+  const variableObserved = parseBytes(variableDocument.snapshotReport(640, 96));
+  const variableRun = variableObserved.scene.commands.find(
+    (command) => command.command === "text",
+  )?.run;
+
   const checks = {
     package_contract_declared:
       capabilities.containers.includes("nuif-package-0") &&
@@ -203,6 +227,18 @@ function main() {
       supportedReport.fully_supported === true &&
       supportedReport.missing_required.length === 0,
     malformed_capability_transport_typed: malformedCapabilitySetRejected,
+    variable_font_capability_exact:
+      variableMissing.fully_supported === false &&
+      isDeepStrictEqual(variableMissing.missing_required, [variableCapability]),
+    variable_font_snapshot_requires_capability: variableSnapshotRejected,
+    variable_font_snapshot_matches_cli: isDeepStrictEqual(
+      variableObserved,
+      variableFontExpected,
+    ),
+    variable_font_coordinates_retained:
+      variableRun?.font?.sha256 ===
+        "0afd77effc877ff84fa7995a58c396c124514855f8084056846b54b8cb76f3ce" &&
+      variableRun?.variation_coordinates?.length === 2,
     no_host_authority: capabilities.authorities.length === 0,
   };
   const passed = Object.values(checks).every(Boolean);
@@ -222,11 +258,19 @@ function main() {
     package_output_bytes: packageOutput.length,
     package_output_sha256: sha256(packageOutput),
     capability_package_bytes: capabilityPackage.length,
+    variable_font: {
+      package_bytes: variableFontPackage.length,
+      canonical_hash: variableObserved.canonical_hash,
+      raster_sha256: variableObserved.raster.rgba_sha256,
+      coordinates: variableRun?.variation_coordinates,
+    },
     wasm_bytes: fs.statSync(path.join(path.dirname(path.resolve(bindingPath)), "nuif_bg.wasm")).size,
     output_sha256: sha256(output),
     checks,
   }, null, 2) + "\n");
   supportedCapabilityDocument.free();
+  variableDocument.free();
+  variableStructural.free();
   structuralCapabilityDocument.free();
   packageDocument.free();
   cborDocument.free();

@@ -8,8 +8,18 @@
     <pre id="result">pending</pre>
     <script type="module">
       import init, { NuifDocument, apiVersion, capabilities } from "./nuif.js";
+      import { packageBytes, expected } from "./browser-fixture.js";
 
       const result = document.querySelector("#result");
+      const canonicalJson = (value) => {
+        if (Array.isArray(value)) return value.map(canonicalJson);
+        if (value !== null && typeof value === "object") {
+          return Object.fromEntries(
+            Object.keys(value).sort().map((key) => [key, canonicalJson(value[key])]),
+          );
+        }
+        return value;
+      };
       try {
         await init();
         const contract = JSON.parse(
@@ -25,10 +35,29 @@
         ) {
           throw new Error("generated browser contract does not match its profile");
         }
+        const supported = new TextEncoder().encode(JSON.stringify([
+          "nuif-opentype-variable-truetype-single-0",
+        ]));
+        const variable = NuifDocument.fromPackageWithCapabilities(
+          packageBytes,
+          supported,
+        );
+        const observed = JSON.parse(
+          new TextDecoder().decode(variable.snapshotReport(640, 96)),
+        );
+        variable.free();
+        if (
+          JSON.stringify(canonicalJson(observed)) !==
+          JSON.stringify(canonicalJson(expected))
+        ) {
+          throw new Error("browser WASM snapshot diverged from the CLI report");
+        }
         document.documentElement.dataset.status = "passed";
         result.textContent = JSON.stringify({
           status: "passed",
           api_profile: contract.api_profile,
+          variable_font_hash: observed.canonical_hash,
+          variable_font_raster_sha256: observed.raster.rgba_sha256,
         });
       } catch (error) {
         document.documentElement.dataset.status = "failed";

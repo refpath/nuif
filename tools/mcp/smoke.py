@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import base64
 import hashlib
 import json
 import os
@@ -23,6 +24,7 @@ EXPECTED_TOOLS = [
     "nuif_apply_patch",
     "nuif_canonicalize",
     "nuif_inspect",
+    "nuif_snapshot_package",
     "nuif_validate",
 ]
 
@@ -151,7 +153,22 @@ def native_apply(cli: Path, fixture: Path, patch: str) -> bytes:
         return output_path.read_bytes()
 
 
-def exercise(executable: Path, cli: Path, fixture: Path) -> dict[str, Any]:
+def native_snapshot(cli: Path, package: Path) -> dict[str, Any]:
+    with tempfile.TemporaryDirectory(prefix="nuif-mcp-snapshot-") as directory:
+        result = subprocess.run(
+            [str(cli), "snapshot", str(package), directory, "640", "96"],
+            check=True,
+            capture_output=True,
+        )
+        require(result.stderr == b"", "native snapshot wrote unexpected stderr")
+        summary = json.loads(result.stdout)
+        require(summary.get("status") == "passed", "native snapshot summary failed")
+        return json.loads((Path(directory) / "expected.report.json").read_text())
+
+
+def exercise(
+    executable: Path, cli: Path, fixture: Path, variable_font_package: Path
+) -> dict[str, Any]:
     document = fixture.read_text(encoding="utf-8")
     client = Client(executable)
     latencies: dict[str, float] = {}
@@ -235,6 +252,44 @@ def exercise(executable: Path, cli: Path, fixture: Path) -> dict[str, Any]:
     require(applied.get("canonical_hash") != before_hash, "patch did not change hash")
     require(applied.get("transactions") == 1 and applied.get("operations") == 1, "patch usage changed")
 
+    variable_bytes = variable_font_package.read_bytes()
+    variable_base64 = base64.b64encode(variable_bytes).decode("ascii")
+    variable_arguments = {
+        "package_base64": variable_base64,
+        "capabilities": [],
+        "width": 640,
+        "height": 96,
+    }
+    variable_missing_result, latencies["variable_font_missing"] = client.call(
+        "nuif_snapshot_package", variable_arguments
+    )
+    require(variable_missing_result.get("isError") is True, "unauthorized variable font snapshot passed")
+    variable_missing_text = variable_missing_result.get("content", [{}])[0].get("text", "")
+    require(
+        variable_missing_text.startswith("NUIF_PACKAGE_CAPABILITIES_UNAVAILABLE:"),
+        "variable font capability error class changed",
+    )
+    variable_arguments["capabilities"] = [
+        "nuif-opentype-variable-truetype-single-0"
+    ]
+    variable_result, latencies["variable_font_snapshot"] = client.call(
+        "nuif_snapshot_package", variable_arguments
+    )
+    variable_observed = structured(variable_result, "nuif_snapshot_package")
+    variable_expected = native_snapshot(cli, variable_font_package)
+    require(variable_observed == variable_expected, "MCP and CLI variable font snapshots differ")
+    variable_run = next(
+        command["run"]
+        for command in variable_observed["scene"]["commands"]
+        if command.get("command") == "text"
+    )
+    require(
+        variable_run["font"]["sha256"]
+        == "0afd77effc877ff84fa7995a58c396c124514855f8084056846b54b8cb76f3ce"
+        and len(variable_run["variation_coordinates"]) == 2,
+        "MCP variable font evidence is incomplete",
+    )
+
     stale_result, latencies["stale_patch"] = client.call(
         "nuif_apply_patch", {"document": output.decode("utf-8"), "patch": patch}
     )
@@ -273,6 +328,14 @@ def exercise(executable: Path, cli: Path, fixture: Path) -> dict[str, Any]:
         "fixture_bytes": len(document.encode("utf-8")),
         "output_bytes": len(output),
         "output_sha256": hashlib.sha256(output).hexdigest(),
+        "variable_font": {
+            "package_bytes": len(variable_bytes),
+            "canonical_hash": variable_observed["canonical_hash"],
+            "raster_sha256": variable_observed["raster"]["rgba_sha256"],
+            "coordinates": variable_run["variation_coordinates"],
+            "matches_cli": True,
+            "unauthorized_rejected": True,
+        },
         "latency_ms": {name: round(value, 3) for name, value in latencies.items()},
         "validate_benchmark": {
             "samples": len(benchmark_ms),
@@ -313,12 +376,18 @@ def main() -> None:
     parser.add_argument("--server", type=Path, required=True)
     parser.add_argument("--cli", type=Path, required=True)
     parser.add_argument("--fixture", type=Path, required=True)
+    parser.add_argument("--variable-font-package", type=Path, required=True)
     parser.add_argument("--report", type=Path, required=True)
     args = parser.parse_args()
-    for path in (args.server, args.cli, args.fixture):
+    for path in (args.server, args.cli, args.fixture, args.variable_font_package):
         require(path.is_file(), f"required input does not exist: {path}")
 
-    result = exercise(args.server.resolve(), args.cli.resolve(), args.fixture.resolve())
+    result = exercise(
+        args.server.resolve(),
+        args.cli.resolve(),
+        args.fixture.resolve(),
+        args.variable_font_package.resolve(),
+    )
     oversized = oversized_frame_is_bounded(args.server.resolve())
     report = {
         "schema_version": 1,

@@ -402,7 +402,13 @@ fn snapshot(args: &[String]) -> Result<(), CliError> {
         &directory.join("expected.report.json"),
         &serde_json::to_vec_pretty(&report).expect("report serializes"),
     )?;
-    print_json(&report)
+    print_json(&serde_json::json!({
+        "status": report.status,
+        "canonical_hash": report.canonical_hash,
+        "report": directory.join("expected.report.json"),
+        "raster": report.raster,
+        "artifacts": ["input.nuif", "input.nuif.json", "expected.layout.json", "expected.scene.json", "expected.png", "expected.report.json"]
+    }))
 }
 
 fn migrate(args: &[String]) -> Result<(), CliError> {

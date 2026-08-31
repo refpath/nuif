@@ -199,6 +199,10 @@ fn main() {
     }
 }
 
+#[expect(
+    clippy::too_many_lines,
+    reason = "the top-level command dispatcher keeps every supported automation entry point explicit"
+)]
 fn run() -> Result<(), String> {
     let mut args = env::args().skip(1);
     match args.next().as_deref() {
@@ -1222,10 +1226,14 @@ fn gate_wasm() -> Result<(), String> {
     let package_output = Path::new("target/wasm-smoke-output.nuif");
     let native_package_output = Path::new("target/wasm-native-output.nuif");
     let capability_package = Path::new("target/behavior-package-fixture.nuif");
+    let variable_font_package = Path::new("target/wasm-variable-font.nuif");
+    let variable_font_snapshot = Path::new("target/wasm-variable-font-snapshot");
+    let variable_font_report = variable_font_snapshot.join("expected.report.json");
     let patch = Path::new("target/wasm-smoke-patch.json");
     let report = Path::new("target/wasm-conformance-report.json");
     build_wasm_bindings(node_output, web_output)?;
     generate_wasm_fixtures(fixture, package_fixture)?;
+    generate_variable_font_snapshot(variable_font_package, variable_font_snapshot)?;
     cargo(&[
         "run",
         "--quiet",
@@ -1248,6 +1256,8 @@ fn gate_wasm() -> Result<(), String> {
             path(package_fixture)?,
             path(package_output)?,
             path(capability_package)?,
+            path(variable_font_package)?,
+            path(variable_font_report.as_path())?,
         ],
     )?;
     compare_wasm_patch(
@@ -1264,7 +1274,11 @@ fn gate_wasm() -> Result<(), String> {
         native_package_output,
         "deterministic package bytes",
     )?;
-    let browser_version = run_wasm_browser_smoke(web_output)?;
+    let browser_version = run_wasm_browser_smoke(
+        web_output,
+        variable_font_package,
+        variable_font_report.as_path(),
+    )?;
     let mut report_json = read_json(report)?;
     report_json["checks"]["browser_web_target_initializes"] = serde_json::Value::Bool(true);
     report_json["browser"] = serde_json::json!({
@@ -1311,6 +1325,33 @@ fn generate_wasm_fixtures(fixture: &Path, package_fixture: &Path) -> Result<(), 
         path(fixture)?,
         path(package_fixture)?,
         "--portable",
+    ])
+}
+
+fn generate_variable_font_snapshot(package: &Path, snapshot: &Path) -> Result<(), String> {
+    cargo(&[
+        "run",
+        "--quiet",
+        "--locked",
+        "-p",
+        "nuif-cli",
+        "--",
+        "fixture",
+        "variable-font-interior",
+        path(package)?,
+    ])?;
+    cargo(&[
+        "run",
+        "--quiet",
+        "--locked",
+        "-p",
+        "nuif-cli",
+        "--",
+        "snapshot",
+        path(package)?,
+        path(snapshot)?,
+        "640",
+        "96",
     ])
 }
 
@@ -1418,6 +1459,7 @@ fn gate_mcp() -> Result<(), String> {
         .join("debug")
         .join(format!("nuif{executable_suffix}"));
     let fixture = Path::new("target/mcp-smoke-input.nuif.json");
+    let variable_font_package = Path::new("target/mcp-variable-font.nuif");
     let report = Path::new("target/mcp-conformance-report.json");
     cargo(&["build", "--locked", "-p", "nuif-mcp", "-p", "nuif-cli"])?;
     cargo(&[
@@ -1431,6 +1473,17 @@ fn gate_mcp() -> Result<(), String> {
         "v0-responsive-card",
         path(fixture)?,
     ])?;
+    cargo(&[
+        "run",
+        "--quiet",
+        "--locked",
+        "-p",
+        "nuif-cli",
+        "--",
+        "fixture",
+        "variable-font-interior",
+        path(variable_font_package)?,
+    ])?;
     command(
         "python3",
         &[
@@ -1441,16 +1494,34 @@ fn gate_mcp() -> Result<(), String> {
             path(&cli)?,
             "--fixture",
             path(fixture)?,
+            "--variable-font-package",
+            path(variable_font_package)?,
             "--report",
             path(report)?,
         ],
     )
 }
 
-fn run_wasm_browser_smoke(web_output: &Path) -> Result<String, String> {
+fn run_wasm_browser_smoke(
+    web_output: &Path,
+    variable_font_package: &Path,
+    variable_font_report: &Path,
+) -> Result<String, String> {
     browser_install()?;
     let page = web_output.join("browser-smoke.html");
+    let browser_fixture = web_output.join("browser-fixture.js");
     fs::copy("tools/wasm/browser-smoke.html", &page).map_err(|error| error.to_string())?;
+    let package_bytes = fs::read(variable_font_package).map_err(|error| error.to_string())?;
+    let expected = read_json(variable_font_report)?;
+    fs::write(
+        &browser_fixture,
+        format!(
+            "export const packageBytes = new Uint8Array({});\nexport const expected = {};\n",
+            serde_json::to_string(&package_bytes).map_err(|error| error.to_string())?,
+            serde_json::to_string(&expected).map_err(|error| error.to_string())?,
+        ),
+    )
+    .map_err(|error| error.to_string())?;
     let url = local_file_url(&page)?;
     let chrome = wasm_browser_binary()?;
     let output = Command::new(&chrome)
@@ -1465,9 +1536,12 @@ fn run_wasm_browser_smoke(web_output: &Path) -> Result<String, String> {
         .arg(url)
         .output()
         .map_err(|error| format!("could not start pinned Chrome: {error}"));
-    let cleanup = fs::remove_file(&page);
+    let cleanup = [page.as_path(), browser_fixture.as_path()]
+        .into_iter()
+        .map(fs::remove_file)
+        .collect::<Result<Vec<_>, _>>();
     let output = output?;
-    cleanup.map_err(|error| format!("could not remove browser smoke page: {error}"))?;
+    cleanup.map_err(|error| format!("could not remove browser smoke fixture: {error}"))?;
     if !output.status.success() {
         return Err(format!(
             "pinned Chrome failed WebAssembly browser smoke with {}: {}",
