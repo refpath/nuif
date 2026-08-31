@@ -1,5 +1,7 @@
 #![doc = "Model-neutral observation, reconstruction, calibration, and correction contracts."]
 
+pub mod layout_inference;
+
 use nuif_codec::{
     CodecError, Encoder, canonical_hash, decode_canonical_record, encode_canonical_record,
 };
