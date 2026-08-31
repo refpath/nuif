@@ -6,7 +6,7 @@ use nuif_core::{
     resolve_grid_placements, resolve_text_font_binding, validate,
 };
 use nuif_text::{
-    PINNED_FONT_SHA256, ResourceFont, ShapeRequest, ShapedRun, TextDirection, hard_lines,
+    PINNED_FONT_SHA256, PackagedResourceFont, ShapeRequest, ShapedRun, TextDirection, hard_lines,
     shape_hard_lines,
 };
 use serde::{Deserialize, Serialize};
@@ -458,26 +458,41 @@ fn shape_text(
         | TextFontBinding::Unavailable { .. }
         | TextFontBinding::Invalid { .. } => return None,
     };
-    let (family, license, features) = font_asset_metadata(document, asset_id)?;
+    let metadata = font_asset_metadata(document, asset_id)?;
     let bytes = context.font_resources.get(sha256)?;
-    ResourceFont::new_with_features(bytes, sha256, family, license, features)
-        .and_then(|font| font.shape_hard_lines(&request))
-        .ok()
+    PackagedResourceFont::new_with_profile(
+        bytes,
+        sha256,
+        metadata.family,
+        metadata.license,
+        metadata.decoder_profile,
+        metadata.axes,
+        metadata.features,
+    )
+    .and_then(|font| font.shape_hard_lines(&request))
+    .ok()
 }
 
-fn font_asset_metadata(
-    document: &Document,
-    asset_id: AssetId,
-) -> Option<(&str, &str, &BTreeMap<String, u32>)> {
+struct FontAssetMetadata<'a> {
+    family: &'a str,
+    license: &'a str,
+    decoder_profile: &'a str,
+    axes: &'a BTreeMap<String, f64>,
+    features: &'a BTreeMap<String, u32>,
+}
+
+fn font_asset_metadata(document: &Document, asset_id: AssetId) -> Option<FontAssetMetadata<'_>> {
     let asset = document.assets.get(&asset_id)?;
     let AssetKind::Font(font) = &asset.kind else {
         return None;
     };
-    Some((
-        font.names.first()?.as_str(),
-        font.policy_evidence.get("license.expression")?.as_str(),
-        &font.features,
-    ))
+    Some(FontAssetMetadata {
+        family: font.names.first()?.as_str(),
+        license: font.policy_evidence.get("license.expression")?.as_str(),
+        decoder_profile: font.policy_evidence.get("font.decoder_profile")?.as_str(),
+        axes: &font.axes,
+        features: &font.features,
+    })
 }
 
 fn layout_children(

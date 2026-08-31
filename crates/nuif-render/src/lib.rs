@@ -13,7 +13,7 @@ use nuif_media::{
 use nuif_text::{
     CLUSTER_UNIT, GlyphOutline, MAX_SHAPING_CODEPOINTS, OUTLINE_COORDINATE_DENOMINATOR,
     OUTLINE_EXTRACTOR_NAME, OUTLINE_EXTRACTOR_VERSION, OutlineCommand, OutlinePoint,
-    PINNED_FONT_SHA256, ResourceFont, ShapeRequest, ShapedRun, TextDirection, TextError,
+    PINNED_FONT_SHA256, PackagedResourceFont, ShapeRequest, ShapedRun, TextDirection, TextError,
     outline_glyph, shape_hard_lines,
 };
 use serde::{Deserialize, Serialize};
@@ -127,7 +127,7 @@ enum TextFontLowering<'a> {
 
 enum ResolvedTextFace<'a> {
     Pinned,
-    Resource(Box<ResourceFont<'a>>),
+    Resource(PackagedResourceFont<'a>),
     Skip(Fidelity),
 }
 
@@ -693,10 +693,23 @@ fn resolve_text_face<'a>(
             reason: "font asset has no reviewed license expression",
         },
     )?;
-    ResourceFont::new_with_features(bytes, sha256, family, license, &metadata.features)
-        .map(Box::new)
-        .map(ResolvedTextFace::Resource)
-        .map_err(|source| RenderError::Text { entity, source })
+    let decoder_profile = metadata.policy_evidence.get("font.decoder_profile").ok_or(
+        RenderError::InvalidFontBinding {
+            entity,
+            reason: "font asset has no declared decoder profile",
+        },
+    )?;
+    PackagedResourceFont::new_with_profile(
+        bytes,
+        sha256,
+        family,
+        license,
+        decoder_profile,
+        &metadata.axes,
+        &metadata.features,
+    )
+    .map(ResolvedTextFace::Resource)
+    .map_err(|source| RenderError::Text { entity, source })
 }
 
 fn select_text_font<'a>(

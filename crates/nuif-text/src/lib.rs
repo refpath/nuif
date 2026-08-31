@@ -262,13 +262,9 @@ pub struct ResourceFont<'a> {
     feature_settings: BTreeMap<String, u32>,
 }
 
-/// One variable TrueType face opened only for the staged RFC 0013 experiment.
-///
-/// This type deliberately has no package/session integration. It proves that
-/// the already-bounded coordinate vector can be delivered unchanged to
-/// shaping, metrics, and outline extraction before the candidate profile is
-/// eligible for package acceptance.
-pub struct VariableResourceTrial<'a> {
+/// One exact, bounded variable TrueType face with a single selected location
+/// shared by shaping, metrics, and outline extraction.
+pub struct VariableResourceFont<'a> {
     harf: HarfFontRef<'a>,
     skrifa: SkrifaFontRef<'a>,
     instance: ShaperInstance,
@@ -278,6 +274,16 @@ pub struct VariableResourceTrial<'a> {
     ascender_font_units: i32,
     features: Vec<Feature>,
     feature_settings: BTreeMap<String, u32>,
+}
+
+/// Compatibility name retained for the RFC 0013 research gates that preceded
+/// package admission.
+pub type VariableResourceTrial<'a> = VariableResourceFont<'a>;
+
+/// A packaged font opened through its explicit bounded decoder profile.
+pub enum PackagedResourceFont<'a> {
+    Static(Box<ResourceFont<'a>>),
+    VariableTrueType(Box<VariableResourceFont<'a>>),
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -441,7 +447,7 @@ impl<'a> ResourceFont<'a> {
     }
 }
 
-impl<'a> VariableResourceTrial<'a> {
+impl<'a> VariableResourceFont<'a> {
     /// Opens the exact single-face TrueType variable resource and applies one
     /// complete user-coordinate tuple for the RFC 0013 experiment.
     ///
@@ -557,6 +563,44 @@ impl<'a> VariableResourceTrial<'a> {
         })
     }
 
+    /// Shapes every supported hard line at the identical selected location.
+    ///
+    /// # Errors
+    ///
+    /// Returns typed request, digest, coordinate, or shaping failures.
+    pub fn shape_hard_lines(
+        &self,
+        request: &ShapeRequest<'_>,
+    ) -> Result<Vec<ShapedRun>, TextError> {
+        let codepoints = request.text.chars().count();
+        if codepoints > MAX_SHAPING_CODEPOINTS {
+            return Err(TextError::TooManyCodepoints {
+                limit: MAX_SHAPING_CODEPOINTS,
+                observed: codepoints,
+            });
+        }
+        hard_lines(request.text)
+            .into_iter()
+            .map(|line| {
+                self.shape(&ShapeRequest {
+                    text: line,
+                    font_sha256: request.font_sha256,
+                    font_size: request.font_size,
+                    direction: request.direction,
+                    language: request.language,
+                })
+                .map(|shaped| shaped.run)
+            })
+            .collect()
+    }
+
+    /// Returns the exact ordered user and normalized coordinate record used by
+    /// every operation on this face.
+    #[must_use]
+    pub fn coordinates(&self) -> &[nuif_font::VariableCoordinate] {
+        &self.coordinates
+    }
+
     /// Returns Skrifa's location-adjusted unscaled advance for one glyph.
     ///
     /// # Errors
@@ -608,6 +652,96 @@ impl<'a> VariableResourceTrial<'a> {
     /// Returns a typed unavailable-glyph or outline-geometry failure.
     pub fn outline_glyph(&self, glyph_id: u32) -> Result<GlyphOutline, TextError> {
         outline_from_font_at(&self.skrifa, glyph_id, LocationRef::new(&self.location))
+    }
+}
+
+impl<'a> PackagedResourceFont<'a> {
+    /// Opens exact font bytes without guessing or falling back between decoder
+    /// profiles. Variable axes and static emptiness are checked at this edge.
+    ///
+    /// # Errors
+    ///
+    /// Rejects unsupported profiles, inconsistent axis metadata, or any error
+    /// produced by the selected bounded decoder.
+    pub fn new_with_profile(
+        bytes: &'a [u8],
+        expected_sha256: &str,
+        family: &str,
+        license: &str,
+        decoder_profile: &str,
+        axis_settings: &BTreeMap<String, f64>,
+        feature_settings: &BTreeMap<String, u32>,
+    ) -> Result<Self, TextError> {
+        match decoder_profile {
+            nuif_font::OPENTYPE_STATIC_PROFILE => {
+                if !axis_settings.is_empty() {
+                    return Err(TextError::InvalidResourceFont(
+                        "static font profile cannot carry variable axes".to_owned(),
+                    ));
+                }
+                ResourceFont::new_with_features(
+                    bytes,
+                    expected_sha256,
+                    family,
+                    license,
+                    feature_settings,
+                )
+                .map(Box::new)
+                .map(Self::Static)
+            }
+            nuif_font::OPENTYPE_VARIABLE_TRUETYPE_PROFILE => {
+                VariableResourceFont::new_with_features(
+                    bytes,
+                    expected_sha256,
+                    family,
+                    license,
+                    axis_settings,
+                    feature_settings,
+                )
+                .map(Box::new)
+                .map(Self::VariableTrueType)
+            }
+            _ => Err(TextError::InvalidResourceFont(
+                "declared font decoder profile is unsupported".to_owned(),
+            )),
+        }
+    }
+
+    /// Shapes all hard lines through the selected profile.
+    ///
+    /// # Errors
+    ///
+    /// Returns the selected decoder's typed failures.
+    pub fn shape_hard_lines(
+        &self,
+        request: &ShapeRequest<'_>,
+    ) -> Result<Vec<ShapedRun>, TextError> {
+        match self {
+            Self::Static(font) => font.shape_hard_lines(request),
+            Self::VariableTrueType(font) => font.shape_hard_lines(request),
+        }
+    }
+
+    /// Extracts a glyph outline through the selected profile and, for a
+    /// variable face, at the same normalized location used by shaping.
+    ///
+    /// # Errors
+    ///
+    /// Returns the selected decoder's typed failures.
+    pub fn outline_glyph(&self, glyph_id: u32) -> Result<GlyphOutline, TextError> {
+        match self {
+            Self::Static(font) => font.outline_glyph(glyph_id),
+            Self::VariableTrueType(font) => font.outline_glyph(glyph_id),
+        }
+    }
+
+    /// Returns a coordinate record only for the variable profile.
+    #[must_use]
+    pub fn variable_coordinates(&self) -> Option<&[nuif_font::VariableCoordinate]> {
+        match self {
+            Self::Static(_) => None,
+            Self::VariableTrueType(font) => Some(font.coordinates()),
+        }
     }
 }
 
@@ -1103,6 +1237,48 @@ mod tests {
         assert_ne!(
             default_outline.serialized_path,
             filled_outline.serialized_path
+        );
+    }
+
+    #[test]
+    fn packaged_profile_dispatch_preserves_variable_coordinates_across_lines() {
+        let axes = variable_axes(1.0, 200.0, 48.0, 700.0);
+        let font = PackagedResourceFont::new_with_profile(
+            font_test_data::MATERIAL_SYMBOLS_SUBSET,
+            VARIABLE_FIXTURE_SHA256,
+            "Material Symbols Outlined",
+            "test-only",
+            nuif_font::OPENTYPE_VARIABLE_TRUETYPE_PROFILE,
+            &axes,
+            &BTreeMap::new(),
+        )
+        .unwrap();
+        let runs = font
+            .shape_hard_lines(&variable_request("mail\nmail"))
+            .unwrap();
+        assert_eq!(runs.len(), 2);
+        assert_eq!(runs[0].serialized_glyphs, "[2=0+960]");
+        assert_eq!(runs[1].serialized_glyphs, "[2=0+960]");
+        assert_eq!(font.variable_coordinates().unwrap().len(), axes.len());
+        assert!(
+            font.variable_coordinates()
+                .unwrap()
+                .iter()
+                .any(|coordinate| {
+                    coordinate.tag == "FILL" && coordinate.normalized_2_14 == 16_384
+                })
+        );
+        assert!(
+            PackagedResourceFont::new_with_profile(
+                font_test_data::MATERIAL_SYMBOLS_SUBSET,
+                VARIABLE_FIXTURE_SHA256,
+                "Material Symbols Outlined",
+                "test-only",
+                "unknown-profile",
+                &axes,
+                &BTreeMap::new(),
+            )
+            .is_err()
         );
     }
 
