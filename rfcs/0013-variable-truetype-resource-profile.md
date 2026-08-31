@@ -8,8 +8,9 @@ status: proposed
 
 Status: proposed research contract. Metadata, coordinate normalization, typed
 package admission and direct package-to-raster delivery have executable
-evidence. Direct API, CLI, generated Node/browser WASM and live stdio MCP now
-share exact snapshot evidence. Hosted cross-platform comparison and the other
+evidence. Direct API, CLI, generated Node/browser WASM, live stdio MCP and a
+linked C release-library consumer now share exact snapshot evidence. Hosted
+cross-platform comparison and the other
 format/policy exclusions remain open, so no published conformance-profile claim
 is made. The static profile remains the required baseline; this variable
 profile is separately negotiated.
@@ -244,11 +245,12 @@ are identical and exact item fidelity is lossless. This closes direct runtime
 delivery in the direct Rust surface.
 
 `cargo xtask gate-i-font-surfaces` then executes that direct gate plus the real
-CLI process, generated Node and browser WebAssembly packages, and the stdio MCP
-server. Each surface consumes the same interior-location package and returns
-the exact canonical hash, ordered coordinate record, layout diagnostics, scene
-fidelity and CPU raster digest. Both process transports also prove that use
-before capability authorization fails closed. The aggregate report is
+CLI process, generated Node and browser WebAssembly packages, the stdio MCP
+server and the experimental C ABI's linked release-library consumer on POSIX.
+Each surface consumes the same interior-location package and returns the exact
+canonical hash, ordered coordinate record, layout diagnostics, scene fidelity
+and CPU raster digest. WASM, MCP and C also prove that use before capability
+authorization fails closed. The aggregate report is
 `target/variable-font-surface-report.json`. This satisfies the local
 cross-surface requirement; its raster digest remains platform-scoped until
 retained hosted reports are compared across operating systems.
@@ -280,9 +282,10 @@ Promotion from proposed to experimental requires all of the following:
 8. **Resource evidence.** Use only fixtures whose redistribution and test use
    are recorded. Retain exact tool versions, commands, reports and source
    revision.
-9. **Cross-surface parity.** Direct API, CLI, WASM and MCP must produce the same
-   canonical document hash, coordinate record, diagnostics and fidelity. Native
-   raster hashes remain platform-scoped until a retained matrix passes.
+9. **Cross-surface parity.** Direct API, CLI, WASM, MCP and the experimental C
+   ABI must produce the same canonical document hash, coordinate record,
+   diagnostics and fidelity on a platform where their runtime gates execute.
+   Native raster hashes remain platform-scoped until a retained matrix passes.
 
 The gate report must distinguish exact external comparisons, internal
 metamorphic checks and implementation-specific allocation measurements.

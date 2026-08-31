@@ -235,7 +235,8 @@ package capability authorization, records the same normalized vector in shaped
 runs, and matches default/interior HarfBuzz advances and paths through layout
 and CPU rasterization. The cross-surface follow-on requires the interior
 package's complete snapshot report to agree through direct Rust, CLI, generated
-Node/browser WASM and live stdio MCP.
+Node/browser WASM, live stdio MCP and a linked C release-library consumer on
+POSIX.
 
 This is intentionally not general OpenType support. TTC, CFF/CFF2, color,
 bitmap, SVG and WOFF/WOFF2 sources, historic ambiguous permission

@@ -27,7 +27,7 @@ links:
   spec: [spec/12-cli-api-and-automation.md, spec/11-security.md]
   adr: [adrs/0001-rust-reference-core.md, adrs/0011-sdk-and-foreign-bindings.md]
   rfc: [rfcs/0010-portable-resource-package.md]
-  code: [crates/nuif-api, crates/nuif-wasm, crates/nuif-mcp, conformance/benches/system_surfaces.rs]
+  code: [crates/nuif-api, crates/nuif-wasm, crates/nuif-mcp, crates/nuif-ffi, bindings/nuif_ffi.h, tools/ffi/runtime-smoke.c, conformance/benches/system_surfaces.rs]
   experiments: [nuif:experiment:wasm-cross-surface, nuif:experiment:mcp-cross-surface, nuif:experiment:variable-font-surface-parity]
 ---
 
@@ -37,7 +37,10 @@ The safe common denominator for every integration is not a Rust struct graph or
 an MCP server. It is a bounded byte-oriented SDK façade over the canonical
 codecs, deterministic package, semantic operations and diagnostics. Native
 Rust callers use it directly; WASM, CLI, MCP and later foreign-language
-bindings translate only their transport and ownership conventions.
+bindings translate only their transport and ownership conventions. The
+experimental C layer now follows that rule for deterministic packages,
+capability authorization and the common snapshot report without making an ABI
+stability claim.
 
 Rust's native ABI is explicitly unstable. `extern "C"` uses the target's C
 calling convention, but a usable library must still define representations,
@@ -125,7 +128,7 @@ replayable operation preconditions, exact undo/redo and a package
 write/read/write fixpoint after editing. The generated Node/browser packages
 and live MCP subprocess remain checked against native canonical output.
 
-The future foreign ABI remains one layer farther out:
+The experimental foreign ABI remains one layer farther out:
 
 ```text
 C / C++ / Swift / Kotlin
@@ -138,7 +141,11 @@ C / C++ / Swift / Kotlin
 ```
 
 No internal `Document`, `Entity`, Rust enum layout, allocator pointer or panic
-may cross that ABI by accident.
+may cross that ABI by accident. The draft requires single-thread-at-a-time
+access to each opaque handle; separate handles and returned buffers are
+independent. Its compiled POSIX C consumer loads and re-exports the exact
+variable-font package, proves pre-authorization denial and compares the full
+snapshot JSON with the CLI oracle.
 
 ## NUIF relevance
 

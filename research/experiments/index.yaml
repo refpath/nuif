@@ -840,13 +840,13 @@ experiments:
   - id: nuif:experiment:variable-font-surface-parity
     status: automated
     evidence: [nuif:research:opentype-font-embedding-and-portability, nuif:research:text-rendering-reproducibility, nuif:research:wasm-headless-execution, nuif:research:mcp-stateless-agent-adapter, nuif:research:rust-sdk-and-foreign-language-bindings]
-    implementation: [crates/nuif-api/src/lib.rs, crates/nuif-cli/src/main.rs, crates/nuif-wasm/src/lib.rs, crates/nuif-mcp/src/lib.rs, apps/editor/src/lib.rs, crates/nuif-testing/src/bin/variable-font-runtime.rs, tools/wasm/smoke.cjs, tools/wasm/browser-smoke.html, tools/mcp/smoke.py, xtask/src/main.rs]
+    implementation: [crates/nuif-api/src/lib.rs, crates/nuif-cli/src/main.rs, crates/nuif-wasm/src/lib.rs, crates/nuif-mcp/src/lib.rs, crates/nuif-ffi/src/lib.rs, bindings/nuif_ffi.h, apps/editor/src/lib.rs, crates/nuif-testing/src/bin/variable-font-runtime.rs, tools/wasm/smoke.cjs, tools/wasm/browser-smoke.html, tools/mcp/smoke.py, tools/ffi/runtime-smoke.c, xtask/src/main.rs]
     oracle: exact-shared-snapshot-through-compiled-process-and-language-surfaces
     acceptance:
       - one transport-neutral snapshot report owns canonical hash layout diagnostics scene fidelity and exact RGBA digest
-      - direct Rust CLI generated Node WASM generated browser WASM and live stdio MCP retain the same ordered variable coordinate record
-      - the complete WASM and MCP reports equal the independently invoked CLI report rather than comparing selected summary fields only
-      - capability use before authorization fails closed at the WASM and MCP process boundaries
+      - direct Rust CLI generated Node WASM generated browser WASM live stdio MCP and the linked POSIX C consumer retain the same ordered variable coordinate record
+      - the complete WASM MCP and C reports equal the independently invoked CLI report rather than comparing selected summary fields only
+      - capability use before authorization fails closed at the WASM MCP and C boundaries
       - editor package negotiation admits exactly the tested variable decoder while retaining unrelated capabilities as read-only
       - CPU raster equality remains platform-scoped until retained hosted reports are compared
     tests:
@@ -854,6 +854,7 @@ experiments:
       - compare canonical document hash coordinate objects layout diagnostics scene outlines item fidelity and raster digest
       - run the generated web target in pinned headless Chrome rather than treating Node initialization as browser evidence
       - run MCP over its newline-delimited stdio wire rather than calling the Rust handler directly
+      - link and run the C consumer against the optimized native library and preserve the package byte-for-byte
       - archive target/variable-font-surface-report.json from cargo xtask gate-i-font-surfaces
   - id: nuif:experiment:font-resource-profile
     status: planned

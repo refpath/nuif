@@ -8,7 +8,10 @@
 extern "C" {
 #endif
 
-/* nuif-ffi-0; experimental, byte-oriented and not ABI-stable. */
+/* nuif-ffi-0; experimental, byte-oriented and not ABI-stable.
+ * One thread may access a given NuifFfiDocument handle at a time. Independent
+ * handles and Rust-owned result buffers may be used or freed on other threads.
+ */
 #define NUIF_FFI_API_PROFILE "nuif-ffi-0"
 #define NUIF_FFI_ENCODING_TEXT 0u
 #define NUIF_FFI_ENCODING_CBOR 1u

@@ -101,20 +101,22 @@ missing-capability set. `cargo xtask gate-wasm` and `cargo xtask gate-mcp`
 compare wrappers with native output. `cargo xtask gate-i-font-surfaces`
 additionally requires a complete variable-font snapshot report—hash,
 coordinates, diagnostics, fidelity, outlines and raster digest—to agree across
-direct Rust, CLI, generated Node/browser WASM and live stdio MCP. The Criterion
-`sdk/direct_document` group measures direct text, CBOR and package loading plus
-canonical export.
+direct Rust, CLI, generated Node/browser WASM, live stdio MCP and a linked C
+release-library consumer on POSIX. The Criterion `sdk/direct_document` group
+measures direct text, CBOR and package loading plus canonical export.
 
 ## C, C++, Swift and Kotlin decision
 
 No stable foreign ABI is declared during the `0.0.x` semantic-API phase. The
 experimental `nuif-ffi-0` crate now exposes a byte-oriented C ABI over
-`NuifDocument`: opaque handles, explicit encoding values, bounded input
-buffers, allocator-matched returned buffers, stable numeric error classes and
-panic containment. It exposes no internal model structs and grants no
-filesystem, network or host-product authority. The checked draft header is
-`bindings/nuif_ffi.h`; `cargo xtask gate-ffi` runs the Rust ABI tests, a C
-header-consumer syntax check and a release-library runtime smoke on POSIX.
+`NuifDocument`: opaque handles, explicit document/package values, bounded
+input buffers, allocator-matched returned buffers, stable numeric error classes
+and panic containment. Package load/export, exact capability negotiation and
+the shared snapshot report delegate to the same SDK as WASM and MCP. It exposes
+no internal model structs and grants no filesystem, network or host-product
+authority. The checked draft header is `bindings/nuif_ffi.h`; `cargo xtask
+gate-ffi` runs the Rust ABI tests, a C header-consumer syntax check and a linked
+release-library variable-font package/snapshot comparison on POSIX.
 Release workflows additionally run `cargo xtask ffi-package` on each native
 matrix target. The resulting versioned archive contains the header, available
 static/shared library artifacts, conformance report, licenses and a manifest
@@ -147,8 +149,10 @@ The promotion path is:
 6. Apply semantic-version and ABI-compatibility checks to the FFI profile
    independently from the editor, WASM and MCP versions.
 
-Promotion requires a reviewed error-code registry, a declared threading model,
-an API compatibility baseline, consumer fixtures in C/Swift/Kotlin, sanitizer
+The draft now declares single-thread-at-a-time access per handle while allowing
+independent handles and returned buffers on other threads. Promotion still
+requires a reviewed error-code registry, an API compatibility baseline,
+consumer fixtures in C++/Swift/Kotlin, sanitizer
 evidence and release packages for their actual target triples. Until then,
 Swift or Kotlin desktop/mobile experiments should use the WASM package where
 their host embeds an appropriate runtime, or call a local CLI/process adapter;
