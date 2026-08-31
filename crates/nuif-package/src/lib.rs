@@ -42,6 +42,9 @@ const ZIP_VERSION_MADE_BY: u16 = 0x030a;
 const ZIP_DOS_TIME: u16 = 0;
 const ZIP_DOS_DATE: u16 = 33;
 const ZIP_EXTERNAL_ATTRIBUTES: u32 = 0x81a4_0000;
+const ZIP_LOCAL_HEADER_BYTES: usize = 30;
+const ZIP_CENTRAL_HEADER_BYTES: usize = 46;
+const ZIP_END_BYTES: usize = 22;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -353,14 +356,14 @@ impl NuifPackage {
     /// Rejects malformed ZIP structure, non-canonical records, undeclared or
     /// missing resources, policy violations, and all configured limits.
     pub fn decode(bytes: &[u8]) -> Result<Self, PackageError> {
-        let members = read_zip(bytes)?;
+        let mut members = read_zip(bytes)?;
         if members.get(MIME_PATH).map(Vec::as_slice) != Some(MIME_TYPE) {
             return Err(PackageError::InvalidArchive {
                 reason: "mimetype member is absent or not the exact provisional media type"
                     .to_owned(),
             });
         }
-        let manifest_bytes = required_member(&members, MANIFEST_PATH)?;
+        let manifest_bytes = take_required_member(&mut members, MANIFEST_PATH)?;
         if manifest_bytes.len() > MAX_MANIFEST_BYTES {
             return Err(PackageError::ResourceLimit {
                 resource: "manifest bytes",
@@ -368,19 +371,17 @@ impl NuifPackage {
                 observed: manifest_bytes.len(),
             });
         }
-        let manifest: PackageManifest = decode_canonical_record(manifest_bytes)?;
-        let document_bytes = required_member(&members, DOCUMENT_PATH)?;
-        let document = DeterministicCbor.decode(document_bytes)?;
+        let manifest: PackageManifest = decode_canonical_record(&manifest_bytes)?;
+        let document_bytes = take_required_member(&mut members, DOCUMENT_PATH)?;
+        let document = DeterministicCbor.decode(&document_bytes)?;
+        members.remove(MIME_PATH);
         let mut embedded = BTreeMap::new();
-        for (name, value) in &members {
+        for (name, value) in members {
             if let Some(hex) = name.strip_prefix(BLOB_PREFIX) {
-                embedded.insert(
-                    ResourceDigest::from_sha256_hex(hex),
-                    Arc::from(value.clone()),
-                );
+                embedded.insert(ResourceDigest::from_sha256_hex(hex), Arc::from(value));
             }
         }
-        validate_manifest(&manifest, &document, document_bytes, &embedded)?;
+        validate_manifest(&manifest, &document, &document_bytes, &embedded)?;
         Ok(Self {
             document,
             mode: manifest.mode,
@@ -844,13 +845,12 @@ fn blob_path(digest: &ResourceDigest) -> Result<String, PackageError> {
         })
 }
 
-fn required_member<'a>(
-    members: &'a BTreeMap<String, Vec<u8>>,
+fn take_required_member(
+    members: &mut BTreeMap<String, Vec<u8>>,
     name: &str,
-) -> Result<&'a [u8], PackageError> {
+) -> Result<Vec<u8>, PackageError> {
     members
-        .get(name)
-        .map(Vec::as_slice)
+        .remove(name)
         .ok_or_else(|| PackageError::MissingMember {
             name: name.to_owned(),
         })
@@ -881,7 +881,8 @@ struct CentralEntry {
 
 fn write_zip(members: &[Member<'_>]) -> Result<Vec<u8>, PackageError> {
     validate_member_sequence(members)?;
-    let mut output = Vec::new();
+    let encoded_size = zip_encoded_size(members)?;
+    let mut output = Vec::with_capacity(encoded_size);
     let mut entries = Vec::with_capacity(members.len());
     for member in members {
         let offset = as_u32(output.len(), "package bytes")?;
@@ -939,14 +940,27 @@ fn write_zip(members: &[Member<'_>]) -> Result<Vec<u8>, PackageError> {
     push_u32(&mut output, central_size);
     push_u32(&mut output, central_offset);
     push_u16(&mut output, 0);
-    if output.len() > MAX_PACKAGE_BYTES {
-        return Err(PackageError::ResourceLimit {
+    debug_assert_eq!(output.len(), encoded_size);
+    Ok(output)
+}
+
+fn zip_encoded_size(members: &[Member<'_>]) -> Result<usize, PackageError> {
+    let encoded_size = members.iter().try_fold(ZIP_END_BYTES, |total, member| {
+        total
+            .checked_add(ZIP_LOCAL_HEADER_BYTES + ZIP_CENTRAL_HEADER_BYTES)
+            .and_then(|total| total.checked_add(member.name.len().saturating_mul(2)))
+            .and_then(|total| total.checked_add(member.bytes.len()))
+    });
+    let observed = encoded_size.unwrap_or(usize::MAX);
+    if observed > MAX_PACKAGE_BYTES {
+        Err(PackageError::ResourceLimit {
             resource: "package bytes",
             limit: MAX_PACKAGE_BYTES,
-            observed: output.len(),
-        });
+            observed,
+        })
+    } else {
+        Ok(observed)
     }
-    Ok(output)
 }
 
 fn validate_member_sequence(members: &[Member<'_>]) -> Result<(), PackageError> {
@@ -1707,6 +1721,7 @@ mod tests {
         members.push(Member::new(DOCUMENT_PATH, document));
         members.push(Member::new(MANIFEST_PATH, manifest));
         members[1..].sort_by(|left, right| left.name.cmp(&right.name));
+        assert_eq!(zip_encoded_size(&members).unwrap(), expected.len());
 
         let cursor = Cursor::new(Vec::new());
         let mut writer = ZipWriter::new(cursor);

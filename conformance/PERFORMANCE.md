@@ -94,7 +94,12 @@ budgets.
   consecutive smoke run observed encode/decode medians fall from 27.3/18.5 ms
   to 8.8/9.3 ms, but those latency figures are diagnostic rather than a
   statistical cross-run claim. Package byte fixpoints, independent ZIP output,
-  canonical hashes and hostile-input checks remained gating postconditions.
+  canonical hashes and hostile-input checks remained gating postconditions. A
+  follow-on exact-size ZIP preflight reduced encode allocation by a further
+  509,614 bytes, from 11,952,738 to 11,443,124, without changing the archive;
+  moving decoded blobs into shared ownership instead of cloning them removed
+  exactly the 22,572-byte font and 96-byte image payloads from their respective
+  decode allocation counts.
 - Static React JSX export/import/synchronization measured 0.078/0.077/0.235 ms
   median for the 778-byte declared fixture, allocating about 71/67/244 KiB per
   invocation and retaining zero. These are parser-boundary calibration values,
