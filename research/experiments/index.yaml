@@ -760,11 +760,12 @@ experiments:
     acceptance:
       - structural preflight walks gvar HVAR MVAR item variation stores and STAT before returning variable metadata
       - explicit ceilings bound tuples deltas regions subtables rows references MVAR records and STAT values
-      - every fixed-field hostile mutation has repaired sfnt checksums and is rejected for its graph defect rather than checksum failure
+      - every hostile mutation has repaired sfnt checksums and is rejected for its graph or packed-data defect rather than checksum failure
       - three valid fixtures and one early malformed graph stay below warmed reference-implementation allocation time and retained-memory ceilings
-      - evidence remains isolated from packed gvar point and delta breadth VVAR package admission runtime fidelity and portable performance claims
+      - evidence remains isolated from exhaustive packed gvar encoding combinations VVAR package admission runtime fidelity and portable performance claims
     tests:
-      - reject 28 version flag count offset range ordering and cross-reference mutations across gvar HVAR MVAR and STAT
+      - reject 37 version flag count offset range ordering cross-reference and packed point or delta mutations across gvar HVAR MVAR and STAT
+      - enforce exact packed gvar X and Y counts point bounds and tuple body consumption without relying on a truncating upstream iterator
       - validate raw reserved flag bits that generated bitflag readers intentionally truncate
       - inspect the metadata shaping HVAR and MVAR fixtures below 8 MiB allocated 2 MiB retained and 500 ms after warmup
       - reject one malformed graph below 256 KiB allocated
@@ -792,10 +793,10 @@ experiments:
     continuation:
       class: profile-design
       blocked_by:
-        - RFC 0013 metadata normalization shaping outlines nonzero HVAR one MVAR fixture fixed-field graph security and resource-only package policy now have bounded evidence but broader rights-reviewed HVAR MVAR evidence packed gvar negatives and typed runtime coordinate delivery remain required before promotion
+        - RFC 0013 metadata normalization shaping outlines nonzero HVAR one MVAR fixture graph and representative packed-data security plus resource-only package policy now have bounded evidence but broader rights-reviewed HVAR MVAR and packed-encoding fixtures plus typed runtime coordinate delivery remain required before promotion
         - collection CFF/CFF2 COLR bitmap SVG-glyph and WOFF2 support remain separate capabilities with format-specific bounds and oracles
         - redistribution subsetting and derived-instance policy cannot be inferred from fsType and requires publisher-supplied license evidence plus rights-reviewed fixtures
-      next_action: Add packed gvar point and delta negatives plus a rights-reviewed broader HVAR MVAR corpus before implementing typed package binding and shared runtime coordinate delivery.
+      next_action: Add a rights-reviewed broader HVAR MVAR and packed-encoding corpus before implementing typed package binding and shared runtime coordinate delivery.
     acceptance:
       - font bytes face index axes features coverage and shaping inputs are content-addressed and independently decoded
       - portable private-authoring linked substituted and unavailable policies produce distinct validated outcomes

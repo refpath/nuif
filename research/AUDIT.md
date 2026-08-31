@@ -179,10 +179,11 @@ with pinned HarfBuzz 14.4.0 observations. A reproducibly subsetted OFL-1.1
 Roboto Flex fixture now provides the isolated MVAR case: x-height, cap height
 and unchanged line metrics agree exactly with HarfBuzz at eight locations.
 The graph-security gate now preflights `gvar`, HVAR, MVAR, their shared item
-variation stores, and STAT; 28 checksum-repaired hostile cases plus four
-warmed allocation/time trials pass. Broader rights-reviewed HVAR/MVAR fixtures,
-packed `gvar` negative coverage, VVAR, side-bearing and package evidence remain
-open. A separate candidate package gate now proves exact bytes through
+variation stores, and STAT; 37 checksum-repaired hostile cases—including nine
+representative packed `gvar` header, point, and delta failures—plus four warmed
+allocation/time trials pass. Broader rights-reviewed HVAR/MVAR fixtures,
+exhaustive encoding combinations, VVAR, side-bearing and typed package/runtime
+evidence remain open. A separate candidate package gate now proves exact bytes through
 resource-only fixpoint, unrelated edits, and explicit digest-pinned linked
 resolution while intentionally verifying that typed variable-font package
 binding remains fail-closed until runtime coordinate delivery exists.

@@ -195,11 +195,13 @@ Roboto Flex fixture and matches
 MVAR-adjusted x-height, cap height, ascent, descent, and line gap against
 HarfBuzz's public metric API at eight complete 13-axis locations. A fourth
 `cargo xtask gate-i-font-security` preflights the `gvar`, HVAR, MVAR and STAT
-graphs of all three fixtures, rejects 28 checksum-repaired hostile mutations,
-and enforces four warmed allocation/time regression trials. This closes the
-first fixed-field graph/budget milestone, but not packed `gvar` mutation
-breadth, a broader rights-reviewed corpus, VVAR, or package/runtime
-requirements.
+graphs of all three fixtures, rejects 37 checksum-repaired hostile mutations,
+and enforces four warmed allocation/time regression trials. Nine hostile cases
+cover representative packed `gvar` point/delta failures, exact axis run counts,
+glyph/component-plus-phantom bounds, and exclusion of non-OpenType 32-bit delta
+runs. This closes the first graph/budget/packed-data milestone, but not every
+encoding combination, a broader rights-reviewed corpus, VVAR, or
+package/runtime requirements.
 
 `cargo xtask gate-i-font-package` separately proves that the exact OFL fixture
 bytes survive a resource-only deterministic package fixpoint and unrelated

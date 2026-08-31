@@ -25,7 +25,8 @@ tool a build dependency or turn one fixture into a general format claim.
   beside the font.
 - `cargo xtask gate-i-font-security` runs the three variable fixtures through
   structural `gvar`, HVAR, MVAR, item-variation-store, and STAT preflight. Its
-  28 checksum-repaired hostile mutations and four allocation/time trials write
+  37 checksum-repaired hostile mutations—including packed point/delta runs—and
+  four allocation/time trials write
   `target/variable-font-security-report.json`; the measured ceilings are
   reference-implementation regressions, not portable format limits.
 - `cargo xtask gate-i-font-package` validates the proposed asset metadata and

@@ -7,7 +7,7 @@ use skrifa::{
     instance::{LocationRef, Size},
     raw::{
         TableProvider,
-        tables::{stat::AxisValue, variations::ItemVariationStore},
+        tables::{glyf::Glyph, stat::AxisValue, variations::ItemVariationStore},
     },
     string::StringId,
 };
@@ -336,6 +336,16 @@ struct GvarInspection {
     explicit_deltas: usize,
 }
 
+struct GvarTupleHeader {
+    data_size: usize,
+    private_points: bool,
+}
+
+struct PackedPoints {
+    count: usize,
+    byte_len: usize,
+}
+
 fn inspect_variable_graph(
     font: &FontRef<'_>,
     bytes: &[u8],
@@ -389,6 +399,9 @@ fn inspect_gvar(
     )?;
     gvar.shared_tuples()
         .map_err(|error| raw_font_error(&error))?;
+    let shared_tuples = validate_gvar_shared_tuples(gvar_bytes, axis_count, shared_tuple_count)?;
+    let glyf = font.glyf().map_err(|error| raw_font_error(&error))?;
+    let loca = font.loca(None).map_err(|error| raw_font_error(&error))?;
     let offsets = gvar.glyph_variation_data_offsets();
     let mut previous = 0_u32;
     for index in 0..=usize::from(glyph_count) {
@@ -414,12 +427,14 @@ fn inspect_gvar(
             continue;
         };
         glyph_data_count = glyph_data_count.saturating_add(1);
-        let expected_tuples = usize::from(read_u16(raw_data.as_bytes(), 0)? & 0x0fff);
-        if expected_tuples == 0 {
-            return Err(FontError::Unsupported(
-                "nonempty gvar glyph data has no tuple records",
-            ));
-        }
+        let target_count = gvar_target_count(&loca, &glyf, glyph_id)?;
+        let (expected_tuples, exact_delta_count) = validate_gvar_glyph_data(
+            raw_data.as_bytes(),
+            axis_count,
+            &shared_tuples,
+            target_count,
+            explicit_delta_count,
+        )?;
         let data = gvar
             .glyph_variation_data(skrifa::GlyphId::new(u32::from(glyph_id)))
             .map_err(|error| raw_font_error(&error))?
@@ -432,14 +447,12 @@ fn inspect_gvar(
         }
         tuple_count = tuple_count.saturating_add(tuples.len());
         require_limit("gvar tuples", tuple_count, MAX_GVAR_TUPLES)?;
-        for tuple in tuples {
-            explicit_delta_count = explicit_delta_count.saturating_add(tuple.deltas().count());
-            require_limit(
-                "gvar explicit deltas",
-                explicit_delta_count,
-                MAX_GVAR_EXPLICIT_DELTAS,
-            )?;
-        }
+        explicit_delta_count = explicit_delta_count.saturating_add(exact_delta_count);
+        require_limit(
+            "gvar explicit deltas",
+            explicit_delta_count,
+            MAX_GVAR_EXPLICIT_DELTAS,
+        )?;
     }
 
     Ok(GvarInspection {
@@ -448,6 +461,319 @@ fn inspect_gvar(
         tuples: tuple_count,
         explicit_deltas: explicit_delta_count,
     })
+}
+
+fn validate_gvar_shared_tuples(
+    bytes: &[u8],
+    axis_count: usize,
+    tuple_count: usize,
+) -> Result<Vec<Vec<i16>>, FontError> {
+    let offset = usize::try_from(read_u32(bytes, 8)?)
+        .map_err(|_| FontError::Unsupported("gvar shared-tuple offset does not fit usize"))?;
+    let tuple_bytes = axis_count
+        .checked_mul(2)
+        .ok_or(FontError::Unsupported("gvar shared-tuple size overflow"))?;
+    let total_bytes = tuple_count
+        .checked_mul(tuple_bytes)
+        .ok_or(FontError::Unsupported("gvar shared-tuple array overflow"))?;
+    bytes
+        .get(offset..offset.saturating_add(total_bytes))
+        .ok_or(FontError::Unsupported("truncated gvar shared tuples"))?;
+    (0..tuple_count)
+        .map(|index| parse_gvar_tuple(bytes, offset + index * tuple_bytes, axis_count).map(|v| v.0))
+        .collect()
+}
+
+fn gvar_target_count(
+    loca: &skrifa::raw::tables::loca::Loca<'_>,
+    glyf: &skrifa::raw::tables::glyf::Glyf<'_>,
+    glyph_id: u16,
+) -> Result<usize, FontError> {
+    let glyph = loca
+        .get_glyf(skrifa::GlyphId::new(u32::from(glyph_id)), glyf)
+        .map_err(|error| raw_font_error(&error))?;
+    let outline_count = match glyph {
+        Some(Glyph::Simple(glyph)) => glyph.num_points(),
+        Some(Glyph::Composite(glyph)) => glyph.count_and_instructions().0,
+        None => 0,
+    };
+    outline_count
+        .checked_add(4)
+        .ok_or(FontError::Unsupported("gvar target-count overflow"))
+}
+
+fn validate_gvar_glyph_data(
+    bytes: &[u8],
+    axis_count: usize,
+    shared_tuples: &[Vec<i16>],
+    target_count: usize,
+    prior_delta_count: usize,
+) -> Result<(usize, usize), FontError> {
+    let raw_count = read_u16(bytes, 0)?;
+    let tuple_count = usize::from(raw_count & 0x0fff);
+    if raw_count & 0x7000 != 0 || tuple_count == 0 {
+        return Err(FontError::Unsupported(
+            "invalid gvar tuple count or reserved flags",
+        ));
+    }
+    let data_offset = usize::from(read_u16(bytes, 2)?);
+    let (headers, header_end) =
+        parse_gvar_tuple_headers(bytes, axis_count, shared_tuples, tuple_count)?;
+    if data_offset < header_end || data_offset > bytes.len() {
+        return Err(FontError::Unsupported(
+            "invalid gvar serialized-data offset",
+        ));
+    }
+    let shared_points = if raw_count & 0x8000 != 0 {
+        validate_packed_points(&bytes[data_offset..], target_count)?
+    } else {
+        PackedPoints {
+            count: 0,
+            byte_len: 0,
+        }
+    };
+    let mut cursor = data_offset.saturating_add(shared_points.byte_len);
+    let mut deltas = 0_usize;
+    for header in headers {
+        let end = cursor
+            .checked_add(header.data_size)
+            .ok_or(FontError::Unsupported("gvar tuple-data size overflow"))?;
+        let tuple_bytes = bytes
+            .get(cursor..end)
+            .ok_or(FontError::Unsupported("truncated gvar tuple data"))?;
+        let points = if header.private_points {
+            validate_packed_points(tuple_bytes, target_count)?
+        } else {
+            PackedPoints {
+                count: shared_points.count,
+                byte_len: 0,
+            }
+        };
+        let expected = if points.count == 0 {
+            target_count
+        } else {
+            points.count
+        };
+        let next_delta_count = deltas
+            .checked_add(expected)
+            .ok_or(FontError::Unsupported("gvar explicit-delta count overflow"))?;
+        let total_delta_count = prior_delta_count
+            .checked_add(next_delta_count)
+            .ok_or(FontError::Unsupported("gvar explicit-delta count overflow"))?;
+        require_limit(
+            "gvar explicit deltas",
+            total_delta_count,
+            MAX_GVAR_EXPLICIT_DELTAS,
+        )?;
+        validate_packed_gvar_deltas(&tuple_bytes[points.byte_len..], expected)?;
+        deltas = next_delta_count;
+        cursor = end;
+    }
+    let padding = bytes
+        .get(cursor..)
+        .ok_or(FontError::Unsupported("gvar tuple-data cursor overflow"))?;
+    if padding.len() > 1 || padding.iter().any(|byte| *byte != 0) {
+        return Err(FontError::Unsupported(
+            "unexpected trailing gvar tuple data",
+        ));
+    }
+    Ok((tuple_count, deltas))
+}
+
+fn parse_gvar_tuple_headers(
+    bytes: &[u8],
+    axis_count: usize,
+    shared_tuples: &[Vec<i16>],
+    tuple_count: usize,
+) -> Result<(Vec<GvarTupleHeader>, usize), FontError> {
+    let mut cursor = 4_usize;
+    let mut headers = Vec::with_capacity(tuple_count);
+    for _ in 0..tuple_count {
+        let data_size = usize::from(read_u16(bytes, cursor)?);
+        let tuple_index = read_u16(bytes, cursor + 2)?;
+        if tuple_index & 0x1000 != 0 {
+            return Err(FontError::Unsupported("reserved gvar tuple-index flag"));
+        }
+        cursor += 4;
+        let peak = if tuple_index & 0x8000 != 0 {
+            let (tuple, end) = parse_gvar_tuple(bytes, cursor, axis_count)?;
+            cursor = end;
+            tuple
+        } else {
+            shared_tuples
+                .get(usize::from(tuple_index & 0x0fff))
+                .cloned()
+                .ok_or(FontError::Unsupported("absent gvar shared peak tuple"))?
+        };
+        if tuple_index & 0x4000 != 0 {
+            let (start, end) = parse_gvar_tuple(bytes, cursor, axis_count)?;
+            let (finish, next) = parse_gvar_tuple(bytes, end, axis_count)?;
+            cursor = next;
+            validate_gvar_region(&start, &peak, &finish)?;
+        } else {
+            validate_gvar_tuple_coordinates(&peak)?;
+        }
+        headers.push(GvarTupleHeader {
+            data_size,
+            private_points: tuple_index & 0x2000 != 0,
+        });
+    }
+    Ok((headers, cursor))
+}
+
+fn parse_gvar_tuple(
+    bytes: &[u8],
+    offset: usize,
+    axis_count: usize,
+) -> Result<(Vec<i16>, usize), FontError> {
+    let byte_len = axis_count
+        .checked_mul(2)
+        .ok_or(FontError::Unsupported("gvar tuple size overflow"))?;
+    bytes
+        .get(offset..offset.saturating_add(byte_len))
+        .ok_or(FontError::Unsupported("truncated gvar tuple record"))?;
+    let values = (0..axis_count)
+        .map(|index| read_i16(bytes, offset + index * 2))
+        .collect::<Result<Vec<_>, _>>()?;
+    Ok((values, offset + byte_len))
+}
+
+fn validate_gvar_tuple_coordinates(tuple: &[i16]) -> Result<(), FontError> {
+    if tuple
+        .iter()
+        .any(|value| !(-16_384..=16_384).contains(value))
+    {
+        Err(FontError::Unsupported(
+            "gvar tuple coordinate is outside normalized range",
+        ))
+    } else {
+        Ok(())
+    }
+}
+
+fn validate_gvar_region(start: &[i16], peak: &[i16], end: &[i16]) -> Result<(), FontError> {
+    validate_gvar_tuple_coordinates(start)?;
+    validate_gvar_tuple_coordinates(peak)?;
+    validate_gvar_tuple_coordinates(end)?;
+    if start.iter().zip(peak).zip(end).any(|((start, peak), end)| {
+        start > peak || peak > end || (*peak < 0 && *end > 0) || (*peak > 0 && *start < 0)
+    }) {
+        Err(FontError::Unsupported("invalid gvar intermediate region"))
+    } else {
+        Ok(())
+    }
+}
+
+fn validate_packed_points(bytes: &[u8], target_count: usize) -> Result<PackedPoints, FontError> {
+    let first = *bytes
+        .first()
+        .ok_or(FontError::Unsupported("truncated gvar packed-point count"))?;
+    if first == 0 {
+        return Ok(PackedPoints {
+            count: 0,
+            byte_len: 1,
+        });
+    }
+    let (count, mut cursor) = if first & 0x80 == 0 {
+        (usize::from(first), 1)
+    } else {
+        let count = usize::from(read_u16(bytes, 0)? & 0x7fff);
+        if count <= 127 {
+            return Err(FontError::Unsupported(
+                "non-canonical gvar packed-point count",
+            ));
+        }
+        (count, 2)
+    };
+    let mut seen = 0_usize;
+    let mut point = 0_u16;
+    while seen < count {
+        let control = *bytes
+            .get(cursor)
+            .ok_or(FontError::Unsupported("truncated gvar packed-point run"))?;
+        cursor += 1;
+        let run = usize::from(control & 0x7f) + 1;
+        if run > count - seen {
+            return Err(FontError::Unsupported(
+                "gvar packed-point run exceeds count",
+            ));
+        }
+        for _ in 0..run {
+            let delta = if control & 0x80 == 0 {
+                let value = *bytes
+                    .get(cursor)
+                    .ok_or(FontError::Unsupported("truncated gvar byte point delta"))?;
+                cursor += 1;
+                u16::from(value)
+            } else {
+                let value = read_u16(bytes, cursor)?;
+                cursor += 2;
+                value
+            };
+            point = point
+                .checked_add(delta)
+                .ok_or(FontError::Unsupported("gvar point-number overflow"))?;
+            if usize::from(point) >= target_count {
+                return Err(FontError::Unsupported(
+                    "gvar point number exceeds glyph and phantom points",
+                ));
+            }
+        }
+        seen += run;
+    }
+    Ok(PackedPoints {
+        count,
+        byte_len: cursor,
+    })
+}
+
+fn validate_packed_gvar_deltas(bytes: &[u8], point_count: usize) -> Result<(), FontError> {
+    let x_bytes = packed_delta_axis_len(bytes, point_count)?;
+    let y_bytes = packed_delta_axis_len(&bytes[x_bytes..], point_count)?;
+    if x_bytes.saturating_add(y_bytes) != bytes.len() {
+        return Err(FontError::Unsupported(
+            "unexpected trailing gvar packed deltas",
+        ));
+    }
+    Ok(())
+}
+
+fn packed_delta_axis_len(bytes: &[u8], expected: usize) -> Result<usize, FontError> {
+    let mut cursor = 0_usize;
+    let mut seen = 0_usize;
+    while seen < expected {
+        let control = *bytes
+            .get(cursor)
+            .ok_or(FontError::Unsupported("truncated gvar delta-run control"))?;
+        cursor += 1;
+        if control & 0xc0 == 0xc0 {
+            return Err(FontError::Unsupported(
+                "32-bit packed deltas are outside the OpenType gvar profile",
+            ));
+        }
+        let run = usize::from(control & 0x3f) + 1;
+        if run > expected - seen {
+            return Err(FontError::Unsupported("gvar delta run exceeds axis count"));
+        }
+        let value_bytes = if control & 0x80 != 0 {
+            0
+        } else if control & 0x40 != 0 {
+            2
+        } else {
+            1
+        };
+        let run_bytes = run
+            .checked_mul(value_bytes)
+            .ok_or(FontError::Unsupported("gvar delta-run size overflow"))?;
+        cursor = cursor
+            .checked_add(run_bytes)
+            .ok_or(FontError::Unsupported("gvar delta-data size overflow"))?;
+        if cursor > bytes.len() {
+            return Err(FontError::Unsupported("truncated gvar packed deltas"));
+        }
+        seen += run;
+    }
+    Ok(cursor)
 }
 
 fn inspect_hvar(

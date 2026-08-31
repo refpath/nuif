@@ -90,9 +90,12 @@ as well as missing, unknown, out-of-range, and non-finite coordinates. Unit
 tests compare twenty-one default/boundary/interior vectors with Skrifa and keep
 all static-profile admission tests green.
 
-`cargo xtask gate-i-font-security` repairs every sfnt checksum after 28 hostile
-fixed-field mutations, then requires the profile—not checksum handling—to reject
-invalid `gvar`, HVAR, MVAR, item-variation-store, and STAT relationships. The
+`cargo xtask gate-i-font-security` repairs every sfnt checksum after 37 hostile
+mutations, then requires the profile—not checksum handling—to reject invalid
+`gvar`, HVAR, MVAR, item-variation-store, and STAT relationships. Nine `gvar`
+cases exercise tuple flags/header extents, normalized shared tuples, packed
+point counts/runs/bounds, tuple body sizes, packed delta counts, and rejection
+of the non-OpenType 32-bit delta extension. The
 gate also measures the three accepted fixtures after warmup: each inspection
 must allocate no more than 8 MiB, retain no more than 2 MiB, and finish within
 500 ms; one early malformed graph must reject below 256 KiB allocated. Graph
@@ -101,8 +104,8 @@ limits cap 4,096 shared tuples, 65,536 tuple records, 4,194,304 explicit deltas,
 region references, 256 MVAR records, and 4,096 STAT values.
 
 These ceilings are implementation regression guards measured on one machine,
-not portable timing or allocation semantics. Packed `gvar` point/delta mutation
-breadth, a broader rights-reviewed variable corpus, VVAR, and process-level
+not portable timing or allocation semantics. Exhaustive packed-encoding
+combinations, a broader rights-reviewed variable corpus, VVAR, and process-level
 cancellation/sandbox evidence remain open. Parser admission is therefore not
 promoted to package acceptance.
 
@@ -122,5 +125,6 @@ No variable font may yet pass `validate_packaged_font`, enter the evaluation
 context, participate in layout/rendering, or claim lossless fidelity under this
 candidate identifier. Resource-only package retention and candidate policy are
 now evidenced, but typed package binding remains off. The next executable gate
-must add a rights-reviewed broader HVAR/MVAR corpus and packed `gvar` negative
-cases before layout/runtime work can safely wire the selected coordinates.
+must add a rights-reviewed broader HVAR/MVAR corpus and broader packed `gvar`
+encoding fixtures before layout/runtime work can safely wire the selected
+coordinates.

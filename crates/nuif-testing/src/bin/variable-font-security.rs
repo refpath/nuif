@@ -98,6 +98,47 @@ fn gvar_trials(material: &[u8]) -> Result<Vec<Value>, String> {
             material,
             zero_first_gvar_tuple_count,
         )?,
+        rejection_trial(
+            "gvar_tuple_count_reserved_flag",
+            material,
+            mutate_gvar_tuple_count_reserved,
+        )?,
+        rejection_trial(
+            "gvar_serialized_data_overlaps_headers",
+            material,
+            mutate_gvar_data_offset,
+        )?,
+        rejection_trial(
+            "gvar_tuple_index_reserved_flag",
+            material,
+            mutate_gvar_tuple_index_reserved,
+        )?,
+        rejection_trial(
+            "gvar_shared_tuple_out_of_range",
+            material,
+            mutate_gvar_shared_tuple,
+        )?,
+        rejection_trial("gvar_tuple_data_size_zero", material, mutate_gvar_data_size)?,
+        rejection_trial(
+            "gvar_packed_point_run_exceeds_count",
+            material,
+            mutate_gvar_point_run,
+        )?,
+        rejection_trial(
+            "gvar_packed_point_out_of_range",
+            material,
+            mutate_gvar_point_value,
+        )?,
+        rejection_trial(
+            "gvar_unsupported_32_bit_delta_run",
+            material,
+            mutate_gvar_delta_to_i32,
+        )?,
+        rejection_trial(
+            "gvar_packed_delta_run_exceeds_axis",
+            material,
+            mutate_gvar_delta_run,
+        )?,
     ])
 }
 
@@ -210,7 +251,7 @@ fn report(hostile_trials: &[Value], allocation_trials: &[Value], passed: bool) -
             "blocking_failures": hostile_trials.iter().chain(allocation_trials).filter(|item| !passed_trial(item)).count(),
         },
         "non_claims": [
-            "fixed-field checksum-repaired mutations do not cover every packed gvar point and delta encoding",
+            "checksum-repaired mutations cover representative packed gvar point and delta failures but not every encoding combination",
             "ceilings are reference-implementation regressions after one warmup rather than portable format semantics",
             "VVAR remains rejected by capability boundary rather than validated as a vertical-text profile",
             "successful research preflight does not enable variable package layout or rendering acceptance",
@@ -310,6 +351,192 @@ fn gvar_offset(bytes: &[u8], offset: usize, size: usize) -> Result<usize, String
         usize::try_from(read_u32_at(bytes, offset)?)
             .map_err(|_| "gvar offset does not fit usize".to_owned())
     }
+}
+
+struct GvarGlyphLocation {
+    start: usize,
+    axis_count: usize,
+}
+
+struct PackedPointLocation {
+    count: usize,
+    byte_len: usize,
+    first_control: usize,
+    first_value: usize,
+}
+
+struct PrivateTupleLocation {
+    point_control: usize,
+    point_value: usize,
+    delta_control: usize,
+}
+
+fn mutate_gvar_tuple_count_reserved(bytes: &mut [u8]) -> Result<(), String> {
+    let glyph = first_gvar_glyph(bytes)?;
+    let count = read_u16_at(bytes, glyph.start)? | 0x1000;
+    write_absolute(bytes, glyph.start, &count.to_be_bytes())
+}
+
+fn mutate_gvar_data_offset(bytes: &mut [u8]) -> Result<(), String> {
+    let glyph = first_gvar_glyph(bytes)?;
+    write_absolute(bytes, glyph.start + 2, &4_u16.to_be_bytes())
+}
+
+fn mutate_gvar_tuple_index_reserved(bytes: &mut [u8]) -> Result<(), String> {
+    let glyph = first_gvar_glyph(bytes)?;
+    let tuple_index = read_u16_at(bytes, glyph.start + 6)? | 0x1000;
+    write_absolute(bytes, glyph.start + 6, &tuple_index.to_be_bytes())
+}
+
+fn mutate_gvar_shared_tuple(bytes: &mut [u8]) -> Result<(), String> {
+    let (start, _) = table_range(bytes, *b"gvar")?;
+    if read_u16_at(bytes, start + 6)? == 0 {
+        return Err("gvar fixture has no shared tuples".to_owned());
+    }
+    let tuple = start
+        + usize::try_from(read_u32_at(bytes, start + 8)?)
+            .map_err(|_| "gvar shared-tuple offset does not fit usize")?;
+    write_absolute(bytes, tuple, &i16::MAX.to_be_bytes())
+}
+
+fn mutate_gvar_data_size(bytes: &mut [u8]) -> Result<(), String> {
+    let glyph = first_gvar_glyph(bytes)?;
+    write_absolute(bytes, glyph.start + 4, &0_u16.to_be_bytes())
+}
+
+fn mutate_gvar_point_run(bytes: &mut [u8]) -> Result<(), String> {
+    let location = first_private_gvar_tuple(bytes)?;
+    let control = *bytes
+        .get(location.point_control)
+        .ok_or_else(|| "gvar point control is out of range".to_owned())?
+        & 0x80
+        | 0x7f;
+    write_absolute(bytes, location.point_control, &[control])
+}
+
+fn mutate_gvar_point_value(bytes: &mut [u8]) -> Result<(), String> {
+    let location = first_private_gvar_tuple(bytes)?;
+    let control = *bytes
+        .get(location.point_control)
+        .ok_or_else(|| "gvar point control is out of range".to_owned())?
+        | 0x80;
+    write_absolute(bytes, location.point_control, &[control])?;
+    write_absolute(bytes, location.point_value, &u16::MAX.to_be_bytes())
+}
+
+fn mutate_gvar_delta_to_i32(bytes: &mut [u8]) -> Result<(), String> {
+    let location = first_private_gvar_tuple(bytes)?;
+    let control = *bytes
+        .get(location.delta_control)
+        .ok_or_else(|| "gvar delta control is out of range".to_owned())?
+        | 0xc0;
+    write_absolute(bytes, location.delta_control, &[control])
+}
+
+fn mutate_gvar_delta_run(bytes: &mut [u8]) -> Result<(), String> {
+    let location = first_private_gvar_tuple(bytes)?;
+    let control = *bytes
+        .get(location.delta_control)
+        .ok_or_else(|| "gvar delta control is out of range".to_owned())?
+        & 0xc0
+        | 0x3f;
+    write_absolute(bytes, location.delta_control, &[control])
+}
+
+fn first_gvar_glyph(bytes: &[u8]) -> Result<GvarGlyphLocation, String> {
+    let (start, _) = table_range(bytes, *b"gvar")?;
+    let flags = read_u16_at(bytes, start + 14)?;
+    let glyph_count = usize::from(read_u16_at(bytes, start + 12)?);
+    let data_start = start
+        + usize::try_from(read_u32_at(bytes, start + 16)?)
+            .map_err(|_| "gvar data offset does not fit usize")?;
+    let entry_size = if flags & 1 == 0 { 2 } else { 4 };
+    for index in 0..glyph_count {
+        let left = gvar_offset(bytes, start + 20 + index * entry_size, entry_size)?;
+        let right = gvar_offset(bytes, start + 20 + (index + 1) * entry_size, entry_size)?;
+        if right > left {
+            return Ok(GvarGlyphLocation {
+                start: data_start + left,
+                axis_count: usize::from(read_u16_at(bytes, start + 4)?),
+            });
+        }
+    }
+    Err("gvar fixture has no nonempty glyph data".to_owned())
+}
+
+fn first_private_gvar_tuple(bytes: &[u8]) -> Result<PrivateTupleLocation, String> {
+    let glyph = first_gvar_glyph(bytes)?;
+    let raw_count = read_u16_at(bytes, glyph.start)?;
+    let tuple_count = usize::from(raw_count & 0x0fff);
+    let mut header_cursor = glyph.start + 4;
+    let mut headers = Vec::with_capacity(tuple_count);
+    for _ in 0..tuple_count {
+        let size = usize::from(read_u16_at(bytes, header_cursor)?);
+        let index = read_u16_at(bytes, header_cursor + 2)?;
+        headers.push((size, index & 0x2000 != 0));
+        header_cursor += 4;
+        if index & 0x8000 != 0 {
+            header_cursor += glyph.axis_count * 2;
+        }
+        if index & 0x4000 != 0 {
+            header_cursor += glyph.axis_count * 4;
+        }
+    }
+    let mut data_cursor = glyph.start + usize::from(read_u16_at(bytes, glyph.start + 2)?);
+    if raw_count & 0x8000 != 0 {
+        data_cursor += packed_point_location(bytes, data_cursor)?.byte_len;
+    }
+    for (size, private) in headers {
+        if private {
+            let points = packed_point_location(bytes, data_cursor)?;
+            if (1..=63).contains(&points.count) {
+                return Ok(PrivateTupleLocation {
+                    point_control: points.first_control,
+                    point_value: points.first_value,
+                    delta_control: data_cursor + points.byte_len,
+                });
+            }
+        }
+        data_cursor += size;
+    }
+    Err("gvar fixture has no small private point tuple".to_owned())
+}
+
+fn packed_point_location(bytes: &[u8], start: usize) -> Result<PackedPointLocation, String> {
+    let first = *bytes
+        .get(start)
+        .ok_or_else(|| "truncated packed-point count".to_owned())?;
+    let (count, mut cursor) = if first == 0 {
+        return Err("packed-point set represents all points".to_owned());
+    } else if first & 0x80 == 0 {
+        (usize::from(first), start + 1)
+    } else {
+        (usize::from(read_u16_at(bytes, start)? & 0x7fff), start + 2)
+    };
+    let first_control = cursor;
+    let first_value = cursor + 1;
+    let mut seen = 0_usize;
+    while seen < count {
+        let control = *bytes
+            .get(cursor)
+            .ok_or_else(|| "truncated packed-point run".to_owned())?;
+        cursor += 1;
+        let run = usize::from(control & 0x7f) + 1;
+        let width = if control & 0x80 == 0 { 1 } else { 2 };
+        cursor = cursor
+            .checked_add(run.saturating_mul(width))
+            .ok_or_else(|| "packed-point location overflow".to_owned())?;
+        bytes
+            .get(..cursor)
+            .ok_or_else(|| "truncated packed-point values".to_owned())?;
+        seen = seen.saturating_add(run);
+    }
+    Ok(PackedPointLocation {
+        count,
+        byte_len: cursor - start,
+        first_control,
+        first_value,
+    })
 }
 
 fn mutate_store_region(

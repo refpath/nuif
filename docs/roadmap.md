@@ -74,8 +74,9 @@ A third isolated gate matches nonzero HVAR advances at four locations and
 exercises a valid truncated advance-index map. A fourth matches MVAR x-height,
 cap-height and line metrics at eight 13-axis locations in a reproducibly
 subsetted OFL fixture. A fifth structurally preflights `gvar`, HVAR, MVAR and
-STAT, rejects 28 checksum-repaired graph mutations, and enforces warmed parser
-allocation/time regression ceilings. Variable package, layout, VVAR, broader
+STAT, rejects 37 checksum-repaired graph and packed point/delta mutations, and
+enforces warmed parser allocation/time regression ceilings. Variable package,
+layout, VVAR, broader
 rights-reviewed HVAR/MVAR conformance and rendering remain unimplemented
 capabilities. A sixth candidate gate proves resource-only package fixpoint,
 unrelated-edit retention, explicit linked resolution, and asset-policy

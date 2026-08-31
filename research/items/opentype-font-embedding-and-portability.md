@@ -169,11 +169,14 @@ and `hb-subset` 14.4.0 command are retained. Skrifa and HarfBuzz agree exactly
 on five global metrics at eight locations. This does not generalize one MVAR
 store into broad metric, legal-policy, or runtime evidence. A fifth gate now
 walks the accepted fixtures' connected `gvar`, HVAR, MVAR, item variation store,
-and STAT structures under explicit count/product bounds. It rejects 28
-checksum-repaired fixed-field mutations and holds four warmed allocation/time
-trials below declared reference-implementation ceilings. Packed `gvar`
-point/delta mutation breadth, VVAR, a broader rights-reviewed corpus, and
-package/runtime admission remain open.
+and STAT structures under explicit count/product bounds. It rejects 37
+checksum-repaired mutations and holds four warmed allocation/time trials below
+declared reference-implementation ceilings. Nine cases cover representative
+packed `gvar` header/point/delta failures, exact X/Y run counts,
+glyph/component-plus-phantom point bounds, and rejection of a non-OpenType
+32-bit extension accepted by the upstream iterator. Exhaustive encoding
+combinations, VVAR, a broader rights-reviewed corpus, and package/runtime
+admission remain open.
 The package candidate gate now validates the exact asset metadata, complete
 axis tuple, license expression and explicit embedding review; it preserves the
 font as a resource through deterministic package fixpoint and an unrelated edit
@@ -199,6 +202,10 @@ that fact as an automated publisher-rights determination.
   https://learn.microsoft.com/en-us/typography/opentype/spec/otff
 - OpenType 1.9.1, “OpenType Font Variations overview”:
   https://learn.microsoft.com/en-us/typography/opentype/spec/otvaroverview
+- OpenType 1.9.1, “Glyph Variations Table”:
+  https://learn.microsoft.com/en-us/typography/opentype/spec/gvar
+- OpenType 1.9.1, “OpenType Font Variations Common Table Formats”:
+  https://learn.microsoft.com/en-us/typography/opentype/spec/otvarcommonformats
 - HarfBuzz manual, “Working with OpenType Variable Fonts”:
   https://harfbuzz.github.io/fonts-and-faces-variable.html
 - OpenType 1.9.1, “COLR — Color Table”:

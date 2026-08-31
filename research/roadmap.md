@@ -163,8 +163,9 @@ until its checkpoint/position contract is versioned and independently tested.
 8. Keep the variable-font metadata/normalization and isolated HarfBuzz shaping
    gates separate from package acceptance; retain the implemented malformed
    variation-graph/allocation ceilings and resource-only package/policy
-   evidence, then add packed `gvar` negative coverage and rights-reviewed
-   broader HVAR/MVAR fixtures before typed package/runtime coordinate delivery.
+   evidence plus representative packed `gvar` negatives, then add
+   rights-reviewed broader HVAR/MVAR and packed-encoding fixtures before typed
+   package/runtime coordinate delivery.
    Extend the narrow PNG and static TrueType baselines only through new declared
    fixtures, add cross-platform media reproduction, and complete the broader
    OpenType format/policy matrix with calibrated allocation/time budgets; do
