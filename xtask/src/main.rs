@@ -140,6 +140,7 @@ const VERIFICATION_ARTIFACTS: &[&str] = &[
     "target/collaboration-nested-creation-v1-report.json",
     "target/collaboration-mixed-report.json",
     "target/collaboration-gc-report.json",
+    "target/collaboration-gc-prefix-report.json",
     "target/collaboration-automerge-input.json",
     "target/collaboration-automerge-report.json",
     "target/package-resources-report.json",
@@ -2824,6 +2825,11 @@ fn gate_h() -> Result<(), String> {
     gate_h_conformance(
         "collaboration-gc",
         "target/collaboration-gc-report.json",
+        None,
+    )?;
+    gate_h_conformance(
+        "collaboration-gc-prefix",
+        "target/collaboration-gc-prefix-report.json",
         None,
     )?;
     command(

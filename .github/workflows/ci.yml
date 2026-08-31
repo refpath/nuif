@@ -355,6 +355,7 @@ jobs:
             target/collaboration-nested-creation-v1-report.json
             target/collaboration-mixed-report.json
             target/collaboration-gc-report.json
+            target/collaboration-gc-prefix-report.json
             target/collaboration-automerge-input.json
             target/collaboration-automerge-report.json
       - name: Upload verification artifact index
