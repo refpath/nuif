@@ -55,7 +55,7 @@ areas:
   resource_model_images_fonts:
     status: experiment-required
     evidence: [nuif:research:resource-packaging-and-source-capture-synthesis, nuif:research:png-image-preservation-and-decoding, nuif:research:opentype-font-embedding-and-portability, nuif:research:ttf-parser, nuif:research:fontations, nuif:research:text-rendering-reproducibility, nuif:research:content-addressed-versioning]
-    artifacts: [spec/05-geometry-paint-text.md, spec/08-serialization.md, spec/11-security.md, rfcs/0010-portable-resource-package.md, crates/nuif-media/PROFILE.md, crates/nuif-font/PROFILE.md, crates/nuif-testing/src/bin/image-resources.rs, crates/nuif-testing/src/bin/font-resources.rs, research/experiments/index.yaml]
+    artifacts: [spec/05-geometry-paint-text.md, spec/08-serialization.md, spec/11-security.md, rfcs/0010-portable-resource-package.md, rfcs/0013-variable-truetype-resource-profile.md, crates/nuif-media/PROFILE.md, crates/nuif-font/PROFILE.md, crates/nuif-testing/src/bin/image-resources.rs, crates/nuif-testing/src/bin/font-resources.rs, research/experiments/index.yaml]
   browser_source_capture:
     status: experiment-required
     evidence: [nuif:research:chromium-source-backed-ui-capture, nuif:research:tree-sitter, nuif:research:reverse-layout-inference, nuif:research:resource-packaging-and-source-capture-synthesis]

@@ -700,9 +700,10 @@ experiments:
     continuation:
       class: profile-design
       blocked_by:
-        - collection variable-TrueType CFF/CFF2 COLR bitmap SVG-glyph and WOFF2 support require separately named capabilities with format-specific bounds and oracles
+        - RFC 0013 fixes the variable-TrueType boundary but parser shaping outline and metric limits still require executable two-oracle evidence before promotion
+        - collection CFF/CFF2 COLR bitmap SVG-glyph and WOFF2 support remain separate capabilities with format-specific bounds and oracles
         - redistribution subsetting and derived-instance policy cannot be inferred from fsType and requires publisher-supplied license evidence plus rights-reviewed fixtures
-      next_action: Draft the variable-TrueType RFC first around fvar avar gvar HVAR VVAR MVAR and STAT, then promote it only with two parsers shaping and outline evidence plus rights-cleared fixtures; keep collection CFF color bitmap SVG and WOFF2 profiles independent.
+      next_action: Implement RFC 0013 metadata and coordinate-normalization trials against rights-cleared variable fixtures and pinned HarfBuzz output before adding shaping outlines or package acceptance.
     acceptance:
       - font bytes face index axes features coverage and shaping inputs are content-addressed and independently decoded
       - portable private-authoring linked substituted and unavailable policies produce distinct validated outcomes

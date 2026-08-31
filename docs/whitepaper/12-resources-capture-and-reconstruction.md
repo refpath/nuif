@@ -29,10 +29,11 @@ The recommended direction is:
 7. consider adaptation or distillation only after the untuned loop exposes a
    repeatable learnable error distribution.
 
-RFC 0010 and RFC 0011 remain proposed contracts. Their bounded package, narrow
-PNG/static-font and capture/reconstruction experiments are implementation
-evidence only for the named subsets; they are not published conformance or
-standards claims.
+RFC 0010, RFC 0011 and the variable-TrueType proposal in RFC 0013 remain
+proposed contracts. Their bounded package, narrow PNG/static-font and
+capture/reconstruction experiments are implementation evidence only for the
+named subsets; RFC 0013 has no executable profile yet. None is a published
+conformance or standards claim.
 
 ## One core, two import lanes
 

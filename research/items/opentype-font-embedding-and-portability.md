@@ -26,7 +26,7 @@ relations:
 links:
   spec: [spec/05-geometry-paint-text.md, spec/08-serialization.md, spec/11-security.md]
   adr: [adrs/0003-reference-renderer.md]
-  rfc: [rfcs/0010-portable-resource-package.md]
+  rfc: [rfcs/0010-portable-resource-package.md, rfcs/0013-variable-truetype-resource-profile.md]
   code: [crates/nuif-text, crates/nuif-font, crates/nuif-package, crates/nuif-testing/src/bin/font-resources.rs]
   experiments: [nuif:experiment:font-resource-static-baseline, nuif:experiment:font-resource-profile]
 ---

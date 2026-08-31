@@ -64,6 +64,9 @@ cluster-level fallback, successful hosted cross-platform evidence and external
 implementations remain open. Stable text-to-font asset bindings distinguish
 requested, replacement and unavailable identities with six blocking fidelity
 trials; six more trials cover the exact static runtime path.
+Proposed RFC 0013 decomposes the next variable-TrueType profile around one
+complete coordinate tuple and shared normalization for shaping, metrics and
+outlines; it is research text, not implemented capability.
 
 ## Phase 5 — editor (complete for the headless profile-0 instrument)
 The entire v0 fixture is authored from an empty document through identity-addressed semantic actions. Direct generation, editor output and operation replay are byte-identical, and the editor writes canonical document, context, layout, scene, CPU raster and fidelity report artifacts. The Rust-native Masonry shell from ADR 0006 and the later Svelte/WASM demonstration are non-normative interface work and cannot redefine this headless result.

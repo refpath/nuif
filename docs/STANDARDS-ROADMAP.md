@@ -64,8 +64,8 @@ semantic document and is not a second complete implementation.
 These results cover bounded subsets. They do
 not constitute two independent implementations of the complete draft.
 
-RFCs 0010, 0011 and 0012 are proposed research inputs. Their package, resource,
-behavior-attachment, capture and reconstruction profiles are not prerequisites for a small core
+RFCs 0010 through 0013 are proposed research inputs. Their package, resource,
+behavior-attachment, variable-font, capture and reconstruction profiles are not prerequisites for a small core
 implementer draft unless the selected charter includes them. If included, each
 requires its own independent implementation/evaluator report; a model demo or
 editor alpha does not satisfy interoperability.
