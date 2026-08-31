@@ -1782,6 +1782,7 @@ fn gate_ffi() -> Result<(), String> {
             "tools/ffi/header-smoke.cpp",
         ],
     )?;
+    let cplusplus_runtime_status = run_ffi_cpp_consumer()?;
     let (runtime_status, sanitizer_status) =
         run_ffi_runtime_consumers(variable_font_package, ffi_report, sanitized_report)?;
     let variable_font = ffi_variable_font_evidence(
@@ -1793,6 +1794,7 @@ fn gate_ffi() -> Result<(), String> {
     let passed = symbols["status"] == "passed"
         && runtime_status != "failed"
         && sanitizer_status != "failed"
+        && cplusplus_runtime_status != "failed"
         && (cfg!(windows) || variable_font["status"] == "passed");
     fs::create_dir_all("target").map_err(|error| error.to_string())?;
     let report = serde_json::json!({
@@ -1810,9 +1812,10 @@ fn gate_ffi() -> Result<(), String> {
         "cplusplus_consumer": "tools/ffi/header-smoke.cpp",
         "runtime_consumer": "tools/ffi/runtime-smoke.c",
         "runtime_status": runtime_status,
+        "cplusplus_runtime_status": cplusplus_runtime_status,
         "sanitizer_status": sanitizer_status,
         "symbols": symbols,
-        "mode": "C/C++ header syntax, exported-symbol baseline and POSIX release-library package/snapshot parity with an ASan/UBSan C consumer; no stable ABI claim",
+        "mode": "C/C++ header syntax, linked POSIX C++ consumer, exported-symbol baseline and POSIX release-library package/snapshot parity with an ASan/UBSan C consumer; no stable ABI claim",
         "variable_font": variable_font,
         "source": {
             "revision": command_text("git", &["rev-parse", "HEAD"]),
@@ -1830,6 +1833,36 @@ fn gate_ffi() -> Result<(), String> {
     } else {
         Err("C ABI conformance report failed its assertions".to_owned())
     }
+}
+
+fn run_ffi_cpp_consumer() -> Result<&'static str, String> {
+    if cfg!(windows) {
+        return Ok("not-run-on-windows");
+    }
+    let rpath = if cfg!(target_os = "macos") {
+        "-Wl,-rpath,@loader_path/../release"
+    } else {
+        "-Wl,-rpath,$ORIGIN/release"
+    };
+    command(
+        "c++",
+        &[
+            "-std=c++17",
+            "-Wall",
+            "-Wextra",
+            "-Werror",
+            "-pedantic",
+            "-I.",
+            "tools/ffi/header-smoke.cpp",
+            "-Ltarget/release",
+            "-lnuif_ffi",
+            rpath,
+            "-o",
+            "target/ffi-cplusplus-smoke",
+        ],
+    )?;
+    command(path(Path::new("target/ffi-cplusplus-smoke"))?, &[])?;
+    Ok("passed")
 }
 
 fn ffi_variable_font_evidence(
