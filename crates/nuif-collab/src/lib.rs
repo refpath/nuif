@@ -9,6 +9,7 @@ use thiserror::Error;
 
 pub mod creation;
 pub mod gc;
+pub mod nested_creation;
 pub mod structural;
 
 pub const PROFILE_NAME: &str = "nuif-collab-registers-0";
