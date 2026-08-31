@@ -64,8 +64,16 @@ shaping and Skrifa metrics agree exactly with pinned HarfBuzz 14.4.0 public-API
 observations at every location. The fixture deliberately uses a valid
 truncated advance-index map, so the test also covers the OpenType rule that
 missing trailing map entries reuse the final present entry. This is one narrow
-horizontal-metric case; MVAR, VVAR, side-bearing variation, `gvar` phantom-point
+horizontal-metric case; VVAR, side-bearing variation, `gvar` phantom-point
 fallback, and a broader HVAR corpus remain untested.
+
+`cargo xtask gate-i-font-global-metrics` adds a reproducible two-glyph Roboto
+Flex subset under OFL-1.1 with exact source, license, preparation, and derived
+digests. At eight complete 13-axis locations, Skrifa's MVAR-adjusted x-height,
+cap height, ascent, descent, and line gap agree exactly with HarfBuzz 14.4.0's
+public metric API. The `YTLC`, `YTUC`, and `opsz` cases distinguish targeted
+global-metric deltas from glyph shaping. This is one MVAR store and not broad
+MVAR, rights-policy, or package/runtime evidence.
 
 ## Negative and security evidence
 
@@ -83,6 +91,6 @@ graphs. Parser admission is therefore not promoted to package acceptance.
 No variable font may yet pass `validate_packaged_font`, enter the evaluation
 context, participate in layout/rendering, or claim lossless fidelity under this
 candidate identifier. The next executable gate must add a rights-reviewed
-MVAR fixture and broader HVAR corpus, malformed variation-graph cases, and
-allocation/time ceilings before the shared
+broader HVAR/MVAR corpus, malformed variation-graph cases, and allocation/time
+ceilings before the shared
 package/runtime path changes.

@@ -17,6 +17,12 @@ tool a build dependency or turn one fixture into a general format claim.
   `python3 tools/font/capture_harfbuzz_hvar.py <font>` and the exact fixture
   named in the capture. It does not establish MVAR, VVAR, side-bearing, or
   broad HVAR support.
+- `harfbuzz-14.4.0-roboto-flex-mvar.json` records global MVAR metrics and
+  shaping at eight locations in the reproducible two-glyph OFL-1.1 Roboto Flex
+  subset under `fixtures/`. Regenerate it with
+  `python3 tools/font/capture_harfbuzz_mvar.py <font>`. The fixture provenance,
+  license, preparation command, and exact source/derived digests are retained
+  beside the font.
 
 The variable fixture comes from `font-test-data` 0.9.1. Its package metadata
 declares `MIT OR Apache-2.0`, while the font's embedded copyright string is

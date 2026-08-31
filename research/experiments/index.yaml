@@ -716,7 +716,7 @@ experiments:
       - HarfRust exactly reproduces pinned HarfBuzz glyph IDs scalar clusters advances and offsets at default minimum maximum two interior and two FeatureVariations boundary positions
       - one NUIF-owned normalized coordinate vector is delivered unchanged to shaping Skrifa metrics and Skrifa unhinted outlines
       - every Skrifa advance and canonical unhinted outline exactly matches the pinned HarfBuzz metric and draw-callback capture
-      - evidence remains unavailable to package validation sessions layout and render fidelity until nonzero HVAR MVAR policy corpus and resource-limit gates pass
+      - evidence remains unavailable to package validation sessions layout and render fidelity until broader HVAR MVAR policy corpus and resource-limit gates pass
     tests:
       - prove the GSUB FeatureVariations threshold changes the selected mail ligature immediately below versus at the declared boundary
       - compare every shaped glyph advance and canonical unhinted outline with HarfBuzz at the identical location and repeat every result exactly
@@ -737,6 +737,21 @@ experiments:
       - require the NUIF-owned normalized coordinate to agree with HarfBuzz and drive both HarfRust and Skrifa
       - reject one below-minimum coordinate and repeat every case exactly
       - archive target/variable-font-metrics-report.json from cargo xtask gate-i-font-metrics
+  - id: nuif:experiment:variable-font-mvar-baseline
+    status: automated
+    evidence: [nuif:research:opentype-font-embedding-and-portability, nuif:research:fontations, nuif:research:harfbuzz-unicode, nuif:research:text-rendering-reproducibility]
+    implementation: [crates/nuif-font/src/lib.rs, crates/nuif-text/src/lib.rs, crates/nuif-testing/src/bin/variable-font-global-metrics.rs, conformance/font/harfbuzz-14.4.0-roboto-flex-mvar.json, conformance/font/fixtures/roboto-flex-mvar-subset/PROVENANCE.md, tools/font/prepare_roboto_flex_mvar.py, tools/font/capture_harfbuzz_mvar.py, xtask/src/main.rs]
+    oracle: external-harfbuzz-global-metric-and-location-coherence
+    acceptance:
+      - Skrifa exactly reproduces pinned HarfBuzz 14.4.0 MVAR-adjusted x-height cap height ascent descent and line gap at eight complete 13-axis locations
+      - the identical NUIF-owned normalized coordinate vector drives HarfRust shaping and Skrifa global metrics without package or host-font resolution
+      - a 22104-byte two-glyph OFL-1.1 fixture is reproducibly derived from digest-pinned Google Fonts sources by pinned hb-subset 14.4.0
+      - evidence remains isolated from package validation layout rendering VVAR side-bearing broad MVAR graph and automated legal-policy claims
+    tests:
+      - compare five exact global metrics and exact shaping results with HarfBuzz at default x-height cap-height and optical-size locations
+      - require targeted YTLC and YTUC positions to change only their intended global metric while optical size changes both x-height and glyph advances
+      - require exact repeated results source license output digest table-set and fixture-size bounds
+      - archive target/variable-font-global-metrics-report.json from cargo xtask gate-i-font-global-metrics
   - id: nuif:experiment:font-resource-profile
     status: planned
     evidence: [nuif:research:opentype-font-embedding-and-portability, nuif:research:text-rendering-reproducibility]
@@ -744,10 +759,10 @@ experiments:
     continuation:
       class: profile-design
       blocked_by:
-        - RFC 0013 metadata normalization shaping advances and outlines now have one bounded HarfBuzz/Skrifa fixture and a second nonzero HVAR fixture but MVAR broader HVAR evidence variation-table graph limits allocation ceilings and a rights-reviewed corpus remain required before promotion
+        - RFC 0013 metadata normalization shaping outlines nonzero HVAR and one MVAR fixture now have bounded HarfBuzz/Skrifa evidence but broader HVAR MVAR evidence variation-table graph limits allocation ceilings and a rights-reviewed corpus remain required before promotion
         - collection CFF/CFF2 COLR bitmap SVG-glyph and WOFF2 support remain separate capabilities with format-specific bounds and oracles
         - redistribution subsetting and derived-instance policy cannot be inferred from fsType and requires publisher-supplied license evidence plus rights-reviewed fixtures
-      next_action: Add a rights-reviewed MVAR fixture and broader HVAR corpus plus malformed variation-graph and allocation ceilings before changing package acceptance or runtime fidelity.
+      next_action: Add a rights-reviewed broader HVAR MVAR corpus plus malformed variation-graph and allocation ceilings before changing package acceptance or runtime fidelity.
     acceptance:
       - font bytes face index axes features coverage and shaping inputs are content-addressed and independently decoded
       - portable private-authoring linked substituted and unavailable policies produce distinct validated outcomes

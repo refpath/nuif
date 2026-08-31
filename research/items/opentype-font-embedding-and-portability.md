@@ -27,8 +27,8 @@ links:
   spec: [spec/05-geometry-paint-text.md, spec/08-serialization.md, spec/11-security.md]
   adr: [adrs/0003-reference-renderer.md]
   rfc: [rfcs/0010-portable-resource-package.md, rfcs/0013-variable-truetype-resource-profile.md]
-  code: [crates/nuif-text, crates/nuif-font, crates/nuif-package, crates/nuif-testing/src/bin/font-resources.rs, crates/nuif-testing/src/bin/variable-font-metadata.rs, crates/nuif-testing/src/bin/variable-font-shaping.rs, crates/nuif-testing/src/bin/variable-font-metrics.rs, conformance/font/harfbuzz-14.4.0-material-symbols-variable.json, conformance/font/harfbuzz-14.4.0-hvar-truncated-map.json]
-  experiments: [nuif:experiment:font-resource-static-baseline, nuif:experiment:variable-font-metadata-baseline, nuif:experiment:variable-font-shaping-baseline, nuif:experiment:variable-font-hvar-baseline, nuif:experiment:font-resource-profile]
+  code: [crates/nuif-text, crates/nuif-font, crates/nuif-package, crates/nuif-testing/src/bin/font-resources.rs, crates/nuif-testing/src/bin/variable-font-metadata.rs, crates/nuif-testing/src/bin/variable-font-shaping.rs, crates/nuif-testing/src/bin/variable-font-metrics.rs, crates/nuif-testing/src/bin/variable-font-global-metrics.rs, conformance/font/harfbuzz-14.4.0-material-symbols-variable.json, conformance/font/harfbuzz-14.4.0-hvar-truncated-map.json, conformance/font/harfbuzz-14.4.0-roboto-flex-mvar.json, conformance/font/fixtures/roboto-flex-mvar-subset/PROVENANCE.md]
+  experiments: [nuif:experiment:font-resource-static-baseline, nuif:experiment:variable-font-metadata-baseline, nuif:experiment:variable-font-shaping-baseline, nuif:experiment:variable-font-hvar-baseline, nuif:experiment:variable-font-mvar-baseline, nuif:experiment:font-resource-profile]
 ---
 
 # Summary
@@ -161,8 +161,14 @@ metric and draw callbacks. The fixture has no active HVAR regions or MVAR table,
 so the single-fixture result is not variable-metric or package evidence.
 An independent HVAR gate now compares three nonzero location-dependent advances
 across four `wght` positions with HarfBuzz and specifically exercises a valid
-truncated advance-index map. It still does not cover MVAR, VVAR, side bearings,
+truncated advance-index map. It still does not cover VVAR, side bearings,
 phantom-point fallback, broad HVAR behavior, or package/runtime admission.
+One reproducible two-glyph Roboto Flex subset supplies the MVAR oracle. Its
+OFL-1.1 text, Google Fonts commit/blob identities, source and derived digests,
+and `hb-subset` 14.4.0 command are retained. Skrifa and HarfBuzz agree exactly
+on five global metrics at eight locations. This does not generalize one MVAR
+store into broad graph, hostile-input, allocation, legal-policy, or runtime
+evidence.
 The fixture's crate-level `MIT OR Apache-2.0` distribution metadata is retained,
 while its embedded copyright string prevents the experiment from presenting
 that fact as an automated publisher-rights determination.

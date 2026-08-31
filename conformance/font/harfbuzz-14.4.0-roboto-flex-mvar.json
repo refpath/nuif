@@ -1,0 +1,346 @@
+{
+  "capture_command": "python3 tools/font/capture_harfbuzz_mvar.py conformance/font/fixtures/roboto-flex-mvar-subset/RobotoFlex-MVAR-subset.ttf",
+  "cases": [
+    {
+      "global_metrics_font_units": {
+        "cpht": 1456,
+        "hasc": 1900,
+        "hdsc": -500,
+        "hlgp": 0,
+        "xhgt": 1052
+      },
+      "label": "default",
+      "normalized_2_14": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "serialized_glyphs": "[1=0+1458|2=1+978]",
+      "text": "Hx",
+      "user": {
+        "GRAD": 0.0,
+        "XOPQ": 96.0,
+        "XTRA": 468.0,
+        "YOPQ": 79.0,
+        "YTAS": 750.0,
+        "YTDE": -203.0,
+        "YTFI": 738.0,
+        "YTLC": 514.0,
+        "YTUC": 712.0,
+        "opsz": 14.0,
+        "slnt": 0.0,
+        "wdth": 100.0,
+        "wght": 400.0
+      }
+    },
+    {
+      "global_metrics_font_units": {
+        "cpht": 1456,
+        "hasc": 1900,
+        "hdsc": -500,
+        "hlgp": 0,
+        "xhgt": 852
+      },
+      "label": "x_height_minimum",
+      "normalized_2_14": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        -16384,
+        0,
+        0,
+        0
+      ],
+      "serialized_glyphs": "[1=0+1458|2=1+978]",
+      "text": "Hx",
+      "user": {
+        "GRAD": 0.0,
+        "XOPQ": 96.0,
+        "XTRA": 468.0,
+        "YOPQ": 79.0,
+        "YTAS": 750.0,
+        "YTDE": -203.0,
+        "YTFI": 738.0,
+        "YTLC": 416.0,
+        "YTUC": 712.0,
+        "opsz": 14.0,
+        "slnt": 0.0,
+        "wdth": 100.0,
+        "wght": 400.0
+      }
+    },
+    {
+      "global_metrics_font_units": {
+        "cpht": 1456,
+        "hasc": 1900,
+        "hdsc": -500,
+        "hlgp": 0,
+        "xhgt": 1110
+      },
+      "label": "x_height_interior",
+      "normalized_2_14": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        8192,
+        0,
+        0,
+        0
+      ],
+      "serialized_glyphs": "[1=0+1458|2=1+978]",
+      "text": "Hx",
+      "user": {
+        "GRAD": 0.0,
+        "XOPQ": 96.0,
+        "XTRA": 468.0,
+        "YOPQ": 79.0,
+        "YTAS": 750.0,
+        "YTDE": -203.0,
+        "YTFI": 738.0,
+        "YTLC": 542.0,
+        "YTUC": 712.0,
+        "opsz": 14.0,
+        "slnt": 0.0,
+        "wdth": 100.0,
+        "wght": 400.0
+      }
+    },
+    {
+      "global_metrics_font_units": {
+        "cpht": 1456,
+        "hasc": 1900,
+        "hdsc": -500,
+        "hlgp": 0,
+        "xhgt": 1168
+      },
+      "label": "x_height_maximum",
+      "normalized_2_14": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        16384,
+        0,
+        0,
+        0
+      ],
+      "serialized_glyphs": "[1=0+1458|2=1+978]",
+      "text": "Hx",
+      "user": {
+        "GRAD": 0.0,
+        "XOPQ": 96.0,
+        "XTRA": 468.0,
+        "YOPQ": 79.0,
+        "YTAS": 750.0,
+        "YTDE": -203.0,
+        "YTFI": 738.0,
+        "YTLC": 570.0,
+        "YTUC": 712.0,
+        "opsz": 14.0,
+        "slnt": 0.0,
+        "wdth": 100.0,
+        "wght": 400.0
+      }
+    },
+    {
+      "global_metrics_font_units": {
+        "cpht": 1456,
+        "hasc": 1900,
+        "hdsc": -500,
+        "hlgp": 0,
+        "xhgt": 1052
+      },
+      "label": "cap_height_minimum",
+      "normalized_2_14": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        -16384,
+        0,
+        0,
+        0,
+        0
+      ],
+      "serialized_glyphs": "[1=0+1458|2=1+978]",
+      "text": "Hx",
+      "user": {
+        "GRAD": 0.0,
+        "XOPQ": 96.0,
+        "XTRA": 468.0,
+        "YOPQ": 79.0,
+        "YTAS": 750.0,
+        "YTDE": -203.0,
+        "YTFI": 738.0,
+        "YTLC": 514.0,
+        "YTUC": 528.0,
+        "opsz": 14.0,
+        "slnt": 0.0,
+        "wdth": 100.0,
+        "wght": 400.0
+      }
+    },
+    {
+      "global_metrics_font_units": {
+        "cpht": 1556,
+        "hasc": 1900,
+        "hdsc": -500,
+        "hlgp": 0,
+        "xhgt": 1052
+      },
+      "label": "cap_height_maximum",
+      "normalized_2_14": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        16384,
+        0,
+        0,
+        0,
+        0
+      ],
+      "serialized_glyphs": "[1=0+1458|2=1+978]",
+      "text": "Hx",
+      "user": {
+        "GRAD": 0.0,
+        "XOPQ": 96.0,
+        "XTRA": 468.0,
+        "YOPQ": 79.0,
+        "YTAS": 750.0,
+        "YTDE": -203.0,
+        "YTFI": 738.0,
+        "YTLC": 514.0,
+        "YTUC": 760.0,
+        "opsz": 14.0,
+        "slnt": 0.0,
+        "wdth": 100.0,
+        "wght": 400.0
+      }
+    },
+    {
+      "global_metrics_font_units": {
+        "cpht": 1456,
+        "hasc": 1900,
+        "hdsc": -500,
+        "hlgp": 0,
+        "xhgt": 1089
+      },
+      "label": "optical_minimum",
+      "normalized_2_14": [
+        -16384,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "serialized_glyphs": "[1=0+1528|2=1+1045]",
+      "text": "Hx",
+      "user": {
+        "GRAD": 0.0,
+        "XOPQ": 96.0,
+        "XTRA": 468.0,
+        "YOPQ": 79.0,
+        "YTAS": 750.0,
+        "YTDE": -203.0,
+        "YTFI": 738.0,
+        "YTLC": 514.0,
+        "YTUC": 712.0,
+        "opsz": 8.0,
+        "slnt": 0.0,
+        "wdth": 100.0,
+        "wght": 400.0
+      }
+    },
+    {
+      "global_metrics_font_units": {
+        "cpht": 1456,
+        "hasc": 1900,
+        "hdsc": -500,
+        "hlgp": 0,
+        "xhgt": 914
+      },
+      "label": "optical_maximum",
+      "normalized_2_14": [
+        16384,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "serialized_glyphs": "[1=0+1170|2=1+729]",
+      "text": "Hx",
+      "user": {
+        "GRAD": 0.0,
+        "XOPQ": 96.0,
+        "XTRA": 468.0,
+        "YOPQ": 79.0,
+        "YTAS": 750.0,
+        "YTDE": -203.0,
+        "YTFI": 738.0,
+        "YTLC": 514.0,
+        "YTUC": 712.0,
+        "opsz": 144.0,
+        "slnt": 0.0,
+        "wdth": 100.0,
+        "wght": 400.0
+      }
+    }
+  ],
+  "fixture": "OFL-1.1 Roboto Flex MVAR conformance subset",
+  "font_sha256": "4fe568be6e73133adf9eb03e87d094ddd7c73f4250c61d3356b55e2ea7886ea9",
+  "schema_version": 1,
+  "tool": "HarfBuzz public C API and hb-shape",
+  "version": "14.4.0"
+}

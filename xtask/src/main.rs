@@ -53,6 +53,7 @@ const ALL_STEPS: &[Step] = &[
     ("gate-i-font-metadata", gate_i_font_metadata),
     ("gate-i-font-shaping", gate_i_font_shaping),
     ("gate-i-font-metrics", gate_i_font_metrics),
+    ("gate-i-font-global-metrics", gate_i_font_global_metrics),
     ("capture-baselines", capture_baselines),
     (
         "reconstruction-provider-manifest",
@@ -171,6 +172,7 @@ const VERIFICATION_ARTIFACTS: &[&str] = &[
     "target/variable-font-metadata-report.json",
     "target/variable-font-shaping-report.json",
     "target/variable-font-metrics-report.json",
+    "target/variable-font-global-metrics-report.json",
     "target/capture-reconstruction-report.json",
     "target/reconstruction-provider-manifest-report.json",
     "target/reconstruction-corpus-audit-report.json",
@@ -247,6 +249,7 @@ fn run() -> Result<(), String> {
         Some("gate-i-font-metadata") => gate_i_font_metadata(),
         Some("gate-i-font-shaping") => gate_i_font_shaping(),
         Some("gate-i-font-metrics") => gate_i_font_metrics(),
+        Some("gate-i-font-global-metrics") => gate_i_font_global_metrics(),
         Some("capture-baselines") => capture_baselines(),
         Some("reconstruction-provider-manifest") => reconstruction_provider_manifest(),
         Some("reconstruction-corpus-audit") => reconstruction_corpus_audit(),
@@ -285,7 +288,7 @@ fn run() -> Result<(), String> {
         Some("manifest") => standalone_manifest(),
         Some("all") => all(),
         _ => Err(
-            "usage: cargo xtask <research|workflow-audit|adapter-audit|dependency-audit|diagnostic-audit|docs-check|docs-build|docs-paper|docs-serve|docs-setup|verify|trial [seed iterations snapshot-interval report-path]|gate-b|gate-c|gate-d|gate-d-text|gate-d-render|gate-f|gate-f-v0|gate-svg|gate-dtcg|gate-penpot|gate-react|gate-svelte|gate-figma|gate-canva|gate-behavior|gate-behavior-package|gate-web-behavior|gate-web-hosts|gate-wasm|gate-mcp|gate-ffi|gate-g|gate-h|gate-i-package|gate-i-image|gate-i-font|gate-i-font-metadata|gate-i-font-shaping|gate-i-font-metrics|gate-j-live|gate-accessibility|capture-baselines|reconstruction-provider-manifest|reconstruction-corpus-audit|reconstruction-evaluation|confidence-calibration|browser-install|wasm-install|wasm-package|mcp-package|cli-package|ffi-package|conformance-kit|hostile-inputs|reduction-profile|editor-hostile-inputs|fuzz-smoke|codec-benchmark|performance|editor-trial|editor-gui-trial|editor-install-trial|editor-package|editor-launch|editor-install|editor-doctor|editor-rollback|editor-uninstall|editor-update|release-check <tag>|manifest|all>"
+            "usage: cargo xtask <research|workflow-audit|adapter-audit|dependency-audit|diagnostic-audit|docs-check|docs-build|docs-paper|docs-serve|docs-setup|verify|trial [seed iterations snapshot-interval report-path]|gate-b|gate-c|gate-d|gate-d-text|gate-d-render|gate-f|gate-f-v0|gate-svg|gate-dtcg|gate-penpot|gate-react|gate-svelte|gate-figma|gate-canva|gate-behavior|gate-behavior-package|gate-web-behavior|gate-web-hosts|gate-wasm|gate-mcp|gate-ffi|gate-g|gate-h|gate-i-package|gate-i-image|gate-i-font|gate-i-font-metadata|gate-i-font-shaping|gate-i-font-metrics|gate-i-font-global-metrics|gate-j-live|gate-accessibility|capture-baselines|reconstruction-provider-manifest|reconstruction-corpus-audit|reconstruction-evaluation|confidence-calibration|browser-install|wasm-install|wasm-package|mcp-package|cli-package|ffi-package|conformance-kit|hostile-inputs|reduction-profile|editor-hostile-inputs|fuzz-smoke|codec-benchmark|performance|editor-trial|editor-gui-trial|editor-install-trial|editor-package|editor-launch|editor-install|editor-doctor|editor-rollback|editor-uninstall|editor-update|release-check <tag>|manifest|all>"
                 .to_owned(),
         ),
     }
@@ -447,6 +450,21 @@ fn gate_i_font_metrics() -> Result<(), String> {
         "--",
         "--output",
         "target/variable-font-metrics-report.json",
+    ])
+}
+
+fn gate_i_font_global_metrics() -> Result<(), String> {
+    cargo(&[
+        "run",
+        "--release",
+        "--locked",
+        "-p",
+        "nuif-testing",
+        "--bin",
+        "variable-font-global-metrics",
+        "--",
+        "--output",
+        "target/variable-font-global-metrics-report.json",
     ])
 }
 

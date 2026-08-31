@@ -187,8 +187,12 @@ does not complete variable-metric conformance. A second isolated
 `cargo xtask gate-i-font-metrics` fixture applies nonzero HVAR deltas to three
 horizontal advances at four locations, including a valid truncated advance
 index map. HarfRust and Skrifa agree exactly with pinned HarfBuzz 14.4.0
-observations. MVAR, VVAR, side bearings, `gvar` phantom-point fallback, broader
-HVAR coverage, and package/runtime integration remain open.
+observations. A third executable gate uses a reproducibly subsetted OFL-1.1
+Roboto Flex fixture and matches
+MVAR-adjusted x-height, cap height, ascent, descent, and line gap against
+HarfBuzz's public metric API at eight complete 13-axis locations. This removes
+the single-fixture MVAR evidence gap, but not broad MVAR graph, hostile-input,
+resource-limit, rights-policy, VVAR, or package/runtime requirements.
 
 Promotion from proposed to experimental requires all of the following:
 

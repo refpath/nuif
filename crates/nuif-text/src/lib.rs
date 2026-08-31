@@ -287,6 +287,17 @@ pub struct VariableShapedRun {
     pub run: ShapedRun,
 }
 
+/// Location-adjusted global metrics from one RFC 0013 variable-font trial.
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct VariableGlobalMetrics {
+    pub ascent: i32,
+    pub descent: i32,
+    pub line_gap: i32,
+    pub x_height: Option<i32>,
+    pub cap_height: Option<i32>,
+}
+
 impl<'a> ResourceFont<'a> {
     /// Validates and opens an exact packaged static TrueType font.
     ///
@@ -559,6 +570,34 @@ impl<'a> VariableResourceTrial<'a> {
             .advance_width(GlyphId::new(glyph_id))
             .ok_or(TextError::GlyphOutlineUnavailable { glyph_id })?;
         integral_font_metric(advance, "variable glyph advance")
+    }
+
+    /// Returns Skrifa's location-adjusted unscaled global metrics.
+    ///
+    /// This is part of the research-only variable resource surface. In
+    /// particular, it does not make MVAR data available to package layout.
+    ///
+    /// # Errors
+    ///
+    /// Returns a typed failure if a metric is non-finite or outside the
+    /// profile's integer font-unit domain.
+    pub fn global_metrics_font_units(&self) -> Result<VariableGlobalMetrics, TextError> {
+        let metrics = self
+            .skrifa
+            .metrics(Size::unscaled(), LocationRef::new(&self.location));
+        Ok(VariableGlobalMetrics {
+            ascent: integral_font_metric(metrics.ascent, "variable font ascent")?,
+            descent: integral_font_metric(metrics.descent, "variable font descent")?,
+            line_gap: integral_font_metric(metrics.leading, "variable font line gap")?,
+            x_height: metrics
+                .x_height
+                .map(|value| integral_font_metric(value, "variable font x-height"))
+                .transpose()?,
+            cap_height: metrics
+                .cap_height
+                .map(|value| integral_font_metric(value, "variable font cap height"))
+                .transpose()?,
+        })
     }
 
     /// Extracts an unhinted outline at the identical normalized location used
