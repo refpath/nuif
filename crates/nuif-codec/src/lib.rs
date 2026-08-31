@@ -731,12 +731,23 @@ fn check_text_depth(bytes: &[u8]) -> Result<(), CodecError> {
 /// Returns a codec error if the document is invalid or cannot be encoded.
 pub fn canonical_hash(document: &Document) -> Result<String, CodecError> {
     let bytes = DeterministicCbor.encode(document)?;
+    Ok(deterministic_cbor_hash(&bytes))
+}
+
+/// Hashes the exact bytes of a deterministic-CBOR document.
+///
+/// This function deliberately does not parse or validate `bytes`. Callers
+/// should only use bytes produced by [`DeterministicCbor::encode`] or accepted
+/// by [`DeterministicCbor::decode`]. Use [`canonical_hash`] when starting from
+/// a semantic document.
+#[must_use]
+pub fn deterministic_cbor_hash(bytes: &[u8]) -> String {
     let digest = Sha256::digest(bytes);
     let mut hex = String::with_capacity(64);
     for byte in digest {
         write!(hex, "{byte:02x}").expect("writing to a string cannot fail");
     }
-    Ok(format!("nuif-cbor-0:sha256:{hex}"))
+    format!("nuif-cbor-0:sha256:{hex}")
 }
 
 #[cfg(test)]
@@ -762,6 +773,16 @@ mod tests {
         let cbor = DeterministicCbor.encode(&document).unwrap();
         assert_eq!(DeterministicCbor.canonicalize(&cbor).unwrap(), cbor);
         assert_eq!(DeterministicCbor.decode(&cbor).unwrap(), document);
+    }
+
+    #[test]
+    fn exact_cbor_byte_hash_matches_semantic_canonical_hash() {
+        let document = document();
+        let bytes = DeterministicCbor.encode(&document).unwrap();
+        assert_eq!(
+            deterministic_cbor_hash(&bytes),
+            canonical_hash(&document).unwrap()
+        );
     }
 
     #[test]

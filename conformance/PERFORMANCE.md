@@ -76,7 +76,7 @@ budgets.
   rebuild/re-import 93.9–94.6 µs, and byte-exact no-op synchronization
   2.85–2.87 µs. These figures use the 7,855-byte native and 5,439-byte foreign
   fixtures rather than a large production design.
-- The matching allocation-instrumented smoke run now covers 48 cases. The nine
+- The matching allocation-instrumented smoke run now covers 50 cases. The nine
   resource-path cases add PNG structure/decode, static-font inspection, image
   and font package encode/decode, resolved scene lowering and a 256x256 image
   raster. On the same machine, font inspection measured a 0.67 ms median and
@@ -84,6 +84,17 @@ budgets.
   and about 1.41/1.38 MiB. The 96-byte image fixture is deliberately a boundary
   smoke case rather than a throughput claim; Criterion owns controlled
   comparisons and larger media corpus work remains explicit.
+- Package encode originally serialized the same 1,024-entity document five
+  times while constructing and then validating its manifest. Reusing the one
+  already-validated canonical CBOR buffer reduced measured encode allocation
+  from 56,840,802 to 11,952,738 bytes and invocation allocations from 634,633
+  to 125,459. Decode now verifies the descriptor against the canonical archive
+  member already accepted by the codec, reducing allocation from 35,525,804 to
+  13,081,772 bytes and invocation allocations from 384,447 to 129,860. A
+  consecutive smoke run observed encode/decode medians fall from 27.3/18.5 ms
+  to 8.8/9.3 ms, but those latency figures are diagnostic rather than a
+  statistical cross-run claim. Package byte fixpoints, independent ZIP output,
+  canonical hashes and hostile-input checks remained gating postconditions.
 - Static React JSX export/import/synchronization measured 0.078/0.077/0.235 ms
   median for the 778-byte declared fixture, allocating about 71/67/244 KiB per
   invocation and retaining zero. These are parser-boundary calibration values,

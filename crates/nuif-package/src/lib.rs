@@ -1,8 +1,8 @@
 #![doc = "Deterministic, bounded NUIF packages and explicit resource resolution."]
 
 use nuif_codec::{
-    CodecError, Decoder, DeterministicCbor, Encoder, canonical_hash, decode_canonical_record,
-    encode_canonical_record,
+    CodecError, Decoder, DeterministicCbor, Encoder, decode_canonical_record,
+    deterministic_cbor_hash, encode_canonical_record,
 };
 use nuif_core::{
     Asset, AssetId, AssetKind, AssetPortability, Document, ResourceDerivation, ResourceDescriptor,
@@ -280,9 +280,18 @@ impl NuifPackage {
     ///
     /// Rejects invalid documents, descriptors, asset bindings, and policy.
     pub fn manifest(&self) -> Result<PackageManifest, PackageError> {
+        // Preserve the manifest API's package-level diagnostic taxonomy. The
+        // encode path has already validated while producing these bytes.
         validate_document(&self.document)?;
-        self.check_resource_collection()?;
         let document_bytes = DeterministicCbor.encode(&self.document)?;
+        self.manifest_for_document(&document_bytes)
+    }
+
+    fn manifest_for_document(
+        &self,
+        document_bytes: &[u8],
+    ) -> Result<PackageManifest, PackageError> {
+        self.check_resource_collection()?;
         let assets = self
             .document
             .assets
@@ -302,13 +311,13 @@ impl NuifPackage {
                         observed: document_bytes.len(),
                     }
                 })?,
-                canonical_hash: canonical_hash(&self.document)?,
+                canonical_hash: deterministic_cbor_hash(document_bytes),
             },
             required_capabilities: self.required_capabilities.clone(),
             assets,
             resources: self.resources.clone(),
         };
-        validate_manifest(&manifest, &self.document, &self.embedded)?;
+        validate_manifest(&manifest, &self.document, document_bytes, &self.embedded)?;
         Ok(manifest)
     }
 
@@ -319,7 +328,7 @@ impl NuifPackage {
     /// Rejects invalid package state or an encoded package beyond its budget.
     pub fn encode(&self) -> Result<Vec<u8>, PackageError> {
         let document = DeterministicCbor.encode(&self.document)?;
-        let manifest = encode_canonical_record(&self.manifest()?)?;
+        let manifest = encode_canonical_record(&self.manifest_for_document(&document)?)?;
         if manifest.len() > MAX_MANIFEST_BYTES {
             return Err(PackageError::ResourceLimit {
                 resource: "manifest bytes",
@@ -371,7 +380,7 @@ impl NuifPackage {
                 );
             }
         }
-        validate_manifest(&manifest, &document, &embedded)?;
+        validate_manifest(&manifest, &document, document_bytes, &embedded)?;
         Ok(Self {
             document,
             mode: manifest.mode,
@@ -539,6 +548,7 @@ fn validate_document(document: &Document) -> Result<(), PackageError> {
 fn validate_manifest(
     manifest: &PackageManifest,
     document: &Document,
+    document_bytes: &[u8],
     embedded: &BTreeMap<ResourceDigest, Arc<[u8]>>,
 ) -> Result<(), PackageError> {
     if manifest.schema_version != 1
@@ -550,10 +560,8 @@ fn validate_manifest(
         });
     }
     validate_required_capabilities(&manifest.required_capabilities)?;
-    validate_document(document)?;
-    let document_bytes = DeterministicCbor.encode(document)?;
     if manifest.document.size != u64::try_from(document_bytes.len()).unwrap_or(u64::MAX)
-        || manifest.document.canonical_hash != canonical_hash(document)?
+        || manifest.document.canonical_hash != deterministic_cbor_hash(document_bytes)
     {
         return Err(PackageError::InvalidManifest {
             reason: "document size or canonical hash does not match document.cbor".to_owned(),
