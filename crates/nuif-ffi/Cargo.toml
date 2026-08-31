@@ -13,8 +13,14 @@ crate-type = ["cdylib", "rlib", "staticlib"]
 nuif-api = { version = "0.0.0", path = "../nuif-api" }
 nuif-codec = { version = "0.0.0", path = "../nuif-codec" }
 nuif-core = { version = "0.0.1", path = "../nuif-core" }
+nuif-font = { version = "0.0.1", path = "../nuif-font" }
+nuif-package = { version = "0.0.1", path = "../nuif-package" }
 nuif-protocol = { version = "0.0.1", path = "../nuif-protocol" }
+serde.workspace = true
 serde_json.workspace = true
+
+[dev-dependencies]
+nuif-testing = { version = "0.0.1", path = "../nuif-testing" }
 
 [lints.rust]
 unsafe_code = "allow"

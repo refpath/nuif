@@ -12,6 +12,8 @@ extern "C" {
 #define NUIF_FFI_API_PROFILE "nuif-ffi-0"
 #define NUIF_FFI_ENCODING_TEXT 0u
 #define NUIF_FFI_ENCODING_CBOR 1u
+#define NUIF_FFI_PACKAGE_PORTABLE 0u
+#define NUIF_FFI_PACKAGE_AUTHORING 1u
 
 #define NUIF_FFI_OK 0u
 #define NUIF_FFI_INVALID_ARGUMENT 1u
@@ -43,6 +45,10 @@ NuifFfiError nuif_ffi_document_load(
     size_t len,
     uint32_t encoding,
     NuifFfiDocument **out);
+NuifFfiError nuif_ffi_document_load_package(
+    const uint8_t *bytes,
+    size_t len,
+    NuifFfiDocument **out);
 void nuif_ffi_document_free(NuifFfiDocument *document);
 
 NuifFfiError nuif_ffi_document_validate(
@@ -54,6 +60,24 @@ NuifFfiError nuif_ffi_document_canonical_hash(
 NuifFfiError nuif_ffi_document_export(
     const NuifFfiDocument *document,
     uint32_t encoding,
+    NuifFfiBuffer *out);
+NuifFfiError nuif_ffi_document_export_package(
+    const NuifFfiDocument *document,
+    uint32_t mode,
+    NuifFfiBuffer *out);
+NuifFfiError nuif_ffi_document_package_capability_report(
+    const NuifFfiDocument *document,
+    const uint8_t *capabilities_json,
+    size_t capabilities_len,
+    NuifFfiBuffer *out);
+NuifFfiError nuif_ffi_document_require_package_capabilities(
+    NuifFfiDocument *document,
+    const uint8_t *capabilities_json,
+    size_t capabilities_len);
+NuifFfiError nuif_ffi_document_snapshot_report(
+    const NuifFfiDocument *document,
+    double width,
+    double height,
     NuifFfiBuffer *out);
 NuifFfiError nuif_ffi_document_apply_patch(
     NuifFfiDocument *document,

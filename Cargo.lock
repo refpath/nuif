@@ -2610,7 +2610,11 @@ dependencies = [
  "nuif-api",
  "nuif-codec",
  "nuif-core",
+ "nuif-font",
+ "nuif-package",
  "nuif-protocol",
+ "nuif-testing",
+ "serde",
  "serde_json",
 ]
 
