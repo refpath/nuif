@@ -90,6 +90,25 @@ This is a foreign tree-materializer check, not a second canonical NUIF codec:
 the oracle does not decode CBOR, recompute the canonical hash or classify the
 higher-level concurrent semantic-conflict families.
 
+## Executable structural prefix profile 0
+
+`nuif-collab-tree-prefix-0` is a conservative checkpoint handoff for an
+existing-tree history. The stable prefix MUST be causally closed and every
+retained replica log MUST continue after the attested frontier. The stable
+checkpoint rebuilds ordinary base positions from its canonical child arrays.
+An anchor to a stable position is rewritten only when that position is still
+active and therefore has an unambiguous `Base(entity)` equivalent. Anchors to
+inactive or moved stable positions are rejected with
+`StableAnchorNotRepresentable`; retained change positions remain available for
+suffix replay. The resumed checkpoint is equivalent to complete replay in
+canonical hash, document and semantic-conflict set, while applied dots and
+active-position metadata are intentionally local synchronization state.
+
+Gate H exercises active-anchor rebasing and typed refusal of an inactive
+tombstone anchor. Structural collection with inferred frontiers, concurrent
+stable-versus-retained changes, creation payloads or general tombstone
+rewriting remains outside this bounded profile.
+
 ## Executable concurrent-creation profile 0
 
 `nuif-collab-tree-create-0` is a separate bounded profile for concurrent

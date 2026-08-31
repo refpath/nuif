@@ -85,6 +85,24 @@ higher-level semantic conflicts. Concurrent creation, partial causal garbage
 collection and combined property/structure transactions remain outside this
 profile; complete-history compaction is specified separately below.
 
+## Structural prefix profile 0
+
+`nuif-collab-tree-prefix-0` provides a conservative causal checkpoint handoff
+for existing-tree histories. A causally closed stable prefix is materialized
+into a metadata-bearing structural checkpoint, then retained changes continue
+from the caller-attested frontier. Active stable anchors are rebound to
+`Base(entity)` positions in the checkpoint; an inactive or moved stable anchor
+returns `StableAnchorNotRepresentable` instead of silently dropping a
+tombstone. Retained change anchors remain change positions and are replayed
+normally. The resumed document, canonical hash and semantic conflicts must
+match complete replay; applied dots and active-position identifiers are
+metadata of the handoff, not canonical document fields.
+
+Gate H covers one successful active-anchor rebind and one typed inactive-anchor
+refusal. Frontier inference, concurrent stable-versus-retained structural
+changes, creation payloads and general tombstone rewriting remain outside the
+profile.
+
 ## Concurrent creation profile 0
 
 `nuif-collab-tree-create-0` is a deliberately smaller profile for creating

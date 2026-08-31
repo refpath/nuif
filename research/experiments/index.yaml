@@ -198,13 +198,14 @@ experiments:
   - id: nuif:experiment:crdt-structural-checkpoint
     status: completed
     evidence: [nuif:research:automerge-yjs, nuif:research:crdt-tree-move-operation, nuif:research:list-ordering-fractional-indexing-vs-list-crdts]
-    implementation: [crates/nuif-collab/src/structural.rs, conformance/src/bin/collaboration-structure.rs, tools/automerge-oracle/check.mjs, implementations/python/nuif_tree_materializer.py, crates/nuif-collab/README.md, xtask/src/main.rs]
+    implementation: [crates/nuif-collab/src/structural.rs, conformance/src/bin/collaboration-structure.rs, tools/automerge-oracle/check.mjs, implementations/python/nuif_tree_materializer.py, crates/nuif-collab/README.md, spec/10-collaboration-profile.md, xtask/src/main.rs]
     oracle: differential-plus-foreign-transport-and-tree-replay
     acceptance:
       - sorted and rollback-replay materializers produce one-parent acyclic metadata-free canonical checkpoints for every delivery
       - move deletion cycle and anchor conflicts remain explicit
       - a pinned foreign collaboration engine transports the exact immutable operation set through merge and persistence
       - an independent standard-library tree replay reproduces roots children active positions and replay conflicts
+      - structural prefix collection rebinds an active stable anchor and refuses an inactive stable anchor with a typed error
     tests:
       - exhaust all 5040 deliveries of seven concurrent move delete reciprocal-cycle and causal moved-anchor changes
       - compare multiple joins duplicate delivery and exact conflict classes

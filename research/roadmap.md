@@ -89,9 +89,10 @@ The nested-creation falsifier covers causal parent chains; its separately
 versioned arbitrary-anchor extension is complete under a 24-delivery causal
 sibling-chain acceptance. The structural projection now has a foreign
 standard-library replay oracle; its explicit non-claims are canonical CBOR
-hashing and semantic-conflict classification. The next collaboration
-falsifier is structural partial garbage collection with a versioned
-position/checkpoint protocol.
+hashing and semantic-conflict classification. The bounded structural-prefix
+falsifier now covers active-anchor rebasing and typed refusal of inactive stable
+anchors. The next collaboration falsifier is broader structural partial
+garbage collection with a versioned position/checkpoint protocol.
 The separately versioned mixed property/structure profile is complete under
 its 24-delivery causal operation-set acceptance; creation, deletion and
 multi-operation-dot boundaries remain explicit.
