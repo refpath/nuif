@@ -260,6 +260,15 @@ byte-identical to the native CLI. Twenty-five repeated validation calls record
 wire median, p95 and maximum latency with a catastrophic two-second p95 budget;
 this smoke distribution is not a controlled throughput benchmark.
 
+The performance gate follows the same distinction. `cargo xtask performance`
+records portable release-mode latency/allocation budgets for catastrophic
+regressions and executes both Criterion suites once in test mode. The
+controlled-hardware suites cover core scaling, resources, package-capability
+negotiation and every declared direction of all ten integrated adapter
+profiles. Statistical before/after measurements, machine controls and explicit
+exclusions are defined in [`BENCHMARKS.md`](BENCHMARKS.md); shared-runner timing
+noise is not a merge threshold.
+
 The collaboration register experiment writes `target/collaboration-report.json`. `cargo xtask gate-h` exhausts all 5,040 deliveries through operation-set and replica-log materializers, checks multiple merge orders and duplicate delivery, requires property-attributed multi-value conflicts and inspects canonical text for leaked replica state. Structural operations still fail before register-profile ingestion.
 
 The separate existing-tree experiment writes `target/collaboration-structure-report.json`, exhausts 5,040 deliveries of seven move/delete/cycle/stable-anchor changes through sorted-set and incremental rollback/replay materializers, requires one-parent/acyclic checkpoints plus explicit move, deletion, cycle and anchor conflicts, and runs a 4,096-change release scaling guard. `tools/automerge-oracle` uses pinned `@automerge/automerge` 3.4.1 to merge the seven immutable operation records in different orders and through save/load, writing `target/collaboration-automerge-report.json`. This is foreign transport evidence; Automerge does not provide the NUIF tree materializer. Both executable boundaries are specified in `crates/nuif-collab/README.md` and `spec/10-collaboration-profile.md`.

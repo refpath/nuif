@@ -1,4 +1,4 @@
-use criterion::{BenchmarkId, Criterion, Throughput, criterion_group, criterion_main};
+use criterion::{BatchSize, BenchmarkId, Criterion, Throughput, criterion_group, criterion_main};
 use nuif_api::{DocumentEncoding, NuifDocument};
 use nuif_codec::{CanonicalText, DeterministicCbor, Encoder};
 use nuif_collab::{Change, ChangeId, OperationSetEngine, ReplicaLogEngine};
@@ -6,7 +6,7 @@ use nuif_core::{EntityId, EntityKind, PropertyValue, SizeIntent};
 use nuif_package::{NuifPackage, PackageMode};
 use nuif_protocol::Operation;
 use nuif_testing::{performance_fixture, responsive_card_fixture};
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use std::hint::black_box;
 use std::time::Duration;
 
@@ -52,6 +52,42 @@ fn benchmark_direct_sdk(criterion: &mut Criterion) {
                 .export(black_box(DocumentEncoding::DeterministicCbor))
                 .unwrap()
         });
+    });
+    group.finish();
+}
+
+fn benchmark_package_capabilities(criterion: &mut Criterion) {
+    let required = BTreeSet::from(["nuif-behavior-state-machine-0".to_owned()]);
+    let mut package = NuifPackage::new(performance_fixture(1_024, true), PackageMode::Portable);
+    package.required_capabilities.clone_from(&required);
+    let bytes = package.encode().unwrap();
+    let structural = NuifDocument::load_package(&bytes).unwrap();
+    let mut group = criterion.benchmark_group("sdk/package_capabilities");
+
+    group.throughput(Throughput::Bytes(bytes.len() as u64));
+    group.bench_function("structural_load", |bencher| {
+        bencher.iter(|| NuifDocument::load_package(black_box(&bytes)).unwrap());
+    });
+    group.bench_function("capability_report", |bencher| {
+        bencher
+            .iter(|| black_box(&structural).package_capability_report(black_box(&BTreeSet::new())));
+    });
+    group.bench_function("load_and_authorize", |bencher| {
+        bencher.iter(|| {
+            NuifDocument::load_package_with_capabilities(black_box(&bytes), black_box(&required))
+                .unwrap()
+        });
+    });
+    group.bench_function("authorize_loaded", |bencher| {
+        bencher.iter_batched(
+            || structural.clone(),
+            |mut document| {
+                document
+                    .require_package_capabilities(black_box(&required))
+                    .unwrap();
+            },
+            BatchSize::LargeInput,
+        );
     });
     group.finish();
 }
@@ -410,6 +446,33 @@ fn benchmark_figma_adapter(criterion: &mut Criterion) {
     group.finish();
 }
 
+fn benchmark_web_semantic_adapters(criterion: &mut Criterion) {
+    let accessibility_document = nuif_html::accessibility::web_accessibility_fixture();
+    let (behavior_document, behavior_program, _) = nuif_behavior::behavior_fixture();
+    let mut group = criterion.benchmark_group("adapter/web_semantics");
+
+    group.throughput(Throughput::Elements(
+        accessibility_document.entities.len() as u64
+    ));
+    group.bench_function("accessibility_projection", |bencher| {
+        bencher.iter(|| {
+            nuif_html::accessibility::project_web_accessibility(black_box(&accessibility_document))
+                .unwrap()
+        });
+    });
+    group.throughput(Throughput::Elements(behavior_document.entities.len() as u64));
+    group.bench_function("behavior_projection", |bencher| {
+        bencher.iter(|| {
+            nuif_html::behavior::project_web_behavior(
+                black_box(&behavior_document),
+                black_box(&behavior_program),
+            )
+            .unwrap()
+        });
+    });
+    group.finish();
+}
+
 fn criterion_config() -> Criterion {
     Criterion::default()
         .sample_size(20)
@@ -422,6 +485,7 @@ criterion_group! {
     name = system_surfaces;
     config = criterion_config();
     targets = benchmark_direct_sdk,
+        benchmark_package_capabilities,
         benchmark_queries,
         benchmark_collaboration,
         benchmark_package,
@@ -433,6 +497,7 @@ criterion_group! {
         benchmark_react_adapter,
         benchmark_svelte_adapter,
         benchmark_penpot_adapter,
-        benchmark_figma_adapter
+        benchmark_figma_adapter,
+        benchmark_web_semantic_adapters
 }
 criterion_main!(system_surfaces);

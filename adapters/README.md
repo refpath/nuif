@@ -77,9 +77,10 @@ separately.
 
 [`index.json`](index.json) is the machine-readable counterpart. `cargo xtask
 adapter-audit` requires all advertised targets to have a primary research
-record, explicit directionality, a next bounded profile and a non-empty
-boundary. Integrated entries additionally require crate, profile and routed
-gate paths; non-integrated entries cannot claim executable directions. The
+record, explicit target and per-profile directionality, a next bounded profile
+and a non-empty boundary. Integrated entries additionally require each
+profile's directions to be a subset of the target union plus crate, profile and
+routed gate paths; non-integrated entries cannot claim executable directions. The
 audit writes `target/adapter-coverage-report.json` and blocks the complete gate.
 
 Vendor-specific semantics belong in namespaced extensions or adapter-local logic; they must not leak into the core merely because a vendor is popular.

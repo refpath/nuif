@@ -7,6 +7,7 @@ repository.workspace = true
 
 [dependencies]
 nuif-api = { version = "0.0.0", path = "../crates/nuif-api" }
+nuif-behavior = { version = "0.0.1", path = "../crates/nuif-behavior" }
 nuif-codec = { version = "0.0.0", path = "../crates/nuif-codec" }
 nuif-collab = { version = "0.0.1", path = "../crates/nuif-collab" }
 nuif-core = { version = "0.0.1", path = "../crates/nuif-core" }

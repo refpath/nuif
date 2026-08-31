@@ -66,6 +66,7 @@ const VERIFICATION_ARTIFACTS: &[&str] = &[
     "target/editor-hostile-input-report.json",
     "target/codec-benchmark-report.json",
     "target/performance-profile-report.json",
+    "target/criterion-smoke-report.json",
     "target/layout-differential-report.json",
     "target/text-pinning-report.json",
     "target/render-profile-report.json",
@@ -860,8 +861,24 @@ fn performance() -> Result<(), String> {
         "-p",
         "nuif-conformance",
         "--benches",
-        "--no-run",
-    ])
+        "--",
+        "--test",
+    ])?;
+    let report = serde_json::json!({
+        "schema_version": 1,
+        "status": "passed",
+        "mode": "criterion-test-execution",
+        "suites": ["profile_zero", "system_surfaces"],
+        "source": {
+            "revision": command_text("git", &["rev-parse", "HEAD"]),
+            "dirty": command_text("git", &["status", "--porcelain"]).map(|value| !value.is_empty()),
+        }
+    });
+    fs::write(
+        "target/criterion-smoke-report.json",
+        serde_json::to_vec_pretty(&report).map_err(|error| error.to_string())?,
+    )
+    .map_err(|error| error.to_string())
 }
 
 fn codec_benchmark() -> Result<(), String> {
@@ -3172,7 +3189,34 @@ fn audit_adapter_target(target: &serde_json::Value, failures: &mut Vec<String>) 
             ));
         }
         for profile in profiles.into_iter().flatten() {
-            audit_adapter_profile(id, profile, failures);
+            audit_adapter_profile(id, profile, directions, failures);
+        }
+        let target_direction_list = directions.into_iter().flatten().collect::<Vec<_>>();
+        let target_direction_set = target_direction_list
+            .iter()
+            .filter_map(|direction| direction.as_str())
+            .collect::<BTreeSet<_>>();
+        if target_direction_set.len() != target_direction_list.len() {
+            failures.push(format!(
+                "{id}: target directions contain a duplicate or non-string value"
+            ));
+        }
+        if target_direction_set
+            .iter()
+            .any(|direction| !matches!(*direction, "import" | "export" | "synchronize"))
+        {
+            failures.push(format!("{id}: target directions contain an unknown value"));
+        }
+        let profile_direction_set = profiles
+            .into_iter()
+            .flatten()
+            .flat_map(|profile| profile["directions"].as_array().into_iter().flatten())
+            .filter_map(serde_json::Value::as_str)
+            .collect::<BTreeSet<_>>();
+        if target_direction_set != profile_direction_set {
+            failures.push(format!(
+                "{id}: target directions must equal the union of profile directions"
+            ));
         }
     } else if profiles.is_some_and(|profiles| !profiles.is_empty())
         || directions.is_some_and(|directions| !directions.is_empty())
@@ -3183,7 +3227,12 @@ fn audit_adapter_target(target: &serde_json::Value, failures: &mut Vec<String>) 
     }
 }
 
-fn audit_adapter_profile(target: &str, profile: &serde_json::Value, failures: &mut Vec<String>) {
+fn audit_adapter_profile(
+    target: &str,
+    profile: &serde_json::Value,
+    target_directions: Option<&Vec<serde_json::Value>>,
+    failures: &mut Vec<String>,
+) {
     let Some(name) = required_json_string(profile, "name", target, failures) else {
         return;
     };
@@ -3204,6 +3253,36 @@ fn audit_adapter_profile(target: &str, profile: &serde_json::Value, failures: &m
         let xtask = fs::read_to_string("xtask/src/main.rs").unwrap_or_default();
         if !xtask.contains(&format!("Some(\"{gate}\")")) {
             failures.push(format!("{name}: xtask command {gate} is not routed"));
+        }
+    }
+    let Some(directions) = profile["directions"].as_array() else {
+        failures.push(format!("{name}: directions must be an array"));
+        return;
+    };
+    if directions.is_empty() {
+        failures.push(format!("{name}: directions must not be empty"));
+    }
+    let target_directions = target_directions
+        .into_iter()
+        .flatten()
+        .filter_map(serde_json::Value::as_str)
+        .collect::<BTreeSet<_>>();
+    let mut observed = BTreeSet::new();
+    for direction in directions {
+        let Some(direction) = direction.as_str() else {
+            failures.push(format!("{name}: direction must be a string"));
+            continue;
+        };
+        if !matches!(direction, "import" | "export" | "synchronize") {
+            failures.push(format!("{name}: direction {direction:?} is not declared"));
+        }
+        if !target_directions.contains(direction) {
+            failures.push(format!(
+                "{name}: direction {direction:?} is absent from target {target}"
+            ));
+        }
+        if !observed.insert(direction) {
+            failures.push(format!("{name}: direction {direction:?} is duplicated"));
         }
     }
 }
@@ -3953,5 +4032,62 @@ mod tests {
         );
         assert_eq!(paths, 2);
         assert_eq!(failures.len(), 1);
+    }
+
+    #[test]
+    fn adapter_profile_directions_must_refine_the_target_union() {
+        let target_directions = vec![serde_json::json!("export")];
+        let profile = serde_json::json!({
+            "name": "nuif-web-accessibility-0",
+            "directions": ["export"],
+            "crate": "crates/nuif-html",
+            "profile": "adapters/html-css/ACCESSIBILITY-PROFILE.md",
+            "gate": "gate-accessibility"
+        });
+        let mut failures = Vec::new();
+        audit_adapter_profile(
+            "html-css",
+            &profile,
+            Some(&target_directions),
+            &mut failures,
+        );
+        assert!(
+            failures
+                .iter()
+                .all(|failure| !failure.contains("direction")),
+            "{failures:?}"
+        );
+
+        let mut invalid = profile.clone();
+        invalid["directions"] = serde_json::json!(["synchronize"]);
+        audit_adapter_profile(
+            "html-css",
+            &invalid,
+            Some(&target_directions),
+            &mut failures,
+        );
+        assert!(
+            failures
+                .iter()
+                .any(|failure| failure.contains("absent from target"))
+        );
+
+        let target = serde_json::json!({
+            "id": "html-css",
+            "surface": "test",
+            "status": "integrated",
+            "research": "tree-sitter",
+            "directions": ["export", "synchronize"],
+            "profiles": [profile],
+            "next_profile": "test",
+            "boundary": "test"
+        });
+        let mut target_failures = Vec::new();
+        audit_adapter_target(&target, &mut target_failures);
+        assert!(
+            target_failures
+                .iter()
+                .any(|failure| failure.contains("must equal the union"))
+        );
     }
 }

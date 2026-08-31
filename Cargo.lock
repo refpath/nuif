@@ -2512,6 +2512,7 @@ version = "0.0.1"
 dependencies = [
  "criterion",
  "nuif-api",
+ "nuif-behavior",
  "nuif-codec",
  "nuif-collab",
  "nuif-core",

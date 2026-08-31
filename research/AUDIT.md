@@ -272,6 +272,16 @@ decoder slower than canonical text. Protobuf and FlatBuffers remain outside the
 timing table because no complete NUIF mapping satisfies canonical and retentive
 editing requirements; Cap'n Proto is the next conditional candidate.
 
+The unified performance gate also records portable release latency and
+allocation budgets, audits direction coverage from the per-profile adapter
+catalog and executes every Criterion path once. Its controlled-hardware suites
+cover core scaling, queries, both collaboration materializers, packages,
+resources, package-capability negotiation and all ten integrated adapter
+profiles. One-way accessibility and behavior projections are measured only as
+exports; the catalog no longer invents import or synchronization directions for
+them. Shared-runner Criterion timing remains smoke evidence, not a regression
+threshold.
+
 Gate C pins Taffy 0.14.0 and Chrome for Testing 152.0.7977.64 and runs a deterministic three-way layout report over 27 cases, 81 comparisons and 1,536 box components. The v0 card agrees exactly across NUIF, Taffy and Chrome at 360, 768 and 1,440 px. Eight bounded-Grid cases exercise fixed/`fr` tracks, sparse row/column flow, explicit placement and spans in addition to generated stack/flex cases. All cases pass with zero classified, blocking or unexplained divergence; 26 fixtures have exact Taffy/browser agreement and one fractional Grid fixture uses its measured 0.02 px bound. The foreign oracles exposed both the earlier definite-size stretch defect and a Grid `fill` lowering defect, and both remain regression-covered. Gate C now claims the bounded explicit-Grid profile, not intrinsic, percentage, named, repeated, implicit, subgrid or masonry tracks.
 
 Gate D is complete for the deliberately narrow CPU profile 0. It pins the 22,572-byte Ahem 1.50 font by SHA-256, HarfRust 0.13.3, Unicode 17.0.0, unhinted Skrifa 0.46.2 outlines and Zeno 0.3.3 grayscale masks. Eight ASCII/Unicode LTR/RTL runs match HarfBuzz 14.4.0 and five signed-26.6 paths match normalized `hb-vector`. Hard breaks, line-height placement, intrinsic shaped width, inline-start alignment and no automatic soft wrapping are executable lossless semantics. Encoded-sRGB solid rectangles, four-cubic ellipses and integer source-over composition are defined by value and have exact scene/raw-RGBA fixtures. PNG hashes are non-blocking encoder diagnostics. The text and paint reports reproduce on macOS/aarch64, Linux/aarch64 and Linux/x86_64. Paths, images, component instances and extension-defined visuals are not misrepresented as supported: their fidelity records retain document/entity identity and property pointers. Expanded render profiles remain future work.

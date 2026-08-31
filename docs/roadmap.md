@@ -111,6 +111,10 @@ and the system benchmark suite measures direct text, CBOR and package calls.
 The façade separates inert structural package access from session
 authorization: requirement-bearing packages reject evaluation, mutation,
 history and mode conversion until exact complete-set negotiation succeeds.
+The unified performance gate executes every Criterion path once and audits
+per-profile adapter direction coverage; controlled benchmarks include package
+capability negotiation and all ten integrated adapter profiles without treating
+shared CI timing noise as a regression threshold.
 
 No stable C ABI is claimed while the semantic API remains `0.0.x`. ADR 0011
 requires a separately reviewed unsafe `nuif-ffi` boundary, stable ownership and

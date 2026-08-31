@@ -10,24 +10,28 @@
       "profiles": [
         {
           "name": "nuif-html-css-0",
+          "directions": ["import", "export", "synchronize"],
           "crate": "crates/nuif-html",
           "profile": "adapters/html-css/PROFILE.md",
           "gate": "gate-f"
         },
         {
           "name": "nuif-html-css-v0",
+          "directions": ["import", "export", "synchronize"],
           "crate": "crates/nuif-html",
           "profile": "adapters/html-css/V0-PROFILE.md",
           "gate": "gate-f-v0"
         },
         {
           "name": "nuif-web-accessibility-0",
+          "directions": ["export"],
           "crate": "crates/nuif-html",
           "profile": "adapters/html-css/ACCESSIBILITY-PROFILE.md",
           "gate": "gate-accessibility"
         },
         {
           "name": "nuif-web-behavior-0",
+          "directions": ["export"],
           "crate": "crates/nuif-html",
           "profile": "adapters/html-css/BEHAVIOR-PROFILE.md",
           "gate": "gate-web-behavior"
@@ -45,6 +49,7 @@
       "profiles": [
         {
           "name": "nuif-svg-0",
+          "directions": ["import", "export", "synchronize"],
           "crate": "crates/nuif-svg",
           "profile": "adapters/svg/PROFILE.md",
           "gate": "gate-svg"
@@ -62,6 +67,7 @@
       "profiles": [
         {
           "name": "nuif-dtcg-scalar-0",
+          "directions": ["import", "export", "synchronize"],
           "crate": "crates/nuif-dtcg",
           "profile": "adapters/dtcg/PROFILE.md",
           "gate": "gate-dtcg"
@@ -79,6 +85,7 @@
       "profiles": [
         {
           "name": "nuif-react-jsx-0",
+          "directions": ["import", "export", "synchronize"],
           "crate": "crates/nuif-react",
           "profile": "adapters/react/PROFILE.md",
           "gate": "gate-react"
@@ -96,6 +103,7 @@
       "profiles": [
         {
           "name": "nuif-svelte-static-0",
+          "directions": ["import", "export", "synchronize"],
           "crate": "crates/nuif-svelte",
           "profile": "adapters/svelte/PROFILE.md",
           "gate": "gate-svelte"
@@ -113,6 +121,7 @@
       "profiles": [
         {
           "name": "nuif-penpot-v3-0",
+          "directions": ["import", "export", "synchronize"],
           "crate": "crates/nuif-penpot",
           "profile": "adapters/penpot/PROFILE.md",
           "gate": "gate-penpot"
@@ -133,6 +142,7 @@
       "profiles": [
         {
           "name": "nuif-figma-plugin-snapshot-0",
+          "directions": ["import", "export"],
           "crate": "crates/nuif-figma",
           "profile": "adapters/figma/SNAPSHOT-PROFILE.md",
           "gate": "gate-figma"

@@ -192,6 +192,12 @@ fn main() {
     let figma_document = nuif_figma::profile_fixture();
     let figma_plan = nuif_figma::plan_import(&figma_document, "performance-fixture").unwrap();
     let figma_snapshot = serde_json::to_vec(&figma_plan.snapshot).unwrap();
+    let accessibility_document = nuif_html::accessibility::web_accessibility_fixture();
+    let accessibility_projection =
+        nuif_html::accessibility::project_web_accessibility(&accessibility_document).unwrap();
+    let (behavior_document, behavior_program, _) = nuif_behavior::behavior_fixture();
+    let behavior_projection =
+        nuif_html::behavior::project_web_behavior(&behavior_document, &behavior_program).unwrap();
 
     let mut image_package = nuif_testing::rgba8_image_package_fixture();
     let image_entity = image_package
@@ -754,8 +760,8 @@ fn main() {
         ),
         measure_adapter(
             "nuif-figma-plugin-snapshot-0",
-            "import",
-            "adapter_figma_plan",
+            "export",
+            "adapter_figma_export_plan",
             3,
             20,
             500_000_000,
@@ -770,8 +776,8 @@ fn main() {
         ),
         measure_adapter(
             "nuif-figma-plugin-snapshot-0",
-            "export",
-            "adapter_figma_import",
+            "import",
+            "adapter_figma_import_snapshot",
             3,
             20,
             500_000_000,
@@ -779,6 +785,37 @@ fn main() {
                 let imported = nuif_figma::import_snapshot(black_box(&figma_snapshot)).unwrap();
                 imported.document.entities.len() as u64
                     ^ imported.report.correspondences.len() as u64
+            },
+        ),
+        measure_adapter(
+            "nuif-web-accessibility-0",
+            "export",
+            "adapter_web_accessibility_export",
+            accessibility_document.entities.len(),
+            20,
+            500_000_000,
+            || {
+                let projection = nuif_html::accessibility::project_web_accessibility(black_box(
+                    &accessibility_document,
+                ))
+                .unwrap();
+                projection.html.len() as u64 ^ projection.nodes.len() as u64
+            },
+        ),
+        measure_adapter(
+            "nuif-web-behavior-0",
+            "export",
+            "adapter_web_behavior_export",
+            behavior_document.entities.len(),
+            20,
+            500_000_000,
+            || {
+                let projection = nuif_html::behavior::project_web_behavior(
+                    black_box(&behavior_document),
+                    black_box(&behavior_program),
+                )
+                .unwrap();
+                projection.html.len() as u64 ^ projection.event_sources.len() as u64
             },
         ),
     ];
@@ -824,7 +861,9 @@ fn main() {
             "svelte_bytes": svelte_exported.source.len(),
             "penpot_bytes": penpot_exported.bytes.len(),
             "foreign_penpot_bytes": FOREIGN_PENPOT.len(),
-            "figma_snapshot_bytes": figma_snapshot.len()
+            "figma_snapshot_bytes": figma_snapshot.len(),
+            "web_accessibility_bytes": accessibility_projection.html.len(),
+            "web_behavior_bytes": behavior_projection.html.len()
         },
         "adapter_coverage": adapter_coverage,
         "resource_fixtures": {
@@ -862,15 +901,15 @@ fn adapter_benchmark_coverage(cases: &[CaseReport]) -> AdapterCoverage {
     let mut expected_profiles = Vec::new();
     let mut expected_directions = Vec::new();
     for target in integrated {
-        let directions = target["directions"]
-            .as_array()
-            .expect("integrated directions array");
         for profile in target["profiles"]
             .as_array()
             .expect("integrated profiles array")
         {
             let name = profile["name"].as_str().expect("integrated profile name");
             expected_profiles.push(name.to_owned());
+            let directions = profile["directions"]
+                .as_array()
+                .expect("integrated profile directions array");
             for direction in directions {
                 expected_directions.push(format!(
                     "{name}:{}",

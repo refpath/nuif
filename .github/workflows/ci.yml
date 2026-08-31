@@ -125,7 +125,10 @@ jobs:
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: performance-profile-report
-          path: target/performance-profile-report.json
+          if-no-files-found: error
+          path: |
+            target/performance-profile-report.json
+            target/criterion-smoke-report.json
       - name: Upload codec decision measurements
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
