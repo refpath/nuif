@@ -20,7 +20,6 @@ const ALL_STEPS: &[Step] = &[
     ("diagnostic-audit", diagnostics::audit),
     ("docs-check", documentation::check),
     ("verify", verify),
-    ("gate-ffi", gate_ffi),
     ("gate-b", gate_b),
     ("hostile-inputs", hostile_inputs),
     ("reduction-profile", reduction_profile),
@@ -78,6 +77,7 @@ const VERIFICATION_ARTIFACTS: &[&str] = &[
     "target/documentation-report.json",
     "target/wasm-conformance-report.json",
     "target/ffi-header-report.json",
+    "target/ffi-variable-font-report.json",
     "target/nuif-wasm-web",
     "target/mcp-conformance-report.json",
     "target/gate-b-report.json",
@@ -566,16 +566,20 @@ fn gate_i_font_surfaces() -> Result<(), String> {
     gate_i_font_runtime()?;
     gate_wasm()?;
     gate_mcp()?;
+    gate_ffi()?;
 
     let runtime = read_json(Path::new("target/variable-font-runtime-report.json"))?;
     let wasm = read_json(Path::new("target/wasm-conformance-report.json"))?;
     let mcp = read_json(Path::new("target/mcp-conformance-report.json"))?;
+    let ffi = read_json(Path::new("target/ffi-header-report.json"))?;
     let direct = runtime["cases"]
         .as_array()
         .and_then(|cases| cases.iter().find(|case| case["label"] == "interior"))
         .ok_or("variable font runtime report omitted the interior case")?;
     let wasm_variable = &wasm["variable_font"];
     let mcp_variable = &mcp["cross_surface"]["variable_font"];
+    let ffi_variable = &ffi["variable_font"];
+    let ffi_runtime_required = !cfg!(windows);
     let checks = serde_json::json!({
         "direct_api_passed": runtime["status"] == "passed",
         "wasm_node_matches_cli": wasm["checks"]["variable_font_snapshot_matches_cli"] == true,
@@ -583,24 +587,39 @@ fn gate_i_font_surfaces() -> Result<(), String> {
         "wasm_capability_required": wasm["checks"]["variable_font_snapshot_requires_capability"] == true,
         "mcp_matches_cli": mcp_variable["matches_cli"] == true,
         "mcp_capability_required": mcp_variable["unauthorized_rejected"] == true,
+        "ffi_gate_passed": ffi["status"] == "passed",
+        "ffi_runtime_matches_cli_when_supported": !ffi_runtime_required || ffi_variable["matches_cli"] == true,
         "canonical_hash_exact": direct["canonical_hash"] == wasm_variable["canonical_hash"]
-            && direct["canonical_hash"] == mcp_variable["canonical_hash"],
+            && direct["canonical_hash"] == mcp_variable["canonical_hash"]
+            && (!ffi_runtime_required || direct["canonical_hash"] == ffi_variable["canonical_hash"]),
         "coordinate_record_exact": direct["coordinates"] == wasm_variable["coordinates"]
-            && direct["coordinates"] == mcp_variable["coordinates"],
+            && direct["coordinates"] == mcp_variable["coordinates"]
+            && (!ffi_runtime_required || direct["coordinates"] == ffi_variable["coordinates"]),
         "raster_hash_exact": direct["raster_sha256"] == wasm_variable["raster_sha256"]
-            && direct["raster_sha256"] == mcp_variable["raster_sha256"],
+            && direct["raster_sha256"] == mcp_variable["raster_sha256"]
+            && (!ffi_runtime_required || direct["raster_sha256"] == ffi_variable["raster_sha256"]),
         "full_diagnostics_and_fidelity_exact": wasm["checks"]["variable_font_snapshot_matches_cli"] == true
             && mcp_variable["matches_cli"] == true,
     });
     let passed = checks
         .as_object()
         .is_some_and(|checks| checks.values().all(|value| value == true));
+    let mut surfaces = vec![
+        "direct-rust-api",
+        "cli",
+        "node-wasm",
+        "browser-wasm",
+        "stdio-mcp",
+    ];
+    if ffi_runtime_required {
+        surfaces.push("c-ffi");
+    }
     let report = serde_json::json!({
         "schema_version": 1,
         "experiment": "nuif:experiment:variable-font-surface-parity",
         "status": if passed { "passed" } else { "failed" },
         "profile": "nuif-opentype-variable-truetype-single-0",
-        "surfaces": ["direct-rust-api", "cli", "node-wasm", "browser-wasm", "stdio-mcp"],
+        "surfaces": surfaces,
         "canonical_hash": direct["canonical_hash"],
         "coordinates": direct["coordinates"],
         "raster_sha256": direct["raster_sha256"],
@@ -608,11 +627,12 @@ fn gate_i_font_surfaces() -> Result<(), String> {
         "inputs": [
             "target/variable-font-runtime-report.json",
             "target/wasm-conformance-report.json",
-            "target/mcp-conformance-report.json"
+            "target/mcp-conformance-report.json",
+            "target/ffi-header-report.json"
         ],
         "non_claims": [
             "the CPU raster hash is platform-scoped until the retained hosted matrix is compared",
-            "the FFI remains experimental and is outside RFC 0013 promotion criterion 9",
+            "the FFI remains experimental despite exact package/snapshot parity on its POSIX C consumer",
             "one Noto Sans location does not broaden the admitted font-format profile"
         ]
     });
@@ -1422,6 +1442,11 @@ fn generate_variable_font_snapshot(package: &Path, snapshot: &Path) -> Result<()
 }
 
 fn gate_ffi() -> Result<(), String> {
+    let variable_font_package = Path::new("target/ffi-variable-font.nuif");
+    let variable_font_snapshot = Path::new("target/ffi-variable-font-snapshot");
+    let expected_report = variable_font_snapshot.join("expected.report.json");
+    let ffi_report = Path::new("target/ffi-variable-font-report.json");
+    generate_variable_font_snapshot(variable_font_package, variable_font_snapshot)?;
     cargo(&["test", "--locked", "-p", "nuif-ffi"])?;
     cargo(&["build", "--release", "--locked", "-p", "nuif-ffi"])?;
     command(
@@ -1461,19 +1486,27 @@ fn gate_ffi() -> Result<(), String> {
                 "target/ffi-runtime-smoke",
             ],
         )?;
-        command(path(runtime_smoke)?, &[])?;
+        command(
+            path(runtime_smoke)?,
+            &[path(variable_font_package)?, path(ffi_report)?],
+        )?;
         "passed"
     };
+    let variable_font =
+        ffi_variable_font_evidence(variable_font_package, &expected_report, ffi_report)?;
+    let passed =
+        runtime_status != "failed" && (cfg!(windows) || variable_font["status"] == "passed");
     fs::create_dir_all("target").map_err(|error| error.to_string())?;
     let report = serde_json::json!({
         "schema_version": 1,
-        "status": "passed",
+        "status": if passed { "passed" } else { "failed" },
         "profile": "nuif-ffi-0",
         "header": "bindings/nuif_ffi.h",
         "consumer": "tools/ffi/header-smoke.c",
         "runtime_consumer": "tools/ffi/runtime-smoke.c",
         "runtime_status": runtime_status,
-        "mode": "header syntax and POSIX release-library smoke; no stable ABI claim",
+        "mode": "header syntax and POSIX release-library package/snapshot parity; no stable ABI claim",
+        "variable_font": variable_font,
         "source": {
             "revision": command_text("git", &["rev-parse", "HEAD"]),
             "dirty": command_text("git", &["status", "--porcelain"]).map(|value| !value.is_empty()),
@@ -1484,7 +1517,46 @@ fn gate_ffi() -> Result<(), String> {
         "target/ffi-header-report.json",
         serde_json::to_vec_pretty(&report).map_err(|error| error.to_string())?,
     )
-    .map_err(|error| error.to_string())
+    .map_err(|error| error.to_string())?;
+    if passed {
+        Ok(())
+    } else {
+        Err("C ABI conformance report failed its assertions".to_owned())
+    }
+}
+
+fn ffi_variable_font_evidence(
+    package: &Path,
+    expected_report: &Path,
+    ffi_report: &Path,
+) -> Result<serde_json::Value, String> {
+    if cfg!(windows) {
+        return Ok(serde_json::json!({
+            "status": "not-run",
+            "reason": "the release-library C runtime consumer is POSIX-only",
+        }));
+    }
+    let expected = read_json(expected_report)?;
+    let observed = read_json(ffi_report)?;
+    let coordinates = observed["scene"]["commands"]
+        .as_array()
+        .and_then(|commands| {
+            commands.iter().find_map(|command| {
+                command["run"]["variation_coordinates"]
+                    .as_array()
+                    .map(|coordinates| serde_json::Value::Array(coordinates.clone()))
+            })
+        })
+        .ok_or("FFI snapshot omitted variable-font coordinates")?;
+    Ok(serde_json::json!({
+        "status": if observed == expected { "passed" } else { "failed" },
+        "matches_cli": observed == expected,
+        "package_bytes": fs::metadata(package).map_err(|error| error.to_string())?.len(),
+        "canonical_hash": observed["canonical_hash"],
+        "coordinates": coordinates,
+        "raster_sha256": observed["raster"]["rgba_sha256"],
+        "report": ffi_report,
+    }))
 }
 
 fn compare_wasm_patch(
