@@ -25,7 +25,11 @@ Pinned Ahem/HarfRust shaping matches HarfBuzz glyph goldens; unhinted Skrifa 0.4
 
 ## Phase 4a — bare serialization/protocol (complete for profile 0)
 Canonical text + deterministic CBOR plus patch/diff/query CLI. Exit: byte-stable
-cycles and measured hostile-input limits. This phase does not include the
+cycles and measured hostile-input limits. The separate active codec decision
+gate records four-scale size, latency, allocation, canonicalization and
+decode-then-select evidence. Both implemented codecs pass opaque-data edit
+preflight; schema candidates are not timed on partial models. Cap'n Proto is
+the next candidate only after a complete mapping. This phase does not include the
 portable `.nuif` package, images or general font resources.
 
 ## Phase 4b — portable package and resources (active; container segment implemented)

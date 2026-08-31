@@ -18,10 +18,15 @@ links:
   adr: [adrs/0004-serialization.md]
   rfc: [rfcs/0002-extension-preservation.md]
   code: [crates/nuif-codec]
-  experiments: []
+  experiments: [nuif:experiment:codec-benchmark]
 ---
 # Summary
 RFC 8949 defines deterministic CBOR encoding profiles suitable for hashing and reproducible binary forms. Protobuf demonstrates mature field-number evolution and binary unknown-field preservation but warns that JSON conversion loses unknown fields. Kiwi demonstrates schema-bundled forward decoding and compact tree serialization.
 
 ## NUIF relevance
 Separate logical schema from encoding. Use a canonical human-readable form for review/spec fixtures plus deterministic CBOR as the first binary/wire encoding. Unknown extensions must be represented explicitly rather than relying solely on codec-specific unknown field behavior.
+
+The executable comparison and the current Protobuf, FlatBuffers and Cap'n Proto
+admission decision are maintained in
+`schema-codec-admission-and-benchmarking.md` rather than inferred from vendor
+microbenchmarks.

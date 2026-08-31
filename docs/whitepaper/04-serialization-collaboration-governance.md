@@ -5,18 +5,36 @@
 NUIF defines one logical model with multiple conforming encodings.
 
 ### Text form
-A canonical, reviewable representation is required for examples, fixtures, diffs and Git workflows. The exact syntax remains experimental; human readability and deterministic canonicalization are required.
+A canonical, reviewable representation is implemented for examples, fixtures,
+diffs and Git workflows. `nuif-text-0` fixes number formatting, UTF-8 key order,
+layout and strict decode/canonicalize behavior; later text profiles may evolve
+only through explicit versioning.
 
 ### Binary form
-Deterministic CBOR is the initial recommendation because RFC 8949 specifies deterministic encoding without coupling NUIF to a generated-code schema system. A schema-based high-performance encoding may later become a profile after benchmarks.
+Deterministic CBOR is the profile-0 binary form because the NUIF profile closes
+the choices left by RFC 8949 without coupling the logical model to generated
+code. The executable codec gate finds it near 41% of canonical-text size at
+4,096 entities on the first Apple M5 Pro run, while its generic-value decode
+path is slower than text. That result supports CBOR as a compact canonical form,
+not as a universal latency winner.
 
-The proposed package form separates manifest/document records from
+A candidate is timed only after complete-model round trip, canonical fixpoint
+and unknown-data preservation through a neighboring edit. Protobuf does not
+specify canonical binary output. FlatBuffers deliberately permits different
+byte layouts and old readers ignore new fields, so a rebuilding editor needs a
+separate retention strategy. Cap'n Proto specifies a schema-agnostic canonical
+form and is the preferred next experiment, but it still needs a complete NUIF
+mapping, bounded old-reader edit trial and two agreeing canonical writers.
+Compiled zero-copy runtime caches remain separate, explicitly noncanonical
+profiles rather than replacements for authoring interchange.
+
+The experimental package form separates manifest/document records from
 content-addressed resources. RFC 0010 selects a candidate deterministic ZIP
 profile with fixed `mimetype`, canonical manifest/document records and
 SHA-256-addressed blobs. Bare encodings use explicit `.nuif.json` and
-`.nuif.cbor` names. The proposal remains experiment-required: exact ZIP header
-fixtures, two independent writers, image/font budgets and resource profiles do
-not yet exist.
+`.nuif.cbor` names. Exact ZIP header fixtures, two independent local writers and
+bounded image/font segments now exist. Cross-platform and externally authored
+writer evidence remains required before package-profile acceptance.
 
 Semantic document, resource and package hashes have different scopes. Stable
 asset identity is not content addressing. Unknown extension payloads remain

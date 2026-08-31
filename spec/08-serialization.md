@@ -15,6 +15,15 @@ Initial profiles:
 - `nuif-text-0` — deterministic human-readable canonical form for fixtures/review.
 - `nuif-cbor-0` — deterministic CBOR following draft-ietf-cbor-serialization §4.1 (preferred serialization) and §5.1 (bytewise-lexicographic map key order), with the narrowing rules of RFC 0005 stated by value.
 
+`cargo xtask codec-benchmark` is the non-normative decision harness for these
+profiles. It records size, latency and allocation only after exact semantic,
+canonical and unknown-data edit fixpoints pass. Native partial loading is a
+separate capability: profile-0 decoders currently load the complete document.
+Schema-generated candidates MUST NOT be compared using a partial logical model;
+the active next-candidate investigation is Cap'n Proto because its encoding
+specification defines a canonical form. No schema-generated NUIF profile is
+currently accepted.
+
 The experimental `nuif-package-0` profile assigns `.nuif` to a deterministic ZIP
 container. Bare encodings use `.nuif.json` and `.nuif.cbor`. Historical alpha
 files that used `.nuif` for bare bytes MAY be recognized read-only through

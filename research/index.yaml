@@ -37,7 +37,7 @@ topics:
   rendering: [vello, renderers, harfbuzz-unicode, gpu-rendering-nondeterminism]
   synchronization: [lenses-foster-boomerang, symmetric-lenses, retentive-lenses, structured-merge]
   collaboration: [automerge-yjs, operational-transformation-vs-crdt]
-  encoding: [encoding, openfig-fig-kiwi, deterministic-cbor-profiles-and-numeric-canonicalization, ipld-dag-cbor-strictness, cbor-data-model-and-key-order-correction]
+  encoding: [encoding, schema-codec-admission-and-benchmarking, openfig-fig-kiwi, deterministic-cbor-profiles-and-numeric-canonicalization, ipld-dag-cbor-strictness, cbor-data-model-and-key-order-correction]
   package_and_resources: [epub-ocf-package-container, oci-resource-descriptors, content-addressed-versioning, resource-packaging-and-source-capture-synthesis, png-image-preservation-and-decoding, opentype-font-embedding-and-portability, ttf-parser, fontations, gltf]
   source_capture: [chromium-source-backed-ui-capture, tree-sitter, reverse-layout-inference, resource-packaging-and-source-capture-synthesis]
   screenshot_reconstruction: [design2code-real-world-benchmark, ui-code-generation-boundaries, pix2struct-screenshot-parsing-pretraining, screenai-ui-annotation, omniparser-ui-grounding, ocr-text-detection-and-recognition, reverse-layout-inference, inferui-and-layout-synthesis, visrefiner-render-difference-learning, model-agnostic-screenshot-reconstruction-and-training]

@@ -30,6 +30,15 @@ Publication infrastructure: `docs/catalog.json` currently selects 244 canonical 
 
 ## Current falsifiers
 
+The active codec decision gate measures canonical text and deterministic CBOR
+at 8, 64, 512 and 4,096 entities after exact semantic, canonical and opaque-edit
+preflight. It records native partial-load support separately from full decode
+followed by selection. Protobuf and FlatBuffers are not admitted because their
+documented default forms do not meet canonical and retentive-editing
+requirements. Cap'n Proto is the next candidate, conditional on a complete
+mapping, bounded cross-version edit trial and two canonical writers; no
+schema-codec timing claim exists yet.
+
 `nuif:experiment:v0-responsive-card`, the bounded collaboration
 property-register checkpoint and the existing-tree structural checkpoint are
 complete under their declared acceptance. Structural move/reorder/delete/rescue
@@ -81,25 +90,26 @@ from that loop rather than a standing implementation commitment.
 ## Queue
 
 1. Keep Gates B through H green with `cargo xtask all` and the separate nightly `cargo xtask fuzz-smoke`; reduce fuzz failures before committing them as named fixtures and retain all machine reports as CI artifacts.
-2. Extend the executable existing-tree collaboration profile to concurrent creation, causal-stability garbage collection and combined property/structure transactions; obtain a foreign tree materializer rather than treating the completed Automerge transport oracle as one.
-3. Keep the implemented fixed/`fr`, sparse-flow, explicit-placement Grid subset
+2. Implement the full Cap'n Proto candidate mapping only behind the codec admission preflight; compare it after canonical-writer, old-reader retention and hostile traversal tests pass. Optimize the current CBOR generic-value decode path independently and require identical canonical bytes before and after.
+3. Extend the executable existing-tree collaboration profile to concurrent creation, causal-stability garbage collection and combined property/structure transactions; obtain a foreign tree materializer rather than treating the completed Automerge transport oracle as one.
+4. Keep the implemented fixed/`fr`, sparse-flow, explicit-placement Grid subset
    exact; intrinsic, percentage, named, repeated, implicit, subgrid and masonry
    tracks require a separately versioned schema and foreign-oracle matrix.
-4. Keep the tested Masonry shell attached only through the editor driver boundary; extend the implemented one-transaction freeform move, eight-handle freeform resize, trailing managed resize, Shift-proportional corner gesture and resolved-axis Stack/Flex reorder only when a tested semantic operation exists. Cross-parent/tree drag and Grid/Constraint reorder remain separate design work.
-5. Treat soft wrapping, gradients, strokes, paths, images and instance materialization as a separately versioned expanded profile; do not weaken profile-0 exactness to add them.
-6. Keep `cargo xtask gate-i-package` green across CLI/editor/package changes and add a recorded cross-platform/external writer before accepting the wire profile.
-7. Extend the narrow PNG and static TrueType baselines only through new declared fixtures, add cross-platform media reproduction, and complete the broader OpenType format/policy matrix with calibrated allocation/time budgets; do not expand profile 0 by fallback.
-8. Extend the passing local live-browser segment to cross-OS reproduction, opaque/cross-origin cases, matched-style/source correlation and licensed real pages before defining a portable browser-capture profile; keep WebDriver BiDi as the standards-track transport watch path.
-9. Freeze the reconstruction corpus and evaluator, then compare deterministic OCR/CV, one-shot, observation-assisted, hierarchical and corrective-loop baselines through the existing typed boundary.
-10. Train or distill only if the frozen evaluation demonstrates a learnable gap and rights-cleared validated traces exist.
-11. Maintain the credential-free Penpot package profile under its shared ZIP resource-limit, foreign-producer and unknown-member-retention gate; defer the compact representation until upstream stability and a second fixture.
-12. Run the bounded Figma and Adobe profiles in named live host versions; retain host reports and do not infer live behavior from API documentation.
-13. Keep `nuif-api::NuifDocument` as the single direct SDK façade and require
+5. Keep the tested Masonry shell attached only through the editor driver boundary; extend the implemented one-transaction freeform move, eight-handle freeform resize, trailing managed resize, Shift-proportional corner gesture and resolved-axis Stack/Flex reorder only when a tested semantic operation exists. Cross-parent/tree drag and Grid/Constraint reorder remain separate design work.
+6. Treat soft wrapping, gradients, strokes, paths, images and instance materialization as a separately versioned expanded profile; do not weaken profile-0 exactness to add them.
+7. Keep `cargo xtask gate-i-package` green across CLI/editor/package changes and add a recorded cross-platform/external writer before accepting the wire profile.
+8. Extend the narrow PNG and static TrueType baselines only through new declared fixtures, add cross-platform media reproduction, and complete the broader OpenType format/policy matrix with calibrated allocation/time budgets; do not expand profile 0 by fallback.
+9. Extend the passing local live-browser segment to cross-OS reproduction, opaque/cross-origin cases, matched-style/source correlation and licensed real pages before defining a portable browser-capture profile; keep WebDriver BiDi as the standards-track transport watch path.
+10. Freeze the reconstruction corpus and evaluator, then compare deterministic OCR/CV, one-shot, observation-assisted, hierarchical and corrective-loop baselines through the existing typed boundary.
+11. Train or distill only if the frozen evaluation demonstrates a learnable gap and rights-cleared validated traces exist.
+12. Maintain the credential-free Penpot package profile under its shared ZIP resource-limit, foreign-producer and unknown-member-retention gate; defer the compact representation until upstream stability and a second fixture.
+13. Run the bounded Figma and Adobe profiles in named live host versions; retain host reports and do not infer live behavior from API documentation.
+14. Keep `nuif-api::NuifDocument` as the single direct SDK façade and require
     semantic-API promotion, stable errors/ownership, sanitizer-backed native
     consumers and real platform packages before declaring C, Swift or Kotlin
     binding profiles.
-14. Package the conformance kit for externally authored reproduction; do not treat the in-repository Python path or Rust adapters as external interoperability evidence.
-15. Keep standards-development work behind the implementer-draft and external-support gates in `docs/STANDARDS-ROADMAP.md`.
+15. Package the conformance kit for externally authored reproduction; do not treat the in-repository Python path or Rust adapters as external interoperability evidence.
+16. Keep standards-development work behind the implementer-draft and external-support gates in `docs/STANDARDS-ROADMAP.md`.
 
 ## Update policy
 

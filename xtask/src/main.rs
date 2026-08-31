@@ -24,6 +24,7 @@ const ALL_STEPS: &[Step] = &[
     ("hostile-inputs", hostile_inputs),
     ("reduction-profile", reduction_profile),
     ("editor-hostile-inputs", editor_hostile_inputs),
+    ("codec-benchmark", codec_benchmark),
     ("performance", performance),
     ("browser-install", browser_install),
     ("gate-c", gate_c),
@@ -62,6 +63,7 @@ const VERIFICATION_ARTIFACTS: &[&str] = &[
     "target/reduction-profile-report.json",
     "target/reduction-profile-fixture",
     "target/editor-hostile-input-report.json",
+    "target/codec-benchmark-report.json",
     "target/performance-profile-report.json",
     "target/layout-differential-report.json",
     "target/text-pinning-report.json",
@@ -185,6 +187,7 @@ fn run() -> Result<(), String> {
         Some("reduction-profile") => reduction_profile(),
         Some("editor-hostile-inputs") => editor_hostile_inputs(),
         Some("fuzz-smoke") => fuzz_smoke(),
+        Some("codec-benchmark") => codec_benchmark(),
         Some("performance") => performance(),
         Some("research") => research(),
         Some("workflow-audit") => workflow_audit(),
@@ -209,7 +212,7 @@ fn run() -> Result<(), String> {
         Some("manifest") => standalone_manifest(),
         Some("all") => all(),
         _ => Err(
-            "usage: cargo xtask <research|workflow-audit|adapter-audit|dependency-audit|docs-check|docs-build|docs-paper|docs-serve|docs-setup|verify|trial [seed iterations snapshot-interval report-path]|gate-b|gate-c|gate-d|gate-d-text|gate-d-render|gate-f|gate-f-v0|gate-svg|gate-dtcg|gate-penpot|gate-react|gate-svelte|gate-figma|gate-wasm|gate-mcp|gate-g|gate-h|gate-i-package|gate-i-image|gate-i-font|gate-j-live|capture-baselines|browser-install|wasm-install|wasm-package|mcp-package|cli-package|hostile-inputs|reduction-profile|editor-hostile-inputs|fuzz-smoke|performance|editor-trial|editor-gui-trial|editor-install-trial|editor-package|editor-launch|editor-install|editor-doctor|editor-rollback|editor-uninstall|editor-update|release-check <tag>|manifest|all>"
+            "usage: cargo xtask <research|workflow-audit|adapter-audit|dependency-audit|docs-check|docs-build|docs-paper|docs-serve|docs-setup|verify|trial [seed iterations snapshot-interval report-path]|gate-b|gate-c|gate-d|gate-d-text|gate-d-render|gate-f|gate-f-v0|gate-svg|gate-dtcg|gate-penpot|gate-react|gate-svelte|gate-figma|gate-wasm|gate-mcp|gate-g|gate-h|gate-i-package|gate-i-image|gate-i-font|gate-j-live|capture-baselines|browser-install|wasm-install|wasm-package|mcp-package|cli-package|hostile-inputs|reduction-profile|editor-hostile-inputs|fuzz-smoke|codec-benchmark|performance|editor-trial|editor-gui-trial|editor-install-trial|editor-package|editor-launch|editor-install|editor-doctor|editor-rollback|editor-uninstall|editor-update|release-check <tag>|manifest|all>"
                 .to_owned(),
         ),
     }
@@ -579,6 +582,21 @@ fn performance() -> Result<(), String> {
         "nuif-conformance",
         "--benches",
         "--no-run",
+    ])
+}
+
+fn codec_benchmark() -> Result<(), String> {
+    cargo(&[
+        "run",
+        "--release",
+        "--locked",
+        "-p",
+        "nuif-testing",
+        "--bin",
+        "codec-benchmark",
+        "--",
+        "--output",
+        "target/codec-benchmark-report.json",
     ])
 }
 

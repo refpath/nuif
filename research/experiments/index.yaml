@@ -73,14 +73,19 @@ experiments:
       - require preserved-unrenderable fidelity for document and entity extensions
       - reproduce every hash on macOS aarch64 Linux aarch64 and Linux x86_64
   - id: nuif:experiment:codec-benchmark
-    status: planned
+    status: active
+    evidence: [nuif:research:schema-codec-admission-and-benchmarking, nuif:research:encoding, nuif:research:unknown-schema-preservation-strategies]
+    implementation: [crates/nuif-testing/src/bin/codec-benchmark.rs, xtask/src/main.rs, .github/workflows/ci.yml]
     oracle: measured-benchmark
     acceptance:
       - corpus seed hardware toolchain and warmup protocol are recorded
       - every candidate passes unknown-data and canonical fixpoint checks before timing
     tests:
-      - canonical text vs deterministic CBOR vs schema-based candidates
-      - size encode decode partial-load canonicalize and unknown-data preservation
+      - measure canonical text and deterministic CBOR at 8 64 512 and 4096 entities only after conformance preflight
+      - record size encode decode canonicalize allocation and decode-then-select costs without mislabeling full decode as native partial load
+      - require exact semantic canonical and opaque-data preservation fixpoints before timing a codec
+      - keep Protobuf and FlatBuffers unadmitted and Cap'n Proto next-candidate until a complete semantic mapping passes the same preflight
+      - write and archive target/codec-benchmark-report.json
   - id: nuif:experiment:profile-zero-performance
     status: automated
     evidence: [nuif:research:rust-snapshot-property-fuzz-tooling, nuif:research:resource-bounded-serde-and-ciborium]

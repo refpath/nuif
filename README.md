@@ -177,6 +177,7 @@ cargo xtask editor-hostile-inputs # semantic, parser and snapshot rejection repo
 cargo xtask fuzz-smoke # bounded AddressSanitizer campaigns over five core surfaces
 cargo xtask adapter-audit # research/profile/gate coverage for all advertised targets
 cargo xtask performance # portable release-mode latency and allocation budgets
+cargo xtask codec-benchmark # codec size, latency, allocation and admission evidence
 cargo xtask gate-c # NUIF/Taffy/pinned-Chrome layout report
 cargo xtask gate-d-text # HarfBuzz golden shaping + separate raster report
 cargo xtask editor-trial # author the v0 fixture and emit editor evidence
@@ -206,7 +207,7 @@ cargo run --locked -p nuif-editor -- --headless \
 cargo run --locked -p nuif-editor # launch the native editor
 ```
 
-`cargo xtask all` bootstraps the pinned Python research-validator environment, wasm-bindgen toolchain and Chrome for Testing under ignored `target/`, then runs research validation, Rust verification, WebAssembly/native API parity, the short full-raster trial, the 10,000-patch Gate B trial, release-mode hostile-input and performance trials, the Gate C differential layout trial, both Gate D text/render trials, complete headless/native editor trials, bounded retentive adapter bridges, the independent Gate G reproduction, exhaustive Gate H collaboration-register convergence, the Gate I package, narrow-image and narrow-font segments, and the bounded capture/reconstruction contract report. Each measured run leaves a JSON report or snapshot under `target/`; `target/verification-manifest.json` indexes the complete evidence set and records success or the first failed step. CI archives both the individual evidence and this manifest.
+`cargo xtask all` bootstraps the pinned Python research-validator environment, wasm-bindgen toolchain and Chrome for Testing under ignored `target/`, then runs research validation, Rust verification, WebAssembly/native API parity, the short full-raster trial, the 10,000-patch Gate B trial, release-mode hostile-input, codec-decision and performance trials, the Gate C differential layout trial, both Gate D text/render trials, complete headless/native editor trials, bounded retentive adapter bridges, the independent Gate G reproduction, exhaustive Gate H collaboration-register convergence, the Gate I package, narrow-image and narrow-font segments, and the bounded capture/reconstruction contract report. Each measured run leaves a JSON report or snapshot under `target/`; `target/verification-manifest.json` indexes the complete evidence set and records success or the first failed step. CI archives both the individual evidence and this manifest.
 
 ## Contributing
 

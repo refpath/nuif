@@ -26,8 +26,9 @@ questions:
   - id: nuif:question:binary-profile
     topic: serialization
     question: Does deterministic CBOR outperform schema-generated encodings sufficiently for the authoring/wire workloads, or should NUIF ratify multiple binary profiles?
-    status: benchmark-required
-    note: nuif-cbor-0 rules fixed by RFC 0005; additional profiles remain a benchmark question
+    status: experiment-required
+    note: The automated baseline finds nuif-cbor-0 near 41 percent of canonical-text size but slower to decode through the current generic value path. Protobuf and FlatBuffers have not cleared canonical/retentive admission; Cap'n Proto is the next complete-mapping candidate. Multiple binary profiles remain undecided pending that fair implementation.
+    evidence: [nuif:research:schema-codec-admission-and-benchmarking]
   - id: nuif:question:source-correspondence
     topic: synchronization
     question: What correspondence granularity is required for minimal Svelte/HTML/CSS patches while retaining formatting and comments?
