@@ -487,6 +487,46 @@ jobs:
             target/variable-font-gvar-generated-report.json
             target/variable-font-runtime-report.json
 
+  resource-profile-matrix:
+    name: resource profile host agreement
+    needs: resource-profiles
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Install the pinned Rust toolchain
+        run: |
+          rustup toolchain install 1.98.0 --profile minimal
+          rustup default 1.98.0
+      - name: Download Linux resource evidence
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: portable-resource-profiles-linux-x86_64
+          path: target/resource-host-matrix/linux-x86_64
+      - name: Download Windows resource evidence
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: portable-resource-profiles-windows-x86_64
+          path: target/resource-host-matrix/windows-x86_64
+      - name: Download macOS resource evidence
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: portable-resource-profiles-macos-aarch64
+          path: target/resource-host-matrix/macos-aarch64
+      - name: Require exact portable variable-font output
+        env:
+          SOURCE_REVISION: ${{ github.sha }}
+        run: cargo xtask gate-i-font-host-matrix "$SOURCE_REVISION" target/resource-host-matrix
+      - name: Upload cross-host resource evidence
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: portable-resource-profile-host-matrix
+          if-no-files-found: error
+          path: target/variable-font-host-matrix-report.json
+
   accessibility:
     name: web host browser oracles
     runs-on: ubuntu-latest
