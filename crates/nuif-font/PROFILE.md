@@ -33,9 +33,9 @@ profile. They require separately named profiles and conformance evidence.
 The font asset must exactly match the parsed face index, family names, static
 axis state, Unicode coverage, and bounded global OpenType feature settings. Its
 resource descriptor must use `font/ttf`.
-The asset records:
+The asset sets `FontAsset.decoder_profile` to
+`nuif-opentype-static-single-0`. Its separate policy-evidence map records:
 
-- `font.decoder_profile = nuif-opentype-static-single-0`;
 - `opentype.fs_type = 0xNNNN`, matching the exact bytes;
 - a non-empty `license.expression` chosen by the publisher;
 - `license.embedding_review = approved`, recording an explicit human or

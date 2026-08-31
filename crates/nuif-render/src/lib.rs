@@ -693,18 +693,12 @@ fn resolve_text_face<'a>(
             reason: "font asset has no reviewed license expression",
         },
     )?;
-    let decoder_profile = metadata.policy_evidence.get("font.decoder_profile").ok_or(
-        RenderError::InvalidFontBinding {
-            entity,
-            reason: "font asset has no declared decoder profile",
-        },
-    )?;
     PackagedResourceFont::new_with_profile(
         bytes,
         sha256,
         family,
         license,
-        decoder_profile,
+        &metadata.decoder_profile,
         &metadata.axes,
         &metadata.features,
     )
@@ -1529,6 +1523,7 @@ mod tests {
                 portability,
                 kind: AssetKind::Font(FontAsset {
                     face_index: 0,
+                    decoder_profile: "nuif-opentype-static-single-0".to_owned(),
                     names: vec![PINNED_FONT_NAME.to_owned()],
                     axes: BTreeMap::new(),
                     features: BTreeMap::new(),

@@ -90,11 +90,13 @@ and line height MUST be finite and positive. An optional `font_asset` binds the
 text item to a stable font asset; a family or PostScript name is never a
 substitute for that identity.
 
-A font asset additionally records media type, face or collection index, names
-used for matching, variation axes, feature selections, coverage and portability
-policy. The policy is `portable`, `private_authoring`, `linked`, `substituted`
-or `unavailable`. OpenType embedding flags and explicit license metadata are
-policy evidence; the format does not claim to make a complete legal decision.
+A font asset additionally records media type, an explicit decoder profile,
+face or collection index, names used for matching, variation axes, feature
+selections, coverage and portability policy. The policy is `portable`,
+`private_authoring`, `linked`, `substituted` or `unavailable`. Decoder profile
+selection is executable semantics and MUST NOT be inferred from the policy
+evidence map. OpenType embedding flags and explicit license metadata are policy
+evidence; the format does not claim to make a complete legal decision.
 
 A portable package MUST NOT embed a font whose effective export policy forbids
 that embedding. Linked fonts retain expected digest and explicit resolver hint;
@@ -125,14 +127,15 @@ bytes fail at item level without platform discovery. This proves deterministic
 behavior for the gated fixture, not foreign-shaper or cross-platform raster
 equivalence.
 
-RFC 0013's candidate variable-TrueType identifier remains outside package and
-runtime acceptance. Its staged experiments bound `fvar`/`avar`,
-compare final normalized coordinates with Skrifa and a pinned HarfBuzz
-capture, and reproduce isolated HarfBuzz shaping with internal metric/outline
-location coherence plus exact external advances/paths. They do not yet
-authorize variable layout, rendering or
-lossless fidelity. The evidence boundary is recorded in
-`crates/nuif-font/VARIABLE-PROFILE.md`.
+RFC 0013's separately negotiated candidate
+`nuif-opentype-variable-truetype-single-0` requires a complete finite axis tuple
+and the same identifier in the package capability set. The reference runtime
+normalizes once in `fvar` order, records the selected user 16.16 and final 2.14
+coordinates in each resolved run, and uses that vector for shaping, horizontal
+metrics, global metrics and unhinted outlines. It never falls back to the
+static decoder or a host default instance. RFC 0013 and
+`crates/nuif-font/VARIABLE-PROFILE.md` record the limits, evidence, and
+remaining cross-surface non-claims.
 
 A conformance profile that compares resolved text MUST declare the exact font bytes and hash, shaper and Unicode-data versions, direction, language, script-selection rule, feature set, cluster level, cluster coordinate unit, positioning unit and resource limits. Resolved runs contain source text plus ordered glyph identifiers, clusters, advances and offsets; they MUST NOT depend on system font discovery. Profile 0 uses Unicode-scalar indices for cluster coordinates and unscaled font units for advances and offsets.
 

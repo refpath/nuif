@@ -211,8 +211,7 @@ fn policy_trials(inspection: &VariableFontInspection, digest: &ResourceDigest) -
         "wrong_decoder_profile",
         &baseline,
         |font| {
-            font.policy_evidence
-                .insert("font.decoder_profile".to_owned(), "other".to_owned());
+            "other".clone_into(&mut font.decoder_profile);
         },
     ));
     cases.push(mutated_rejection("wrong_fs_type", &baseline, |font| {
@@ -257,6 +256,7 @@ fn candidate_asset(inspection: &VariableFontInspection, resource: ResourceDigest
         portability: AssetPortability::Portable,
         kind: AssetKind::Font(FontAsset {
             face_index: 0,
+            decoder_profile: OPENTYPE_VARIABLE_TRUETYPE_PROFILE.to_owned(),
             names: inspection.font.names.clone(),
             axes: inspection
                 .axes
@@ -266,10 +266,6 @@ fn candidate_asset(inspection: &VariableFontInspection, resource: ResourceDigest
             features: BTreeMap::new(),
             coverage: inspection.font.coverage.clone(),
             policy_evidence: BTreeMap::from([
-                (
-                    "font.decoder_profile".to_owned(),
-                    OPENTYPE_VARIABLE_TRUETYPE_PROFILE.to_owned(),
-                ),
                 (
                     "opentype.fs_type".to_owned(),
                     format!("0x{:04x}", inspection.font.fs_type),

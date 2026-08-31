@@ -928,6 +928,8 @@ pub struct ImageAsset {
 pub struct FontAsset {
     pub face_index: u32,
     #[serde(default)]
+    pub decoder_profile: String,
+    #[serde(default)]
     pub names: Vec<String>,
     #[serde(default)]
     pub axes: BTreeMap<String, f64>,
@@ -1388,6 +1390,7 @@ fn inspect_assets(
         match &asset.kind {
             AssetKind::Image(image) => add_string(usage, &image.decoder_profile, limits)?,
             AssetKind::Font(font) => {
+                add_string(usage, &font.decoder_profile, limits)?;
                 for name in &font.names {
                     add_string(usage, name, limits)?;
                 }
@@ -1977,6 +1980,12 @@ fn validate_asset(key: AssetId, asset: &Asset, diagnostics: &mut Vec<Diagnostic>
             }
         }
         AssetKind::Font(font) => {
+            if !is_identifier(&font.decoder_profile) {
+                push(
+                    "FONT_DECODER_PROFILE_INVALID",
+                    "font decoder profile must be an identifier".to_owned(),
+                );
+            }
             if font.axes.values().any(|value| !value.is_finite()) {
                 push(
                     "FONT_AXIS_INVALID",
@@ -2451,6 +2460,7 @@ mod tests {
             portability,
             kind: AssetKind::Font(FontAsset {
                 face_index: 0,
+                decoder_profile: "nuif-opentype-static-single-0".to_owned(),
                 names: vec!["test font".to_owned()],
                 axes: BTreeMap::new(),
                 features: BTreeMap::new(),

@@ -1547,17 +1547,12 @@ pub fn packaged_font_required_capability(asset: &Asset) -> Result<Option<&'stati
     let AssetKind::Font(font) = &asset.kind else {
         return Err(FontError::AssetMismatch("asset kind is not font"));
     };
-    match font
-        .policy_evidence
-        .get("font.decoder_profile")
-        .map(String::as_str)
-    {
-        Some(OPENTYPE_STATIC_PROFILE) => Ok(None),
-        Some(OPENTYPE_VARIABLE_TRUETYPE_PROFILE) => Ok(Some(OPENTYPE_VARIABLE_TRUETYPE_PROFILE)),
-        Some(_) => Err(FontError::Unsupported(
+    match font.decoder_profile.as_str() {
+        OPENTYPE_STATIC_PROFILE => Ok(None),
+        OPENTYPE_VARIABLE_TRUETYPE_PROFILE => Ok(Some(OPENTYPE_VARIABLE_TRUETYPE_PROFILE)),
+        _ => Err(FontError::Unsupported(
             "declared font decoder profile is unsupported",
         )),
-        None => Err(FontError::Policy("font.decoder_profile")),
     }
 }
 
@@ -1668,7 +1663,9 @@ fn validate_embedding_policy(
             "bitmap-only embedding is incompatible with the outline profile",
         ));
     }
-    require_policy(font, "font.decoder_profile", decoder_profile)?;
+    if font.decoder_profile != decoder_profile {
+        return Err(FontError::AssetMismatch("decoder profile"));
+    }
     require_policy(
         font,
         "opentype.fs_type",
@@ -2096,15 +2093,12 @@ mod tests {
         let inspection = inspect_opentype_static(font_test_data::AHEM, 0).unwrap();
         let font = FontAsset {
             face_index: 0,
+            decoder_profile: OPENTYPE_STATIC_PROFILE.to_owned(),
             names: inspection.names.clone(),
             axes: BTreeMap::new(),
             features: BTreeMap::new(),
             coverage: inspection.coverage.clone(),
             policy_evidence: BTreeMap::from([
-                (
-                    "font.decoder_profile".to_owned(),
-                    OPENTYPE_STATIC_PROFILE.to_owned(),
-                ),
                 ("opentype.fs_type".to_owned(), "0x0000".to_owned()),
                 ("license.expression".to_owned(), "CC0-1.0".to_owned()),
             ]),

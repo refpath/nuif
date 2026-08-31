@@ -489,7 +489,7 @@ fn font_asset_metadata(document: &Document, asset_id: AssetId) -> Option<FontAss
     Some(FontAssetMetadata {
         family: font.names.first()?.as_str(),
         license: font.policy_evidence.get("license.expression")?.as_str(),
-        decoder_profile: font.policy_evidence.get("font.decoder_profile")?.as_str(),
+        decoder_profile: &font.decoder_profile,
         axes: &font.axes,
         features: &font.features,
     })

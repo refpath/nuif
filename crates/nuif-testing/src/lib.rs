@@ -465,15 +465,12 @@ pub fn static_font_package_fixture() -> NuifPackage {
             portability: AssetPortability::Portable,
             kind: AssetKind::Font(FontAsset {
                 face_index: 0,
+                decoder_profile: OPENTYPE_STATIC_PROFILE.to_owned(),
                 names: inspection.names,
                 axes: BTreeMap::new(),
                 features: BTreeMap::new(),
                 coverage: inspection.coverage,
                 policy_evidence: BTreeMap::from([
-                    (
-                        "font.decoder_profile".to_owned(),
-                        OPENTYPE_STATIC_PROFILE.to_owned(),
-                    ),
                     (
                         "opentype.fs_type".to_owned(),
                         format!("0x{:04x}", inspection.fs_type),

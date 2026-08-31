@@ -779,8 +779,7 @@ fn policy_trials(inspection: &nuif_font::FontInspection, bytes: &[u8]) -> Vec<Va
                     .insert("opentype.fs_type".to_owned(), "0x0004".to_owned());
             }
             "decoder" => {
-                font.policy_evidence
-                    .insert("font.decoder_profile".to_owned(), "other".to_owned());
+                "other".clone_into(&mut font.decoder_profile);
             }
             "coverage" => {
                 font.coverage.pop();
@@ -862,15 +861,12 @@ fn font_asset(
         portability: AssetPortability::Portable,
         kind: AssetKind::Font(FontAsset {
             face_index: 0,
+            decoder_profile: OPENTYPE_STATIC_PROFILE.to_owned(),
             names: inspection.names.clone(),
             axes: BTreeMap::new(),
             features: BTreeMap::new(),
             coverage: inspection.coverage.clone(),
             policy_evidence: BTreeMap::from([
-                (
-                    "font.decoder_profile".to_owned(),
-                    OPENTYPE_STATIC_PROFILE.to_owned(),
-                ),
                 (
                     "opentype.fs_type".to_owned(),
                     format!("0x{:04x}", inspection.fs_type),
