@@ -2114,14 +2114,24 @@ fn gate_mcp() -> Result<(), String> {
         "variable-font-interior",
         path(variable_font_package)?,
     ])?;
+    run_mcp_smoke(&server, &cli, fixture, variable_font_package, report)
+}
+
+fn run_mcp_smoke(
+    server: &Path,
+    cli: &Path,
+    fixture: &Path,
+    variable_font_package: &Path,
+    report: &Path,
+) -> Result<(), String> {
     command(
-        "python3",
+        if cfg!(windows) { "python" } else { "python3" },
         &[
             "tools/mcp/smoke.py",
             "--server",
-            path(&server)?,
+            path(server)?,
             "--cli",
-            path(&cli)?,
+            path(cli)?,
             "--fixture",
             path(fixture)?,
             "--variable-font-package",
@@ -2375,29 +2385,19 @@ fn mcp_package() -> Result<(), String> {
         ));
     }
     let fixture = Path::new("target/mcp-smoke-input.nuif.json");
+    let variable_font_package = Path::new("target/mcp-variable-font.nuif");
     let report = Path::new("target/mcp-package-conformance-report.json");
     let cli = Path::new("target")
         .join("debug")
         .join(format!("nuif{executable_suffix}"));
-    command(
-        if cfg!(windows) { "python" } else { "python3" },
-        &[
-            "tools/mcp/smoke.py",
-            "--server",
-            path(&source_binary)?,
-            "--cli",
-            path(&cli)?,
-            "--fixture",
-            path(fixture)?,
-            "--report",
-            path(report)?,
-        ],
-    )?;
+    run_mcp_smoke(&source_binary, &cli, fixture, variable_font_package, report)?;
     let report_json = read_json(report)?;
     if report_json["status"] != "passed"
         || report_json["api_profile"] != "nuif-mcp-tools-0"
         || report_json["protocol_version"] != "2026-07-28"
         || report_json["authorities"] != serde_json::json!([])
+        || report_json["cross_surface"]["variable_font"]["matches_cli"] != true
+        || report_json["cross_surface"]["variable_font"]["unauthorized_rejected"] != true
     {
         return Err("release MCP binary failed its declared profile".to_owned());
     }
