@@ -111,13 +111,23 @@
     },
     {
       "id": "figma",
-      "surface": "REST document JSON and writable plugin API",
-      "status": "external_blocked",
+      "surface": "normalized Plugin API snapshots and mutation plans; writable Plugin API host",
+      "status": "integrated",
       "research": "figma",
-      "directions": [],
-      "profiles": [],
-      "next_profile": "the bounded mapping and live-host fixtures in adapters/figma/PROFILE-DRAFT.md",
-      "boundary": "The public REST surface is authenticated and read-oriented; writes require plugin execution, credentials, scopes, plan access and rate limits."
+      "directions": [
+        "import",
+        "export"
+      ],
+      "profiles": [
+        {
+          "name": "nuif-figma-plugin-snapshot-0",
+          "crate": "crates/nuif-figma",
+          "profile": "adapters/figma/SNAPSHOT-PROFILE.md",
+          "gate": "gate-figma"
+        }
+      ],
+      "next_profile": "the compiled no-network shell and live-host fixtures in adapters/figma/PROFILE-DRAFT.md",
+      "boundary": "The executable claim covers normalized pure mapping only; writes, undo, cancellation, page loading and identity persistence still require a user-run Figma plug-in and named live-host evidence."
     },
     {
       "id": "adobe-uxp",

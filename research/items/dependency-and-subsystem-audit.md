@@ -75,7 +75,7 @@ duplicating a hex adapter across the report-producing crates.
   `rustybuzz`, metal-rs and rust-block are absent from the active graph. The
   complete check is a CI and release gate with no advisory exception.
 - The version trial ran all workspace unit and documentation tests, the release
-  hostile-input allocation profile, text and render goldens, all seven executable
+  hostile-input allocation profile, text and render goldens, all eight executable
   adapter profiles, and workspace Clippy with warnings denied on rustc 1.98.0.
   The three accepted updates passed; SHA-2 0.11 failed at compile time before
   runtime evidence and was reverted (2026-08-30).

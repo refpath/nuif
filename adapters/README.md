@@ -37,11 +37,18 @@ same 21 semantic correspondences through the shared scalar planner, rejects
 executable template constructs and checks every synchronized source against
 the exact official Svelte compiler as a foreign oracle.
 
-The remaining researched or externally bounded targets are Figma, Adobe UXP,
-Flutter, SwiftUI and Jetpack Compose. Figma and Adobe now have bounded draft
-host profiles and a serializable host-object correspondence report, but no live
-plug-in claim. Broader HTML/CSS, SVG and DTCG profiles remain
-separate future work beyond the seven executable profiles. Each adapter must
+The [`nuif-figma-plugin-snapshot-0`](figma/SNAPSHOT-PROFILE.md) profile now
+implements the credential-free pure mapping between normalized Plugin API
+objects, canonical NUIF and a host mutation-plan tree. It covers a deliberately
+narrow visible/opaque fixed-size subset, repairs portable identity
+deterministically and reports every declared Figma-only property. It is not a
+compiled plug-in or live Figma claim.
+
+The remaining researched or externally bounded targets are Adobe UXP,
+Flutter, SwiftUI and Jetpack Compose. Figma and Adobe retain bounded live-host
+draft profiles and a serializable host-object correspondence report, but no
+live plug-in claim. Broader HTML/CSS, SVG and DTCG profiles remain
+separate future work beyond the eight executable profiles. Each adapter must
 emit structured fidelity diagnostics and record provenance/correspondence
 sufficient for later synchronization and minimal source patches where feasible.
 

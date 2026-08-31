@@ -1,6 +1,6 @@
 # Test-harness architecture
 
-Status: profile-0 baseline, deterministic `nuif-package-0`, narrow cross-decoder `nuif-png-rgba8-0`, Gate C browser/Taffy, Gate D text/render, Gate E complete editor authoring, bounded and full-v0 Gate F HTML/CSS synchronization, SVG/DTCG/Penpot/React/Svelte adapter gates, `nuif-wasm-api-0`, Gate G independent v0 reproduction, Gate H property-register and existing-tree convergence, and a bounded five-target sanitizer fuzz suite are implemented. Bounded browser/screenshot capture and reconstruction contracts plus the pinned local live-Chromium segment have executable evidence; their portable cross-provider accuracy corpus is not yet a release gate. Perceptual reconstruction comparison, concurrent entity creation and broader foreign-runtime trials remain planned. This document specifies how round-trip trials run unattended, fail reproducibly, minimize themselves and report in machine-readable form. Evidence is cited by research record identifier.
+Status: profile-0 baseline, deterministic `nuif-package-0`, narrow cross-decoder `nuif-png-rgba8-0`, Gate C browser/Taffy, Gate D text/render, Gate E complete editor authoring, bounded and full-v0 Gate F HTML/CSS synchronization, SVG/DTCG/Penpot/React/Svelte retentive adapter gates, the pure Figma snapshot mapping gate, `nuif-wasm-api-0`, Gate G independent v0 reproduction, Gate H property-register and existing-tree convergence, and a bounded five-target sanitizer fuzz suite are implemented. Bounded browser/screenshot capture and reconstruction contracts plus the pinned local live-Chromium segment have executable evidence; their portable cross-provider accuracy corpus is not yet a release gate. Perceptual reconstruction comparison, concurrent entity creation and broader foreign-runtime trials remain planned. This document specifies how round-trip trials run unattended, fail reproducibly, minimize themselves and report in machine-readable form. Evidence is cited by research record identifier.
 
 ## Goals
 
@@ -229,6 +229,15 @@ CLI output without warnings. Tree-sitter owns retained byte ranges; the
 official compiler remains a separate semantic oracle. Runtime rendering,
 component CSS and executable template semantics are explicit non-claims in
 `adapters/svelte/PROFILE.md`.
+
+The Figma pure-mapping experiment writes
+`target/figma-snapshot-report.json`. `cargo xtask gate-figma` repeats the
+normalized snapshot bytes, maps the exact visible/opaque/fixed-size subset in
+both directions through the public CLI, records deterministic repair for
+portable identity, reports hidden/transparent/effect/variable properties and
+rejects duplicate host IDs plus the byte limit plus one. It does not load a
+page, create a node, mutate a host document or test undo inside Figma; those
+remain live-host requirements in `adapters/figma/PROFILE-DRAFT.md`.
 
 The WebAssembly cross-surface experiment writes
 `target/wasm-conformance-report.json` and generates Node and direct-browser

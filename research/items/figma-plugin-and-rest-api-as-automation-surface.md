@@ -35,8 +35,8 @@ links:
   spec: [spec/12-cli-api-and-automation.md, spec/07-extensions-and-dialects.md]
   adr: [adrs/0008-vendor-host-adapters.md]
   rfc: [rfcs/0004-headless-qa-contract.md, rfcs/0002-extension-preservation.md]
-  code: [apps/editor/ARCHITECTURE.md, apps/editor/QA.md, adapters/README.md, adapters/figma/PROFILE-DRAFT.md, crates/nuif-adapter/src/lib.rs]
-  experiments: []
+  code: [apps/editor/ARCHITECTURE.md, apps/editor/QA.md, adapters/README.md, adapters/figma/PROFILE-DRAFT.md, adapters/figma/SNAPSHOT-PROFILE.md, crates/nuif-adapter/src/lib.rs, crates/nuif-figma/src/lib.rs]
+  experiments: [nuif:experiment:figma-plugin-snapshot-mapping]
 ---
 
 # Summary
@@ -92,6 +92,21 @@ Retrieval date for all locators: 2026-08-30.
 - `figma.on` events: selectionchange, currentpagechange, documentchange, close, run, drop, timer events, stylechange, textreview. `documentchange` requires `"documentAccess": "dynamic-page"` in the manifest and a prior `figma.loadAllPagesAsync()`; Figma "will not call the 'documentchange' callback synchronously and will instead batch the updates". https://developers.figma.com/docs/plugins/api/properties/figma-on/.
 - `exportAsync` overloads: `(settings?: ExportSettings): Promise<Uint8Array>` for PNG/JPG/PDF/SVG bytes; `(ExportSettingsSVGString): Promise<string>`; `(ExportSettingsREST): Promise<Object>` returning `JSON_REST_V1`, the REST-compatible node JSON; MP4/GIF/WEBM for animated top-level frames; default PNG at 1x. https://developers.figma.com/docs/plugins/api/properties/nodes-exportasync/.
 - `figma.skipInvisibleInstanceChildren: boolean` — default `true` in Dev Mode, `false` in Figma and FigJam; when enabled, `children`, `findAll`, `findOne`, `findAllWithCriteria` skip invisible instance descendants and `getNodeByIdAsync` returns null for them; `findAll`/`findOne` become "up to several times faster" and `findAllWithCriteria` "up to hundreds of times faster in large documents". https://developers.figma.com/docs/plugins/api/properties/figma-skipinvisibleinstancechildren/.
+- `layoutMode` currently admits `NONE`, `HORIZONTAL`, `VERTICAL` and `GRID`.
+  Changing it can move children and resize the frame; the documented padding,
+  spacing and axis-alignment properties apply to HORIZONTAL or VERTICAL modes.
+  A bounded mapper therefore cannot toggle layout merely to inspect it, and
+  GRID needs a separate profile. Locator: `layoutMode`, retrieved 2026-08-31:
+  https://developers.figma.com/docs/plugins/api/properties/nodes-layoutmode/.
+- `TextNode` exposes `characters`, `fontName`, `fontSize` and `lineHeight`, each
+  of the style properties may be `figma.mixed`, and writes that affect rendered
+  text require the font to be loaded. The API exposes a family/style identity,
+  not the immutable font-byte SHA-256 required by NUIF. Exact text export must
+  therefore carry previously verified NUIF font metadata or report the font as
+  unsupported. Locators: `TextNode` and *Working with Text*, retrieved
+  2026-08-31:
+  https://developers.figma.com/docs/plugins/api/TextNode/ and
+  https://developers.figma.com/docs/plugins/working-with-text/.
 - Variables REST: `GET .../variables/local` and `GET .../variables/published` (scope `file_variables:read`), `POST .../variables` (scope `file_variables:write`, edit permission, 4 MB body, up to 5,000 variables per collection, 40 modes per collection); all require an Enterprise organisation. https://developers.figma.com/docs/rest-api/variables-endpoints/.
 - REST authentication is by personal access token or OAuth2; base URL `https://api.figma.com`. https://developers.figma.com/docs/rest-api/.
 - MCP server: remote (Figma-hosted) or desktop-app server; agents can read variables, components, layout and design context, generate code, and "create and modify native Figma content directly"; only clients in the Figma MCP Catalog can connect. https://developers.figma.com/docs/figma-mcp-server/.
@@ -119,6 +134,11 @@ Call surface relevant to a programmable editor, grouped by the QA capabilities i
 9. Delivery boundary: manifest API version and plug-in identifier are host
    contracts. Updates are global, so a NUIF bridge needs independent semantic
    versioning, fixture gates and an explicit rollback release.
+10. Pure mapping boundary: `nuif-figma-plugin-snapshot-0` now maps a normalized
+    one-frame subset in both directions and runs through the CLI. It requires
+    visible, fully opaque, fixed-size nodes, packed row/column auto layout and
+    exact pinned-font metadata. This is executable mapping evidence, not proof
+    of page loading, object creation, undo, messaging or persistence in Figma.
 
 ## NUIF relevance
 
@@ -137,6 +157,9 @@ Call surface relevant to a programmable editor, grouped by the QA capabilities i
   per confirmed import. Store portable identity in a shared `nuif` namespace,
   while treating host node IDs and duplicate detection as the authoritative
   correspondence evidence.
+- Normalize host objects into a bounded, serializable snapshot before invoking
+  the core. This lets credential-free CI test mapping, identity repair and loss
+  reports while leaving the thin host shell and live certification separate.
 
 **Reject**
 - Editor-bound plugin execution with no headless mode; single-plugin-at-a-time and user-initiated constraints; Enterprise-gated variables API; MCP access restricted to a client catalogue; comments and dev-resources write endpoints; FigJam/Slides/Buzz editor types. Reason: the NUIF test editor must be scriptable headlessly and without plan or client gating.

@@ -2453,6 +2453,7 @@ dependencies = [
  "nuif-codec",
  "nuif-core",
  "nuif-dtcg",
+ "nuif-figma",
  "nuif-html",
  "nuif-layout",
  "nuif-package",
@@ -2569,6 +2570,20 @@ dependencies = [
  "sha2",
  "thiserror 2.0.20",
  "tracing",
+]
+
+[[package]]
+name = "nuif-figma"
+version = "0.0.1"
+dependencies = [
+ "nuif-adapter",
+ "nuif-codec",
+ "nuif-core",
+ "nuif-text",
+ "serde",
+ "serde_json",
+ "sha2",
+ "thiserror 2.0.20",
 ]
 
 [[package]]

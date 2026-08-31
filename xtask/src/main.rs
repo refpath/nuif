@@ -38,6 +38,7 @@ const ALL_STEPS: &[Step] = &[
     ("gate-penpot", gate_penpot),
     ("gate-react", gate_react),
     ("gate-svelte", gate_svelte),
+    ("gate-figma", gate_figma),
     ("gate-g", gate_g),
     ("gate-h", gate_h),
     ("gate-i-package", gate_i_package),
@@ -101,6 +102,7 @@ const VERIFICATION_ARTIFACTS: &[&str] = &[
     "target/svelte-sync-cli-report.json",
     "target/svelte-sync-cli-output.svelte",
     "target/svelte-compiler-oracle-report.json",
+    "target/figma-snapshot-report.json",
     "target/gate-g-report.json",
     "target/gate-g-independent",
     "target/collaboration-report.json",
@@ -158,6 +160,7 @@ fn run() -> Result<(), String> {
         Some("gate-penpot") => gate_penpot(),
         Some("gate-react") => gate_react(),
         Some("gate-svelte") => gate_svelte(),
+        Some("gate-figma") => gate_figma(),
         Some("gate-wasm") => gate_wasm(),
         Some("gate-mcp") => gate_mcp(),
         Some("wasm-install") => wasm_install(),
@@ -200,7 +203,7 @@ fn run() -> Result<(), String> {
         Some("manifest") => standalone_manifest(),
         Some("all") => all(),
         _ => Err(
-            "usage: cargo xtask <research|workflow-audit|adapter-audit|dependency-audit|docs-check|docs-build|docs-paper|docs-serve|docs-setup|verify|trial [seed iterations snapshot-interval report-path]|gate-b|gate-c|gate-d|gate-d-text|gate-d-render|gate-f|gate-f-v0|gate-svg|gate-dtcg|gate-penpot|gate-react|gate-svelte|gate-wasm|gate-mcp|gate-g|gate-h|gate-i-package|gate-i-image|gate-i-font|gate-j-live|capture-baselines|browser-install|wasm-install|wasm-package|mcp-package|cli-package|hostile-inputs|reduction-profile|editor-hostile-inputs|fuzz-smoke|performance|editor-trial|editor-gui-trial|editor-install-trial|editor-package|editor-launch|editor-install|editor-doctor|editor-rollback|editor-uninstall|editor-update|release-check <tag>|manifest|all>"
+            "usage: cargo xtask <research|workflow-audit|adapter-audit|dependency-audit|docs-check|docs-build|docs-paper|docs-serve|docs-setup|verify|trial [seed iterations snapshot-interval report-path]|gate-b|gate-c|gate-d|gate-d-text|gate-d-render|gate-f|gate-f-v0|gate-svg|gate-dtcg|gate-penpot|gate-react|gate-svelte|gate-figma|gate-wasm|gate-mcp|gate-g|gate-h|gate-i-package|gate-i-image|gate-i-font|gate-j-live|capture-baselines|browser-install|wasm-install|wasm-package|mcp-package|cli-package|hostile-inputs|reduction-profile|editor-hostile-inputs|fuzz-smoke|performance|editor-trial|editor-gui-trial|editor-install-trial|editor-package|editor-launch|editor-install|editor-doctor|editor-rollback|editor-uninstall|editor-update|release-check <tag>|manifest|all>"
                 .to_owned(),
         ),
     }
@@ -1590,6 +1593,75 @@ fn gate_svelte() -> Result<(), String> {
             "target/svelte-sync-cli-output.svelte",
         ],
     )
+}
+
+fn gate_figma() -> Result<(), String> {
+    cargo(&[
+        "run",
+        "--release",
+        "--locked",
+        "-p",
+        "nuif-figma",
+        "--bin",
+        "figma-snapshot-profile",
+        "--",
+        "target/figma-snapshot-report.json",
+    ])?;
+    let directory = env::temp_dir().join(format!("nuif-figma-trial-{}", std::process::id()));
+    if directory.exists() {
+        return Err(format!(
+            "temporary path already exists: {}",
+            directory.display()
+        ));
+    }
+    fs::create_dir(&directory).map_err(|error| error.to_string())?;
+    let input = directory.join("input.nuif.json");
+    let plan = directory.join("plan.json");
+    let snapshot = directory.join("snapshot.json");
+    let imported = directory.join("imported.nuif.json");
+    let export_report = directory.join("export-report.json");
+    let import_report = directory.join("import-report.json");
+    nuif(&["fixture", "figma-profile", path(&input)?])?;
+    nuif(&[
+        "export",
+        path(&input)?,
+        "figma-plugin-snapshot-0",
+        path(&plan)?,
+        path(&export_report)?,
+    ])?;
+    let plan_json = read_json(&plan)?;
+    fs::write(
+        &snapshot,
+        serde_json::to_vec_pretty(&plan_json["snapshot"]).map_err(|error| error.to_string())?,
+    )
+    .map_err(|error| error.to_string())?;
+    nuif(&[
+        "import",
+        "figma-plugin-snapshot-0",
+        path(&snapshot)?,
+        path(&imported)?,
+        path(&import_report)?,
+    ])?;
+    if fs::read(&input).map_err(|error| error.to_string())?
+        != fs::read(&imported).map_err(|error| error.to_string())?
+    {
+        return Err("Figma CLI mapping did not reproduce canonical NUIF bytes".to_owned());
+    }
+    let export_report_json = read_json(&export_report)?;
+    let import_report_json = read_json(&import_report)?;
+    if export_report_json["direction"] != "import"
+        || import_report_json["direction"] != "export"
+        || export_report_json["profile"] != "nuif-figma-plugin-snapshot-0"
+        || import_report_json["profile"] != "nuif-figma-plugin-snapshot-0"
+    {
+        return Err("Figma CLI reports do not declare both mapping directions".to_owned());
+    }
+    fs::remove_dir_all(&directory).map_err(|error| {
+        format!(
+            "trial passed but temporary directory {} could not be removed: {error}",
+            directory.display()
+        )
+    })
 }
 
 fn gate_svelte_cli_bridge() -> Result<(), String> {

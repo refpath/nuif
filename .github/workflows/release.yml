@@ -68,6 +68,7 @@ jobs:
             target/react-sync-report.json
             target/svelte-sync-report.json
             target/svelte-compiler-oracle-report.json
+            target/figma-snapshot-report.json
             target/wasm-conformance-report.json
             target/mcp-conformance-report.json
             target/editor-gui-trial/report.json

@@ -21,6 +21,7 @@ members = [
   "crates/nuif-html",
   "crates/nuif-svg",
   "crates/nuif-penpot",
+  "crates/nuif-figma",
   "crates/nuif-react",
   "crates/nuif-svelte",
   "crates/nuif-wasm",

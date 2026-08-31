@@ -1,6 +1,6 @@
 # Conformance
 
-The profile-0 baseline is executable through the `nuif-conformance` package and xtask gates. It covers structural validation, canonicalization, parser/serializer round trips, unknown-extension preservation, operations/replay/inversion, responsive stack/flex layout, bounded explicit fixed/`fr` Grid tracks and placement, pinned shaping and hard-line text, deterministic solid rectangle/ellipse and bounded RGBA8 image CPU rendering, measured codec/model/resource limits, pinned browser/Taffy differential layout, editor-driver parity, seven bounded retentive adapter profiles and machine reports. Broader CSS Grid, paths/instances, broader image and paint profiles, broader adapters and perceptual tiers remain outside the implemented profile.
+The profile-0 baseline is executable through the `nuif-conformance` package and xtask gates. It covers structural validation, canonicalization, parser/serializer round trips, unknown-extension preservation, operations/replay/inversion, responsive stack/flex layout, bounded explicit fixed/`fr` Grid tracks and placement, pinned shaping and hard-line text, deterministic solid rectangle/ellipse and bounded RGBA8 image CPU rendering, measured codec/model/resource limits, pinned browser/Taffy differential layout, editor-driver parity, seven bounded retentive adapter profiles, one pure Figma snapshot/mutation-plan mapping profile and machine reports. Broader CSS Grid, paths/instances, broader image and paint profiles, live vendor adapters and perceptual tiers remain outside the implemented profile.
 
 Install the locked Chrome for Testing build once with `cargo xtask browser-install`, then run `cargo xtask gate-c`. The report at `target/layout-differential-report.json` contains the raw NUIF, Taffy and browser boxes, engine versions, source revision, fixture-local calibration and every classified divergence. A schema-loss classification may describe input outside a declared profile, but cannot excuse a mismatch inside the bounded Grid profile; unclassified or evaluator differences fail the command.
 
@@ -52,6 +52,12 @@ bridge, and then parses and compiles both synchronized outputs with exact
 official `svelte/compiler` 5.57.0. Reports and components are written under
 `target/svelte-*`; scripts, blocks, directives, components, component CSS and
 runtime rendering equivalence remain outside the profile.
+
+Run `cargo xtask gate-figma` for the credential-free
+`nuif-figma-plugin-snapshot-0` mapping. It repeats normalized snapshot bytes,
+round-trips the declared subset through the CLI, repairs portable identity and
+exercises unsupported-property and hostile-input paths. It does not run inside
+Figma or certify host mutation behavior.
 
 Run `cargo xtask gate-wasm` for `nuif-wasm-api-0`. It compiles the same core
 for `wasm32-unknown-unknown`, generates Node and direct-browser JavaScript plus

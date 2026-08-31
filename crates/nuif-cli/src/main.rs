@@ -13,6 +13,10 @@ use nuif_dtcg::{
     AdapterError as DtcgAdapterError, export_document as export_dtcg_document,
     import_source as import_dtcg_source, synchronize as synchronize_dtcg,
 };
+use nuif_figma::{
+    AdapterError as FigmaAdapterError, import_snapshot as import_figma_snapshot,
+    plan_import as plan_figma_import,
+};
 use nuif_html::{
     AdapterError as HtmlAdapterError, export_document as export_html_document,
     export_v0_document as export_html_v0_document, import_source as import_html_source,
@@ -444,6 +448,14 @@ fn import(args: &[String]) -> Result<(), CliError> {
     }) {
         return import_svelte(args);
     }
+    if args.first().is_some_and(|argument| {
+        matches!(
+            argument.as_str(),
+            "figma-plugin-snapshot-0" | "nuif-figma-plugin-snapshot-0"
+        )
+    }) {
+        return import_figma(args);
+    }
     let input = required(args, 0, "input document")?;
     let output = args.get(1).map_or("-", String::as_str);
     let document = load_document(input)?;
@@ -536,6 +548,19 @@ fn export(args: &[String]) -> Result<(), CliError> {
             };
             write_output(output, exported.source.as_bytes())?;
             emit_adapter_report(&exported.report, report_path)
+        }
+        "figma-plugin-snapshot-0" | "nuif-figma-plugin-snapshot-0" => {
+            let report_path = args.get(3).map(String::as_str);
+            let plan = match plan_figma_import(&document, "cli-review-plan") {
+                Ok(plan) => plan,
+                Err(error) => return figma_adapter_failure(&error, report_path),
+            };
+            write_output(
+                output,
+                &serde_json::to_vec_pretty(&plan)
+                    .map_err(|error| CliError::new(1, "JSON_FAILED", error.to_string()))?,
+            )?;
+            emit_adapter_report(&plan.report, report_path)
         }
         _ => Err(CliError::new(
             3,
@@ -632,6 +657,18 @@ fn import_svelte(args: &[String]) -> Result<(), CliError> {
     };
     write_document(output, &imported.document)?;
     emit_adapter_report(&imported.retentive.report, report_path)
+}
+
+fn import_figma(args: &[String]) -> Result<(), CliError> {
+    let input = required(args, 1, "normalized Figma plug-in snapshot")?;
+    let output = args.get(2).map_or("-", String::as_str);
+    let report_path = args.get(3).map(String::as_str);
+    let imported = match import_figma_snapshot(&read_input(input)?) {
+        Ok(imported) => imported,
+        Err(error) => return figma_adapter_failure(&error, report_path),
+    };
+    write_document(output, &imported.document)?;
+    emit_adapter_report(&imported.report, report_path)
 }
 
 fn sync(args: &[String]) -> Result<(), CliError> {
@@ -845,6 +882,16 @@ fn svelte_adapter_failure<T>(
     };
     if let Some(report) = report {
         emit_adapter_report(report, report_path)?;
+    }
+    Err(CliError::new(1, "ADAPTER_FAILED", error.to_string()))
+}
+
+fn figma_adapter_failure<T>(
+    error: &FigmaAdapterError,
+    report_path: Option<&str>,
+) -> Result<T, CliError> {
+    if let FigmaAdapterError::UnsupportedProfile { report, .. } = error {
+        emit_adapter_report(report.as_ref(), report_path)?;
     }
     Err(CliError::new(1, "ADAPTER_FAILED", error.to_string()))
 }
@@ -1112,6 +1159,7 @@ fn fixture(args: &[String]) -> Result<(), CliError> {
         "penpot-profile" => nuif_penpot::profile_fixture(),
         "react-profile" => nuif_react::profile_fixture(),
         "svelte-profile" => nuif_svelte::profile_fixture(),
+        "figma-profile" => nuif_figma::profile_fixture(),
         _ => {
             return Err(CliError::new(
                 2,
@@ -1129,7 +1177,7 @@ fn print_capabilities() -> Result<(), CliError> {
         "protocol": "0.0.1",
         "status": "executable",
         "commands": COMMANDS,
-        "adapters": ["html-css-0", "html-css-v0", "svg-0", "dtcg-scalar-0", "penpot-v3-0", "react-jsx-0", "svelte-static-0"],
+        "adapters": ["html-css-0", "html-css-v0", "svg-0", "dtcg-scalar-0", "penpot-v3-0", "react-jsx-0", "svelte-static-0", "figma-plugin-snapshot-0"],
         "containers": ["nuif-package-0", "nuif-cbor-0", "nuif-text-0"],
         "image_profiles": ["nuif-png-rgba8-0", "nuif-png-basic-rgba8-1"],
         "capture_profiles": ["nuif-browser-capture-0", "nuif-screenshot-baseline-0"],

@@ -1,7 +1,8 @@
 # Draft Figma Plugin API profile 0
 
-Status: researched mapping specification; no executable Figma plug-in or live
-host conformance claim.
+Status: pure normalized mapping is executable as
+`nuif-figma-plugin-snapshot-0`; no compiled Figma plug-in or live host
+conformance claim.
 
 Profile identifier: `nuif-figma-plugin-0`.
 
@@ -14,12 +15,19 @@ Primary evidence:
 - Figma Design through Plugin API `1.0.0`; `editorType: ["figma"]`.
 - One explicitly loaded `PageNode` per operation.
 - Import and export of frames, groups, rectangles, ellipses and literal text.
-- Solid sRGB fills; visibility; opacity; ordered containment; freeform
+- Solid sRGB fills; ordered containment; freeform
   position; fixed width/height; frame auto-layout row/column, padding, gap and
   primary/counter alignment when exactly representable.
 - Component/instance, variable, grid-layout, vector-network, effect,
   interaction and typography fields outside this list receive explicit
   fidelity entries and are not silently flattened.
+
+The executable snapshot subset is narrower: nodes must be visible with node
+opacity `1`, auto layout must be packed with fixed dimensions, and text must
+carry the exact pinned font identity. General visibility and node opacity are
+not first-class fields in the current NUIF model. GRID auto layout, mixed text,
+fill/hug sizing and SPACE_BETWEEN are explicit exclusions rather than guessed
+lowerings. See `SNAPSHOT-PROFILE.md`.
 
 The `.fig` encoding and undocumented multiplayer protocol are excluded.
 
@@ -82,5 +90,6 @@ candidate profile limits pending live Figma timing/allocation calibration.
 - resource-limit and user-cancellation cases;
 - undo returns the exact pre-import host tree.
 
-Publication remains blocked until the mapping, checked-in snapshots, compiled
-plug-in bundle and live Figma product/version trial all exist.
+The pure mapping, deterministic fixture and CLI bridge are implemented.
+Publication as a Figma integration remains blocked until the compiled plug-in
+bundle and live Figma product/version trial exist.

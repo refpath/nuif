@@ -4,8 +4,8 @@ The adapter program separates an ecosystem's public interchange or source
 surface from the subset for which NUIF can provide executable round-trip laws.
 Research coverage does not imply an implemented conformance profile.
 
-The inventory contains eleven targets and seven executable profiles across
-six target families. The remaining targets have no executable direction in
+The inventory contains eleven targets and eight executable profiles across
+seven target families. The remaining targets have no executable direction in
 `adapters/index.json`.
 
 This table is explanatory. `adapters/index.json` is the machine-audited target
@@ -20,7 +20,7 @@ gate references and writes `target/adapter-coverage-report.json`.
 | React | JSX source and React DOM properties | `nuif-react-jsx-0` | TSX or CSS-class support only under a separate grammar/runtime matrix | Components, hooks, spreads, control flow and runtime expressions require execution |
 | Svelte | `.svelte` source and compiler AST | `nuif-svelte-static-0` | Component CSS only after selector/cascade/scope-hash rules | Runes, scripts, blocks, directives, preprocessors, component CSS and dynamic components require execution or another profile |
 | Penpot | `.penpot` v3 ZIP and JSON package | `nuif-penpot-v3-0` | Add compact pages only after the opt-in representation stabilizes | Components, libraries, interactions, media, paths, layout and compact pages are excluded |
-| Figma | REST document JSON plus writable plugin API | Research complete; host report contract implemented; no live plug-in | One-page mapping in `adapters/figma/PROFILE-DRAFT.md` | `.fig` is not a public contract; live writes require user-run plug-in execution |
+| Figma | Normalized Plugin API snapshot/plan plus writable host | `nuif-figma-plugin-snapshot-0` pure mapping; no live plug-in | Compiled no-network shell and live fixtures in `adapters/figma/PROFILE-DRAFT.md` | `.fig` is not a public contract; executable evidence does not cover host writes, undo or persistence |
 | Adobe UXP | Host-specific document APIs and `.ccx` packages | Research complete; host report contract implemented; no live package | InDesign page and basic page-item subset in `adapters/adobe/PROFILE-DRAFT.md` | UXP object models and mutation rules are product-specific; Illustrator is not in the retrieved UXP host contract |
 | SwiftUI | Swift source and proposal–response layout runtime | Research complete; no implementation | Generated stack/text/shape subset with a pinned Apple toolchain | Arbitrary Swift and custom layouts are executable programs |
 | Jetpack Compose | Kotlin source and constraint layout runtime | Research complete; no implementation | Generated row/column/text/shape subset with a pinned Android toolchain | Arbitrary Kotlin, state, modifier chains and subcomposition are executable programs |
@@ -32,10 +32,10 @@ The SVG basic-shape, DTCG scalar-token and Penpot v3 profiles are implemented
 because their bounded subsets map directly to the current model and run without
 credentials or platform SDKs. Full DTCG coverage requires a token-model RFC.
 Penpot's package path enforces ZIP resource limits and unknown-member retention
-through one shared test contract. Figma and Adobe have
-bounded draft profiles and the shared `HostAdapterReport` evidence envelope;
-they remain non-integrated until a compiled plug-in and named live-host trial
-exist.
+through one shared test contract. Figma's normalized snapshot and mutation-plan
+mapping now has exact Rust/CLI trials, while its host execution remains
+uncertified. Adobe has a bounded draft and the shared `HostAdapterReport`
+envelope but no executable mapping yet.
 
 React and Svelte now use the common byte-span correspondence contract for one
 marked static subtree. Svelte additionally compiles direct and CLI output with

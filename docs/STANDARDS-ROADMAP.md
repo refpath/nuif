@@ -54,7 +54,8 @@ An implementer draft requires all of the following evidence:
   by qualified counsel.
 
 The present repository has an independent Python profile-zero evaluator and
-seven executable adapter profiles. These results cover bounded subsets. They do
+eight executable adapter profiles, including a pure normalized Figma mapping
+that explicitly excludes live host behavior. These results cover bounded subsets. They do
 not constitute two independent implementations of the complete draft.
 
 RFCs 0010 and 0011 are proposed research inputs. Their package, resource,
@@ -111,8 +112,8 @@ binding remain the semantic test surfaces. Vendor-private state is either
 represented, preserved as declared opaque data or reported through structured
 fidelity diagnostics.
 
-The current Figma and Adobe records describe feasible host boundaries but do
-not include live vendor-runtime trials. A vendor adoption claim therefore
+The current Figma pure mapping and Adobe research describe feasible host
+boundaries but do not include live vendor-runtime trials. A vendor adoption claim therefore
 requires a signed test fixture, host-version matrix, import/export report and
 maintainer outside the reference-core implementation. The integration boundary
 is specified in `docs/HOST-INTEGRATION.md` and ADR 0008.

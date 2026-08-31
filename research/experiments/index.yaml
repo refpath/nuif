@@ -578,6 +578,23 @@ experiments:
       - record and cap fresh-profile retries at three attempts per viewport and accept only the exact resource and font fixture
       - record explicit cross-origin local-font canvas video worklet source-span and runtime omissions
       - archive target/live-browser-capture-report.json from cargo xtask gate-j-live
+  - id: nuif:experiment:figma-plugin-snapshot-mapping
+    status: automated
+    evidence: [nuif:research:figma, nuif:research:figma-plugin-and-rest-api-as-automation-surface]
+    implementation: [crates/nuif-figma/src/lib.rs, crates/nuif-figma/src/bin/figma-snapshot-profile.rs, adapters/figma/SNAPSHOT-PROFILE.md, crates/nuif-cli/src/main.rs, xtask/src/main.rs]
+    oracle: roundtrip-and-metamorphic
+    acceptance:
+      - normalized snapshot and mutation-plan mapping reproduce exact canonical NUIF for the declared subset
+      - missing malformed and duplicate portable identities are repaired deterministically and reported
+      - every declared Figma-only property and unsupported appearance is explicit fidelity
+      - hostile structure and limit-plus-one inputs fail before returning a document or plan
+      - no result is described as live Figma host evidence
+    tests:
+      - repeat the exact snapshot bytes and canonical hash
+      - run both directions through the public CLI
+      - exercise hidden and partially transparent nodes effects and variable bindings
+      - reject duplicate host object identities and a 16 MiB plus one input
+      - write and archive target/figma-snapshot-report.json
   - id: nuif:experiment:screenshot-reconstruction-baseline
     status: active
     evidence: [nuif:research:design2code-real-world-benchmark, nuif:research:pix2struct-screenshot-parsing-pretraining, nuif:research:screenai-ui-annotation, nuif:research:omniparser-ui-grounding, nuif:research:ocr-text-detection-and-recognition, nuif:research:model-agnostic-screenshot-reconstruction-and-training]

@@ -86,7 +86,9 @@ an arbitrary host allocator.
 
 ## Figma path
 
-The first profile is `adapters/figma/PROFILE-DRAFT.md`.
+The executable pure-mapping profile is
+`adapters/figma/SNAPSHOT-PROFILE.md`; the live-host promotion contract remains
+`adapters/figma/PROFILE-DRAFT.md`.
 
 ```text
 Figma Plugin main thread
@@ -97,6 +99,14 @@ Figma Plugin main thread
          ├─ user selects or downloads .nuif/report files
          └─ parses/serializes the bounded profile
 ```
+
+`nuif-figma` implements the normalized JSON boundary between those two
+threads. It maps one visible, opaque, fixed-size frame subtree to canonical
+NUIF and produces a deterministic mutation-plan tree in the other direction.
+The release-mode and CLI gates cover exact round trips, identity repair,
+unsupported-property evidence and hostile bounds. They do not exercise
+`figma.create*`, font loading, page loading, undo or plug-in messaging; those
+remain live-host promotion evidence.
 
 The manifest targets only `figma`, requires dynamic page loading and declares
 no network domains. The plug-in loads the current page by default; a separate
