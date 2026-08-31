@@ -109,7 +109,6 @@ impl Failure {
 }
 
 /// Opaque document handle. Its fields are never part of the C contract.
-#[repr(C)]
 pub struct NuifFfiDocument {
     inner: NuifDocument,
 }

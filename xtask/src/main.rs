@@ -255,6 +255,7 @@ fn run() -> Result<(), String> {
         Some("mcp-package") => mcp_package(),
         Some("cli-package") => cli_package(),
         Some("ffi-package") => ffi_package(),
+        Some("ffi-header") => ffi_header(&args.collect::<Vec<_>>()),
         Some("conformance-kit") => conformance_kit(),
         Some("gate-g") => gate_g(),
         Some("gate-h") => gate_h(),
@@ -312,7 +313,7 @@ fn run() -> Result<(), String> {
         Some("manifest") => standalone_manifest(),
         Some("all") => all(),
         _ => Err(
-            "usage: cargo xtask <research|workflow-audit|adapter-audit|dependency-audit|diagnostic-audit|docs-check|docs-build|docs-paper|docs-serve|docs-setup|verify|trial [seed iterations snapshot-interval report-path]|gate-b|gate-c|gate-d|gate-d-text|gate-d-render|gate-f|gate-f-v0|gate-svg|gate-dtcg|gate-penpot|gate-react|gate-svelte|gate-figma|gate-canva|gate-behavior|gate-behavior-package|gate-web-behavior|gate-web-hosts|gate-wasm|gate-mcp|gate-ffi|gate-g|gate-h|gate-i-package|gate-i-image|gate-i-font|gate-i-font-metadata|gate-i-font-shaping|gate-i-font-metrics|gate-i-font-global-metrics|gate-i-font-security|gate-i-font-package|gate-i-font-corpus|gate-i-font-gvar-generated|gate-i-font-runtime|gate-i-font-surfaces|gate-i-resource-host-matrix <source-revision> <artifact-root>|gate-j-live|gate-accessibility|capture-baselines|reconstruction-provider-manifest|reconstruction-corpus-audit|reconstruction-evaluation|confidence-calibration|browser-install|wasm-install|wasm-package|mcp-package|cli-package|ffi-package|conformance-kit|hostile-inputs|reduction-profile|editor-hostile-inputs|fuzz-smoke|codec-benchmark|performance|editor-trial|editor-gui-trial|editor-install-trial|editor-package|editor-launch|editor-install|editor-doctor|editor-rollback|editor-uninstall|editor-update|release-check <tag>|manifest|all>"
+            "usage: cargo xtask <research|workflow-audit|adapter-audit|dependency-audit|diagnostic-audit|docs-check|docs-build|docs-paper|docs-serve|docs-setup|verify|trial [seed iterations snapshot-interval report-path]|gate-b|gate-c|gate-d|gate-d-text|gate-d-render|gate-f|gate-f-v0|gate-svg|gate-dtcg|gate-penpot|gate-react|gate-svelte|gate-figma|gate-canva|gate-behavior|gate-behavior-package|gate-web-behavior|gate-web-hosts|gate-wasm|gate-mcp|gate-ffi|gate-g|gate-h|gate-i-package|gate-i-image|gate-i-font|gate-i-font-metadata|gate-i-font-shaping|gate-i-font-metrics|gate-i-font-global-metrics|gate-i-font-security|gate-i-font-package|gate-i-font-corpus|gate-i-font-gvar-generated|gate-i-font-runtime|gate-i-font-surfaces|gate-i-resource-host-matrix <source-revision> <artifact-root>|gate-j-live|gate-accessibility|capture-baselines|reconstruction-provider-manifest|reconstruction-corpus-audit|reconstruction-evaluation|confidence-calibration|browser-install|wasm-install|wasm-package|mcp-package|cli-package|ffi-header [--check]|ffi-package|conformance-kit|hostile-inputs|reduction-profile|editor-hostile-inputs|fuzz-smoke|codec-benchmark|performance|editor-trial|editor-gui-trial|editor-install-trial|editor-package|editor-launch|editor-install|editor-doctor|editor-rollback|editor-uninstall|editor-update|release-check <tag>|manifest|all>"
                 .to_owned(),
         ),
     }
@@ -1717,12 +1718,41 @@ fn generate_variable_font_snapshot(package: &Path, snapshot: &Path) -> Result<()
     ])
 }
 
+fn ffi_header(arguments: &[String]) -> Result<(), String> {
+    let check = match arguments {
+        [] => false,
+        [argument] if argument == "--check" => true,
+        _ => return Err("usage: cargo xtask ffi-header [--check]".to_owned()),
+    };
+    let config = cbindgen::Config::from_file("bindings/cbindgen.toml")
+        .map_err(|error| format!("cannot load bindings/cbindgen.toml: {error}"))?;
+    let bindings = cbindgen::Builder::new()
+        .with_crate("crates/nuif-ffi")
+        .with_config(config)
+        .generate()
+        .map_err(|error| format!("cannot generate bindings/nuif_ffi.h: {error}"))?;
+    let mut generated = Vec::new();
+    bindings.write(&mut generated);
+    let header = Path::new("bindings/nuif_ffi.h");
+    if check {
+        let committed = fs::read(header).map_err(|error| error.to_string())?;
+        if committed == generated {
+            Ok(())
+        } else {
+            Err("bindings/nuif_ffi.h is stale; run cargo xtask ffi-header".to_owned())
+        }
+    } else {
+        fs::write(header, generated).map_err(|error| error.to_string())
+    }
+}
+
 fn gate_ffi() -> Result<(), String> {
     let variable_font_package = Path::new("target/ffi-variable-font.nuif");
     let variable_font_snapshot = Path::new("target/ffi-variable-font-snapshot");
     let expected_report = variable_font_snapshot.join("expected.report.json");
     let ffi_report = Path::new("target/ffi-variable-font-report.json");
     let sanitized_report = Path::new("target/ffi-variable-font-sanitized-report.json");
+    ffi_header(&["--check".to_owned()])?;
     generate_variable_font_snapshot(variable_font_package, variable_font_snapshot)?;
     cargo(&["test", "--locked", "-p", "nuif-ffi"])?;
     cargo(&["build", "--release", "--locked", "-p", "nuif-ffi"])?;
@@ -1770,6 +1800,12 @@ fn gate_ffi() -> Result<(), String> {
         "status": if passed { "passed" } else { "failed" },
         "profile": "nuif-ffi-0",
         "header": "bindings/nuif_ffi.h",
+        "header_generation": {
+            "tool": "cbindgen",
+            "version": cbindgen::VERSION,
+            "config": "bindings/cbindgen.toml",
+            "committed_header_current": true,
+        },
         "consumer": "tools/ffi/header-smoke.c",
         "cplusplus_consumer": "tools/ffi/header-smoke.cpp",
         "runtime_consumer": "tools/ffi/runtime-smoke.c",

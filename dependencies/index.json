@@ -10,6 +10,14 @@
       "evidence": ["research/items/live-chromium-cdp-capture.md", "research/items/dependency-and-subsystem-audit.md"]
     },
     {
+      "name": "cbindgen",
+      "role": "pinned generation and drift verification for the experimental C header",
+      "decision": "retain",
+      "alternatives": ["hand-maintained C declarations", "UniFFI", "a custom Rust source parser"],
+      "rationale": "cbindgen derives C-compatible types and function declarations from the reviewed Rust ABI while a small checked-in configuration owns profile constants and header policy; exact regeneration closes declaration drift without claiming ABI stability or introducing handwritten parser logic.",
+      "evidence": ["research/items/rust-sdk-and-foreign-language-bindings.md", "adrs/0011-sdk-and-foreign-bindings.md"]
+    },
+    {
       "name": "ciborium",
       "role": "deterministic CBOR value encoding and decoding",
       "decision": "retain",

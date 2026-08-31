@@ -7,6 +7,7 @@ repository.workspace = true
 publish = false
 
 [dependencies]
+cbindgen.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 serde-saphyr.workspace = true
