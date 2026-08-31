@@ -113,14 +113,16 @@ questions:
   - id: nuif:question:image-resource-profile
     topic: rendering
     question: Which PNG color, orientation, alpha, animation and sampling rules form the smallest independently reproducible image profile?
-    status: experiment-required
+    status: decided
+    decided_by: crates/nuif-media/PROFILE.md
     evidence: [nuif:research:png-image-preservation-and-decoding]
+    note: nuif-png-rgba8-0 is the strict baseline and nuif-png-basic-rgba8-1 is the separately named lossless-to-RGBA8 expansion; color-managed 16-bit interlaced and animated PNG remain separate future profiles.
   - id: nuif:question:font-portability-policy
     topic: text
     question: How should exact font bytes, embedding signals, explicit license evidence, links, substitution and unavailability interact across portable and private-authoring profiles?
     status: research
     evidence: [nuif:research:opentype-font-embedding-and-portability, nuif:research:ttf-parser, nuif:research:fontations, nuif:research:text-rendering-reproducibility]
-    note: The static single-face TrueType baseline and its package-level portable private linked substituted unavailable outcomes are automated; TTC CFF variable color bitmap WOFF2 and item-level substitution/unavailability fidelity remain open.
+    note: The static single-face TrueType baseline and its package-level portable private linked substituted unavailable outcomes plus item-level substitution and unavailability fidelity are automated; TTC CFF variable color bitmap WOFF2 subsetting and derived-instance policy remain open.
   - id: nuif:question:browser-capture-profile
     topic: adapters
     question: Which pinned browser context, settling policy, CDP observations and privacy exclusions are sufficient for a reproducible source-backed Web capture profile?

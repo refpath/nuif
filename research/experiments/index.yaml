@@ -80,6 +80,12 @@ experiments:
     evidence: [nuif:research:schema-codec-admission-and-benchmarking, nuif:research:encoding, nuif:research:unknown-schema-preservation-strategies]
     implementation: [crates/nuif-testing/src/bin/codec-benchmark.rs, xtask/src/main.rs, .github/workflows/ci.yml]
     oracle: measured-benchmark
+    continuation:
+      class: continuous-measurement
+      blocked_by:
+        - candidate codecs are inadmissible until a complete semantic and opaque-data mapping passes the existing preflight
+        - timing results require controlled hardware and are observations rather than a one-time format-completion gate
+      next_action: Admit and measure the next complete candidate mapping only when it preserves the same canonical and unknown-data laws.
     acceptance:
       - corpus seed hardware toolchain and warmup protocol are recorded
       - every candidate passes unknown-data and canonical fixpoint checks before timing
@@ -458,6 +464,12 @@ experiments:
     evidence: [nuif:research:vello-testing-and-cpu-reference, nuif:research:flip-perceptual-difference-metric, nuif:research:resvg-test-suite, nuif:research:gpu-rendering-nondeterminism]
     implementation: [crates/nuif-render/src/lib.rs]
     oracle: reference-and-measurement
+    continuation:
+      class: cross-platform-evidence
+      blocked_by:
+        - the exact CPU tier is automated but interactive GPU thresholds require retained distributions from every claimed backend and host class
+        - a Vello comparison cannot become normative until the selected backend revision is free of the reviewed Metal dependency risk and reproduces outside one machine
+      next_action: Add an informational Vello-to-CPU measurement only after the reviewed renderer dependency boundary is accepted, then collect the declared host matrix before setting thresholds.
     acceptance:
       - profile-0 integer-composited CPU fixtures are byte-repeatable in the CI matrix
       - shaped text and interactive backend thresholds are derived from measured distributions
@@ -609,6 +621,12 @@ experiments:
     evidence: [nuif:research:epub-ocf-package-container, nuif:research:oci-resource-descriptors, nuif:research:resource-packaging-and-source-capture-synthesis]
     implementation: [crates/nuif-package/src/lib.rs, crates/nuif-testing/src/bin/package-resources.rs, conformance/benches/system_surfaces.rs, xtask/src/main.rs]
     oracle: cross-writer-and-metamorphic
+    continuation:
+      class: cross-platform-evidence
+      blocked_by:
+        - the Rust and standard-library Python writers agree locally but an externally maintained implementation has not reproduced the package
+        - successful hosted resource-gate artifacts are required for every operating system claimed by the profile
+      next_action: Retain the configured Linux Windows and macOS Gate I artifacts and request an external implementation to reproduce the conformance-kit package bytes.
     acceptance:
       - two independently implemented writers produce identical package bytes from the same manifest document and resources
       - semantic document hash remains stable when declared nonsemantic caches are removed
@@ -641,19 +659,21 @@ experiments:
       - reject grayscale RGB 16-bit conflicting metadata Exif animation corrupt trailing and bounded one-over inputs
       - archive target/image-resources-report.json from cargo xtask gate-i-image
   - id: nuif:experiment:image-resource-profile
-    status: planned
+    status: automated
     evidence: [nuif:research:png-image-preservation-and-decoding, nuif:research:text-rendering-reproducibility]
+    implementation: [crates/nuif-media/src/lib.rs, crates/nuif-media/PROFILE.md, crates/nuif-render/src/lib.rs, crates/nuif-testing/src/bin/image-resources.rs, xtask/src/main.rs]
     oracle: cross-decoder-and-reference-render
     acceptance:
-      - accepted PNG fixtures decode to identical declared reference pixels in two independent implementations
-      - original encoded bytes and all fidelity-relevant metadata remain digest-identical after unrelated edits
-      - color orientation alpha premultiplication sampling and crop rules are fixed by fixture
+      - every non-interlaced PNG color and depth combination that normalizes to RGBA8 without precision loss decodes to identical declared pixels in two independent implementations
+      - original encoded bytes remain digest-identical while accepted color and transparency metadata is normalized only under the named profile
+      - encoded-sRGB identity orientation straight alpha sampling opacity crop and affine rules are fixed by profile and fixture
       - malformed and one-over image cases fail before unbounded allocation
     tests:
-      - exercise palette grayscale truecolor transparency ICC sRGB gamma Exif and conflicting-metadata cases
+      - accept palette grayscale truecolor alpha and transparency fixtures while rejecting 16-bit ICC gamma chromaticity Exif animation interlace suggested-palette and conflicting-metadata cases
       - compare straight-alpha decode and declared scene-lowering conversion separately
-      - verify image fit crop transform sampling and opacity in reference renders
-      - prove decoded and GPU caches can be deleted without changing the semantic document hash
+      - verify image fit crop affine transform nearest and fixed bilinear sampling and opacity in reference renders
+      - prove original encoded bytes are authoritative and decoded surfaces are digest-keyed deletable caches outside the semantic document hash
+      - archive target/image-resources-report.json from cargo xtask gate-i-image
   - id: nuif:experiment:font-resource-static-baseline
     status: automated
     evidence: [nuif:research:opentype-font-embedding-and-portability, nuif:research:ttf-parser, nuif:research:fontations, nuif:research:text-rendering-reproducibility]
@@ -675,6 +695,12 @@ experiments:
     status: planned
     evidence: [nuif:research:opentype-font-embedding-and-portability, nuif:research:text-rendering-reproducibility]
     oracle: cross-parser-and-policy
+    continuation:
+      class: profile-design
+      blocked_by:
+        - no reviewed profile chooses whether collections variable axes CFF color bitmap or WOFF2 are separate capabilities or one portability level
+        - redistribution subsetting and derived-instance policy cannot be inferred from fsType and requires publisher-supplied license evidence plus rights-reviewed fixtures
+      next_action: Draft separate collection variable-outline and color-glyph RFCs, then promote only the smallest profile with two parsers shaping evidence and rights-cleared fixtures.
     acceptance:
       - font bytes face index axes features coverage and shaping inputs are content-addressed and independently decoded
       - portable private-authoring linked substituted and unavailable policies produce distinct validated outcomes
@@ -706,6 +732,12 @@ experiments:
     evidence: [nuif:research:chromium-source-backed-ui-capture, nuif:research:live-chromium-cdp-capture, nuif:research:resource-packaging-and-source-capture-synthesis, nuif:research:reverse-layout-inference]
     implementation: [crates/nuif-capture/src/lib.rs, crates/nuif-capture/src/live.rs, crates/nuif-testing/src/bin/capture-reconstruction.rs, crates/nuif-testing/src/bin/live-browser-capture.rs, xtask/src/main.rs]
     oracle: pinned-browser-and-metamorphic
+    continuation:
+      class: empirical-corpus
+      blocked_by:
+        - the local live fixture does not establish a distribution across operating systems browser engines opaque frames cross-origin resources canvas video or real licensed pages
+        - complete matched-style and authored-source correlation needs rights-cleared source-backed fixtures rather than synthetic expansion alone
+      next_action: Add source-authorized fixture families to the audited corpus manifest and replay the frozen capture policy across the claimed browser and operating-system matrix.
     acceptance:
       - repeated capture under the same pinned context produces equivalent normalized observations and exact resource hashes
       - multi-viewport observations predict a held-out viewport better than one fixed screenshot for the declared responsive subset
@@ -775,6 +807,12 @@ experiments:
     evidence: [nuif:research:affinity-interchange-and-adoption, nuif:research:svg]
     implementation: [adapters/affinity/PROFILE-DRAFT.md, crates/nuif-svg/src/lib.rs]
     oracle: retained-user-mediated-foreign-runtime
+    continuation:
+      class: external-runtime
+      blocked_by:
+        - Affinity exposes neither a public document-object API nor a documented native file schema for unattended conformance
+        - the declared evidence requires a named desktop build retained import export artifacts and an independent reviewer
+      next_action: Run the prepared SVG bridge protocol manually in each claimed Affinity host and attach the reviewer-signed content-addressed fixture without automating private UI state.
     acceptance:
       - pre-host canonical NUIF SVG bytes and fidelity report pass the existing nuif-svg-0 gate
       - a named Affinity and operating-system version imports and exports the fixture with every semantic difference classified
@@ -807,6 +845,12 @@ experiments:
     evidence: [nuif:research:canva-apps-and-connect-adoption]
     implementation: [adapters/canva/PROFILE-DRAFT.md, adapters/canva/app/README.md]
     oracle: named-live-host-transaction-and-retained-undo-evidence
+    continuation:
+      class: external-runtime
+      blocked_by:
+        - the Canva Developer Portal app identity live editor session and review account are external credentials and state
+        - one-sync one-undo cancellation expiry lock and conflict claims require retained observations from the real host
+      next_action: A reviewer installs the packaged no-network shell into an assigned Canva app, runs the profile checklist, and retains sanitized pre post undo and failure-state evidence.
     acceptance:
       - the retained report names Canva editor environment app version and exact Apps SDK package
       - one confirmed import produces one sync and one user-visible undo action
@@ -823,6 +867,12 @@ experiments:
     evidence: [nuif:research:design2code-real-world-benchmark, nuif:research:pix2struct-screenshot-parsing-pretraining, nuif:research:screenai-ui-annotation, nuif:research:omniparser-ui-grounding, nuif:research:ocr-text-detection-and-recognition, nuif:research:model-agnostic-screenshot-reconstruction-and-training]
     implementation: [crates/nuif-capture/src/lib.rs, crates/nuif-reconstruct/src/lib.rs, crates/nuif-testing/src/bin/capture-reconstruction.rs, xtask/src/main.rs]
     oracle: synthetic-exact-and-human-reviewed
+    continuation:
+      class: empirical-corpus
+      blocked_by:
+        - no rights-cleared real held-out reconstruction corpus with independently reviewed family and near-duplicate assignments is available
+        - pinned OCR and proposal providers have contract manifests but no frozen empirical outputs under the common budget
+      next_action: Populate the existing corpus and provider manifests with licensed artifacts, freeze partitions, and run deterministic OCR CV one-shot observation-assisted and hierarchical-crop baselines.
     acceptance:
       - deterministic OCR CV one-shot model and observation-assisted model baselines run through one versioned harness
       - every output is a valid transaction and document or an explicit no-result with diagnostics
@@ -885,6 +935,12 @@ experiments:
     evidence: [nuif:research:ui-code-generation-boundaries, nuif:research:visrefiner-render-difference-learning, nuif:research:flip-perceptual-difference-metric, nuif:research:lpips-learned-perceptual-similarity, nuif:research:model-agnostic-screenshot-reconstruction-and-training]
     implementation: [crates/nuif-reconstruct/src/lib.rs, crates/nuif-testing/src/bin/capture-reconstruction.rs, xtask/src/main.rs]
     oracle: deterministic-render-and-property-evaluation
+    continuation:
+      class: empirical-corpus
+      blocked_by:
+        - synthetic loop mechanics cannot establish improvement distributions without frozen one-shot and correction-provider outputs
+        - SSIM LPIPS and multi-objective acceptance thresholds require declared viewing and semantic non-regression policy on a licensed holdout
+      next_action: Replay the frozen baseline corpus through equal-budget scalar lexicographic and Pareto policies and retain every intermediate artifact for independent evaluation.
     acceptance:
       - bounded corrective operations improve predeclared held-out metrics over the same one-shot proposal budget
       - every accepted correction preserves document validity and protected semantic non-regression limits
@@ -901,6 +957,12 @@ experiments:
     evidence: [nuif:research:confidence-calibration-and-selective-prediction, nuif:research:model-agnostic-screenshot-reconstruction-and-training]
     implementation: [crates/nuif-reconstruct/src/evaluation/confidence.rs, crates/nuif-reconstruct/src/evaluation.rs, crates/nuif-testing/src/bin/confidence-calibration.rs, crates/nuif-testing/src/bin/capture-reconstruction.rs, xtask/src/main.rs]
     oracle: held-out-calibration-and-risk-coverage
+    continuation:
+      class: empirical-corpus
+      blocked_by:
+        - the evaluator arithmetic is automated but no disjoint real calibration normal-holdout and shifted-holdout decisions exist
+        - an automatic-application threshold cannot be selected from synthetic smoke records and truthfully described as calibrated risk
+      next_action: Collect labeled decisions from frozen provider runs, fit each decision type on calibration only, then publish normal and shifted risk-coverage evidence with bootstrap uncertainty.
     acceptance:
       - raw and calibrated confidence are reported separately for each supported decision type
       - automatic-application thresholds are chosen from a disjoint calibration set and evaluated on frozen normal and shifted holdouts
@@ -915,6 +977,12 @@ experiments:
     status: planned
     evidence: [nuif:research:lora-low-rank-adaptation, nuif:research:qlora-quantized-adaptation, nuif:research:sequence-level-knowledge-distillation, nuif:research:model-and-dataset-documentation, nuif:research:websight-synthetic-screenshot-html, nuif:research:model-agnostic-screenshot-reconstruction-and-training]
     oracle: frozen-holdout-and-ablation
+    continuation:
+      class: prerequisite-gate
+      blocked_by:
+        - the untuned empirical baseline closed-loop error taxonomy and rights-cleared accepted-operation corpus are incomplete
+        - training would be unjustified unless a stable learnable gap remains after prompt tool retrieval and correction-loop baselines
+      next_action: Keep training disabled until Phase 11 exits, then run the predeclared adaptation and distillation ablation only if its go/no-go criteria pass.
     acceptance:
       - training starts only after the untuned baseline closed loop error taxonomy and rights-cleared trace corpus satisfy their declared gates
       - tuned and distilled candidates are compared on identical frozen data budgets and evaluator versions

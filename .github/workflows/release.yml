@@ -66,6 +66,7 @@ jobs:
             target/dist/release-check.json
             target/verification-manifest.json
             target/workflow-audit-report.json
+            target/research-readiness-report.json
             target/adapter-coverage-report.json
             target/dependency-audit-report.json
             target/diagnostic-registry-report.json

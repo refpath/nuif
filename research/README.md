@@ -25,4 +25,4 @@ Each research record has a stable ID, source identity, retrieval date, tags, con
 - `schema/` — record schemas;
 - `AUDIT.md` and `roadmap.md` — current audit and gated research process.
 
-Important relationships must be structural. `tools/research/validate.sh` checks record schema, identifiers, claims, relations, topics, questions, experiments, coverage links and artifact paths. Network source-health checks are periodic rather than part of offline conformance.
+Important relationships must be structural. `tools/research/validate.sh` checks record schema, identifiers, claims, relations, topics, questions, experiments, coverage links and artifact paths. Every `planned`, `active` or `blocked` experiment must also declare a typed continuation class, concrete blockers and one next action. The validator compiles those fields into `target/research-readiness-report.json`; this is a derived report, not a second roadmap. Network source-health checks are periodic rather than part of offline conformance.

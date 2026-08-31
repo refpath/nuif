@@ -8,6 +8,7 @@ references point at existing records. Exit status is non-zero on any failure.
 
 from __future__ import annotations
 
+import hashlib
 import json
 import re
 import sys
@@ -52,6 +53,7 @@ def main() -> int:
     schema = json.loads(SCHEMA.read_text(encoding="utf-8"))
     validator = jsonschema.Draft202012Validator(schema, format_checker=jsonschema.FormatChecker())
     errors: list[str] = []
+    open_experiments: list[dict] = []
     ids: set[str] = set()
     records: dict[str, dict] = {}
     claims: set[str] = set()
@@ -143,6 +145,14 @@ def main() -> int:
     if EXPERIMENTS.exists():
         experiment_registry = yaml.safe_load(EXPERIMENTS.read_text(encoding="utf-8")) or {}
         valid_experiment_status = {"planned", "active", "automated", "blocked", "completed"}
+        valid_continuation_classes = {
+            "continuous-measurement",
+            "cross-platform-evidence",
+            "empirical-corpus",
+            "external-runtime",
+            "prerequisite-gate",
+            "profile-design",
+        }
         seen_experiments: set[str] = set()
         for experiment in experiment_registry.get("experiments", []) or []:
             experiment_id = experiment.get("id", "")
@@ -160,6 +170,37 @@ def main() -> int:
                 errors.append(f"experiments/index.yaml: {experiment_id}: acceptance criteria are required")
             if status in {"active", "automated", "completed"} and not experiment.get("implementation"):
                 errors.append(f"experiments/index.yaml: {experiment_id}: {status} experiment requires implementation paths")
+            if status in {"planned", "active", "blocked"}:
+                continuation = experiment.get("continuation")
+                if not isinstance(continuation, dict):
+                    errors.append(f"experiments/index.yaml: {experiment_id}: {status} experiment requires a continuation mapping")
+                else:
+                    continuation_class = continuation.get("class")
+                    blockers = continuation.get("blocked_by")
+                    next_action = continuation.get("next_action")
+                    if continuation_class not in valid_continuation_classes:
+                        errors.append(
+                            f"experiments/index.yaml: {experiment_id}: invalid continuation class {continuation_class}"
+                        )
+                    if not isinstance(blockers, list) or not blockers or not all(
+                        isinstance(blocker, str) and blocker.strip() for blocker in blockers
+                    ):
+                        errors.append(
+                            f"experiments/index.yaml: {experiment_id}: continuation.blocked_by must be a non-empty string list"
+                        )
+                    if not isinstance(next_action, str) or not next_action.strip():
+                        errors.append(
+                            f"experiments/index.yaml: {experiment_id}: continuation.next_action must be a non-empty string"
+                        )
+                    open_experiments.append(
+                        {
+                            "id": experiment_id,
+                            "status": status,
+                            "class": continuation_class,
+                            "blocked_by": blockers,
+                            "next_action": next_action,
+                        }
+                    )
             for evidence in experiment.get("evidence", []) or []:
                 if evidence not in ids:
                     errors.append(f"experiments/index.yaml: {experiment_id}: evidence {evidence} does not exist")
@@ -177,9 +218,38 @@ def main() -> int:
                 if not (ROOT / art).exists():
                     errors.append(f"coverage.yaml: {area}: artifact {art} does not exist")
 
+    status_counts: dict[str, int] = {}
+    for experiment in (experiment_registry.get("experiments", []) if EXPERIMENTS.exists() else []):
+        status = experiment.get("status", "missing")
+        status_counts[status] = status_counts.get(status, 0) + 1
+    registry_bytes = EXPERIMENTS.read_bytes() if EXPERIMENTS.exists() else b""
+    report = {
+        "schema_version": 1,
+        "status": "passed" if not errors else "failed",
+        "registry": {
+            "path": str(EXPERIMENTS.relative_to(ROOT)),
+            "sha256": hashlib.sha256(registry_bytes).hexdigest(),
+        },
+        "summary": {
+            "records": len(records),
+            "experiments": sum(status_counts.values()),
+            "open_experiments": len(open_experiments),
+            "status_counts": dict(sorted(status_counts.items())),
+            "blocking_failures": len(errors),
+        },
+        "open_experiments": open_experiments,
+        "failures": errors,
+    }
+    report_path = ROOT / "target" / "research-readiness-report.json"
+    report_path.parent.mkdir(parents=True, exist_ok=True)
+    report_path.write_text(json.dumps(report, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+
     for line in errors:
         print(line)
-    print(f"{len(records)} records, {len(errors)} errors")
+    print(
+        f"{len(records)} records, {sum(status_counts.values())} experiments, "
+        f"{len(open_experiments)} open, {len(errors)} errors"
+    )
     return 1 if errors else 0
 
 

@@ -63,6 +63,7 @@ const ALL_STEPS: &[Step] = &[
 
 const VERIFICATION_ARTIFACTS: &[&str] = &[
     "target/workflow-audit-report.json",
+    "target/research-readiness-report.json",
     "target/adapter-coverage-report.json",
     "target/dependency-audit-report.json",
     "target/diagnostic-registry-report.json",
