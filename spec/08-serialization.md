@@ -44,7 +44,12 @@ decoding and coordinate normalization; `cargo xtask gate-i-font-shaping` adds an
 isolated shaping and internal location-coherence trial. Those gates alone do
 not admit packages; `cargo xtask gate-i-font-package` and
 `cargo xtask gate-i-font-runtime` separately require capability-gated typed
-admission and direct coordinate delivery. Binding/process parity remains open.
+admission and direct coordinate delivery. The direct API, CLI, generated
+Node/browser WASM, stdio MCP and linked POSIX C consumer now return the same
+complete interior-package snapshot report. A three-host CI collector compares
+all twelve resource reports and requires the variable-font runtime payload to
+remain exact; a retained passing hosted aggregate is still required before
+cross-platform promotion.
 
 ## Numeric and string rules (RFC 0005)
 

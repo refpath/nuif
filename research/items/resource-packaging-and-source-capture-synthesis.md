@@ -130,9 +130,9 @@ captured originals. External resolution is opt-in and always digest-checked.
   two-writer package bytes on every supported host?
 - Do the measured package/image allocation ceilings reproduce on hosted Linux,
   Windows and macOS runners, and what corresponding ceiling is appropriate for
-  the font pipeline? The variable-font runtime now has an exact same-revision
-  artifact aggregator; the other resource reports still need equivalence rules
-  before they can join that aggregate.
+  the font pipeline? The same-revision artifact aggregator now compares
+  portable semantics across all twelve resource reports while retaining timing
+  and allocator observations as platform-specific evidence.
 - Which resource substitutions are allowed by each portability profile, and
   when must a missing resource make validation fail?
 - How should an adapter preserve an inaccessible local font: metrics only,

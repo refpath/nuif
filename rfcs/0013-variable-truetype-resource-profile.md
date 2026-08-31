@@ -256,12 +256,15 @@ cross-surface requirement; its raster digest remains platform-scoped until
 retained hosted reports are compared across operating systems.
 
 The CI resource matrix runs the direct runtime gate on Linux x86-64, Windows
-x86-64 and macOS arm64. A dependent `cargo xtask gate-i-font-host-matrix`
-job downloads the immutable artifacts from that workflow run, binds the
-aggregate to the full source revision and requires the complete runtime JSON
-payload—including fixture, trials, canonical hashes, coordinates, layout and
-RGBA digests—to agree exactly. It writes
-`target/variable-font-host-matrix-report.json`. The comparator and workflow are
+x86-64 and macOS arm64. A dependent
+`cargo xtask gate-i-resource-host-matrix` job downloads the immutable artifacts
+from that workflow run and binds the aggregate to the full source revision. It
+requires portable semantics to agree across all twelve package, image, static
+font and variable-font reports while treating measured durations and allocator
+observations as platform-specific budget evidence. The complete variable-font
+runtime JSON—including fixture, trials, canonical hashes, coordinates, layout
+and RGBA digests—must agree without normalization. The gate writes
+`target/resource-host-matrix-report.json`. The comparator and workflow are
 implemented; profile promotion still requires a retained passing hosted
 artifact rather than a locally copied simulation of the three inputs.
 

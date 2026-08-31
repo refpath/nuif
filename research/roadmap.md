@@ -166,8 +166,8 @@ until its checkpoint/position contract is versioned and independently tested.
    packing-boundary, and capability-gated package-to-raster coordinate-delivery
    evidence. Keep the now-passing direct API, CLI, generated Node/browser WASM
    stdio MCP and linked C report parity gate required. Keep the implemented
-   three-host aggregate gate required, and retain its first passing hosted
-   artifact before proposing profile promotion.
+   three-host twelve-report aggregate gate required, and retain its first
+   passing hosted artifact before proposing profile promotion.
    Extend the narrow PNG and static TrueType baselines only through new declared
    fixtures, add cross-platform media reproduction, and complete the broader
    OpenType format/policy matrix with calibrated allocation/time budgets; do

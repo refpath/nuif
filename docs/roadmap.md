@@ -62,8 +62,8 @@ Skrifa outlines and deterministic CPU pixels through the shared session without
 platform-font discovery. TTC, CFF/CFF2, variable/color/bitmap/WOFF2 fonts,
 cluster-level fallback, a retained passing hosted cross-platform aggregate and
 external implementations remain open. The three-host CI fan-out and fail-closed
-variable-font report comparator are implemented, so this remaining evidence no
-longer depends on manual comparison. Stable text-to-font asset bindings distinguish
+twelve-report resource comparator are implemented, so this remaining evidence
+no longer depends on manual comparison. Stable text-to-font asset bindings distinguish
 requested, replacement and unavailable identities with six blocking fidelity
 trials; six more trials cover the exact static runtime path.
 Proposed RFC 0013 decomposes the next variable-TrueType profile around one

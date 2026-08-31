@@ -619,7 +619,7 @@ experiments:
   - id: nuif:experiment:portable-package-resources
     status: active
     evidence: [nuif:research:epub-ocf-package-container, nuif:research:oci-resource-descriptors, nuif:research:resource-packaging-and-source-capture-synthesis]
-    implementation: [crates/nuif-package/src/lib.rs, crates/nuif-testing/src/bin/package-resources.rs, conformance/benches/system_surfaces.rs, xtask/src/main.rs]
+    implementation: [crates/nuif-package/src/lib.rs, crates/nuif-testing/src/bin/package-resources.rs, conformance/benches/system_surfaces.rs, xtask/src/main.rs, .github/workflows/ci.yml]
     oracle: cross-writer-and-metamorphic
     continuation:
       class: cross-platform-evidence
@@ -638,6 +638,7 @@ experiments:
       - compare package bytes and package hash across writers and operating systems
       - distinguish semantic document hash package hash asset identity resource digest and locator in positive and negative fixtures
       - report supported and missing required capabilities exactly and reject malformed or one-over requirement sets
+      - compare portable semantics across all twelve immutable same-run resource reports while retaining platform timing and allocation observations separately
       - reject duplicate traversal symlink directory encrypted split unsupported-compression undeclared and digest-mismatched members
       - measure compressed expanded per-member descriptor-count and total-resource budgets before accepting the profile
       - archive target/package-resources-report.json from cargo xtask gate-i-package
@@ -879,7 +880,7 @@ experiments:
       - compare exact-byte embedded and digest-pinned linked resolution paths
       - require item-level fidelity for substitutions and unavailable fonts
       - verify package export rejects policy-forbidden embedded resources atomically
-      - run cargo xtask gate-i-font-host-matrix over immutable same-run Linux Windows and macOS runtime artifacts and reject any complete-report drift
+      - run cargo xtask gate-i-resource-host-matrix over immutable same-run Linux Windows and macOS artifacts and reject any portable semantic or complete variable-runtime-report drift
   - id: nuif:experiment:capture-reconstruction-contract-baselines
     status: automated
     evidence: [nuif:research:chromium-source-backed-ui-capture, nuif:research:resource-packaging-and-source-capture-synthesis, nuif:research:model-agnostic-screenshot-reconstruction-and-training, nuif:research:confidence-calibration-and-selective-prediction]

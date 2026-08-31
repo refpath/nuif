@@ -169,8 +169,9 @@ linked POSIX C snapshot parity for the interior package. Gate I still lacks the 
 external writer and successful hosted cross-platform package/media evidence.
 The CI workflow now runs the complete narrow resource-gate sequence on
 Linux, Windows and macOS and archives each platform report. A dependent gate
-binds those artifacts to one full source revision and rejects any decoded
-variable-font runtime-report drift; that configuration does not become
+binds those artifacts to one full source revision, rejects portable semantic
+drift across all twelve resource reports and requires the complete
+variable-font runtime report to be exact; that configuration does not become
 reproduction evidence until a hosted aggregate artifact passes. RFC
 0011/specification 14 have executable
 provider-neutral observation with canonical artifact-manifest registries,
