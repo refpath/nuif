@@ -17,6 +17,8 @@ use thiserror::Error;
 
 /// Stable profile identifier for causal nested creation.
 pub const PROFILE_NAME: &str = "nuif-collab-tree-create-nested-0";
+/// Stable profile identifier for arbitrary causally witnessed sibling anchors.
+pub const ARBITRARY_ANCHOR_PROFILE_NAME: &str = "nuif-collab-tree-create-nested-1";
 /// Maximum selected-parent depth in this bounded profile.
 pub const MAX_PARENT_DEPTH: usize = 64;
 
@@ -55,6 +57,12 @@ pub enum NestedCreationError {
     AnchorMissing { change: ChangeId, anchor: EntityId },
     #[error("creation {change:?} may use only Start below a created parent")]
     CreatedParentAnchor { change: ChangeId },
+    #[error("creation {change:?} anchor {anchor} is not a selected sibling")]
+    AnchorUnavailable { change: ChangeId, anchor: EntityId },
+    #[error("creation {change:?} does not causally include selected anchor {anchor}")]
+    AnchorNotCausal { change: ChangeId, anchor: EntityId },
+    #[error("creation {change:?} anchor {anchor} belongs to another parent")]
+    AnchorParentMismatch { change: ChangeId, anchor: EntityId },
     #[error("created entity {entity} is invalid: {codes:?}")]
     InvalidEntity {
         entity: EntityId,
@@ -224,6 +232,393 @@ impl NestedCreationOperationSetEngine {
             active_positions,
         })
     }
+}
+
+/// Operation-set materializer for the profile-1 arbitrary-anchor extension.
+///
+/// The wire operation remains [`CreationChange`]. In this profile an
+/// `After(entity)` anchor may identify either a base sibling or a selected
+/// created sibling, but the change must causally include the selected anchor
+/// change. This makes anchor resolution deterministic without carrying
+/// collaboration metadata into the canonical checkpoint.
+#[derive(Clone, Debug, PartialEq)]
+pub struct ArbitraryAnchorCreationOperationSetEngine {
+    base: Document,
+    base_hash: String,
+    changes: BTreeMap<ChangeId, CreationChange>,
+}
+
+impl ArbitraryAnchorCreationOperationSetEngine {
+    /// Creates an engine bound to one canonical base document.
+    ///
+    /// # Errors
+    ///
+    /// Rejects invalid or unhashable base documents.
+    pub fn new(base: Document) -> Result<Self, NestedCreationError> {
+        let codes = error_codes(&base);
+        if !codes.is_empty() {
+            return Err(NestedCreationError::InvalidBase { codes });
+        }
+        let base_hash = canonical_hash(&base)
+            .map_err(|error| NestedCreationError::Canonical(error.to_string()))?;
+        Ok(Self {
+            base,
+            base_hash,
+            changes: BTreeMap::new(),
+        })
+    }
+
+    /// Adds one idempotent creation change.
+    ///
+    /// # Errors
+    ///
+    /// Rejects malformed clocks, invalid leaf payloads, resource overflow and
+    /// conflicting identifier reuse. Parent and sibling availability are
+    /// checked when the complete history is materialized.
+    pub fn ingest(&mut self, change: CreationChange) -> Result<bool, NestedCreationError> {
+        validate_change_shape_arbitrary(&self.base, &change)?;
+        if let Some(existing) = self.changes.get(&change.id) {
+            return if existing == &change {
+                Ok(false)
+            } else {
+                Err(NestedCreationError::DuplicateChange { change: change.id })
+            };
+        }
+        if self.changes.len() == MAX_CHANGES {
+            return Err(CollaborationError::TooManyChanges.into());
+        }
+        self.changes.insert(change.id.clone(), change);
+        Ok(true)
+    }
+
+    /// Atomically joins another engine bound to the same canonical base.
+    ///
+    /// # Errors
+    ///
+    /// Rejects a different base or any ingestion failure.
+    pub fn merge(&mut self, other: &Self) -> Result<(), NestedCreationError> {
+        if self.base_hash != other.base_hash {
+            return Err(NestedCreationError::BaseMismatch {
+                left: self.base_hash.clone(),
+                right: other.base_hash.clone(),
+            });
+        }
+        let mut candidate = self.clone();
+        for change in other.changes.values() {
+            candidate.ingest(change.clone())?;
+        }
+        *self = candidate;
+        Ok(())
+    }
+
+    /// Materializes a metadata-free checkpoint with causally witnessed
+    /// anchors under both base and created parents.
+    ///
+    /// # Errors
+    ///
+    /// Rejects incomplete causal history, unavailable/non-causal parents or
+    /// anchors, parent cycles, excessive depth and invalid checkpoints.
+    ///
+    /// # Panics
+    ///
+    /// Internal grouping invariants panic only if a non-empty selected change
+    /// group unexpectedly has no winner.
+    pub fn checkpoint(&self) -> Result<NestedCreationCheckpoint, NestedCreationError> {
+        validate_collection(self.changes.values())?;
+        let mut by_entity = BTreeMap::<EntityId, Vec<&CreationChange>>::new();
+        for change in self.changes.values() {
+            by_entity.entry(entity(change)).or_default().push(change);
+        }
+        let mut selected = BTreeMap::<EntityId, &CreationChange>::new();
+        let mut conflicts = Vec::new();
+        for (id, mut candidates) in by_entity {
+            candidates.sort_by(|left, right| left.id.cmp(&right.id));
+            let winner = candidates.last().expect("group is non-empty");
+            if candidates.len() > 1 {
+                conflicts.push(CreationConflict::EntityIdCollision {
+                    entity: id,
+                    candidates: candidates
+                        .iter()
+                        .map(|candidate| candidate.id.clone())
+                        .collect(),
+                    selected: winner.id.clone(),
+                });
+            }
+            selected.insert(id, *winner);
+        }
+
+        let mut visiting = BTreeSet::new();
+        let mut valid = BTreeSet::new();
+        for id in selected.keys().copied() {
+            validate_selected_arbitrary(&self.base, &selected, id, 0, &mut visiting, &mut valid)?;
+        }
+
+        let mut document = self.base.clone();
+        let mut active_positions = BTreeMap::new();
+        let mut insertions =
+            BTreeMap::<(Option<EntityId>, Option<EntityId>), Vec<&CreationChange>>::new();
+        for (id, change) in &selected {
+            if !valid.contains(id) {
+                continue;
+            }
+            document.entities.insert(*id, change_entity(change));
+            active_positions.insert(*id, PositionId::Change(change.id.clone()));
+            let (parent, anchor) = parent_and_anchor(change);
+            insertions
+                .entry((parent, anchor_entity(anchor)))
+                .or_default()
+                .push(*change);
+        }
+        for values in insertions.values_mut() {
+            values.sort_by(|left, right| right.id.cmp(&left.id));
+        }
+
+        document.roots = materialize_siblings_arbitrary(None, &self.base.roots, &insertions);
+        let base_children = self
+            .base
+            .entities
+            .iter()
+            .map(|(id, value)| (*id, value.children.clone()))
+            .collect::<BTreeMap<_, _>>();
+        let entity_ids = document.entities.keys().copied().collect::<Vec<_>>();
+        for id in entity_ids {
+            let children = base_children.get(&id).map_or(&[][..], Vec::as_slice);
+            document
+                .entities
+                .get_mut(&id)
+                .expect("entity was inserted")
+                .children = materialize_siblings_arbitrary(Some(id), children, &insertions);
+        }
+        let codes = error_codes(&document);
+        if !codes.is_empty() {
+            return Err(NestedCreationError::InvalidCheckpoint { codes });
+        }
+        let canonical_hash = canonical_hash(&document)
+            .map_err(|error| NestedCreationError::Canonical(error.to_string()))?;
+        Ok(NestedCreationCheckpoint {
+            profile: ARBITRARY_ANCHOR_PROFILE_NAME.to_owned(),
+            canonical_hash,
+            document,
+            applied: self.changes.keys().cloned().collect(),
+            conflicts,
+            active_positions,
+        })
+    }
+}
+
+fn validate_selected_arbitrary(
+    base: &Document,
+    selected: &BTreeMap<EntityId, &CreationChange>,
+    id: EntityId,
+    depth: usize,
+    visiting: &mut BTreeSet<EntityId>,
+    valid: &mut BTreeSet<EntityId>,
+) -> Result<(), NestedCreationError> {
+    if valid.contains(&id) {
+        return Ok(());
+    }
+    let change = selected.get(&id).copied().expect("selected ID exists");
+    if depth >= MAX_PARENT_DEPTH {
+        return Err(NestedCreationError::ParentDepthExceeded {
+            change: change.id.clone(),
+        });
+    }
+    if !visiting.insert(id) {
+        let (Some(parent), _) = parent_and_anchor(change) else {
+            return Ok(());
+        };
+        return Err(NestedCreationError::ParentCycle {
+            change: change.id.clone(),
+            parent,
+        });
+    }
+    let (parent, anchor) = parent_and_anchor(change);
+    if let Some(parent) = parent {
+        if base.entities.contains_key(&parent) {
+            validate_anchor_arbitrary(
+                base,
+                selected,
+                change,
+                Some(parent),
+                anchor,
+                visiting,
+                valid,
+            )?;
+        } else {
+            let Some(parent_change) = selected.get(&parent).copied() else {
+                return Err(NestedCreationError::ParentMissing {
+                    change: change.id.clone(),
+                    parent,
+                });
+            };
+            if !causally_includes(change, &parent_change.id) {
+                return Err(NestedCreationError::ParentNotCausal {
+                    change: change.id.clone(),
+                    parent,
+                });
+            }
+            validate_selected_arbitrary(base, selected, parent, depth + 1, visiting, valid)?;
+            validate_anchor_arbitrary(
+                base,
+                selected,
+                change,
+                Some(parent),
+                anchor,
+                visiting,
+                valid,
+            )?;
+        }
+    } else {
+        validate_anchor_arbitrary(base, selected, change, None, anchor, visiting, valid)?;
+    }
+    visiting.remove(&id);
+    valid.insert(id);
+    Ok(())
+}
+
+fn validate_anchor_arbitrary(
+    base: &Document,
+    selected: &BTreeMap<EntityId, &CreationChange>,
+    change: &CreationChange,
+    parent: Option<EntityId>,
+    anchor: CreationAnchor,
+    visiting: &mut BTreeSet<EntityId>,
+    valid: &mut BTreeSet<EntityId>,
+) -> Result<(), NestedCreationError> {
+    let CreationAnchor::After(anchor) = anchor else {
+        return Ok(());
+    };
+    if base_parent_contains(base, parent, anchor) {
+        return Ok(());
+    }
+    if let Some(anchor_change) = selected.get(&anchor).copied() {
+        let (anchor_parent, _) = parent_and_anchor(anchor_change);
+        if anchor_parent != parent {
+            return Err(NestedCreationError::AnchorParentMismatch {
+                change: change.id.clone(),
+                anchor,
+            });
+        }
+        if !causally_includes(change, &anchor_change.id) {
+            return Err(NestedCreationError::AnchorNotCausal {
+                change: change.id.clone(),
+                anchor,
+            });
+        }
+        validate_selected_arbitrary(base, selected, anchor, 0, visiting, valid)
+    } else {
+        Err(NestedCreationError::AnchorUnavailable {
+            change: change.id.clone(),
+            anchor,
+        })
+    }
+}
+
+fn validate_change_shape_arbitrary(
+    base: &Document,
+    change: &CreationChange,
+) -> Result<(), NestedCreationError> {
+    validate_replica(&change.id.replica)?;
+    if change.id.counter == 0 {
+        return Err(CollaborationError::ZeroCounter {
+            replica: change.id.replica.clone(),
+        }
+        .into());
+    }
+    for replica in change.context.keys() {
+        validate_replica(replica)?;
+    }
+    if change.context.len() > MAX_REPLICAS {
+        return Err(CollaborationError::TooManyReplicas.into());
+    }
+    let own = change.context.get(&change.id.replica).copied().unwrap_or(0);
+    if own + 1 != change.id.counter {
+        return Err(CollaborationError::InvalidLocalContext {
+            change: change.id.clone(),
+            observed: own,
+        }
+        .into());
+    }
+    let entity = change_entity(change);
+    if base.entities.contains_key(&entity.id) {
+        return Err(NestedCreationError::EntityAlreadyExists { entity: entity.id });
+    }
+    if !entity.children.is_empty() {
+        return Err(NestedCreationError::NestedEntity { entity: entity.id });
+    }
+    if parent_and_anchor(change).0 == Some(entity.id) {
+        return Err(NestedCreationError::ParentCycle {
+            change: change.id.clone(),
+            parent: entity.id,
+        });
+    }
+    let mut candidate = base.clone();
+    candidate.roots.push(entity.id);
+    candidate.entities.insert(entity.id, entity);
+    let codes = error_codes(&candidate);
+    if !codes.is_empty() {
+        return Err(NestedCreationError::InvalidEntity {
+            entity: change_entity(change).id,
+            codes,
+        });
+    }
+    Ok(())
+}
+
+fn anchor_entity(anchor: CreationAnchor) -> Option<EntityId> {
+    match anchor {
+        CreationAnchor::Start => None,
+        CreationAnchor::After(entity) => Some(entity),
+    }
+}
+
+fn materialize_siblings_arbitrary(
+    parent: Option<EntityId>,
+    base: &[EntityId],
+    insertions: &BTreeMap<(Option<EntityId>, Option<EntityId>), Vec<&CreationChange>>,
+) -> Vec<EntityId> {
+    fn append(
+        parent: Option<EntityId>,
+        id: EntityId,
+        insertions: &BTreeMap<(Option<EntityId>, Option<EntityId>), Vec<&CreationChange>>,
+        output: &mut Vec<EntityId>,
+        visiting: &mut BTreeSet<EntityId>,
+    ) {
+        if !visiting.insert(id) {
+            return;
+        }
+        output.push(id);
+        if let Some(values) = insertions.get(&(parent, Some(id))) {
+            for change in values {
+                append(
+                    parent,
+                    change_entity(change).id,
+                    insertions,
+                    output,
+                    visiting,
+                );
+            }
+        }
+        visiting.remove(&id);
+    }
+
+    let mut output = Vec::new();
+    let mut visiting = BTreeSet::new();
+    if let Some(values) = insertions.get(&(parent, None)) {
+        for change in values {
+            append(
+                parent,
+                entity(change),
+                insertions,
+                &mut output,
+                &mut visiting,
+            );
+        }
+    }
+    for entity in base {
+        append(parent, *entity, insertions, &mut output, &mut visiting);
+    }
+    output
 }
 
 fn validate_selected(
@@ -568,7 +963,92 @@ mod tests {
         assert!(matches!(
             engine.checkpoint(),
             Err(NestedCreationError::ParentNotCausal { parent, .. })
-                if parent == EntityId::new(20)
+            if parent == EntityId::new(20)
+        ));
+    }
+
+    #[test]
+    fn arbitrary_created_anchor_converges() {
+        let changes = vec![
+            create("alice", 1, &[], 20, Some(ROOT.0), CreationAnchor::Start),
+            create(
+                "bob",
+                1,
+                &[("alice", 1)],
+                21,
+                Some(ROOT.0),
+                CreationAnchor::After(EntityId::new(20)),
+            ),
+            create(
+                "carol",
+                1,
+                &[("alice", 1)],
+                22,
+                Some(20),
+                CreationAnchor::Start,
+            ),
+            create(
+                "dave",
+                1,
+                &[("alice", 1), ("carol", 1)],
+                23,
+                Some(20),
+                CreationAnchor::After(EntityId::new(22)),
+            ),
+        ];
+        let mut engine = ArbitraryAnchorCreationOperationSetEngine::new(base()).unwrap();
+        for change in changes.into_iter().rev() {
+            engine.ingest(change).unwrap();
+        }
+        let checkpoint = engine.checkpoint().unwrap();
+        assert_eq!(checkpoint.profile, ARBITRARY_ANCHOR_PROFILE_NAME);
+        assert_eq!(
+            checkpoint.document.entities[&ROOT].children,
+            vec![EntityId::new(20), EntityId::new(21), BASE_CHILD]
+        );
+        assert_eq!(
+            checkpoint.document.entities[&EntityId::new(20)].children,
+            vec![EntityId::new(22), EntityId::new(23)]
+        );
+    }
+
+    #[test]
+    fn arbitrary_anchor_requires_causal_witness() {
+        let mut engine = ArbitraryAnchorCreationOperationSetEngine::new(base()).unwrap();
+        engine
+            .ingest(create(
+                "alice",
+                1,
+                &[],
+                20,
+                Some(ROOT.0),
+                CreationAnchor::Start,
+            ))
+            .unwrap();
+        engine
+            .ingest(create(
+                "carol",
+                1,
+                &[("alice", 1)],
+                22,
+                Some(20),
+                CreationAnchor::Start,
+            ))
+            .unwrap();
+        engine
+            .ingest(create(
+                "dave",
+                1,
+                &[("alice", 1)],
+                23,
+                Some(20),
+                CreationAnchor::After(EntityId::new(22)),
+            ))
+            .unwrap();
+        assert!(matches!(
+            engine.checkpoint(),
+            Err(NestedCreationError::AnchorNotCausal { anchor, .. })
+                if anchor == EntityId::new(22)
         ));
     }
 }
