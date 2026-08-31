@@ -17,6 +17,7 @@ nuif-capture = { version = "0.0.1", path = "../nuif-capture" }
 nuif-dtcg = { version = "0.0.1", path = "../nuif-dtcg" }
 nuif-canva = { version = "0.0.1", path = "../nuif-canva" }
 nuif-figma = { version = "0.0.1", path = "../nuif-figma" }
+nuif-font = { version = "0.0.1", path = "../nuif-font" }
 nuif-html = { version = "0.0.1", path = "../nuif-html" }
 nuif-layout = { version = "0.0.0", path = "../nuif-layout" }
 nuif-package = { version = "0.0.1", path = "../nuif-package" }

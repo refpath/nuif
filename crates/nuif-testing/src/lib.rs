@@ -15,13 +15,17 @@ use nuif_core::{
     PropertyValue, ResourceRole, ResponsiveOverride, Severity, ShapeKind, SizeIntent, TextContent,
     Token, UnknownKind, validate,
 };
-use nuif_font::{OPENTYPE_STATIC_PROFILE, inspect_opentype_static};
+use nuif_font::{
+    OPENTYPE_STATIC_PROFILE, OPENTYPE_VARIABLE_TRUETYPE_PROFILE, inspect_opentype_static,
+    inspect_opentype_variable_metadata,
+};
 use nuif_layout::EvaluationContext;
 use nuif_media::PNG_RGBA8_PROFILE;
 use nuif_package::{NuifPackage, PackageMode};
 use nuif_protocol::{Axis, Operation, Patch, Transaction, apply_patch, apply_patch_with_inverse};
 use nuif_render::{RenderTarget, render_cpu};
 use serde::{Deserialize, Serialize};
+use sha2::Digest as _;
 use std::collections::{BTreeMap, BTreeSet};
 use std::fmt::Write as _;
 use std::io::Cursor;
@@ -481,6 +485,96 @@ pub fn static_font_package_fixture() -> NuifPackage {
             }),
         },
     );
+    package
+}
+
+pub const VARIABLE_FONT_FIXTURE_SHA256: &str =
+    "0afd77effc877ff84fa7995a58c396c124514855f8084056846b54b8cb76f3ce";
+pub const VARIABLE_FONT_FIXTURE_ASSET: AssetId = AssetId::new(0xf2);
+pub const VARIABLE_FONT_FIXTURE_TEXT: EntityId = EntityId::new(0xf4);
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum VariableFontFixtureLocation {
+    Default,
+    Interior,
+}
+
+/// Produces a complete portable variable-font package at one pinned axis
+/// location used by direct and adapter conformance tests.
+///
+/// # Panics
+///
+/// Panics only if the committed Noto Sans subset stops satisfying its pinned
+/// digest, variable TrueType profile, or deterministic package contract.
+#[must_use]
+pub fn variable_font_package_fixture(location: VariableFontFixtureLocation) -> NuifPackage {
+    const BYTES: &[u8] = include_bytes!(
+        "../../../conformance/font/fixtures/noto-sans-variable-subset/NotoSans-variable-subset.ttf"
+    );
+    assert_eq!(
+        format!("{:x}", sha2::Sha256::digest(BYTES)),
+        VARIABLE_FONT_FIXTURE_SHA256,
+        "variable font fixture digest"
+    );
+    let inspection =
+        inspect_opentype_variable_metadata(BYTES, 0).expect("pinned variable font profile");
+    let axes = match location {
+        VariableFontFixtureLocation::Default => {
+            BTreeMap::from([("wdth".to_owned(), 100.0), ("wght".to_owned(), 400.0)])
+        }
+        VariableFontFixtureLocation::Interior => {
+            BTreeMap::from([("wdth".to_owned(), 81.25), ("wght".to_owned(), 500.0)])
+        }
+    };
+    let mut package = NuifPackage::new(Document::empty(EntityId::new(1)), PackageMode::Portable);
+    package
+        .required_capabilities
+        .insert(OPENTYPE_VARIABLE_TRUETYPE_PROFILE.to_owned());
+    let resource = package
+        .add_embedded(BYTES.to_vec(), "font/ttf", ResourceRole::Authoring, None)
+        .expect("fixture variable font resource");
+    package.document.assets.insert(
+        VARIABLE_FONT_FIXTURE_ASSET,
+        Asset {
+            schema_version: CURRENT_SCHEMA_VERSION,
+            id: VARIABLE_FONT_FIXTURE_ASSET,
+            name: Some("Noto Sans variable runtime fixture".to_owned()),
+            resource: Some(resource),
+            portability: AssetPortability::Portable,
+            kind: AssetKind::Font(FontAsset {
+                face_index: 0,
+                decoder_profile: OPENTYPE_VARIABLE_TRUETYPE_PROFILE.to_owned(),
+                names: inspection.font.names,
+                axes,
+                features: BTreeMap::new(),
+                coverage: inspection.font.coverage,
+                policy_evidence: BTreeMap::from([
+                    (
+                        "opentype.fs_type".to_owned(),
+                        format!("0x{:04x}", inspection.font.fs_type),
+                    ),
+                    ("license.expression".to_owned(), "OFL-1.1".to_owned()),
+                    ("license.embedding_review".to_owned(), "approved".to_owned()),
+                ]),
+            }),
+        },
+    );
+    let mut text = Entity::new(VARIABLE_FONT_FIXTURE_TEXT, EntityKind::Text);
+    text.authored.width = SizeIntent::Intrinsic;
+    text.authored.height = SizeIntent::Fixed(80.0);
+    text.authored.text = Some(TextContent {
+        content: "AHfixÅé".to_owned(),
+        font: "Noto Sans".to_owned(),
+        font_sha256: VARIABLE_FONT_FIXTURE_SHA256.to_owned(),
+        font_asset: Some(VARIABLE_FONT_FIXTURE_ASSET),
+        size: 64.0,
+        line_height: 80.0,
+    });
+    package.document.roots.push(VARIABLE_FONT_FIXTURE_TEXT);
+    package
+        .document
+        .entities
+        .insert(VARIABLE_FONT_FIXTURE_TEXT, text);
     package
 }
 
@@ -1155,7 +1249,12 @@ mod tests {
 
     #[test]
     fn resource_package_fixtures_reach_byte_fixpoints() {
-        for package in [rgba8_image_package_fixture(), static_font_package_fixture()] {
+        for package in [
+            rgba8_image_package_fixture(),
+            static_font_package_fixture(),
+            variable_font_package_fixture(VariableFontFixtureLocation::Default),
+            variable_font_package_fixture(VariableFontFixtureLocation::Interior),
+        ] {
             let encoded = package.encode().unwrap();
             let decoded = NuifPackage::decode(&encoded).unwrap();
             assert_eq!(decoded.encode().unwrap(), encoded);

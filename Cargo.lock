@@ -2481,6 +2481,7 @@ dependencies = [
  "nuif-core",
  "nuif-dtcg",
  "nuif-figma",
+ "nuif-font",
  "nuif-html",
  "nuif-layout",
  "nuif-package",

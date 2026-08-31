@@ -21,13 +21,13 @@ use nuif_figma::{
     AdapterError as FigmaAdapterError, import_snapshot as import_figma_snapshot,
     plan_import as plan_figma_import,
 };
+use nuif_font::OPENTYPE_VARIABLE_TRUETYPE_PROFILE;
 use nuif_html::{
     AdapterError as HtmlAdapterError, export_document as export_html_document,
     export_v0_document as export_html_v0_document, import_source as import_html_source,
     import_v0_source as import_html_v0_source, synchronize as synchronize_html,
     synchronize_v0 as synchronize_html_v0,
 };
-use nuif_layout::EvaluationContext;
 use nuif_package::{MAX_PACKAGE_BYTES, MAX_RESOURCE_BYTES, NuifPackage, PackageMode};
 use nuif_penpot::{
     AdapterError as PenpotAdapterError, export_document as export_penpot_document,
@@ -156,7 +156,7 @@ fn inspect(args: &[String]) -> Result<(), CliError> {
             "mode": package.mode,
             "resources": package.resources.len(),
             "package_hash": package.package_hash().ok(),
-            "capabilities": package.capability_report(&BTreeSet::new())
+            "capabilities": package.capability_report(&supported_package_capabilities())
         })),
         "extensions_used": document.extension_declarations.used,
         "errors": errors
@@ -322,16 +322,12 @@ fn replay(args: &[String]) -> Result<(), CliError> {
 
 fn layout(args: &[String]) -> Result<(), CliError> {
     let loaded = load_nuif(required(args, 0, "input document")?)?;
-    require_package_evaluation(&loaded)?;
     let width = number(args, 1, 360.0)?;
     let height = number(args, 2, 640.0)?;
-    let snapshot = ReferenceEngine
-        .layout(
-            &loaded.document,
-            &EvaluationContext::viewport(width, height),
-        )
+    let layout = session_for_loaded(&loaded)?
+        .snapshot(&profile_zero_context(width, height))
         .map_err(|error| CliError::new(1, "LAYOUT_FAILED", error.to_string()))?;
-    print_json(&serde_json::json!({"status": "passed", "layout": snapshot}))
+    print_json(&serde_json::json!({"status": "passed", "layout": layout.layout}))
 }
 
 fn render(args: &[String]) -> Result<(), CliError> {
@@ -401,12 +397,7 @@ fn snapshot(args: &[String]) -> Result<(), CliError> {
             .to_png()
             .map_err(|error| CliError::new(1, "PNG_FAILED", error.to_string()))?,
     )?;
-    let report = serde_json::json!({
-        "status": "passed",
-        "canonical_hash": snapshot.canonical_hash,
-        "context": {"viewport": [width, height], "scale": 1.0},
-        "artifacts": ["input.nuif", "input.nuif.json", "expected.layout.json", "expected.scene.json", "expected.png"]
-    });
+    let report = snapshot.report();
     write_file(
         &directory.join("expected.report.json"),
         &serde_json::to_vec_pretty(&report).expect("report serializes"),
@@ -1084,7 +1075,7 @@ fn pack(args: &[String]) -> Result<(), CliError> {
     if let Some(mode) = requested_mode {
         if mode != package.mode {
             package
-                .require_capabilities(&BTreeSet::new())
+                .require_capabilities(&supported_package_capabilities())
                 .map_err(package_capability_error)?;
         }
         package.mode = mode;
@@ -1265,6 +1256,25 @@ fn finish_capture(
 fn fixture(args: &[String]) -> Result<(), CliError> {
     let fixture = args.first().map_or("v0-responsive-card", String::as_str);
     let output = args.get(1).map_or("-", String::as_str);
+    let package = match fixture {
+        "variable-font-default" => Some(nuif_testing::variable_font_package_fixture(
+            nuif_testing::VariableFontFixtureLocation::Default,
+        )),
+        "variable-font-interior" => Some(nuif_testing::variable_font_package_fixture(
+            nuif_testing::VariableFontFixtureLocation::Interior,
+        )),
+        _ => None,
+    };
+    if let Some(package) = package {
+        if output != "-" && !has_extension(output, "nuif") {
+            return Err(CliError::new(
+                2,
+                "PACKAGE_EXTENSION_REQUIRED",
+                "resource-bearing variable font fixtures require a .nuif output",
+            ));
+        }
+        return write_output(output, &package.encode().map_err(package_error)?);
+    }
     let document = match fixture {
         "v0-responsive-card" | "v0" => nuif_testing::responsive_card_fixture(),
         "html-css-profile" => nuif_html::profile_fixture(),
@@ -1296,6 +1306,7 @@ fn print_capabilities() -> Result<(), CliError> {
         "containers": ["nuif-package-0", "nuif-cbor-0", "nuif-text-0"],
         "image_profiles": ["nuif-png-rgba8-0", "nuif-png-basic-rgba8-1"],
         "capture_profiles": ["nuif-browser-capture-0", "nuif-screenshot-baseline-0"],
+        "package_capabilities": supported_package_capabilities(),
         "engine": engine.capabilities(),
         "resource_limits": {
             "input_bytes": MAX_INPUT_BYTES,
@@ -1343,9 +1354,13 @@ fn session_for_loaded(loaded: &LoadedNuif) -> Result<Session, CliError> {
 fn require_package_evaluation(loaded: &LoadedNuif) -> Result<(), CliError> {
     loaded.package.as_ref().map_or(Ok(()), |package| {
         package
-            .require_capabilities(&BTreeSet::new())
+            .require_capabilities(&supported_package_capabilities())
             .map_err(package_capability_error)
     })
+}
+
+fn supported_package_capabilities() -> BTreeSet<String> {
+    BTreeSet::from([OPENTYPE_VARIABLE_TRUETYPE_PROFILE.to_owned()])
 }
 
 fn load_nuif(path: &str) -> Result<LoadedNuif, CliError> {
@@ -1407,7 +1422,10 @@ fn read_bounded_with_limit(reader: &mut impl Read, limit: usize) -> Result<Vec<u
 #[cfg(test)]
 mod tests {
     use super::*;
-    use nuif_testing::rgba8_image_package_fixture;
+    use nuif_testing::{
+        VARIABLE_FONT_FIXTURE_TEXT, VariableFontFixtureLocation, rgba8_image_package_fixture,
+        variable_font_package_fixture,
+    };
     use std::io::Cursor;
 
     #[test]
@@ -1471,6 +1489,57 @@ mod tests {
     }
 
     #[test]
+    fn variable_font_capability_uses_packaged_metrics_and_outlines() {
+        let package = variable_font_package_fixture(VariableFontFixtureLocation::Interior);
+        let mut loaded = LoadedNuif {
+            document: package.document.clone(),
+            package: Some(package),
+            profile: nuif_package::PROFILE,
+        };
+        let snapshot = session_for_loaded(&loaded)
+            .unwrap()
+            .snapshot(&profile_zero_context(640.0, 96.0))
+            .unwrap();
+        let width = snapshot
+            .layout
+            .boxes
+            .get(&VARIABLE_FONT_FIXTURE_TEXT)
+            .unwrap()
+            .width;
+        let run = snapshot
+            .scene
+            .commands
+            .iter()
+            .find_map(|command| match command {
+                nuif_render::DrawCommand::Text { run, outlines, .. } => {
+                    Some((run.as_ref(), outlines.as_ref()))
+                }
+                nuif_render::DrawCommand::Rect { .. }
+                | nuif_render::DrawCommand::Ellipse { .. }
+                | nuif_render::DrawCommand::Image { .. } => None,
+            })
+            .unwrap();
+
+        assert!(width > 0.0);
+        assert_eq!(run.0.variation_coordinates.len(), 2);
+        assert!(!run.1.is_empty());
+
+        loaded
+            .document
+            .entities
+            .get_mut(&VARIABLE_FONT_FIXTURE_TEXT)
+            .unwrap()
+            .name = Some("edited through supported CLI capability".to_owned());
+        let encoded = encode_loaded_package(&mut loaded).unwrap();
+        let decoded = NuifPackage::decode(&encoded).unwrap();
+        assert_eq!(decoded.document, loaded.document);
+        assert_eq!(
+            decoded.required_capabilities,
+            supported_package_capabilities()
+        );
+    }
+
+    #[test]
     fn package_rewrite_preserves_embedded_resources() {
         let package = rgba8_image_package_fixture();
         let original_resources = package.resources.clone();
@@ -1530,7 +1599,7 @@ fn encode_loaded_package(loaded: &mut LoadedNuif) -> Result<Vec<u8>, CliError> {
         && package.document != loaded.document
     {
         package
-            .require_capabilities(&BTreeSet::new())
+            .require_capabilities(&supported_package_capabilities())
             .map_err(package_capability_error)?;
     }
     let mut package = loaded

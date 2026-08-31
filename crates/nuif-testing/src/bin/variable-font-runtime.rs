@@ -1,14 +1,13 @@
 use nuif_api::NuifDocument;
-use nuif_core::{
-    Asset, AssetId, AssetKind, AssetPortability, CURRENT_SCHEMA_VERSION, Document, Entity,
-    EntityId, EntityKind, Fidelity, FontAsset, ResourceRole, SizeIntent, TextContent,
-};
-use nuif_font::{
-    OPENTYPE_VARIABLE_TRUETYPE_PROFILE, VariableFontInspection, inspect_opentype_variable_metadata,
-};
+use nuif_core::Fidelity;
+use nuif_font::OPENTYPE_VARIABLE_TRUETYPE_PROFILE;
 use nuif_layout::EvaluationContext;
-use nuif_package::{NuifPackage, PackageMode};
+use nuif_package::NuifPackage;
 use nuif_render::DrawCommand;
+use nuif_testing::{
+    VARIABLE_FONT_FIXTURE_SHA256, VARIABLE_FONT_FIXTURE_TEXT, VariableFontFixtureLocation,
+    variable_font_package_fixture,
+};
 use serde::Deserialize;
 use serde_json::{Value, json};
 use sha2::{Digest, Sha256};
@@ -22,9 +21,6 @@ const FONT: &[u8] = include_bytes!(
 );
 const GOLDEN: &str =
     include_str!("../../../../conformance/font/harfbuzz-14.4.0-noto-sans-variable.json");
-const FONT_SHA256: &str = "0afd77effc877ff84fa7995a58c396c124514855f8084056846b54b8cb76f3ce";
-const FONT_ASSET: AssetId = AssetId::new(0xf2);
-const TEXT_ENTITY: EntityId = EntityId::new(0xf4);
 
 #[derive(Deserialize)]
 struct Golden {
@@ -63,13 +59,13 @@ fn main() {
 fn run() -> Result<(), String> {
     let output = output_path()?;
     let golden: Golden = serde_json::from_str(GOLDEN).map_err(|error| error.to_string())?;
-    if golden.font_sha256 != FONT_SHA256 || format!("{:x}", Sha256::digest(FONT)) != FONT_SHA256 {
+    if golden.font_sha256 != VARIABLE_FONT_FIXTURE_SHA256
+        || format!("{:x}", Sha256::digest(FONT)) != VARIABLE_FONT_FIXTURE_SHA256
+    {
         return Err("runtime fixture identity disagrees with its committed oracle".to_owned());
     }
-    let inspection =
-        inspect_opentype_variable_metadata(FONT, 0).map_err(|error| error.to_string())?;
-    let default = evaluate_case(&inspection, golden_case(&golden, "default")?)?;
-    let interior = evaluate_case(&inspection, golden_case(&golden, "interior")?)?;
+    let default = evaluate_case(golden_case(&golden, "default")?)?;
+    let interior = evaluate_case(golden_case(&golden, "interior")?)?;
     let cross_case_trials = vec![
         trial(
             "coordinates_change_canonical_document_identity",
@@ -110,7 +106,7 @@ fn run() -> Result<(), String> {
         "profile": OPENTYPE_VARIABLE_TRUETYPE_PROFILE,
         "fixture": {
             "family": "Noto Sans",
-            "sha256": FONT_SHA256,
+            "sha256": VARIABLE_FONT_FIXTURE_SHA256,
             "bytes": FONT.len(),
             "oracle": "HarfBuzz 14.4.0 public C API and hb-shape",
             "license": "OFL-1.1",
@@ -155,11 +151,21 @@ fn run() -> Result<(), String> {
     clippy::too_many_lines,
     reason = "the case evaluator keeps the package-to-raster evidence chain visible in one audit flow"
 )]
-fn evaluate_case(
-    inspection: &VariableFontInspection,
-    oracle: &GoldenCase,
-) -> Result<CaseEvidence, String> {
-    let package = package(inspection, oracle)?;
+fn evaluate_case(oracle: &GoldenCase) -> Result<CaseEvidence, String> {
+    if oracle.text != "AHfixÅé" {
+        return Err(format!("{} oracle text drifted", oracle.label));
+    }
+    let location = match oracle.label.as_str() {
+        "default" => VariableFontFixtureLocation::Default,
+        "interior" => VariableFontFixtureLocation::Interior,
+        _ => {
+            return Err(format!(
+                "{} is not a runtime fixture location",
+                oracle.label
+            ));
+        }
+    };
+    let package = variable_font_package_fixture(location);
     let encoded = package.encode().map_err(|error| error.to_string())?;
     let decoded = NuifPackage::decode(&encoded).map_err(|error| error.to_string())?;
     let byte_fixpoint = decoded.encode().map_err(|error| error.to_string())? == encoded;
@@ -194,7 +200,7 @@ fn evaluate_case(
     let layout_width = first
         .layout
         .boxes
-        .get(&TEXT_ENTITY)
+        .get(&VARIABLE_FONT_FIXTURE_TEXT)
         .map_or(0.0, |rect| rect.width);
     let expected_width = run
         .glyphs
@@ -228,7 +234,7 @@ fn evaluate_case(
         ),
         trial(
             "exact_font_identity_reaches_scene",
-            run.font.sha256 == FONT_SHA256 && run.font.family == "Noto Sans",
+            run.font.sha256 == VARIABLE_FONT_FIXTURE_SHA256 && run.font.family == "Noto Sans",
             &json!({"font_sha256": run.font.sha256, "family": run.font.family}),
         ),
         trial(
@@ -256,7 +262,8 @@ fn evaluate_case(
         trial(
             "exact_variable_render_is_lossless",
             first.scene.fidelity.iter().any(|entry| {
-                entry.entity == Some(TEXT_ENTITY) && entry.status == Fidelity::Lossless
+                entry.entity == Some(VARIABLE_FONT_FIXTURE_TEXT)
+                    && entry.status == Fidelity::Lossless
             }),
             &json!({}),
         ),
@@ -278,59 +285,6 @@ fn evaluate_case(
         outline_path: outline.serialized_path.clone(),
         raster_sha256,
     })
-}
-
-fn package(
-    inspection: &VariableFontInspection,
-    oracle: &GoldenCase,
-) -> Result<NuifPackage, String> {
-    let mut package = NuifPackage::new(Document::empty(EntityId::new(1)), PackageMode::Portable);
-    package
-        .required_capabilities
-        .insert(OPENTYPE_VARIABLE_TRUETYPE_PROFILE.to_owned());
-    let resource = package
-        .add_embedded(FONT.to_vec(), "font/ttf", ResourceRole::Authoring, None)
-        .map_err(|error| error.to_string())?;
-    package.document.assets.insert(
-        FONT_ASSET,
-        Asset {
-            schema_version: CURRENT_SCHEMA_VERSION,
-            id: FONT_ASSET,
-            name: Some("Noto Sans variable runtime fixture".to_owned()),
-            resource: Some(resource),
-            portability: AssetPortability::Portable,
-            kind: AssetKind::Font(FontAsset {
-                face_index: 0,
-                decoder_profile: OPENTYPE_VARIABLE_TRUETYPE_PROFILE.to_owned(),
-                names: inspection.font.names.clone(),
-                axes: oracle.user.clone(),
-                features: BTreeMap::new(),
-                coverage: inspection.font.coverage.clone(),
-                policy_evidence: BTreeMap::from([
-                    (
-                        "opentype.fs_type".to_owned(),
-                        format!("0x{:04x}", inspection.font.fs_type),
-                    ),
-                    ("license.expression".to_owned(), "OFL-1.1".to_owned()),
-                    ("license.embedding_review".to_owned(), "approved".to_owned()),
-                ]),
-            }),
-        },
-    );
-    let mut text = Entity::new(TEXT_ENTITY, EntityKind::Text);
-    text.authored.width = SizeIntent::Intrinsic;
-    text.authored.height = SizeIntent::Fixed(80.0);
-    text.authored.text = Some(TextContent {
-        content: oracle.text.clone(),
-        font: "Noto Sans".to_owned(),
-        font_sha256: FONT_SHA256.to_owned(),
-        font_asset: Some(FONT_ASSET),
-        size: 64.0,
-        line_height: 80.0,
-    });
-    package.document.roots.push(TEXT_ENTITY);
-    package.document.entities.insert(TEXT_ENTITY, text);
-    Ok(package)
 }
 
 fn golden_case<'a>(golden: &'a Golden, label: &str) -> Result<&'a GoldenCase, String> {
