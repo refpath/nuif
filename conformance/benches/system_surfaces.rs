@@ -5,7 +5,9 @@ use nuif_collab::creation::{CreationAnchor, CreationChange, CreationOperation};
 use nuif_collab::gc::StabilityFrontier;
 use nuif_collab::mixed::{MixedChange, MixedOperation, MixedOperationSetEngine};
 use nuif_collab::nested_creation::ArbitraryAnchorCreationOperationSetEngine;
-use nuif_collab::structural::{StructuralAnchor, StructuralOperation};
+use nuif_collab::structural::{
+    StructuralAnchor, StructuralOperation, StructuralOperationSetEngine,
+};
 use nuif_collab::{Change, ChangeId, OperationSetEngine, ReplicaLogEngine};
 use nuif_core::{Document, Entity, EntityId, EntityKind, PropertyValue, SizeIntent};
 use nuif_package::{NuifPackage, PackageMode};
@@ -215,7 +217,7 @@ fn benchmark_advanced_collaboration(criterion: &mut Criterion) {
             }),
         },
     ];
-    let mut mixed = MixedOperationSetEngine::new(base).unwrap();
+    let mut mixed = MixedOperationSetEngine::new(base.clone()).unwrap();
     for change in mixed_changes {
         mixed.ingest(change).unwrap();
     }
@@ -245,6 +247,34 @@ fn benchmark_advanced_collaboration(criterion: &mut Criterion) {
     let prefix_frontier =
         StabilityFrontier::new(BTreeMap::from([("alice".to_owned(), 1)])).unwrap();
 
+    let mut structural_prefix = StructuralOperationSetEngine::new(base.clone()).unwrap();
+    structural_prefix
+        .ingest(nuif_collab::structural::StructuralChange {
+            id: ChangeId::new("prefix", 1),
+            context: BTreeMap::new(),
+            operation: StructuralOperation::Move {
+                entity: LEFT,
+                new_parent: None,
+                anchor: StructuralAnchor::Start,
+            },
+        })
+        .unwrap();
+    structural_prefix
+        .ingest(nuif_collab::structural::StructuralChange {
+            id: ChangeId::new("prefix", 2),
+            context: BTreeMap::from([("prefix".to_owned(), 1)]),
+            operation: StructuralOperation::Move {
+                entity: RIGHT,
+                new_parent: None,
+                anchor: StructuralAnchor::After(nuif_collab::structural::PositionId::Change(
+                    ChangeId::new("prefix", 1),
+                )),
+            },
+        })
+        .unwrap();
+    let structural_prefix_frontier =
+        StabilityFrontier::new(BTreeMap::from([("prefix".to_owned(), 1)])).unwrap();
+
     let mut group = criterion.benchmark_group("collaboration/advanced_profiles");
     group.throughput(Throughput::Elements(2));
     group.bench_function("nested_creation_v1", |bencher| {
@@ -257,6 +287,13 @@ fn benchmark_advanced_collaboration(criterion: &mut Criterion) {
         bencher.iter(|| {
             prefix
                 .compact_stable_prefix(black_box(&prefix_base), black_box(&prefix_frontier))
+                .unwrap()
+        });
+    });
+    group.bench_function("causal_structural_prefix_compaction", |bencher| {
+        bencher.iter(|| {
+            structural_prefix
+                .compact_stable_prefix(black_box(&structural_prefix_frontier))
                 .unwrap()
         });
     });

@@ -38,9 +38,10 @@ materializers, package/resource profiles and every integrated adapter profile:
 - web accessibility and finite behavior projection.
 
 The `collaboration/advanced_profiles` group also measures the bounded nested
-creation profile 1, mixed property/structure materializer and register-prefix
-compaction path on prevalidated fixtures. These are diagnostic in-process
-costs, not throughput claims for a networked collaboration service.
+creation profile 1, mixed property/structure materializer, register-prefix
+compaction path and conservative structural-prefix compaction path on
+prevalidated fixtures. These are diagnostic in-process costs, not throughput
+claims for a networked collaboration service.
 
 Figma and browser profiles measure pure mapping only; live host latency belongs
 to a separately versioned host trial. WASM, MCP and CLI process startup belong
