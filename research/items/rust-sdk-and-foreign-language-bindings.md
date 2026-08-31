@@ -27,7 +27,7 @@ links:
   spec: [spec/12-cli-api-and-automation.md, spec/11-security.md]
   adr: [adrs/0001-rust-reference-core.md, adrs/0011-sdk-and-foreign-bindings.md]
   rfc: [rfcs/0010-portable-resource-package.md]
-  code: [crates/nuif-api, crates/nuif-wasm, crates/nuif-mcp, crates/nuif-ffi, bindings/nuif_ffi.h, tools/ffi/runtime-smoke.c, conformance/benches/system_surfaces.rs]
+  code: [crates/nuif-api, crates/nuif-wasm, crates/nuif-mcp, crates/nuif-ffi, bindings/nuif_ffi.h, bindings/nuif_ffi.symbols, tools/ffi/header-smoke.cpp, tools/ffi/runtime-smoke.c, conformance/benches/system_surfaces.rs]
   experiments: [nuif:experiment:wasm-cross-surface, nuif:experiment:mcp-cross-surface, nuif:experiment:variable-font-surface-parity]
 ---
 
@@ -146,6 +146,10 @@ access to each opaque handle; separate handles and returned buffers are
 independent. Its compiled POSIX C consumer loads and re-exports the exact
 variable-font package, proves pre-authorization denial and compares the full
 snapshot JSON with the CLI oracle.
+The same gate compiles the header under C11 and C++17, compares all optimized
+exports with a checked-in experimental symbol set, and repeats the C consumer
+under ASan/UBSan. The developer archive carries those reports and hashes every
+payload; this is pre-stability evidence, not an ABI promise.
 
 ## NUIF relevance
 
@@ -162,8 +166,10 @@ shippable SDK.
 - semantic API and stable error-code registry leave `0.0.x`;
 - separate `nuif-ffi` unsafe-code review and panic-containment proof;
 - opaque handles plus allocator-matched bytes and destructors;
-- cbindgen header/symbol compatibility diff;
-- native C consumer under AddressSanitizer and UndefinedBehaviorSanitizer;
+- pinned cbindgen header generation plus a reviewed source-compatibility policy
+  over the implemented symbol baseline;
+- target-matrix C and linked C++ consumers, extending the implemented POSIX
+  ASan/UBSan C trial;
 - pinned UniFFI generator/runtime with Swift and Kotlin consumer tests;
 - target-specific XCFramework/Swift package and AAR artifacts with manifests,
   checksums, SBOMs and attestations;

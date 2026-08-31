@@ -276,6 +276,10 @@ compiled WASM targets, live MCP and the linked POSIX C consumer into
 `target/variable-font-surface-report.json`. It compares exact hash, coordinate
 objects, diagnostics, fidelity and raster identity while preserving
 cross-platform raster comparison as a separate hosted-evidence requirement.
+The C boundary additionally compiles as C11 and C++17, compares its optimized
+exported symbols with `bindings/nuif_ffi.symbols`, and repeats the package
+consumer under ASan/UBSan. Those checks harden an experimental profile; they do
+not declare source or ABI stability.
 
 The performance gate follows the same distinction. `cargo xtask performance`
 records portable release-mode latency/allocation budgets for catastrophic

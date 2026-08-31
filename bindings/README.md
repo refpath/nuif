@@ -13,14 +13,18 @@ other threads.
 Gate FFI compiles the header and links/runs a C consumer against the release
 library on POSIX targets. That consumer exercises an exact variable-font
 package fixpoint, denial before capability authorization, and full snapshot
-equality with the independently invoked CLI report. Windows checks the header
-and library build but does not claim this POSIX runtime execution.
+equality with the independently invoked CLI report. The same consumer repeats
+under AddressSanitizer and UndefinedBehaviorSanitizer; a C++17 translation unit
+checks layout and call compatibility, and `nuif_ffi.symbols` pins the exact
+experimental exported-symbol set. Windows checks the header and library build
+but does not claim the POSIX runtime, sanitizer or `nm` evidence.
 
-The profile is deliberately not stable. Before promotion it needs a pinned
-header/symbol compatibility check, panic and allocator tests under sanitizers,
-consumer fixtures in C++/Swift/Kotlin, and real target packages. The release
-workflow now emits an experimental
+The profile is deliberately not stable. Before promotion it still needs pinned
+header generation and source-level compatibility policy, a linked C++ runtime
+consumer, Swift/Kotlin consumers, complete target-matrix sanitizer evidence and
+real XCFramework/AAR packages. The release workflow now emits an experimental
 `nuif-ffi-<version>-<platform>-<architecture>` archive containing the header,
-native library artifacts and checksums; this does not promote the ABI to
-stable. Until those gates pass, the WASM package or CLI remains
+symbol baseline, native library artifacts, conformance evidence and checksums;
+this does not promote the ABI to stable. Until those gates pass, the WASM
+package or CLI remains
 the supported foreign-language integration path.

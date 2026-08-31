@@ -92,10 +92,11 @@ binary from a reviewed checkout with
 
 The native jobs also attach five `nuif-ffi-<version>-<os>-<architecture>` archives
 and sibling manifests. Each contains `include/nuif_ffi.h`, the platform's
-static/shared library artifacts, licenses and the ABI gate report. These are
-experimental developer bundles only; the `nuif-ffi-0` header is not a stable
-ABI and no package-store or language-binding compatibility promise follows
-from its presence in a release.
+static/shared library artifacts, `abi/nuif_ffi.symbols`, licenses and normal,
+symbol and sanitized ABI evidence when that host runs the POSIX consumer. The
+manifest hashes every payload file. These are experimental developer bundles
+only; the `nuif-ffi-0` header is not a stable ABI and no package-store or
+language-binding compatibility promise follows from its presence in a release.
 
 SHA-256 verification on Linux uses `sha256sum -c SHA256SUMS`. macOS uses
 `shasum -a 256 -c SHA256SUMS`. PowerShell users can compare

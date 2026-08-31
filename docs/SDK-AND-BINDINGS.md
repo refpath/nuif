@@ -117,13 +117,16 @@ and panic containment. Package load/export, exact capability negotiation and
 the shared snapshot report delegate to the same SDK as WASM and MCP. It exposes
 no internal model structs and grants no filesystem, network or host-product
 authority. The checked draft header is `bindings/nuif_ffi.h`; `cargo xtask
-gate-ffi` runs the Rust ABI tests, a C header-consumer syntax check and a linked
-release-library variable-font package/snapshot comparison on POSIX.
+gate-ffi` runs the Rust ABI tests, C11 and C++17 header-consumer checks, an exact
+exported-symbol baseline and a linked release-library variable-font
+package/snapshot comparison under normal, AddressSanitizer and
+UndefinedBehaviorSanitizer execution on POSIX.
 Release workflows additionally run `cargo xtask ffi-package` on each native
-matrix target. The resulting versioned archive contains the header, available
-static/shared library artifacts, conformance report, licenses and a manifest
-with per-file SHA-256 digests. It is a developer package for experiments, not
-a promise of ABI stability or a platform store distribution.
+matrix target. The resulting versioned archive contains the header,
+experimental symbol baseline, available static/shared library artifacts,
+normal/sanitized conformance reports, licenses and a manifest covering every
+payload file by SHA-256. It is a developer package for experiments, not a
+promise of ABI stability or a platform store distribution.
 
 Rust's native ABI has no stability guarantee. A C-compatible ABI adds an unsafe
 ownership boundary whose handle lifetime, buffer allocation and release, panic
@@ -141,9 +144,10 @@ The promotion path is:
 3. Catch panics before the ABI boundary, return stable numeric error classes
    plus owned diagnostic bytes, and provide one allocator-matched buffer-free
    function and one idempotent handle-free function.
-4. Generate C and C++ headers with a pinned cbindgen release, diff the exported
-   symbol/header surface in CI and run C consumers under sanitizers on every
-   supported target.
+4. Preserve the implemented C/C++ compile checks, exported-symbol baseline and
+   POSIX sanitizer consumer; generate headers with a pinned cbindgen release,
+   define source-compatibility policy and extend runtime/sanitizer evidence to
+   every supported target before stabilization.
 5. Generate Swift and Kotlin wrappers with a pinned UniFFI release after its
    generated ownership/checksum behavior passes native tests. Package an
    XCFramework/Swift package and Android AAR separately; UniFFI generates
@@ -154,8 +158,8 @@ The promotion path is:
 The draft now declares single-thread-at-a-time access per handle while allowing
 independent handles and returned buffers on other threads. Promotion still
 requires a reviewed error-code registry, an API compatibility baseline,
-consumer fixtures in C++/Swift/Kotlin, sanitizer
-evidence and release packages for their actual target triples. Until then,
+linked consumer fixtures in C++/Swift/Kotlin, complete sanitizer evidence and
+release packages for their actual target triples. Until then,
 Swift or Kotlin desktop/mobile experiments should use the WASM package where
 their host embeds an appropriate runtime, or call a local CLI/process adapter;
 neither path is described as a native production binding.
