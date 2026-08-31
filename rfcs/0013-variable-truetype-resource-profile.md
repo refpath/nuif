@@ -212,6 +212,15 @@ control coordinate differs by one 26.6 unit under identical path topology, so
 the corpus enforces that measured bound instead of making a false exactness
 claim. Both fixtures pass candidate asset validation without typed admission.
 
+`cargo xtask gate-i-font-gvar-generated` replaces the source fixture's `glyf`,
+`loca`, and `gvar` tables in memory, rebuilds canonical packing and checksums,
+and sends every result through production whole-font admission. Sixteen valid
+cases cover one-/two-byte counts, 128-point runs, 64-delta runs, byte/word/zero
+forms, all/private/shared/repeated points, private precedence, multiple tuples,
+phantom indices and the 32,767 maximum packed-point count. Three malformed
+two-byte count cases reject with named defects. This supplies generated
+boundary coverage, not a claim of enumerating all byte strings.
+
 `cargo xtask gate-i-font-package` separately proves that the exact OFL fixture
 bytes survive a resource-only deterministic package fixpoint and unrelated
 semantic edit, and that a digest-pinned linked descriptor resolves only through

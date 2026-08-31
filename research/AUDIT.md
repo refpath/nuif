@@ -186,8 +186,11 @@ authored OFL-1.1 Noto Sans and Recursive subsets add eight HarfBuzz pipeline
 oracles across distinct 2- and 5-axis graphs. Metadata, normalization, shaping,
 HVAR advances and MVAR metrics agree exactly; seven outlines are exact and one
 five-axis interior control coordinate differs by the declared maximum of one
-26.6 unit. Exhaustive encoding combinations, VVAR semantics, side-bearing and
-typed package/runtime evidence remain open. A separate candidate package gate now proves exact bytes through
+26.6 unit. Generated sfnt trials additionally cover 16 valid packed-`gvar`
+boundary combinations and three malformed counts through production admission,
+including repeated/shared/private points and the 32,767 maximum count.
+Byte-exhaustive enumeration remains a non-claim; VVAR semantics, side-bearing
+and typed package/runtime evidence remain open. A separate candidate package gate now proves exact bytes through
 resource-only fixpoint, unrelated edits, and explicit digest-pinned linked
 resolution while intentionally verifying that typed variable-font package
 binding remains fail-closed until runtime coordinate delivery exists.

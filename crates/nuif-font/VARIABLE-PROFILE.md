@@ -97,6 +97,17 @@ tuples, 24,024 explicit deltas, 11 HVAR data subtables, and four MVAR data
 subtables between them. Both exact assets pass candidate metadata/policy
 validation without becoming typed package/runtime inputs.
 
+`cargo xtask gate-i-font-gvar-generated` independently constructs canonically
+packed and checksummed sfnt values around a synthetic 300-point glyph, then
+runs the production whole-font inspector. Sixteen accepted cases cover the
+one-/two-byte point-count boundary, all/private/shared point lists, repeated
+points, byte/word/alternating point runs, zero/byte/word/mixed delta runs,
+128-point and 64-delta run maxima, private-over-shared precedence, multiple
+tuples, phantom-point indices, and the maximum 32,767 packed-point count. Three
+named counterexamples reject noncanonical or truncated two-byte counts. The
+generated fonts are ephemeral parser inputs, not distributable or rendering
+fixtures.
+
 ## Negative and security evidence
 
 The gate rejects static, CFF2-variable, color-variable, and nonzero-face inputs,
@@ -118,9 +129,10 @@ limits cap 4,096 shared tuples, 65,536 tuple records, 4,194,304 explicit deltas,
 region references, 256 MVAR records, and 4,096 STAT values.
 
 These ceilings are implementation regression guards measured on one machine,
-not portable timing or allocation semantics. Exhaustive packed-encoding
-combinations, VVAR, and process-level cancellation/sandbox evidence remain
-open. Parser admission is therefore not promoted to package acceptance.
+not portable timing or allocation semantics. Byte-exhaustive packed-input
+enumeration, VVAR, and process-level cancellation/sandbox evidence remain open;
+the declared count/run/type packing boundaries are now generated. Parser
+admission is therefore not promoted to package acceptance.
 
 `cargo xtask gate-i-font-package` adds a candidate asset validator that checks
 exact variable bytes, complete coordinates, names, coverage, feature bounds,
@@ -138,6 +150,5 @@ No variable font may yet pass `validate_packaged_font`, enter the evaluation
 context, participate in layout/rendering, or claim lossless fidelity under this
 candidate identifier. Resource-only package retention, candidate policy, and a
 broader OFL HVAR/MVAR/`gvar` corpus are now evidenced, but typed package binding
-remains off. The next executable gate must strengthen generated packed-encoding
-coverage and then wire the selected coordinates through package, layout, and
-runtime without weakening the fail-closed boundary.
+remains off. The next executable gate must wire the selected coordinates
+through package, layout, and runtime without weakening the fail-closed boundary.

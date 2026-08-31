@@ -803,6 +803,23 @@ experiments:
       - require location changes to exercise HVAR advances MVAR x-height and gvar outlines in each family
       - include both fixtures in warmed graph allocation regressions and reject checksum-repaired VVAR admission through the horizontal profile
       - archive target/variable-font-corpus-report.json from cargo xtask gate-i-font-corpus
+  - id: nuif:experiment:variable-font-gvar-generated
+    status: automated
+    evidence: [nuif:research:opentype-font-embedding-and-portability, nuif:research:fontations, nuif:research:fuzzing-structured-inputs, nuif:research:resource-bounded-serde-and-ciborium]
+    implementation: [crates/nuif-font/src/lib.rs, crates/nuif-testing/src/bin/variable-font-gvar-generated.rs, xtask/src/main.rs]
+    oracle: independent-spec-encoder-through-production-whole-font-admission
+    acceptance:
+      - deterministic generated sfnt values use canonical table ordering packing checksums a 300-point glyf and long-offset gvar replacement
+      - sixteen accepted cases cover every declared packed point count run and delta representation boundary including repeated points shared and private lists multiple tuples and the 32767 maximum count
+      - production graph inspection reports the exact generated tuple and explicit-delta counts without trusting the generator report
+      - noncanonical small and zero two-byte counts plus a truncated two-byte count reject with their named defects
+      - evidence remains isolated from byte-exhaustive enumeration rendering typography VVAR and package runtime admission
+    tests:
+      - cover 127 and 128 point count encodings 128-element point runs 64-element delta runs and byte and word extrema
+      - cover all-points private shared private-over-shared repeated sparse phantom and maximum-count point lists
+      - combine zero byte word and mixed X and Y streams across one and two tuple data cursors
+      - require deterministic rebuild exact checksums canonical packing and a 128 KiB generated-font ceiling
+      - archive target/variable-font-gvar-generated-report.json from cargo xtask gate-i-font-gvar-generated
   - id: nuif:experiment:font-resource-profile
     status: planned
     evidence: [nuif:research:opentype-font-embedding-and-portability, nuif:research:text-rendering-reproducibility]
@@ -810,10 +827,10 @@ experiments:
     continuation:
       class: profile-design
       blocked_by:
-        - RFC 0013 metadata normalization shaping outlines nonzero HVAR MVAR independently authored OFL corpus graph and representative packed-data security plus resource-only package policy now have bounded evidence but generated packed-encoding coverage and typed runtime coordinate delivery remain required before promotion
+        - RFC 0013 metadata normalization shaping outlines nonzero HVAR MVAR independently authored OFL corpus graph generated packed-data boundaries security and resource-only package policy now have bounded evidence but typed runtime coordinate delivery remains required before promotion
         - collection CFF/CFF2 COLR bitmap SVG-glyph and WOFF2 support remain separate capabilities with format-specific bounds and oracles
         - redistribution subsetting and derived-instance policy cannot be inferred from fsType and requires publisher-supplied license evidence plus rights-reviewed fixtures
-      next_action: Strengthen generated packed gvar encoding coverage before implementing typed package binding and shared runtime coordinate delivery.
+      next_action: Implement typed package binding and shared runtime coordinate delivery behind the candidate capability.
     acceptance:
       - font bytes face index axes features coverage and shaping inputs are content-addressed and independently decoded
       - portable private-authoring linked substituted and unavailable policies produce distinct validated outcomes

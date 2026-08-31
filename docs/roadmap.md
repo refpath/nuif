@@ -84,8 +84,11 @@ OFL-1.1 Noto Sans and Recursive subsets with distinct 2- and 5-axis graphs.
 Eight HarfBuzz pipeline oracles agree exactly for metadata, normalization,
 shaping, HVAR advances and MVAR metrics; seven outlines are exact and one
 five-axis interior control coordinate is within the declared one-unit 26.6
-bound. Typed variable package/layout/rendering, VVAR and exhaustive packed
-encodings remain unimplemented capabilities.
+bound. A generated-sfnt gate adds 16 accepted and three rejected packed-`gvar`
+boundary cases, including repeated points, shared/private precedence and the
+32,767 maximum count. Typed variable package/layout/rendering and VVAR remain
+unimplemented capabilities; byte-exhaustive malformed enumeration is a
+non-claim rather than a practical promotion criterion.
 
 ## Phase 5 — editor (complete for the headless profile-0 instrument)
 The entire v0 fixture is authored from an empty document through identity-addressed semantic actions. Direct generation, editor output and operation replay are byte-identical, and the editor writes canonical document, context, layout, scene, CPU raster and fidelity report artifacts. The Rust-native Masonry shell from ADR 0006 and the later Svelte/WASM demonstration are non-normative interface work and cannot redefine this headless result.

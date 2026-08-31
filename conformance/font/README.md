@@ -43,6 +43,10 @@ tool a build dependency or turn one fixture into a general format claim.
 - `cargo xtask gate-i-font-corpus` compares both OFL subsets against the pinned
   HarfBuzz captures. It requires exact shaping, HVAR advances, MVAR metrics and
   path topology, with at most the measured one-unit 26.6 outline tie.
+- `cargo xtask gate-i-font-gvar-generated` rebuilds ephemeral checksummed sfnt
+  values around a 300-point glyph. Sixteen accepted and three rejected trials
+  cover the declared packed point/count/run/delta boundaries through the
+  production whole-font inspector, including the 32,767 maximum point count.
 
 The variable fixture comes from `font-test-data` 0.9.1. Its package metadata
 declares `MIT OR Apache-2.0`, while the font's embedded copyright string is
