@@ -146,12 +146,15 @@ ceilings before the profile can become executable:
   profile;
 - 16 axes and 256 named instances;
 - 256 `avar` segment records per axis;
-- 65,536 glyphs and 65,536 variation regions;
+- 65,536 glyphs and 32,767 variation regions;
 - 64 global feature settings;
 - 65,536 codepoints per shaped text item;
-- separate preflight ceilings for `gvar`, HVAR, VVAR and MVAR item/region
-  counts, parser allocations, shaping allocations, outline commands and total
-  evaluation time.
+- implemented research preflight ceilings of 4,096 `gvar` shared tuples,
+  65,536 tuples, 4,194,304 explicit deltas, 65,535 item-variation subtables,
+  65,536 delta rows, 1,048,576 region references, 256 MVAR records, and 4,096
+  STAT values;
+- separate future ceilings for VVAR, shaping allocations, outline commands and
+  total evaluation time.
 
 These are admission candidates, not accepted portable limits. The experiment
 must show that one-over inputs fail before proportional allocation and that
@@ -190,9 +193,13 @@ index map. HarfRust and Skrifa agree exactly with pinned HarfBuzz 14.4.0
 observations. A third executable gate uses a reproducibly subsetted OFL-1.1
 Roboto Flex fixture and matches
 MVAR-adjusted x-height, cap height, ascent, descent, and line gap against
-HarfBuzz's public metric API at eight complete 13-axis locations. This removes
-the single-fixture MVAR evidence gap, but not broad MVAR graph, hostile-input,
-resource-limit, rights-policy, VVAR, or package/runtime requirements.
+HarfBuzz's public metric API at eight complete 13-axis locations. A fourth
+`cargo xtask gate-i-font-security` preflights the `gvar`, HVAR, MVAR and STAT
+graphs of all three fixtures, rejects 28 checksum-repaired hostile mutations,
+and enforces four warmed allocation/time regression trials. This closes the
+first fixed-field graph/budget milestone, but not packed `gvar` mutation
+breadth, a broader rights-reviewed corpus, VVAR, or package/runtime
+requirements.
 
 Promotion from proposed to experimental requires all of the following:
 

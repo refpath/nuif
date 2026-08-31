@@ -5,6 +5,10 @@ use serde::{Deserialize, Serialize};
 use skrifa::{
     FontRef, MetadataProvider,
     instance::{LocationRef, Size},
+    raw::{
+        TableProvider,
+        tables::{stat::AxisValue, variations::ItemVariationStore},
+    },
     string::StringId,
 };
 use std::collections::{BTreeMap, BTreeSet};
@@ -20,6 +24,15 @@ pub const MAX_FONT_FEATURES: usize = 64;
 pub const MAX_VARIABLE_AXES: usize = 16;
 pub const MAX_VARIABLE_INSTANCES: usize = 256;
 pub const MAX_AVAR_SEGMENTS_PER_AXIS: usize = 256;
+pub const MAX_GVAR_SHARED_TUPLES: usize = 4_096;
+pub const MAX_GVAR_TUPLES: usize = 65_536;
+pub const MAX_GVAR_EXPLICIT_DELTAS: usize = 4_194_304;
+pub const MAX_VARIATION_REGIONS: usize = 32_767;
+pub const MAX_VARIATION_DATA_SUBTABLES: usize = 65_535;
+pub const MAX_VARIATION_DELTA_SETS: usize = 65_536;
+pub const MAX_VARIATION_REGION_REFERENCES: usize = 1_048_576;
+pub const MAX_STAT_AXIS_VALUES: usize = 4_096;
+pub const MAX_MVAR_VALUE_RECORDS: usize = 256;
 
 const SFNT_TRUETYPE: [u8; 4] = [0, 1, 0, 0];
 const FONT_CHECKSUM_MAGIC: u32 = 0xb1b0_afba;
@@ -82,6 +95,29 @@ pub struct VariableFontInspection {
     pub axes: Vec<VariableAxisInspection>,
     pub named_instance_count: usize,
     pub avar_version: Option<String>,
+    pub variation_graph: VariableGraphInspection,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct VariationStoreInspection {
+    pub region_count: usize,
+    pub data_subtable_count: usize,
+    pub delta_set_count: usize,
+    pub region_reference_count: usize,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct VariableGraphInspection {
+    pub gvar_shared_tuple_count: usize,
+    pub gvar_glyph_data_count: usize,
+    pub gvar_tuple_count: usize,
+    pub gvar_explicit_delta_count: usize,
+    pub stat_axis_count: usize,
+    pub stat_axis_value_count: usize,
+    pub hvar_store: Option<VariationStoreInspection>,
+    pub mvar_store: Option<VariationStoreInspection>,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
@@ -236,6 +272,7 @@ pub fn inspect_opentype_variable_metadata(
     let tables = inspect_directory(bytes, DirectoryProfile::VariableMetadata)?;
     let parsed = parse_variable_metadata(bytes, &tables)?;
     let font = FontRef::new(bytes).map_err(|error| FontError::Parse(error.to_string()))?;
+    let variation_graph = inspect_variable_graph(&font, bytes, &tables, &parsed.axes)?;
     let axes = font.axes();
     if axes.len() != parsed.axes.len() {
         return Err(FontError::Parse(
@@ -276,7 +313,487 @@ pub fn inspect_opentype_variable_metadata(
         axes: parsed.axes,
         named_instance_count: parsed.named_instance_count,
         avar_version: parsed.avar_version,
+        variation_graph,
     })
+}
+
+struct ValidatedStore {
+    inspection: VariationStoreInspection,
+    item_counts: Vec<Option<u16>>,
+}
+
+struct GvarInspection {
+    shared_tuples: usize,
+    glyph_data: usize,
+    tuples: usize,
+    explicit_deltas: usize,
+}
+
+fn inspect_variable_graph(
+    font: &FontRef<'_>,
+    bytes: &[u8],
+    tables: &[TableRecord],
+    axes: &[VariableAxisInspection],
+) -> Result<VariableGraphInspection, FontError> {
+    let axis_count = axes.len();
+    let glyph_count = font
+        .maxp()
+        .map_err(|error| raw_font_error(&error))?
+        .num_glyphs();
+    let gvar = inspect_gvar(font, bytes, tables, axis_count, glyph_count)?;
+    let hvar_store = inspect_hvar(font, tables, axis_count, glyph_count)?;
+    let mvar_store = inspect_mvar(font, bytes, tables, axis_count)?;
+    let (stat_axis_count, stat_axis_value_count) = validate_stat(font, axes)?;
+    Ok(VariableGraphInspection {
+        gvar_shared_tuple_count: gvar.shared_tuples,
+        gvar_glyph_data_count: gvar.glyph_data,
+        gvar_tuple_count: gvar.tuples,
+        gvar_explicit_delta_count: gvar.explicit_deltas,
+        stat_axis_count,
+        stat_axis_value_count,
+        hvar_store,
+        mvar_store,
+    })
+}
+
+fn inspect_gvar(
+    font: &FontRef<'_>,
+    bytes: &[u8],
+    tables: &[TableRecord],
+    axis_count: usize,
+    glyph_count: u16,
+) -> Result<GvarInspection, FontError> {
+    let gvar = font.gvar().map_err(|error| raw_font_error(&error))?;
+    let gvar_bytes = table_bytes(bytes, tables, *b"gvar")?;
+    if (gvar.version().major, gvar.version().minor) != (1, 0)
+        || usize::from(gvar.axis_count()) != axis_count
+        || gvar.glyph_count() != glyph_count
+        || read_u16(gvar_bytes, 14)? & !1 != 0
+    {
+        return Err(FontError::Unsupported(
+            "invalid gvar version axis glyph count or flags",
+        ));
+    }
+    let shared_tuple_count = usize::from(gvar.shared_tuple_count());
+    require_limit(
+        "gvar shared tuples",
+        shared_tuple_count,
+        MAX_GVAR_SHARED_TUPLES,
+    )?;
+    gvar.shared_tuples()
+        .map_err(|error| raw_font_error(&error))?;
+    let offsets = gvar.glyph_variation_data_offsets();
+    let mut previous = 0_u32;
+    for index in 0..=usize::from(glyph_count) {
+        let offset = offsets
+            .get(index)
+            .map_err(|error| raw_font_error(&error))?
+            .get();
+        if (index == 0 && offset != 0) || offset < previous {
+            return Err(FontError::Unsupported(
+                "gvar glyph variation offsets are not monotonic from zero",
+            ));
+        }
+        previous = offset;
+    }
+    let mut glyph_data_count = 0_usize;
+    let mut tuple_count = 0_usize;
+    let mut explicit_delta_count = 0_usize;
+    for glyph_id in 0..glyph_count {
+        let Some(raw_data) = gvar
+            .data_for_gid(skrifa::GlyphId::new(u32::from(glyph_id)))
+            .map_err(|error| raw_font_error(&error))?
+        else {
+            continue;
+        };
+        glyph_data_count = glyph_data_count.saturating_add(1);
+        let expected_tuples = usize::from(read_u16(raw_data.as_bytes(), 0)? & 0x0fff);
+        if expected_tuples == 0 {
+            return Err(FontError::Unsupported(
+                "nonempty gvar glyph data has no tuple records",
+            ));
+        }
+        let data = gvar
+            .glyph_variation_data(skrifa::GlyphId::new(u32::from(glyph_id)))
+            .map_err(|error| raw_font_error(&error))?
+            .ok_or(FontError::Unsupported("gvar glyph data disappeared"))?;
+        let tuples = data.tuples().collect::<Vec<_>>();
+        if tuples.len() != expected_tuples {
+            return Err(FontError::Unsupported(
+                "truncated or malformed gvar tuple records",
+            ));
+        }
+        tuple_count = tuple_count.saturating_add(tuples.len());
+        require_limit("gvar tuples", tuple_count, MAX_GVAR_TUPLES)?;
+        for tuple in tuples {
+            explicit_delta_count = explicit_delta_count.saturating_add(tuple.deltas().count());
+            require_limit(
+                "gvar explicit deltas",
+                explicit_delta_count,
+                MAX_GVAR_EXPLICIT_DELTAS,
+            )?;
+        }
+    }
+
+    Ok(GvarInspection {
+        shared_tuples: shared_tuple_count,
+        glyph_data: glyph_data_count,
+        tuples: tuple_count,
+        explicit_deltas: explicit_delta_count,
+    })
+}
+
+fn inspect_hvar(
+    font: &FontRef<'_>,
+    tables: &[TableRecord],
+    axis_count: usize,
+    glyph_count: u16,
+) -> Result<Option<VariationStoreInspection>, FontError> {
+    if !tables.iter().any(|table| table.tag == *b"HVAR") {
+        return Ok(None);
+    }
+    let hvar = font.hvar().map_err(|error| raw_font_error(&error))?;
+    if (hvar.version().major, hvar.version().minor) != (1, 0) {
+        return Err(FontError::Unsupported("requires HVAR version 1.0"));
+    }
+    let item_store = hvar
+        .item_variation_store()
+        .map_err(|error| raw_font_error(&error))?;
+    let store = validate_item_variation_store(&item_store, axis_count)?;
+    validate_hvar_map(hvar.advance_width_mapping(), glyph_count, &store, true)?;
+    let lsb_mapping = hvar.lsb_mapping();
+    let rsb_mapping = hvar.rsb_mapping();
+    if lsb_mapping.is_some() != rsb_mapping.is_some() {
+        return Err(FontError::Unsupported(
+            "HVAR side-bearing maps must be supplied together",
+        ));
+    }
+    validate_hvar_map(lsb_mapping, glyph_count, &store, false)?;
+    validate_hvar_map(rsb_mapping, glyph_count, &store, false)?;
+    Ok(Some(store.inspection))
+}
+
+fn inspect_mvar(
+    font: &FontRef<'_>,
+    bytes: &[u8],
+    tables: &[TableRecord],
+    axis_count: usize,
+) -> Result<Option<VariationStoreInspection>, FontError> {
+    if !tables.iter().any(|table| table.tag == *b"MVAR") {
+        return Ok(None);
+    }
+    let mvar_bytes = table_bytes(bytes, tables, *b"MVAR")?;
+    let mvar = font.mvar().map_err(|error| raw_font_error(&error))?;
+    if (mvar.version().major, mvar.version().minor) != (1, 0)
+        || read_u16(mvar_bytes, 4)? != 0
+        || mvar.value_record_size() != 8
+    {
+        return Err(FontError::Unsupported(
+            "invalid MVAR version reserved field or record size",
+        ));
+    }
+    let record_count = usize::from(mvar.value_record_count());
+    require_limit("MVAR value records", record_count, MAX_MVAR_VALUE_RECORDS)?;
+    let store = match mvar.item_variation_store() {
+        Some(result) => {
+            let item_store = result.map_err(|error| raw_font_error(&error))?;
+            validate_item_variation_store(&item_store, axis_count)?
+        }
+        None if record_count == 0 => ValidatedStore {
+            inspection: VariationStoreInspection {
+                region_count: 0,
+                data_subtable_count: 0,
+                delta_set_count: 0,
+                region_reference_count: 0,
+            },
+            item_counts: Vec::new(),
+        },
+        None => {
+            return Err(FontError::Unsupported(
+                "MVAR value records require an item variation store",
+            ));
+        }
+    };
+    let mut previous_tag = None;
+    for record in mvar.value_records() {
+        let tag = record.value_tag();
+        if previous_tag.is_some_and(|previous| previous >= tag) {
+            return Err(FontError::Unsupported(
+                "MVAR value records are not strictly tag-sorted",
+            ));
+        }
+        previous_tag = Some(tag);
+        validate_delta_set_index(
+            record.delta_set_outer_index(),
+            record.delta_set_inner_index(),
+            &store.item_counts,
+        )?;
+    }
+    Ok(Some(store.inspection))
+}
+
+fn validate_item_variation_store(
+    store: &ItemVariationStore<'_>,
+    axis_count: usize,
+) -> Result<ValidatedStore, FontError> {
+    if store.format() != 1 {
+        return Err(FontError::Unsupported(
+            "item variation store format is not one",
+        ));
+    }
+    let regions = store
+        .variation_region_list()
+        .map_err(|error| raw_font_error(&error))?;
+    if usize::from(regions.axis_count()) != axis_count {
+        return Err(FontError::Unsupported(
+            "item variation store and fvar axis counts differ",
+        ));
+    }
+    let region_count = usize::from(regions.region_count());
+    require_limit("variation regions", region_count, MAX_VARIATION_REGIONS)?;
+    let region_records = regions.variation_regions();
+    for index in 0..region_count {
+        let region = region_records
+            .get(index)
+            .map_err(|error| raw_font_error(&error))?;
+        for coordinates in region.region_axes() {
+            let start = coordinates.start_coord().to_bits();
+            let peak = coordinates.peak_coord().to_bits();
+            let end = coordinates.end_coord().to_bits();
+            if start > peak || peak > end || (peak < 0 && end > 0) || (peak > 0 && start < 0) {
+                return Err(FontError::Unsupported(
+                    "invalid item variation region coordinates",
+                ));
+            }
+        }
+    }
+    let data_subtable_count = usize::from(store.item_variation_data_count());
+    require_limit(
+        "item variation data subtables",
+        data_subtable_count,
+        MAX_VARIATION_DATA_SUBTABLES,
+    )?;
+    let data = store.item_variation_data();
+    let mut item_counts = Vec::with_capacity(data_subtable_count);
+    let mut delta_set_count = 0_usize;
+    let mut region_reference_count = 0_usize;
+    for entry in data.iter() {
+        let Some(entry) = entry else {
+            item_counts.push(None);
+            continue;
+        };
+        let entry = entry.map_err(|error| raw_font_error(&error))?;
+        let word_delta_count = entry.word_delta_count();
+        let word_count = usize::from(word_delta_count & 0x7fff);
+        let referenced = usize::from(entry.region_index_count());
+        if word_delta_count & 0x8000 != 0 || word_count > referenced {
+            return Err(FontError::Unsupported(
+                "invalid non-COLR item variation word delta count",
+            ));
+        }
+        if entry
+            .region_indexes()
+            .iter()
+            .any(|index| usize::from(index.get()) >= region_count)
+        {
+            return Err(FontError::Unsupported(
+                "item variation data references an absent region",
+            ));
+        }
+        let item_count = entry.item_count();
+        let expected_delta_bytes =
+            usize::from(item_count).saturating_mul(referenced.saturating_add(word_count));
+        if entry.delta_sets().len() != expected_delta_bytes {
+            return Err(FontError::Unsupported(
+                "truncated item variation delta-set rows",
+            ));
+        }
+        delta_set_count = delta_set_count.saturating_add(usize::from(item_count));
+        region_reference_count = region_reference_count.saturating_add(referenced);
+        require_limit(
+            "item variation delta sets",
+            delta_set_count,
+            MAX_VARIATION_DELTA_SETS,
+        )?;
+        require_limit(
+            "item variation region references",
+            region_reference_count,
+            MAX_VARIATION_REGION_REFERENCES,
+        )?;
+        item_counts.push(Some(item_count));
+    }
+    Ok(ValidatedStore {
+        inspection: VariationStoreInspection {
+            region_count,
+            data_subtable_count,
+            delta_set_count,
+            region_reference_count,
+        },
+        item_counts,
+    })
+}
+
+fn validate_hvar_map(
+    map: Option<
+        Result<skrifa::raw::tables::variations::DeltaSetIndexMap<'_>, skrifa::raw::ReadError>,
+    >,
+    glyph_count: u16,
+    store: &ValidatedStore,
+    implicit_if_absent: bool,
+) -> Result<(), FontError> {
+    let Some(map) = map else {
+        if implicit_if_absent {
+            for glyph_id in 0..glyph_count {
+                validate_delta_set_index(0, glyph_id, &store.item_counts)?;
+            }
+        }
+        return Ok(());
+    };
+    let map = map.map_err(|error| raw_font_error(&error))?;
+    if map.entry_format().bits() & 0xc0 != 0 {
+        return Err(FontError::Unsupported(
+            "delta-set index map uses reserved entry-format bits",
+        ));
+    }
+    for glyph_id in 0..glyph_count {
+        let index = map
+            .get(u32::from(glyph_id))
+            .map_err(|error| raw_font_error(&error))?;
+        validate_delta_set_index(index.outer, index.inner, &store.item_counts)?;
+    }
+    Ok(())
+}
+
+fn validate_delta_set_index(
+    outer: u16,
+    inner: u16,
+    item_counts: &[Option<u16>],
+) -> Result<(), FontError> {
+    if outer == u16::MAX && inner == u16::MAX {
+        return Ok(());
+    }
+    let Some(Some(item_count)) = item_counts.get(usize::from(outer)) else {
+        return Err(FontError::Unsupported(
+            "delta-set index references an absent data subtable",
+        ));
+    };
+    if inner >= *item_count {
+        return Err(FontError::Unsupported(
+            "delta-set index references an absent row",
+        ));
+    }
+    Ok(())
+}
+
+fn validate_stat(
+    font: &FontRef<'_>,
+    fvar_axes: &[VariableAxisInspection],
+) -> Result<(usize, usize), FontError> {
+    let stat = font.stat().map_err(|error| raw_font_error(&error))?;
+    let version = stat.version();
+    if version.major != 1 || version.minor > 2 || stat.design_axis_size() != 8 {
+        return Err(FontError::Unsupported(
+            "unsupported STAT version or design-axis record size",
+        ));
+    }
+    let axis_count = usize::from(stat.design_axis_count());
+    if axis_count < fvar_axes.len() || axis_count > MAX_VARIABLE_AXES {
+        return Err(FontError::Unsupported(
+            "STAT design-axis count is inconsistent with fvar",
+        ));
+    }
+    let design_axes = stat.design_axes().map_err(|error| raw_font_error(&error))?;
+    let mut tags = BTreeSet::new();
+    for axis in design_axes {
+        let tag = axis.axis_tag().to_string();
+        if !tags.insert(tag) || !valid_instance_name_id(axis.axis_name_id().to_u16()) {
+            return Err(FontError::Unsupported(
+                "invalid duplicate STAT design axis or name identifier",
+            ));
+        }
+    }
+    if fvar_axes.iter().any(|axis| !tags.contains(&axis.tag)) {
+        return Err(FontError::Unsupported("STAT omits an fvar design axis"));
+    }
+    let value_count = usize::from(stat.axis_value_count());
+    require_limit("STAT axis values", value_count, MAX_STAT_AXIS_VALUES)?;
+    let values = match stat.offset_to_axis_values() {
+        Some(result) => Some(result.map_err(|error| raw_font_error(&error))?),
+        None if value_count == 0 => None,
+        None => {
+            return Err(FontError::Unsupported(
+                "STAT axis values require a non-null offset",
+            ));
+        }
+    };
+    if let Some(values) = values {
+        for value in values.axis_values().iter() {
+            let value = value.map_err(|error| raw_font_error(&error))?;
+            if read_u16(value.offset_data().as_bytes(), 4)? & !0x0003 != 0
+                || !valid_instance_name_id(value.value_name_id().to_u16())
+            {
+                return Err(FontError::Unsupported(
+                    "invalid STAT axis-value flags or name identifier",
+                ));
+            }
+            match value {
+                AxisValue::Format1(value) => require_stat_axis(value.axis_index(), axis_count)?,
+                AxisValue::Format2(value) => {
+                    require_stat_axis(value.axis_index(), axis_count)?;
+                    if value.range_min_value() > value.nominal_value()
+                        || value.nominal_value() > value.range_max_value()
+                    {
+                        return Err(FontError::Unsupported("invalid STAT axis-value range"));
+                    }
+                }
+                AxisValue::Format3(value) => require_stat_axis(value.axis_index(), axis_count)?,
+                AxisValue::Format4(value) => {
+                    let count = usize::from(value.axis_count());
+                    if count == 0 || count > axis_count || value.axis_values().len() != count {
+                        return Err(FontError::Unsupported(
+                            "invalid STAT multi-axis value count",
+                        ));
+                    }
+                    let mut indices = BTreeSet::new();
+                    for record in value.axis_values() {
+                        if !indices.insert(record.axis_index()) {
+                            return Err(FontError::Unsupported(
+                                "duplicate STAT multi-axis value index",
+                            ));
+                        }
+                        require_stat_axis(record.axis_index(), axis_count)?;
+                    }
+                }
+            }
+        }
+    }
+    Ok((axis_count, value_count))
+}
+
+fn require_stat_axis(index: u16, count: usize) -> Result<(), FontError> {
+    if usize::from(index) >= count {
+        Err(FontError::Unsupported(
+            "STAT axis value references an absent design axis",
+        ))
+    } else {
+        Ok(())
+    }
+}
+
+fn raw_font_error(error: &impl ToString) -> FontError {
+    FontError::Parse(error.to_string())
+}
+
+fn require_limit(resource: &'static str, observed: usize, limit: usize) -> Result<(), FontError> {
+    if observed > limit {
+        Err(FontError::ResourceLimit {
+            resource,
+            limit,
+            observed,
+        })
+    } else {
+        Ok(())
+    }
 }
 
 /// Converts one complete user-coordinate tuple through the exact OpenType

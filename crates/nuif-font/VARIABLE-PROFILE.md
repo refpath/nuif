@@ -26,6 +26,14 @@ The metadata parser independently reads and bounds:
 - optional `avar` 1.0 maps with at most 256 records per axis, strict input and
   monotonic output order, and required `-1`, `0`, and `1` mappings.
 
+Before returning metadata it also preflights the connected variation graph:
+`gvar` version, axis/glyph counts, shared tuples, glyph-data offsets, tuple
+records and explicit deltas; HVAR/MVAR item variation stores, regions, row
+widths and delta-set references; MVAR record ordering; and STAT axes, values,
+flags and cross-table references. Reserved raw flag bits are checked from the
+original bytes because generated bitflag accessors intentionally discard them.
+VVAR remains outside this candidate horizontal-text boundary.
+
 It compares axis and instance metadata with Skrifa. A coordinate request must
 contain every axis exactly once, contain only finite in-range values, and is
 converted through the NUIF-owned OpenType 16.16 normalization, `avar` remapping,
@@ -82,15 +90,26 @@ as well as missing, unknown, out-of-range, and non-finite coordinates. Unit
 tests compare twenty-one default/boundary/interior vectors with Skrifa and keep
 all static-profile admission tests green.
 
-The experiment does not yet mutate every `fvar`/`avar` count and offset, measure
-allocation/time ceilings, or inspect `gvar`, HVAR, VVAR, MVAR, and STAT internal
-graphs. Parser admission is therefore not promoted to package acceptance.
+`cargo xtask gate-i-font-security` repairs every sfnt checksum after 28 hostile
+fixed-field mutations, then requires the profile—not checksum handling—to reject
+invalid `gvar`, HVAR, MVAR, item-variation-store, and STAT relationships. The
+gate also measures the three accepted fixtures after warmup: each inspection
+must allocate no more than 8 MiB, retain no more than 2 MiB, and finish within
+500 ms; one early malformed graph must reject below 256 KiB allocated. Graph
+limits cap 4,096 shared tuples, 65,536 tuple records, 4,194,304 explicit deltas,
+32,767 variation regions, 65,535 data subtables, 65,536 delta rows, 1,048,576
+region references, 256 MVAR records, and 4,096 STAT values.
+
+These ceilings are implementation regression guards measured on one machine,
+not portable timing or allocation semantics. Packed `gvar` point/delta mutation
+breadth, a broader rights-reviewed variable corpus, VVAR, and process-level
+cancellation/sandbox evidence remain open. Parser admission is therefore not
+promoted to package acceptance.
 
 ## Explicit non-claims and next gate
 
 No variable font may yet pass `validate_packaged_font`, enter the evaluation
 context, participate in layout/rendering, or claim lossless fidelity under this
-candidate identifier. The next executable gate must add a rights-reviewed
-broader HVAR/MVAR corpus, malformed variation-graph cases, and allocation/time
-ceilings before the shared
-package/runtime path changes.
+candidate identifier. The next executable gate must add exact-byte package
+fixpoint/policy evidence and a rights-reviewed broader HVAR/MVAR corpus, plus
+packed `gvar` negative cases, before the shared package/runtime path changes.

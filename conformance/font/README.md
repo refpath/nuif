@@ -23,6 +23,11 @@ tool a build dependency or turn one fixture into a general format claim.
   `python3 tools/font/capture_harfbuzz_mvar.py <font>`. The fixture provenance,
   license, preparation command, and exact source/derived digests are retained
   beside the font.
+- `cargo xtask gate-i-font-security` runs the three variable fixtures through
+  structural `gvar`, HVAR, MVAR, item-variation-store, and STAT preflight. Its
+  28 checksum-repaired hostile mutations and four allocation/time trials write
+  `target/variable-font-security-report.json`; the measured ceilings are
+  reference-implementation regressions, not portable format limits.
 
 The variable fixture comes from `font-test-data` 0.9.1. Its package metadata
 declares `MIT OR Apache-2.0`, while the font's embedded copyright string is

@@ -752,6 +752,23 @@ experiments:
       - require targeted YTLC and YTUC positions to change only their intended global metric while optical size changes both x-height and glyph advances
       - require exact repeated results source license output digest table-set and fixture-size bounds
       - archive target/variable-font-global-metrics-report.json from cargo xtask gate-i-font-global-metrics
+  - id: nuif:experiment:variable-font-graph-security-baseline
+    status: automated
+    evidence: [nuif:research:opentype-font-embedding-and-portability, nuif:research:fontations, nuif:research:fuzzing-structured-inputs, nuif:research:resource-bounded-serde-and-ciborium]
+    implementation: [crates/nuif-font/src/lib.rs, crates/nuif-font/VARIABLE-PROFILE.md, crates/nuif-testing/src/bin/variable-font-security.rs, conformance/font/harfbuzz-14.4.0-material-symbols-variable.json, conformance/font/harfbuzz-14.4.0-hvar-truncated-map.json, conformance/font/harfbuzz-14.4.0-roboto-flex-mvar.json, xtask/src/main.rs]
+    oracle: checksum-repaired-hostile-mutations-and-bounded-allocation-regressions
+    acceptance:
+      - structural preflight walks gvar HVAR MVAR item variation stores and STAT before returning variable metadata
+      - explicit ceilings bound tuples deltas regions subtables rows references MVAR records and STAT values
+      - every fixed-field hostile mutation has repaired sfnt checksums and is rejected for its graph defect rather than checksum failure
+      - three valid fixtures and one early malformed graph stay below warmed reference-implementation allocation time and retained-memory ceilings
+      - evidence remains isolated from packed gvar point and delta breadth VVAR package admission runtime fidelity and portable performance claims
+    tests:
+      - reject 28 version flag count offset range ordering and cross-reference mutations across gvar HVAR MVAR and STAT
+      - validate raw reserved flag bits that generated bitflag readers intentionally truncate
+      - inspect the metadata shaping HVAR and MVAR fixtures below 8 MiB allocated 2 MiB retained and 500 ms after warmup
+      - reject one malformed graph below 256 KiB allocated
+      - archive target/variable-font-security-report.json from cargo xtask gate-i-font-security
   - id: nuif:experiment:font-resource-profile
     status: planned
     evidence: [nuif:research:opentype-font-embedding-and-portability, nuif:research:text-rendering-reproducibility]
@@ -759,10 +776,10 @@ experiments:
     continuation:
       class: profile-design
       blocked_by:
-        - RFC 0013 metadata normalization shaping outlines nonzero HVAR and one MVAR fixture now have bounded HarfBuzz/Skrifa evidence but broader HVAR MVAR evidence variation-table graph limits allocation ceilings and a rights-reviewed corpus remain required before promotion
+        - RFC 0013 metadata normalization shaping outlines nonzero HVAR one MVAR fixture and fixed-field graph security now have bounded evidence but broader rights-reviewed HVAR MVAR evidence packed gvar negatives and exact-byte package policy remain required before promotion
         - collection CFF/CFF2 COLR bitmap SVG-glyph and WOFF2 support remain separate capabilities with format-specific bounds and oracles
         - redistribution subsetting and derived-instance policy cannot be inferred from fsType and requires publisher-supplied license evidence plus rights-reviewed fixtures
-      next_action: Add a rights-reviewed broader HVAR MVAR corpus plus malformed variation-graph and allocation ceilings before changing package acceptance or runtime fidelity.
+      next_action: Add exact-byte variable package policy trials packed gvar point and delta negatives and a rights-reviewed broader HVAR MVAR corpus before changing package acceptance or runtime fidelity.
     acceptance:
       - font bytes face index axes features coverage and shaping inputs are content-addressed and independently decoded
       - portable private-authoring linked substituted and unavailable policies produce distinct validated outcomes

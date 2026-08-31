@@ -73,8 +73,11 @@ metric/outline location reuse with matching HarfBuzz advances and paths.
 A third isolated gate matches nonzero HVAR advances at four locations and
 exercises a valid truncated advance-index map. A fourth matches MVAR x-height,
 cap-height and line metrics at eight 13-axis locations in a reproducibly
-subsetted OFL fixture. Variable package, layout, VVAR, broader HVAR/MVAR
-conformance and rendering remain unimplemented capabilities.
+subsetted OFL fixture. A fifth structurally preflights `gvar`, HVAR, MVAR and
+STAT, rejects 28 checksum-repaired graph mutations, and enforces warmed parser
+allocation/time regression ceilings. Variable package, layout, VVAR, broader
+rights-reviewed HVAR/MVAR conformance and rendering remain unimplemented
+capabilities.
 
 ## Phase 5 — editor (complete for the headless profile-0 instrument)
 The entire v0 fixture is authored from an empty document through identity-addressed semantic actions. Direct generation, editor output and operation replay are byte-identical, and the editor writes canonical document, context, layout, scene, CPU raster and fidelity report artifacts. The Rust-native Masonry shell from ADR 0006 and the later Svelte/WASM demonstration are non-normative interface work and cannot redefine this headless result.
