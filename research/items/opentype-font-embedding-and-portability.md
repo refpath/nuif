@@ -27,8 +27,8 @@ links:
   spec: [spec/05-geometry-paint-text.md, spec/08-serialization.md, spec/11-security.md]
   adr: [adrs/0003-reference-renderer.md]
   rfc: [rfcs/0010-portable-resource-package.md, rfcs/0013-variable-truetype-resource-profile.md]
-  code: [crates/nuif-text, crates/nuif-font, crates/nuif-package, crates/nuif-testing/src/bin/font-resources.rs, crates/nuif-testing/src/bin/variable-font-metadata.rs, crates/nuif-testing/src/bin/variable-font-shaping.rs, crates/nuif-testing/src/bin/variable-font-metrics.rs, crates/nuif-testing/src/bin/variable-font-global-metrics.rs, crates/nuif-testing/src/bin/variable-font-security.rs, conformance/font/harfbuzz-14.4.0-material-symbols-variable.json, conformance/font/harfbuzz-14.4.0-hvar-truncated-map.json, conformance/font/harfbuzz-14.4.0-roboto-flex-mvar.json, conformance/font/fixtures/roboto-flex-mvar-subset/PROVENANCE.md]
-  experiments: [nuif:experiment:font-resource-static-baseline, nuif:experiment:variable-font-metadata-baseline, nuif:experiment:variable-font-shaping-baseline, nuif:experiment:variable-font-hvar-baseline, nuif:experiment:variable-font-mvar-baseline, nuif:experiment:variable-font-graph-security-baseline, nuif:experiment:font-resource-profile]
+  code: [crates/nuif-text, crates/nuif-font, crates/nuif-package, crates/nuif-testing/src/bin/font-resources.rs, crates/nuif-testing/src/bin/variable-font-metadata.rs, crates/nuif-testing/src/bin/variable-font-shaping.rs, crates/nuif-testing/src/bin/variable-font-metrics.rs, crates/nuif-testing/src/bin/variable-font-global-metrics.rs, crates/nuif-testing/src/bin/variable-font-security.rs, crates/nuif-testing/src/bin/variable-font-package.rs, conformance/font/harfbuzz-14.4.0-material-symbols-variable.json, conformance/font/harfbuzz-14.4.0-hvar-truncated-map.json, conformance/font/harfbuzz-14.4.0-roboto-flex-mvar.json, conformance/font/fixtures/roboto-flex-mvar-subset/PROVENANCE.md]
+  experiments: [nuif:experiment:font-resource-static-baseline, nuif:experiment:variable-font-metadata-baseline, nuif:experiment:variable-font-shaping-baseline, nuif:experiment:variable-font-hvar-baseline, nuif:experiment:variable-font-mvar-baseline, nuif:experiment:variable-font-graph-security-baseline, nuif:experiment:variable-font-package-candidate, nuif:experiment:font-resource-profile]
 ---
 
 # Summary
@@ -174,6 +174,12 @@ checksum-repaired fixed-field mutations and holds four warmed allocation/time
 trials below declared reference-implementation ceilings. Packed `gvar`
 point/delta mutation breadth, VVAR, a broader rights-reviewed corpus, and
 package/runtime admission remain open.
+The package candidate gate now validates the exact asset metadata, complete
+axis tuple, license expression and explicit embedding review; it preserves the
+font as a resource through deterministic package fixpoint and an unrelated edit
+and verifies linked bytes through an explicit digest-checking resolver. This is
+not typed package admission: the dispatcher is tested to remain fail-closed so
+the reference runtime cannot ignore the selected coordinates.
 The fixture's crate-level `MIT OR Apache-2.0` distribution metadata is retained,
 while its embedded copyright string prevents the experiment from presenting
 that fact as an automated publisher-rights determination.

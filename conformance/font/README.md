@@ -28,6 +28,11 @@ tool a build dependency or turn one fixture into a general format claim.
   28 checksum-repaired hostile mutations and four allocation/time trials write
   `target/variable-font-security-report.json`; the measured ceilings are
   reference-implementation regressions, not portable format limits.
+- `cargo xtask gate-i-font-package` validates the proposed asset metadata and
+  policy for the OFL fixture, proves resource-only embedded package fixpoint and
+  exact-byte retention across an unrelated edit, and exercises explicit
+  digest-pinned linked resolution. Typed package binding remains deliberately
+  rejected until the runtime consumes the same normalized coordinates.
 
 The variable fixture comes from `font-test-data` 0.9.1. Its package metadata
 declares `MIT OR Apache-2.0`, while the font's embedded copyright string is

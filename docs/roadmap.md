@@ -77,7 +77,10 @@ subsetted OFL fixture. A fifth structurally preflights `gvar`, HVAR, MVAR and
 STAT, rejects 28 checksum-repaired graph mutations, and enforces warmed parser
 allocation/time regression ceilings. Variable package, layout, VVAR, broader
 rights-reviewed HVAR/MVAR conformance and rendering remain unimplemented
-capabilities.
+capabilities. A sixth candidate gate proves resource-only package fixpoint,
+unrelated-edit retention, explicit linked resolution, and asset-policy
+validation, but keeps typed package binding rejected until layout and rendering
+consume the selected coordinate vector.
 
 ## Phase 5 — editor (complete for the headless profile-0 instrument)
 The entire v0 fixture is authored from an empty document through identity-addressed semantic actions. Direct generation, editor output and operation replay are byte-identical, and the editor writes canonical document, context, layout, scene, CPU raster and fidelity report artifacts. The Rust-native Masonry shell from ADR 0006 and the later Svelte/WASM demonstration are non-normative interface work and cannot redefine this headless result.

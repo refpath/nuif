@@ -182,7 +182,10 @@ The graph-security gate now preflights `gvar`, HVAR, MVAR, their shared item
 variation stores, and STAT; 28 checksum-repaired hostile cases plus four
 warmed allocation/time trials pass. Broader rights-reviewed HVAR/MVAR fixtures,
 packed `gvar` negative coverage, VVAR, side-bearing and package evidence remain
-open.
+open. A separate candidate package gate now proves exact bytes through
+resource-only fixpoint, unrelated edits, and explicit digest-pinned linked
+resolution while intentionally verifying that typed variable-font package
+binding remains fail-closed until runtime coordinate delivery exists.
 Four accepted-font
 inspections and packaged validation now carry warmed 4 MiB allocated/2 MiB
 retained regression ceilings. Package-to-session handoff shares an 8 MiB buffer

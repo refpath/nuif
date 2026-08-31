@@ -106,10 +106,21 @@ breadth, a broader rights-reviewed variable corpus, VVAR, and process-level
 cancellation/sandbox evidence remain open. Parser admission is therefore not
 promoted to package acceptance.
 
+`cargo xtask gate-i-font-package` adds a candidate asset validator that checks
+exact variable bytes, complete coordinates, names, coverage, feature bounds,
+`fsType`, decoder profile, license expression, explicit embedding review, and
+portability as one transaction. Nineteen trials prove resource-only package
+fixpoint, exact-byte retention across an unrelated semantic edit, declared
+capability negotiation, explicit digest-pinned linked resolution, and eleven
+stale/policy rejections. The typed font asset is also required to remain
+rejected by the package dispatcher: this prevents the static reference runtime
+from silently evaluating the selected instance as a default instance.
+
 ## Explicit non-claims and next gate
 
 No variable font may yet pass `validate_packaged_font`, enter the evaluation
 context, participate in layout/rendering, or claim lossless fidelity under this
-candidate identifier. The next executable gate must add exact-byte package
-fixpoint/policy evidence and a rights-reviewed broader HVAR/MVAR corpus, plus
-packed `gvar` negative cases, before the shared package/runtime path changes.
+candidate identifier. Resource-only package retention and candidate policy are
+now evidenced, but typed package binding remains off. The next executable gate
+must add a rights-reviewed broader HVAR/MVAR corpus and packed `gvar` negative
+cases before layout/runtime work can safely wire the selected coordinates.

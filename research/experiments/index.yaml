@@ -769,6 +769,22 @@ experiments:
       - inspect the metadata shaping HVAR and MVAR fixtures below 8 MiB allocated 2 MiB retained and 500 ms after warmup
       - reject one malformed graph below 256 KiB allocated
       - archive target/variable-font-security-report.json from cargo xtask gate-i-font-security
+  - id: nuif:experiment:variable-font-package-candidate
+    status: automated
+    evidence: [nuif:research:opentype-font-embedding-and-portability, nuif:research:resource-packaging-and-source-capture-synthesis, nuif:research:content-addressed-versioning]
+    implementation: [crates/nuif-font/src/lib.rs, crates/nuif-package/src/lib.rs, crates/nuif-testing/src/bin/variable-font-package.rs, conformance/font/fixtures/roboto-flex-mvar-subset/PROVENANCE.md, xtask/src/main.rs]
+    oracle: deterministic-resource-container-policy-and-fail-closed-runtime-boundary
+    acceptance:
+      - candidate asset validation binds exact variable bytes complete coordinates metadata embedding evidence and declared decoder profile
+      - resource-only embedded package write read write reaches a byte fixpoint and an unrelated semantic edit preserves exact font bytes
+      - a digest-pinned linked descriptor requires an explicit resolver accepts exact bytes and rejects corrupt bytes
+      - the package declares the candidate capability while typed font asset binding remains rejected until the reference runtime consumes selected coordinates
+      - evidence remains isolated from package asset admission layout rendering cross-surface parity and broad legal-policy claims
+    tests:
+      - run eight package retention capability linked-resolution and fail-closed boundary trials
+      - reject eleven incomplete stale out-of-range malformed unavailable or unapproved asset-policy cases
+      - retain the exact 22104-byte OFL-1.1 fixture digest through deterministic package operations
+      - archive target/variable-font-package-report.json from cargo xtask gate-i-font-package
   - id: nuif:experiment:font-resource-profile
     status: planned
     evidence: [nuif:research:opentype-font-embedding-and-portability, nuif:research:text-rendering-reproducibility]
@@ -776,10 +792,10 @@ experiments:
     continuation:
       class: profile-design
       blocked_by:
-        - RFC 0013 metadata normalization shaping outlines nonzero HVAR one MVAR fixture and fixed-field graph security now have bounded evidence but broader rights-reviewed HVAR MVAR evidence packed gvar negatives and exact-byte package policy remain required before promotion
+        - RFC 0013 metadata normalization shaping outlines nonzero HVAR one MVAR fixture fixed-field graph security and resource-only package policy now have bounded evidence but broader rights-reviewed HVAR MVAR evidence packed gvar negatives and typed runtime coordinate delivery remain required before promotion
         - collection CFF/CFF2 COLR bitmap SVG-glyph and WOFF2 support remain separate capabilities with format-specific bounds and oracles
         - redistribution subsetting and derived-instance policy cannot be inferred from fsType and requires publisher-supplied license evidence plus rights-reviewed fixtures
-      next_action: Add exact-byte variable package policy trials packed gvar point and delta negatives and a rights-reviewed broader HVAR MVAR corpus before changing package acceptance or runtime fidelity.
+      next_action: Add packed gvar point and delta negatives plus a rights-reviewed broader HVAR MVAR corpus before implementing typed package binding and shared runtime coordinate delivery.
     acceptance:
       - font bytes face index axes features coverage and shaping inputs are content-addressed and independently decoded
       - portable private-authoring linked substituted and unavailable policies produce distinct validated outcomes

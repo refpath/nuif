@@ -201,6 +201,15 @@ first fixed-field graph/budget milestone, but not packed `gvar` mutation
 breadth, a broader rights-reviewed corpus, VVAR, or package/runtime
 requirements.
 
+`cargo xtask gate-i-font-package` separately proves that the exact OFL fixture
+bytes survive a resource-only deterministic package fixpoint and unrelated
+semantic edit, and that a digest-pinned linked descriptor resolves only through
+an explicit verifying resolver. Its candidate asset validator rejects stale
+axes, names, coverage and policy. The package dispatcher still rejects the
+typed variable-font binding, so promotion requirement 5 is only partially met:
+the reference layout/runtime must first consume the same normalized coordinates
+instead of silently using the default instance.
+
 Promotion from proposed to experimental requires all of the following:
 
 1. **Two independent metadata/normalization paths.** Compare axis definitions,

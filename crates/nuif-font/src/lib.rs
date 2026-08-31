@@ -122,6 +122,13 @@ pub struct VariableGraphInspection {
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
+pub struct VariableFontAssetInspection {
+    pub font: VariableFontInspection,
+    pub coordinates: Vec<VariableCoordinate>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct VariableCoordinate {
     pub tag: String,
     pub user_16_16: i32,
@@ -1191,6 +1198,82 @@ pub fn validate_packaged_font(asset: &Asset, bytes: &[u8]) -> Result<FontInspect
     };
     let inspection = inspect_opentype_static(bytes, font.face_index)?;
     validate_asset_metadata(font, &inspection)?;
+    validate_embedding_policy(asset, font, &inspection, OPENTYPE_STATIC_PROFILE)?;
+    Ok(inspection)
+}
+
+/// Validates the proposed variable-font asset metadata and policy against exact
+/// bytes without admitting the asset to the package or reference runtime.
+///
+/// This research boundary exists so package-policy evidence can be collected
+/// before the package dispatcher and evaluator implement the complete variable
+/// profile. Callers must not interpret a successful result as render support.
+///
+/// # Errors
+///
+/// Returns parser, coordinate, model mismatch, or conservative policy errors.
+pub fn validate_variable_font_asset_candidate(
+    asset: &Asset,
+    bytes: &[u8],
+) -> Result<VariableFontAssetInspection, FontError> {
+    let AssetKind::Font(font) = &asset.kind else {
+        return Err(FontError::AssetMismatch("asset kind is not font"));
+    };
+    let inspection = inspect_opentype_variable_metadata(bytes, font.face_index)?;
+    validate_common_asset_metadata(font, &inspection.font)?;
+    let coordinates = normalize_variable_coordinates(bytes, &font.axes)?;
+    validate_embedding_policy(
+        asset,
+        font,
+        &inspection.font,
+        OPENTYPE_VARIABLE_TRUETYPE_PROFILE,
+    )?;
+    Ok(VariableFontAssetInspection {
+        font: inspection,
+        coordinates,
+    })
+}
+
+fn validate_asset_metadata(font: &FontAsset, inspection: &FontInspection) -> Result<(), FontError> {
+    validate_common_asset_metadata(font, inspection)?;
+    if !font.axes.is_empty() {
+        return Err(FontError::AssetMismatch("static profile has no axes"));
+    }
+    Ok(())
+}
+
+fn validate_common_asset_metadata(
+    font: &FontAsset,
+    inspection: &FontInspection,
+) -> Result<(), FontError> {
+    if font.names.is_empty()
+        || font
+            .names
+            .iter()
+            .any(|name| !inspection.names.contains(name))
+    {
+        return Err(FontError::AssetMismatch("family names"));
+    }
+    if font.coverage != inspection.coverage {
+        return Err(FontError::AssetMismatch("Unicode coverage"));
+    }
+    if font.features.len() > MAX_FONT_FEATURES
+        || font
+            .features
+            .keys()
+            .any(|tag| tag.len() != 4 || !tag.bytes().all(|byte| byte.is_ascii_alphanumeric()))
+    {
+        return Err(FontError::AssetMismatch("OpenType feature tags"));
+    }
+    Ok(())
+}
+
+fn validate_embedding_policy(
+    asset: &Asset,
+    font: &FontAsset,
+    inspection: &FontInspection,
+    decoder_profile: &'static str,
+) -> Result<(), FontError> {
     if matches!(asset.portability, AssetPortability::Unavailable) {
         return Err(FontError::Policy(
             "an unavailable asset cannot be validated against resource bytes",
@@ -1206,41 +1289,14 @@ pub fn validate_packaged_font(asset: &Asset, bytes: &[u8]) -> Result<FontInspect
             "bitmap-only embedding is incompatible with the outline profile",
         ));
     }
-    require_policy(font, "font.decoder_profile", OPENTYPE_STATIC_PROFILE)?;
+    require_policy(font, "font.decoder_profile", decoder_profile)?;
     require_policy(
         font,
         "opentype.fs_type",
         &format!("0x{:04x}", inspection.fs_type),
     )?;
     require_nonempty_policy(font, "license.expression")?;
-    require_policy(font, "license.embedding_review", "approved")?;
-    Ok(inspection)
-}
-
-fn validate_asset_metadata(font: &FontAsset, inspection: &FontInspection) -> Result<(), FontError> {
-    if font.names.is_empty()
-        || font
-            .names
-            .iter()
-            .any(|name| !inspection.names.contains(name))
-    {
-        return Err(FontError::AssetMismatch("family names"));
-    }
-    if !font.axes.is_empty() {
-        return Err(FontError::AssetMismatch("static profile has no axes"));
-    }
-    if font.coverage != inspection.coverage {
-        return Err(FontError::AssetMismatch("Unicode coverage"));
-    }
-    if font.features.len() > MAX_FONT_FEATURES
-        || font
-            .features
-            .keys()
-            .any(|tag| tag.len() != 4 || !tag.bytes().all(|byte| byte.is_ascii_alphanumeric()))
-    {
-        return Err(FontError::AssetMismatch("OpenType feature tags"));
-    }
-    Ok(())
+    require_policy(font, "license.embedding_review", "approved")
 }
 
 fn require_policy(font: &FontAsset, key: &'static str, expected: &str) -> Result<(), FontError> {
