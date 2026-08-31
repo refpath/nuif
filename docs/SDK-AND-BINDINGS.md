@@ -117,8 +117,8 @@ and panic containment. Package load/export, exact capability negotiation and
 the shared snapshot report delegate to the same SDK as WASM and MCP. It exposes
 no internal model structs and grants no filesystem, network or host-product
 authority. The checked draft header is `bindings/nuif_ffi.h`; `cargo xtask
-gate-ffi` runs the Rust ABI tests, C11 and C++17 header-consumer checks, an exact
-exported-symbol baseline and a linked release-library variable-font
+gate-ffi` runs the Rust ABI tests, C11 and C++17 header-consumer checks, links
+and executes the C++17 consumer, checks an exact exported-symbol baseline and a linked release-library variable-font
 package/snapshot comparison under normal, AddressSanitizer and
 UndefinedBehaviorSanitizer execution on POSIX.
 Release workflows additionally run `cargo xtask ffi-package` on each native
@@ -161,9 +161,9 @@ The promotion path is:
    plus owned diagnostic bytes, and provide one allocator-matched buffer-free
    function and one null-tolerant handle-free function.
 4. Preserve the implemented C/C++ compile checks, exported-symbol baseline and
-   POSIX sanitizer consumer, pinned generated header and experimental
-   compatibility policy; extend linked runtime/sanitizer evidence to every
-   supported target before stabilization.
+   linked POSIX C and C++ consumers, pinned generated header and experimental
+   compatibility policy; extend semantic C++ and runtime/sanitizer evidence to
+   every supported target before stabilization.
 5. Generate Swift and Kotlin wrappers with a pinned UniFFI release after its
    generated ownership/checksum behavior passes native tests. Package an
    XCFramework/Swift package and Android AAR separately; UniFFI generates
@@ -174,7 +174,7 @@ The promotion path is:
 The draft now declares single-thread-at-a-time access per handle while allowing
 independent handles and returned buffers on other threads. Promotion still
 requires a reviewed error-code registry, an API compatibility baseline,
-linked consumer fixtures in C++/Swift/Kotlin, complete sanitizer evidence and
+semantic consumer fixtures in C++/Swift/Kotlin, complete sanitizer evidence and
 release packages for their actual target triples. Until then,
 Swift or Kotlin desktop/mobile experiments should use the WASM package where
 their host embeds an appropriate runtime, or call a local CLI/process adapter;

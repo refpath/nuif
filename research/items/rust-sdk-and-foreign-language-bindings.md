@@ -146,9 +146,10 @@ access to each opaque handle; separate handles and returned buffers are
 independent. Its compiled POSIX C consumer loads and re-exports the exact
 variable-font package, proves pre-authorization denial and compares the full
 snapshot JSON with the CLI oracle.
-The same gate compiles the header under C11 and C++17, compares all optimized
-exports with a checked-in experimental symbol set, and repeats the C consumer
-under ASan/UBSan. The developer archive carries those reports and hashes every
+The same gate compiles the header under C11 and C++17, links and executes the
+C++17 smoke consumer, compares all optimized exports with a checked-in
+experimental symbol set, and repeats the semantic C consumer under ASan/UBSan.
+The developer archive carries those reports and hashes every
 payload. Pinned cbindgen 0.29.4 now derives the opaque types and function
 declarations from Rust; exact regeneration is a prerequisite of the same gate.
 Profile 0 permits breaking declarations only when implementation, header,
@@ -172,8 +173,8 @@ shippable SDK.
 - opaque handles plus allocator-matched bytes and destructors;
 - retain the pinned cbindgen regeneration check and reviewed experimental
   compatibility policy over the implemented symbol baseline;
-- target-matrix C and linked C++ consumers, extending the implemented POSIX
-  ASan/UBSan C trial;
+- target-matrix semantic C/C++ consumers and sanitizer trials, extending the
+  implemented POSIX linked C++ smoke and ASan/UBSan C package trial;
 - pinned UniFFI generator/runtime with Swift and Kotlin consumer tests;
 - target-specific XCFramework/Swift package and AAR artifacts with manifests,
   checksums, SBOMs and attestations;
