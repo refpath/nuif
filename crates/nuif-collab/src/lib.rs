@@ -136,6 +136,17 @@ pub enum CollaborationError {
         observed: u64,
         frontier: u64,
     },
+    #[error("stable change {change:?} depends on non-stable change {dependency:?}")]
+    StablePrefixNotClosed {
+        change: ChangeId,
+        dependency: ChangeId,
+    },
+    #[error("retained change {change:?} does not causally include frontier {replica}:{frontier}")]
+    RetainedChangeNotAfterFrontier {
+        change: ChangeId,
+        replica: String,
+        frontier: u64,
+    },
 }
 
 #[derive(Clone, Debug, Default, PartialEq)]
@@ -378,7 +389,7 @@ impl ReplicaLogEngine {
     }
 }
 
-fn finish_checkpoint(
+pub(crate) fn finish_checkpoint(
     base: &Document,
     mut frontiers: BTreeMap<RegisterKey, Vec<Change>>,
 ) -> Result<Checkpoint, CollaborationError> {
@@ -549,14 +560,14 @@ fn validate_collection<'a>(
     Ok(())
 }
 
-fn happens_before(left: &Change, right: &Change) -> bool {
+pub(crate) fn happens_before(left: &Change, right: &Change) -> bool {
     right
         .context
         .get(&left.id.replica)
         .is_some_and(|counter| *counter >= left.id.counter)
 }
 
-fn register_key(operation: &Operation) -> Result<RegisterKey, CollaborationError> {
+pub(crate) fn register_key(operation: &Operation) -> Result<RegisterKey, CollaborationError> {
     let key = match operation {
         Operation::Rename { entity, .. } => entity_key(*entity, "/name"),
         Operation::SetSize { entity, axis, .. } => entity_key(
