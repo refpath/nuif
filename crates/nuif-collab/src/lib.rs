@@ -8,6 +8,7 @@ use std::collections::{BTreeMap, BTreeSet};
 use thiserror::Error;
 
 pub mod creation;
+pub mod gc;
 pub mod structural;
 
 pub const PROFILE_NAME: &str = "nuif-collab-registers-0";
@@ -81,6 +82,13 @@ pub struct Checkpoint {
     pub conflicts: Vec<SemanticConflict>,
 }
 
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct CompactedCheckpoint {
+    pub receipt: gc::CompactionReceipt,
+    pub checkpoint: Checkpoint,
+}
+
 #[derive(Clone, Debug, PartialEq, Error)]
 pub enum CollaborationError {
     #[error("replica identifier {replica:?} is invalid")]
@@ -118,6 +126,14 @@ pub enum CollaborationError {
     },
     #[error("checkpoint hashing failed: {0}")]
     Canonical(String),
+    #[error(
+        "causal compaction frontier is unsafe for replica {replica:?}: observed {observed}, frontier {frontier}"
+    )]
+    UnsafeCompaction {
+        replica: String,
+        observed: u64,
+        frontier: u64,
+    },
 }
 
 #[derive(Clone, Debug, Default, PartialEq)]
@@ -204,6 +220,38 @@ impl OperationSetEngine {
             .collect();
         finish_checkpoint(base, frontiers)
     }
+
+    /// Replaces a complete, causally stable history with its canonical
+    /// metadata-free checkpoint.
+    ///
+    /// Profile 0 deliberately refuses partial collection. The supplied
+    /// frontier must exactly match every locally observed replica clock.
+    ///
+    /// # Errors
+    ///
+    /// Rejects incomplete history, an unsafe frontier, or an unhashable base.
+    pub fn compact_stable(
+        &self,
+        base: &Document,
+        frontier: &gc::StabilityFrontier,
+    ) -> Result<CompactedCheckpoint, CollaborationError> {
+        let checkpoint = self.checkpoint(base)?;
+        frontier.validate_complete(self.changes.keys())?;
+        let source_base_hash = canonical_hash(base)
+            .map_err(|error| CollaborationError::Canonical(error.to_string()))?;
+        let dropped = self.changes.keys().cloned().collect::<Vec<_>>();
+        let receipt = gc::CompactionReceipt::complete_history(
+            PROFILE_NAME,
+            source_base_hash,
+            checkpoint.canonical_hash.clone(),
+            frontier,
+            dropped,
+        );
+        Ok(CompactedCheckpoint {
+            receipt,
+            checkpoint,
+        })
+    }
 }
 
 #[derive(Clone, Debug, Default, PartialEq)]
@@ -285,6 +333,41 @@ impl ReplicaLogEngine {
             frontier.push(change.clone());
         }
         finish_checkpoint(base, frontiers)
+    }
+
+    /// Replaces a complete, causally stable history with its canonical
+    /// metadata-free checkpoint. See [`OperationSetEngine::compact_stable`].
+    pub fn compact_stable(
+        &self,
+        base: &Document,
+        frontier: &gc::StabilityFrontier,
+    ) -> Result<CompactedCheckpoint, CollaborationError> {
+        let checkpoint = self.checkpoint(base)?;
+        let ids = self
+            .logs
+            .values()
+            .flat_map(BTreeMap::values)
+            .map(|change| &change.id);
+        frontier.validate_complete(ids)?;
+        let source_base_hash = canonical_hash(base)
+            .map_err(|error| CollaborationError::Canonical(error.to_string()))?;
+        let dropped = self
+            .logs
+            .values()
+            .flat_map(BTreeMap::values)
+            .map(|change| change.id.clone())
+            .collect::<Vec<_>>();
+        let receipt = gc::CompactionReceipt::complete_history(
+            PROFILE_NAME,
+            source_base_hash,
+            checkpoint.canonical_hash.clone(),
+            frontier,
+            dropped,
+        );
+        Ok(CompactedCheckpoint {
+            receipt,
+            checkpoint,
+        })
     }
 }
 
@@ -690,6 +773,52 @@ mod tests {
         assert!(matches!(
             engine.checkpoint(&nuif_testing::responsive_card_fixture()),
             Err(CollaborationError::IncompleteCausalContext { .. })
+        ));
+    }
+
+    #[test]
+    fn complete_stability_frontier_compacts_both_materializers() {
+        let alice = change("alice", 1, &[], "Alice");
+        let bob = change("bob", 1, &[], "Bob");
+        let base = nuif_testing::responsive_card_fixture();
+        let frontier = gc::StabilityFrontier::new(BTreeMap::from([
+            ("alice".to_owned(), 1),
+            ("bob".to_owned(), 1),
+        ]))
+        .unwrap();
+
+        let mut set = OperationSetEngine::default();
+        set.ingest(alice.clone()).unwrap();
+        set.ingest(bob.clone()).unwrap();
+        let before = set.checkpoint(&base).unwrap();
+        let compacted = set.compact_stable(&base, &frontier).unwrap();
+        assert_eq!(compacted.checkpoint, before);
+        assert_eq!(compacted.receipt.dropped.len(), 2);
+        assert!(compacted.receipt.retained.is_empty());
+
+        let mut logs = ReplicaLogEngine::default();
+        logs.ingest(alice).unwrap();
+        logs.ingest(bob).unwrap();
+        let compacted_logs = logs.compact_stable(&base, &frontier).unwrap();
+        assert_eq!(compacted_logs.checkpoint, before);
+        assert_eq!(compacted_logs.receipt, compacted.receipt);
+    }
+
+    #[test]
+    fn partial_stability_frontier_fails_closed() {
+        let mut engine = OperationSetEngine::default();
+        engine.ingest(change("alice", 1, &[], "Alice")).unwrap();
+        let frontier = gc::StabilityFrontier::new(BTreeMap::new()).unwrap();
+        assert!(matches!(
+            engine.compact_stable(
+                &nuif_testing::responsive_card_fixture(),
+                &frontier
+            ),
+            Err(CollaborationError::UnsafeCompaction {
+                replica,
+                observed: 1,
+                frontier: 0,
+            }) if replica == "alice"
         ));
     }
 }

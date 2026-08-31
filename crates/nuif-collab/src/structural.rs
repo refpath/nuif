@@ -1,5 +1,6 @@
 //! Bounded cycle-safe tree-move collaboration above canonical NUIF.
 
+use super::gc::{CompactionReceipt, StabilityFrontier};
 use super::{ChangeId, CollaborationError, MAX_CHANGES, MAX_REPLICAS, validate_replica};
 use nuif_codec::canonical_hash;
 use nuif_core::{Document, EntityId, Severity, validate};
@@ -106,6 +107,13 @@ pub struct StructuralCheckpoint {
     pub applied: Vec<ChangeId>,
     pub conflicts: Vec<StructuralConflict>,
     pub active_positions: BTreeMap<EntityId, PositionId>,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct StructuralCompaction {
+    pub receipt: CompactionReceipt,
+    pub checkpoint: StructuralCheckpoint,
 }
 
 impl StructuralCheckpoint {
@@ -253,6 +261,32 @@ impl StructuralOperationSetEngine {
             state.apply(change)?;
         }
         finish_checkpoint(&self.base, self.changes.values(), state)
+    }
+
+    /// Replaces a complete, causally stable structural history with its
+    /// metadata-free canonical checkpoint.
+    ///
+    /// Profile 0 intentionally rejects partial collection. The frontier must
+    /// exactly cover every locally observed structural change; this avoids
+    /// rebasing position anchors and causal contexts without a versioned
+    /// checkpoint protocol.
+    pub fn compact_stable(
+        &self,
+        frontier: &StabilityFrontier,
+    ) -> Result<StructuralCompaction, StructuralError> {
+        let checkpoint = self.checkpoint()?;
+        frontier.validate_complete(self.changes.keys())?;
+        let receipt = CompactionReceipt::complete_history(
+            PROFILE_NAME,
+            self.base_hash.clone(),
+            checkpoint.canonical_hash.clone(),
+            frontier,
+            self.changes.keys().cloned().collect(),
+        );
+        Ok(StructuralCompaction {
+            receipt,
+            checkpoint,
+        })
     }
 }
 
@@ -1165,6 +1199,39 @@ mod tests {
         assert!(matches!(
             checkpoint.resolve_anchor(Anchor::After(EntityId::new(12))),
             Err(StructuralError::ActivePositionMissing { .. })
+        ));
+    }
+
+    #[test]
+    fn complete_stability_frontier_compacts_structural_history() {
+        let mut engine = StructuralOperationSetEngine::new(base()).unwrap();
+        engine
+            .ingest(move_to("alice", 1, 13, Some(12), StructuralAnchor::Start))
+            .unwrap();
+        let before = engine.checkpoint().unwrap();
+        let frontier = StabilityFrontier::new(BTreeMap::from([("alice".to_owned(), 1)])).unwrap();
+        let compacted = engine.compact_stable(&frontier).unwrap();
+        assert_eq!(compacted.checkpoint, before);
+        assert_eq!(compacted.receipt.dropped.len(), 1);
+        assert_eq!(compacted.receipt.compacted_base_hash, before.canonical_hash);
+    }
+
+    #[test]
+    fn partial_structural_compaction_fails_closed() {
+        let mut engine = StructuralOperationSetEngine::new(base()).unwrap();
+        engine
+            .ingest(move_to("alice", 1, 13, Some(12), StructuralAnchor::Start))
+            .unwrap();
+        let frontier = StabilityFrontier::new(BTreeMap::new()).unwrap();
+        assert!(matches!(
+            engine.compact_stable(&frontier),
+            Err(StructuralError::Causal(
+                CollaborationError::UnsafeCompaction {
+                    replica,
+                    observed: 1,
+                    frontier: 0,
+                }
+            )) if replica == "alice"
         ));
     }
 
