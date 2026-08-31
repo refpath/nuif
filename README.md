@@ -191,6 +191,7 @@ cargo xtask reduction-profile # hierarchical/choice reduction and fixture eviden
 cargo xtask editor-hostile-inputs # semantic, parser and snapshot rejection report
 cargo xtask fuzz-smoke # bounded AddressSanitizer campaigns over five core surfaces
 cargo xtask adapter-audit # research/profile/gate coverage for all advertised targets
+cargo xtask diagnostic-audit # public model/layout/trial diagnostic registry drift
 cargo xtask performance # portable budgets plus one execution of every Criterion path
 cargo xtask codec-benchmark # codec size, latency, allocation and admission evidence
 cargo xtask gate-c # NUIF/Taffy/pinned-Chrome layout report

@@ -6,6 +6,7 @@ use std::process::{Command, ExitStatus};
 
 use sha2::{Digest, Sha256};
 
+mod diagnostics;
 mod documentation;
 mod editor_install;
 
@@ -16,6 +17,7 @@ const ALL_STEPS: &[Step] = &[
     ("research", research),
     ("adapter-audit", adapter_audit),
     ("dependency-audit", dependency_audit),
+    ("diagnostic-audit", diagnostics::audit),
     ("docs-check", documentation::check),
     ("verify", verify),
     ("gate-wasm", gate_wasm),
@@ -54,6 +56,7 @@ const VERIFICATION_ARTIFACTS: &[&str] = &[
     "target/workflow-audit-report.json",
     "target/adapter-coverage-report.json",
     "target/dependency-audit-report.json",
+    "target/diagnostic-registry-report.json",
     "target/documentation-catalog.json",
     "target/documentation-report.json",
     "target/wasm-conformance-report.json",
@@ -209,6 +212,7 @@ fn run() -> Result<(), String> {
         Some("workflow-audit") => workflow_audit(),
         Some("adapter-audit") => adapter_audit(),
         Some("dependency-audit") => dependency_audit(),
+        Some("diagnostic-audit") => diagnostics::audit(),
         Some("docs-check") => documentation::check(),
         Some("docs-build") => documentation::build(),
         Some("docs-paper") => documentation::paper(),
@@ -228,7 +232,7 @@ fn run() -> Result<(), String> {
         Some("manifest") => standalone_manifest(),
         Some("all") => all(),
         _ => Err(
-            "usage: cargo xtask <research|workflow-audit|adapter-audit|dependency-audit|docs-check|docs-build|docs-paper|docs-serve|docs-setup|verify|trial [seed iterations snapshot-interval report-path]|gate-b|gate-c|gate-d|gate-d-text|gate-d-render|gate-f|gate-f-v0|gate-svg|gate-dtcg|gate-penpot|gate-react|gate-svelte|gate-figma|gate-behavior|gate-behavior-package|gate-web-behavior|gate-web-hosts|gate-wasm|gate-mcp|gate-g|gate-h|gate-i-package|gate-i-image|gate-i-font|gate-j-live|gate-accessibility|capture-baselines|browser-install|wasm-install|wasm-package|mcp-package|cli-package|hostile-inputs|reduction-profile|editor-hostile-inputs|fuzz-smoke|codec-benchmark|performance|editor-trial|editor-gui-trial|editor-install-trial|editor-package|editor-launch|editor-install|editor-doctor|editor-rollback|editor-uninstall|editor-update|release-check <tag>|manifest|all>"
+            "usage: cargo xtask <research|workflow-audit|adapter-audit|dependency-audit|diagnostic-audit|docs-check|docs-build|docs-paper|docs-serve|docs-setup|verify|trial [seed iterations snapshot-interval report-path]|gate-b|gate-c|gate-d|gate-d-text|gate-d-render|gate-f|gate-f-v0|gate-svg|gate-dtcg|gate-penpot|gate-react|gate-svelte|gate-figma|gate-behavior|gate-behavior-package|gate-web-behavior|gate-web-hosts|gate-wasm|gate-mcp|gate-g|gate-h|gate-i-package|gate-i-image|gate-i-font|gate-j-live|gate-accessibility|capture-baselines|browser-install|wasm-install|wasm-package|mcp-package|cli-package|hostile-inputs|reduction-profile|editor-hostile-inputs|fuzz-smoke|codec-benchmark|performance|editor-trial|editor-gui-trial|editor-install-trial|editor-package|editor-launch|editor-install|editor-doctor|editor-rollback|editor-uninstall|editor-update|release-check <tag>|manifest|all>"
                 .to_owned(),
         ),
     }

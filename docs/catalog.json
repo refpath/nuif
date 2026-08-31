@@ -19,6 +19,7 @@
     "research/items"
   ],
   "exclude": [
+    "CLAUDE.md",
     "research/items/_template.md",
     "conformance/foreign/penpot/node_modules/@penpot/library/README.md"
   ],
@@ -66,6 +67,8 @@
       "title": "Architecture and whitepaper",
       "paths": [
         "docs/HOST-INTEGRATION.md",
+        "docs/SDK-AND-BINDINGS.md",
+        "docs/DIAGNOSTICS.md",
         "docs/VERSIONING.md",
         "docs/whitepaper"
       ]
@@ -115,7 +118,10 @@
       "title": "Implementation reference",
       "paths": [
         "schemas/README.md",
+        "crates/nuif-cli/README.md",
+        "crates/nuif-mcp/README.md",
         "crates/nuif-wasm/README.md",
+        "fuzz/README.md",
         "implementations/python/README.md",
         "tools/refpath/README.md",
         "crates/nuif-media/PROFILE.md",

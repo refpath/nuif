@@ -287,6 +287,27 @@ fn compile(stage: bool) -> Result<Compilation, String> {
     if located.is_empty() {
         return Err("documentation catalog selects no Markdown files".to_owned());
     }
+    let mut discovered = Vec::new();
+    collect_markdown(Path::new("."), &mut discovered)?;
+    let unpublished = discovered
+        .into_iter()
+        .map(|path| {
+            path.strip_prefix(Path::new("."))
+                .unwrap_or(&path)
+                .to_owned()
+        })
+        .filter(|path| !selected.contains(path) && !excluded.contains(path))
+        .collect::<Vec<_>>();
+    if !unpublished.is_empty() {
+        return Err(format!(
+            "Markdown sources must be published or explicitly excluded: {}",
+            unpublished
+                .iter()
+                .map(|path| path.display().to_string())
+                .collect::<Vec<_>>()
+                .join(", ")
+        ));
+    }
 
     let mut documents = Vec::with_capacity(located.len());
     let mut identifiers = BTreeMap::<String, PathBuf>::new();
@@ -508,7 +529,7 @@ fn collect_markdown(directory: &Path, output: &mut Vec<PathBuf>) -> Result<(), S
 }
 
 fn is_generated_directory_name(name: &str) -> bool {
-    GENERATED_DIRECTORY_NAMES.contains(&name)
+    name.starts_with('.') || GENERATED_DIRECTORY_NAMES.contains(&name)
 }
 
 fn read_document(

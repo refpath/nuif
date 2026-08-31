@@ -17,9 +17,11 @@ cargo xtask docs-paper
 ```
 
 `docs-check` validates catalog paths, unique document identifiers, required
-frontmatter, file budgets and relative links. It writes the machine-readable
-catalog and report under `target/`. `docs-build` stages Markdown with generated
-navigation and invokes mdBook 0.5.4. The static site is written to
+frontmatter, file budgets and relative links. Every repository Markdown source
+must be published or named in the catalog's explicit exclusion list, so a new
+document cannot silently disappear from the site. The command writes the
+machine-readable catalog and report under `target/`. `docs-build` stages
+Markdown with generated navigation and invokes mdBook 0.5.4. The static site is written to
 `target/docs-site`. `docs-serve` rebuilds the staging tree and starts the local
 mdBook server. `docs-paper` builds the site and prints the generated technical
 manuscript to `target/docs-site/downloads/nuif-research-manuscript.pdf` through

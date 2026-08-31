@@ -67,6 +67,7 @@ jobs:
             target/workflow-audit-report.json
             target/adapter-coverage-report.json
             target/dependency-audit-report.json
+            target/diagnostic-registry-report.json
             target/performance-profile-report.json
             target/package-resources-report.json
             target/image-resources-report.json

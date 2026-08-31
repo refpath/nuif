@@ -138,7 +138,12 @@ One JSON document per run, modelled on the glTF Validator report (`gltf-validato
 }
 ```
 
-Diagnostic codes are stable strings emitted in machine reports; severities serialize as `error`, `warning`, `information` or `hint`, and command exit status depends only on errors. A complete public code registry is still required before profile publication.
+Diagnostic codes are stable strings emitted in machine reports; severities
+serialize as `error`, `warning`, `information` or `hint`, and command exit
+status depends only on errors. The canonical [diagnostic code
+registry](../docs/DIAGNOSTICS.md) records every model, layout and trial code,
+default severity, category, producer and stable meaning. `cargo xtask
+diagnostic-audit` blocks undocumented, duplicated, stale or reordered entries.
 
 The hostile-input experiment writes a separate `target/hostile-input-report.json` because allocator and elapsed-time measurements are process-level rather than document fidelity entries. It records every input size, expected/observed error class, allocation counters, retained bytes, elapsed microseconds, limits, warmup, allocator method, toolchain and platform. `cargo xtask hostile-inputs` regenerates it and CI uploads it as `hostile-input-report`.
 
