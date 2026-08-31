@@ -101,6 +101,22 @@ convergence and metadata absence, and exercises typed negative cases. This is
 an executable bounded profile, not a claim that general tree creation is
 solved.
 
+## Nested creation profile 0
+
+`nuif-collab-tree-create-nested-0` permits a creation change to use another
+selected creation as its parent when the child context includes that parent's
+dot. Parent chains are resolved before materialization and are capped at
+`MAX_PARENT_DEPTH`. A created parent accepts only `Start`; base parents retain
+the original `Start` and `After(base-entity)` anchors. Unknown or non-causal
+parents, parent cycles, created-parent `After` anchors and depth overflow fail
+with typed errors. The payload remains one leaf per change and collisions stay
+explicit.
+
+Gate H exhausts all six deliveries of a causal parent/child/base-sibling
+fixture, checks merge convergence and metadata absence, and exercises every
+declared negative boundary. This is a separate extension profile; the original
+leaf-only creation profile remains unchanged.
+
 ## Causal-stability compaction profile 0
 
 `nuif-collab-gc-0` provides the first executable history-collection boundary.

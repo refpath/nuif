@@ -9,8 +9,9 @@ Run `cargo xtask gate-d` for both text and paint. It writes `target/text-pinning
 Automated and conventional QA run the same headless tests. GUI automation is supplementary; semantic API operations are the primary test interface. `HARNESS.md` specifies the workspace layout, fixture format, determinism controls, oracles, trial loop, reducer and report schema.
 
 Run `cargo xtask gate-h` for exhaustive collaboration register convergence,
-existing-tree structural convergence, bounded concurrent creation and
-causal-stability compaction. The creation profile exhausts all 24 delivery
+existing-tree structural convergence, bounded concurrent creation (including
+the separate causal nested-creation profile) and causal-stability compaction.
+The creation profile exhausts all 24 delivery
 orders for concurrent leaf inserts, reports ID collisions explicitly and checks
 canonical metadata absence; nested creation and concurrently created parents
 remain rejected. The compaction profile requires an exact locally observed

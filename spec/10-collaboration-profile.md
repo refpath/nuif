@@ -106,6 +106,32 @@ unknown parents/anchors and incomplete causal history. This profile does not
 claim nested creation, deletion/resurrection, mixed property/structure
 transactions or an independently authored tree materializer.
 
+## Executable nested-creation profile 0
+
+`nuif-collab-tree-create-nested-0` extends creation to a bounded causal parent
+chain without changing `nuif-collab-tree-create-0`. A creation may name an
+entity created by another change as its parent only when the child context
+includes the selected parent dot. The parent chain is resolved before
+materialization, cycles and unavailable parents fail as typed errors, and the
+chain is capped at the profile's declared depth limit.
+
+`Start` is the only supported anchor below a created parent. A base parent may
+still use `Start` or `After(base-entity)`, preserving the base sibling order;
+created-parent `After` anchors are rejected rather than guessed from delivery
+order. The payload remains one leaf entity per change, so descendants are
+separate changes and ordinary canonical child arrays are produced only after
+all selected parent relationships validate. Entity-ID collisions remain
+explicit `EntityIdCollision` conflicts with the greatest dot selected
+provisionally.
+
+The profile is intentionally one operation-set materializer. Its conformance
+fixture exhausts all six deliveries of a causal parent, nested child and base
+sibling, checks merge convergence and canonical metadata absence, and rejects
+non-causal/unknown parents, created-parent anchors and incomplete history.
+Deletions, resurrection, arbitrary created-parent anchors, mixed
+property/structure transactions and a second independently authored tree
+materializer remain future work.
+
 ## Causal-stability compaction profile 0
 
 `nuif-collab-gc-0` is an explicit, conservative history-collection profile. It

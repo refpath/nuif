@@ -284,6 +284,14 @@ fixture rejects nested payloads, unknown base parents/anchors and incomplete
 causal history before mutation; creation dots and replica names must not leak
 into the canonical document.
 
+The nested-creation experiment writes
+`target/collaboration-nested-creation-report.json`. It exhausts all six
+deliveries of a causal created-parent/child plus base-sibling fixture, checks
+the parent tree and merge result, and refuses non-causal or unknown parents,
+created-parent `After` anchors and incomplete history. The profile is separate
+from leaf creation so its narrower anchor and depth contract cannot silently
+change the first profile.
+
 The separate existing-tree experiment writes `target/collaboration-structure-report.json`, exhausts 5,040 deliveries of seven move/delete/cycle/stable-anchor changes through sorted-set and incremental rollback/replay materializers, requires one-parent/acyclic checkpoints plus explicit move, deletion, cycle and anchor conflicts, and runs a 4,096-change release scaling guard. `tools/automerge-oracle` uses pinned `@automerge/automerge` 3.4.1 to merge the seven immutable operation records in different orders and through save/load, writing `target/collaboration-automerge-report.json`. This is foreign transport evidence; Automerge does not provide the NUIF tree materializer. Both executable boundaries are specified in `crates/nuif-collab/README.md` and `spec/10-collaboration-profile.md`.
 
 The causal-stability experiment writes `target/collaboration-gc-report.json`.

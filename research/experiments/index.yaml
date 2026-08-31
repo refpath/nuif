@@ -243,6 +243,22 @@ experiments:
       - exercise empty history and metadata absence
       - reject partial and ahead frontiers with typed errors
       - write and archive target/collaboration-gc-report.json
+  - id: nuif:experiment:crdt-nested-creation
+    status: automated
+    evidence: [nuif:research:crdt-tree-move-operation, nuif:research:automerge-yjs, nuif:research:list-ordering-fractional-indexing-vs-list-crdts]
+    implementation: [crates/nuif-collab/src/nested_creation.rs, conformance/src/bin/collaboration-nested-creation.rs, crates/nuif-collab/README.md, spec/10-collaboration-profile.md, xtask/src/main.rs]
+    oracle: deterministic-operation-set
+    acceptance:
+      - a child creation causally naming a selected created parent materializes beneath that parent
+      - base-parent sibling order and deterministic anchors remain unchanged
+      - unavailable, non-causal and cyclic parent references fail closed
+      - created-parent After anchors and incomplete history are typed failures
+      - canonical checkpoints contain no collaboration metadata
+    tests:
+      - exhaust all six deliveries of the causal parent/child/base-sibling fixture
+      - compare a partitioned operation-set merge with the complete checkpoint
+      - reject unknown and non-causal parents, created-parent anchors and incomplete history
+      - write and archive target/collaboration-nested-creation-report.json
   - id: nuif:experiment:accessibility-mapping
     status: automated
     evidence: [nuif:research:accessibility-semantics]
