@@ -8,6 +8,7 @@ repository.workspace = true
 [dependencies]
 font-test-data.workspace = true
 harfrust.workspace = true
+nuif-font = { version = "0.0.1", path = "../nuif-font" }
 serde.workspace = true
 sha2.workspace = true
 skrifa.workspace = true

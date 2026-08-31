@@ -1,7 +1,7 @@
 #![doc = "Stable headless engine and editor-session contract shared by every client."]
 
 use nuif_codec::{CanonicalText, CodecError, DeterministicCbor, Encoder, canonical_hash};
-use nuif_core::{Diagnostic, Document, EntityId, ResourceDigest, Severity, validate};
+use nuif_core::{AssetKind, Diagnostic, Document, EntityId, ResourceDigest, Severity, validate};
 use nuif_layout::{EvaluationContext, LayoutSnapshot, evaluate};
 use nuif_package::{NuifPackage, PackageCapabilityReport, PackageError, PackageMode};
 use nuif_protocol::{ApplyError, Operation, Patch, Transaction, apply_patch_with_inverse};
@@ -726,14 +726,38 @@ impl Session {
     ///
     /// Returns an engine error if hashing or rasterization fails.
     pub fn snapshot(&self, context: &EvaluationContext) -> Result<Snapshot, EngineError> {
-        let layout = self.engine.layout(&self.document, context)?;
-        let scene = build_scene_with_resources(&self.document, &layout, context, |digest| {
-            self.resources.get(digest).map(Arc::as_ref)
-        })?;
+        let mut resolved_context = context.clone();
+        for asset in self.document.assets.values() {
+            if !matches!(asset.kind, AssetKind::Font(_)) {
+                continue;
+            }
+            let Some(resource) = &asset.resource else {
+                continue;
+            };
+            let Some(bytes) = self.resources.get(resource) else {
+                continue;
+            };
+            let Some(sha256) = resource.sha256_hex() else {
+                continue;
+            };
+            resolved_context.font_hashes.insert(sha256.to_owned());
+            resolved_context
+                .font_resources
+                .insert(sha256.to_owned(), Arc::clone(bytes));
+        }
+        let layout = self.engine.layout(&self.document, &resolved_context)?;
+        let scene =
+            build_scene_with_resources(&self.document, &layout, &resolved_context, |digest| {
+                self.resources.get(digest).map(Arc::as_ref)
+            })?;
         let target = RenderTarget {
-            width: target_dimension(context.viewport.width * context.scale_factor),
-            height: target_dimension(context.viewport.height * context.scale_factor),
-            scale_factor: target_scale(context.scale_factor),
+            width: target_dimension(
+                resolved_context.viewport.width * resolved_context.scale_factor,
+            ),
+            height: target_dimension(
+                resolved_context.viewport.height * resolved_context.scale_factor,
+            ),
+            scale_factor: target_scale(resolved_context.scale_factor),
         };
         let raster = render_cpu(&scene, target)?;
         Ok(Snapshot {

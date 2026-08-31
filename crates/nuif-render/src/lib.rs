@@ -13,8 +13,8 @@ use nuif_media::{
 use nuif_text::{
     CLUSTER_UNIT, GlyphOutline, MAX_SHAPING_CODEPOINTS, OUTLINE_COORDINATE_DENOMINATOR,
     OUTLINE_EXTRACTOR_NAME, OUTLINE_EXTRACTOR_VERSION, OutlineCommand, OutlinePoint,
-    PINNED_FONT_ASCENDER, ShapeRequest, ShapedRun, TextDirection, TextError, outline_glyph,
-    shape_hard_lines,
+    PINNED_FONT_SHA256, ResourceFont, ShapeRequest, ShapedRun, TextDirection, TextError,
+    outline_glyph, shape_hard_lines,
 };
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
@@ -117,8 +117,36 @@ struct ImageSurfaceRequest<'a> {
 }
 
 enum TextFontLowering<'a> {
-    Render { sha256: &'a str, fidelity: Fidelity },
+    Render {
+        sha256: &'a str,
+        asset: Option<AssetId>,
+        fidelity: Fidelity,
+    },
     Skip(Fidelity),
+}
+
+enum ResolvedTextFace<'a> {
+    Pinned,
+    Resource(ResourceFont<'a>),
+    Skip(Fidelity),
+}
+
+impl ResolvedTextFace<'_> {
+    fn shape_hard_lines(&self, request: &ShapeRequest<'_>) -> Result<Vec<ShapedRun>, TextError> {
+        match self {
+            Self::Pinned => shape_hard_lines(request),
+            Self::Resource(font) => font.shape_hard_lines(request),
+            Self::Skip(_) => Ok(Vec::new()),
+        }
+    }
+
+    fn outline_glyph(&self, glyph_id: u32) -> Result<GlyphOutline, TextError> {
+        match self {
+            Self::Pinned => outline_glyph(glyph_id),
+            Self::Resource(font) => font.outline_glyph(glyph_id),
+            Self::Skip(_) => Err(TextError::GlyphOutlineUnavailable { glyph_id }),
+        }
+    }
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -308,7 +336,7 @@ pub fn build_scene_with_resources<'a>(
             lower_entity_visual(&mut scene, *id, &entity.kind, rect, entity.authored.fill);
         }
         if let Some(text) = &entity.authored.text {
-            lower_text(&mut scene, document, *id, rect, text, context)?;
+            lower_text(&mut scene, document, *id, rect, text, context, &resolve)?;
         }
     }
     Ok(scene)
@@ -535,22 +563,27 @@ fn image_fidelity(scene: &mut RenderScene, id: EntityId, reason: &str) {
     });
 }
 
-fn lower_text(
+fn lower_text<'a>(
     scene: &mut RenderScene,
     document: &Document,
     id: EntityId,
     rect: Rect,
     text: &nuif_core::TextContent,
     context: &EvaluationContext,
+    resolve: &impl Fn(&ResourceDigest) -> Option<&'a [u8]>,
 ) -> Result<(), RenderError> {
-    let (font_sha256, status) = match select_text_font(document, text, context, id)? {
-        TextFontLowering::Render { sha256, fidelity } => (sha256, fidelity),
+    let (font_sha256, font_asset, status) = match select_text_font(document, text, context, id)? {
+        TextFontLowering::Render {
+            sha256,
+            asset,
+            fidelity,
+        } => (sha256, asset, fidelity),
         TextFontLowering::Skip(fidelity) => {
             text_fidelity(scene, id, fidelity);
             return Ok(());
         }
     };
-    let runs = shape_hard_lines(&ShapeRequest {
+    let request = ShapeRequest {
         text: &text.content,
         font_sha256,
         font_size: text.size,
@@ -559,8 +592,15 @@ fn lower_text(
             WritingDirection::RightToLeft => TextDirection::RightToLeft,
         },
         language: &context.locale,
-    })
-    .map_err(|source| RenderError::Text { entity: id, source })?;
+    };
+    let face = resolve_text_face(document, id, font_sha256, font_asset, resolve)?;
+    if let ResolvedTextFace::Skip(fidelity) = face {
+        text_fidelity(scene, id, fidelity);
+        return Ok(());
+    }
+    let runs = face
+        .shape_hard_lines(&request)
+        .map_err(|source| RenderError::Text { entity: id, source })?;
     text_fidelity(scene, id, status);
     for (line_index, run) in runs.into_iter().enumerate() {
         let mut outlines = BTreeMap::new();
@@ -568,10 +608,10 @@ fn lower_text(
             if let std::collections::btree_map::Entry::Vacant(entry) =
                 outlines.entry(glyph.glyph_id)
             {
-                entry.insert(
-                    outline_glyph(glyph.glyph_id)
-                        .map_err(|source| RenderError::Text { entity: id, source })?,
-                );
+                let outline = face
+                    .outline_glyph(glyph.glyph_id)
+                    .map_err(|source| RenderError::Text { entity: id, source })?;
+                entry.insert(outline);
             }
         }
         let line_offset = u32::try_from(line_index).map_or(f64::MAX, f64::from) * text.line_height;
@@ -599,6 +639,65 @@ fn lower_text(
     Ok(())
 }
 
+fn resolve_text_face<'a>(
+    document: &Document,
+    entity: EntityId,
+    sha256: &str,
+    asset_id: Option<AssetId>,
+    resolve: &impl Fn(&ResourceDigest) -> Option<&'a [u8]>,
+) -> Result<ResolvedTextFace<'a>, RenderError> {
+    if sha256 == PINNED_FONT_SHA256 {
+        return Ok(ResolvedTextFace::Pinned);
+    }
+    let Some(asset_id) = asset_id else {
+        return Err(RenderError::Text {
+            entity,
+            source: TextError::FontUnavailable {
+                expected: PINNED_FONT_SHA256,
+                observed: sha256.to_owned(),
+            },
+        });
+    };
+    let Some(asset) = document.assets.get(&asset_id) else {
+        return Err(RenderError::InvalidFontBinding {
+            entity,
+            reason: "font asset is absent",
+        });
+    };
+    let AssetKind::Font(metadata) = &asset.kind else {
+        return Err(RenderError::InvalidFontBinding {
+            entity,
+            reason: "font binding references a non-font asset",
+        });
+    };
+    let Some(resource) = &asset.resource else {
+        return Ok(ResolvedTextFace::Skip(Fidelity::Unsupported {
+            reason: "font resource is unavailable".to_owned(),
+        }));
+    };
+    let Some(bytes) = resolve(resource) else {
+        return Ok(ResolvedTextFace::Skip(Fidelity::Unsupported {
+            reason: "font resource was not explicitly resolved".to_owned(),
+        }));
+    };
+    let family = metadata
+        .names
+        .first()
+        .ok_or(RenderError::InvalidFontBinding {
+            entity,
+            reason: "font asset has no reviewed family name",
+        })?;
+    let license = metadata.policy_evidence.get("license.expression").ok_or(
+        RenderError::InvalidFontBinding {
+            entity,
+            reason: "font asset has no reviewed license expression",
+        },
+    )?;
+    ResourceFont::new(bytes, sha256, family, license)
+        .map(ResolvedTextFace::Resource)
+        .map_err(|source| RenderError::Text { entity, source })
+}
+
 fn select_text_font<'a>(
     document: &'a Document,
     text: &'a nuif_core::TextContent,
@@ -617,10 +716,11 @@ fn select_text_font<'a>(
             }
             TextFontLowering::Render {
                 sha256: requested_sha256,
+                asset: None,
                 fidelity: Fidelity::Lossless,
             }
         }
-        TextFontBinding::Exact { sha256, .. } => {
+        TextFontBinding::Exact { asset, sha256, .. } => {
             if !context.font_hashes.contains(sha256) {
                 return Ok(TextFontLowering::Skip(Fidelity::Unsupported {
                     reason: "bound exact font is absent from the render context".to_owned(),
@@ -628,10 +728,12 @@ fn select_text_font<'a>(
             }
             TextFontLowering::Render {
                 sha256,
+                asset: Some(asset),
                 fidelity: Fidelity::Lossless,
             }
         }
         TextFontBinding::Substituted {
+            asset,
             requested_sha256,
             replacement_sha256,
             ..
@@ -644,6 +746,7 @@ fn select_text_font<'a>(
             }
             TextFontLowering::Render {
                 sha256: replacement_sha256,
+                asset: Some(asset),
                 fidelity: Fidelity::Approximated {
                     reason: format!(
                         "requested font {requested_sha256} was rendered with declared replacement {replacement_sha256}"
@@ -1190,7 +1293,8 @@ fn draw_shaped_text_outlines(
         return;
     }
     let font_unit_scale = run.font_size * target_scale / f64::from(run.units_per_em);
-    let baseline = rect.y - f64::from(base_y) + f64::from(PINNED_FONT_ASCENDER) * font_unit_scale;
+    let baseline =
+        rect.y - f64::from(base_y) + f64::from(run.ascender_font_units) * font_unit_scale;
     let run_width = run
         .glyphs
         .iter()

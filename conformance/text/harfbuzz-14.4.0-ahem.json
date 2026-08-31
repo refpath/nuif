@@ -50,7 +50,7 @@
         "width": 360,
         "height": 640,
         "direction": "left_to_right",
-        "scene_sha256": "e06001466700c1f68cdef6b26e2bbd0e8312603f882b009e95f3c53d1915c285",
+        "scene_sha256": "9a8f82e8b7f4811c3591212d85adc2fe1fa0fb1ce8382c0c0571eb7ff720bd9d",
         "rgba_sha256": "005ee10fd1386f6499992ad3c9e38bd093849ab5e1f6b893631ccd93d4822900",
         "png_sha256": "b892b3f6f6fd965b334efb125379606a4ee3d49da718fcfab3cf6be6e1649883"
       },
@@ -58,7 +58,7 @@
         "width": 768,
         "height": 768,
         "direction": "left_to_right",
-        "scene_sha256": "6833a18701aaa996c4fbc74874e524d91ebe50c65df3eeb7714699259c811075",
+        "scene_sha256": "5e54f8fae77eb8162621fd1c1c5f8a841aeb39075184a8e6f8b6b6030f949955",
         "rgba_sha256": "6f2a8bdcb501fdf15cdf3d4c5e1727a42a118016f004414d5b26635b37b3a1f0",
         "png_sha256": "62eb29e9b2dea0df1bb8d28d1023a50cba999d70f8b367dd334184dafba57b2a"
       },
@@ -66,7 +66,7 @@
         "width": 1440,
         "height": 900,
         "direction": "right_to_left",
-        "scene_sha256": "f73db4f7390f5cad16db47a8b0906f142ae070524a68152a49c12724989c6329",
+        "scene_sha256": "6d28a98045da81611edad18b495b44c7133a9c8aed91c1f91a9ca41178ab8cfa",
         "rgba_sha256": "8f0caea5de65bdd564b483052689e77eb68edff7a36a9f38e4438bd5383faf29",
         "png_sha256": "fc2101c40425469dbaaf6fd8d0730b9001fb3b46a1149faa73f4f77ed5deb60d"
       }

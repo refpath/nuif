@@ -1,3 +1,4 @@
+use nuif_api::NuifDocument;
 use nuif_codec::canonical_hash;
 use nuif_core::{
     Asset, AssetId, AssetKind, AssetPortability, CURRENT_SCHEMA_VERSION, Document, EntityId,
@@ -9,7 +10,7 @@ use nuif_font::{
     inspect_opentype_static,
 };
 use nuif_package::{NuifPackage, PackageMode, ResourceResolver};
-use nuif_render::build_scene;
+use nuif_render::{DrawCommand, build_scene};
 use nuif_text::{PINNED_FONT_NAME, PINNED_FONT_SHA256, pinned_font_bytes};
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
@@ -104,6 +105,7 @@ fn run() -> Result<(), String> {
     let portability_trials = portability_trials(&primary, bytes)?;
     let package_trials = package_trials(&primary, bytes)?;
     let item_fidelity_trials = item_fidelity_trials(&primary, bytes)?;
+    let runtime_trials = runtime_trials()?;
     let allocation_trials = allocation_trials(&primary, bytes)?;
     let passed = parser_trials
         .iter()
@@ -113,6 +115,7 @@ fn run() -> Result<(), String> {
         .chain(&portability_trials)
         .chain(&package_trials)
         .chain(&item_fidelity_trials)
+        .chain(&runtime_trials)
         .chain(&allocation_trials)
         .all(passed_trial);
     let report = json!({
@@ -156,12 +159,13 @@ fn run() -> Result<(), String> {
         "portability_trials": portability_trials,
         "package_trials": package_trials,
         "item_fidelity_trials": item_fidelity_trials,
+        "runtime_trials": runtime_trials,
         "allocation_trials": allocation_trials,
         "source": source_identity(),
         "non_claims": [
             "four accepted static TrueType fixtures with only an Ahem HarfBuzz metadata golden are not broad OpenType conformance",
             "no TTC CFF CFF2 variable color bitmap SVG WOFF WOFF2 or subsetting support",
-            "no shaping outline raster browser or cross-platform font reproduction is established by this gate",
+            "one non-Ahem static TrueType fixture demonstrates local shaping, outline extraction and CPU rasterization, not broad browser or cross-platform font reproduction",
             "fsType and a recorded review are policy evidence, not an automated license decision or redistribution grant",
             "the HarfBuzz oracle is a committed capture rather than a live executable dependency in every run",
             "allocator ceilings are reference-implementation regressions measured after one warmup, not portable format semantics",
@@ -174,8 +178,9 @@ fn run() -> Result<(), String> {
             "portability": portability_trials.len(),
             "package": package_trials.len(),
             "item_fidelity": item_fidelity_trials.len(),
+            "runtime": runtime_trials.len(),
             "allocation": allocation_trials.len(),
-            "blocking_failures": parser_trials.iter().chain(&accepted_trials).chain(&negative_trials).chain(&policy_trials).chain(&portability_trials).chain(&package_trials).chain(&item_fidelity_trials).chain(&allocation_trials).filter(|item| !passed_trial(item)).count(),
+            "blocking_failures": parser_trials.iter().chain(&accepted_trials).chain(&negative_trials).chain(&policy_trials).chain(&portability_trials).chain(&package_trials).chain(&item_fidelity_trials).chain(&runtime_trials).chain(&allocation_trials).filter(|item| !passed_trial(item)).count(),
         }
     });
     if let Some(parent) = output.parent()
@@ -196,6 +201,7 @@ fn run() -> Result<(), String> {
             + portability_trials.len()
             + package_trials.len()
             + item_fidelity_trials.len()
+            + runtime_trials.len()
             + allocation_trials.len(),
         if passed { "passed" } else { "failed" }
     );
@@ -204,6 +210,90 @@ fn run() -> Result<(), String> {
     } else {
         Err(format!("report failed; inspect {}", output.display()))
     }
+}
+
+fn runtime_trials() -> Result<Vec<Value>, String> {
+    let bytes = font_test_data::TINOS_SUBSET;
+    let inspection = inspect_opentype_static(bytes, 0).map_err(|error| error.to_string())?;
+    let mut package = font_package(
+        &inspection,
+        bytes,
+        PackageMode::Portable,
+        AssetPortability::Portable,
+        false,
+    )?;
+    let digest = sha256(bytes);
+    add_font_text(&mut package, &digest);
+    package
+        .document
+        .entities
+        .get_mut(&EntityId::new(0xf1))
+        .ok_or_else(|| "runtime font fixture lost its text entity".to_owned())?
+        .authored
+        .width = SizeIntent::Intrinsic;
+    let encoded = package.encode().map_err(|error| error.to_string())?;
+    let document = NuifDocument::load_package(&encoded).map_err(|error| error.to_string())?;
+    let context = nuif_layout::EvaluationContext::viewport(100.0, 24.0);
+    let first = document
+        .snapshot(&context)
+        .map_err(|error| error.to_string())?;
+    let second = document
+        .snapshot(&context)
+        .map_err(|error| error.to_string())?;
+    let (run, outlines) = first
+        .scene
+        .commands
+        .iter()
+        .find_map(|command| match command {
+            DrawCommand::Text { run, outlines, .. } => Some((run.as_ref(), outlines.as_ref())),
+            DrawCommand::Rect { .. } | DrawCommand::Ellipse { .. } | DrawCommand::Image { .. } => {
+                None
+            }
+        })
+        .ok_or_else(|| "exact packaged font did not lower a text command".to_owned())?;
+    let expected_width = run
+        .glyphs
+        .iter()
+        .map(|glyph| f64::from(glyph.x_advance))
+        .sum::<f64>()
+        .abs()
+        * run.font_size
+        / f64::from(run.units_per_em);
+    let layout_width = first
+        .layout
+        .boxes
+        .get(&EntityId::new(0xf1))
+        .map_or(0.0, |rect| rect.width);
+    Ok(vec![
+        trial(
+            "exact_package_registers_font_without_host_setup",
+            run.font.sha256 == digest
+                && run.font.family == inspection.names[0]
+                && run.font.sha256 != PINNED_FONT_SHA256,
+        ),
+        trial(
+            "exact_resource_metrics_drive_intrinsic_layout",
+            run.ascender_font_units > 0 && (layout_width - expected_width).abs() < 0.001,
+        ),
+        trial(
+            "exact_resource_outlines_drive_cpu_raster",
+            !outlines.is_empty()
+                && first
+                    .raster
+                    .rgba
+                    .as_chunks::<4>()
+                    .0
+                    .iter()
+                    .any(|pixel| pixel[3] > 0),
+        ),
+        trial(
+            "exact_resource_render_is_lossless",
+            first.scene.fidelity.iter().any(|entry| {
+                entry.entity == Some(EntityId::new(0xf1)) && entry.status == Fidelity::Lossless
+            }),
+        ),
+        trial("exact_resource_snapshot_is_deterministic", first == second),
+    ])
 }
 
 fn item_fidelity_trials(

@@ -1,14 +1,18 @@
 #![doc = "Deterministic authored-to-resolved layout evaluation for NUIF."]
 
 use nuif_core::{
-    Align, Diagnostic, Document, Entity, EntityId, EntityKind, Fidelity, FlowDirection, GridArea,
-    GridTrack, LayoutFamily, Severity, SizeIntent, TextFontBinding, resolve_grid_placements,
-    resolve_text_font_binding, validate,
+    Align, AssetId, AssetKind, Diagnostic, Document, Entity, EntityId, EntityKind, Fidelity,
+    FlowDirection, GridArea, GridTrack, LayoutFamily, Severity, SizeIntent, TextFontBinding,
+    resolve_grid_placements, resolve_text_font_binding, validate,
 };
-use nuif_text::{ShapeRequest, TextDirection, hard_lines, shape_hard_lines};
+use nuif_text::{
+    PINNED_FONT_SHA256, ShapeRequest, ShapedRun, TextDirection, hard_lines, shape_hard_lines,
+    shape_hard_lines_resource,
+};
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet};
 use std::convert::Infallible;
+use std::sync::Arc;
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -36,6 +40,11 @@ pub struct EvaluationContext {
     pub theme: Option<String>,
     #[serde(default)]
     pub font_hashes: BTreeSet<String>,
+    /// Exact local font bytes keyed by SHA-256. Resource bytes are runtime
+    /// inputs and never serialized as part of the evaluation context; the
+    /// fingerprint already commits to the corresponding `font_hashes`.
+    #[serde(skip)]
+    pub font_resources: BTreeMap<String, Arc<[u8]>>,
     #[serde(default)]
     pub capabilities: BTreeSet<String>,
 }
@@ -50,6 +59,7 @@ impl EvaluationContext {
             writing_direction: WritingDirection::LeftToRight,
             theme: None,
             font_hashes: BTreeSet::new(),
+            font_resources: BTreeMap::new(),
             capabilities: BTreeSet::new(),
         }
     }
@@ -390,32 +400,19 @@ fn intrinsic_size(document: &Document, entity: &Entity, context: &EvaluationCont
             WritingDirection::LeftToRight => TextDirection::LeftToRight,
             WritingDirection::RightToLeft => TextDirection::RightToLeft,
         };
-        let effective_sha256 = resolve_text_font_binding(document, text).effective_sha256();
-        let shaped_width = effective_sha256
-            .filter(|sha256| context.font_hashes.contains(*sha256))
-            .and_then(|sha256| {
-                shape_hard_lines(&ShapeRequest {
-                    text: &text.content,
-                    font_sha256: sha256,
-                    font_size: text.size,
-                    direction,
-                    language: &context.locale,
-                })
-                .ok()
+        let shaped_width = shape_text(document, text, context, direction).map(|runs| {
+            runs.into_iter().fold(0.0_f64, |maximum, run| {
+                let advance = run
+                    .glyphs
+                    .iter()
+                    .map(|glyph| f64::from(glyph.x_advance))
+                    .sum::<f64>()
+                    .abs()
+                    * run.font_size
+                    / f64::from(run.units_per_em);
+                maximum.max(advance)
             })
-            .map(|runs| {
-                runs.into_iter().fold(0.0_f64, |maximum, run| {
-                    let advance = run
-                        .glyphs
-                        .iter()
-                        .map(|glyph| f64::from(glyph.x_advance))
-                        .sum::<f64>()
-                        .abs()
-                        * run.font_size
-                        / f64::from(run.units_per_em);
-                    maximum.max(advance)
-                })
-            });
+        });
         let fallback_width = hard_lines(&text.content)
             .into_iter()
             .map(str::chars)
@@ -432,6 +429,49 @@ fn intrinsic_size(document: &Document, entity: &Entity, context: &EvaluationCont
         };
     }
     Size::default()
+}
+
+fn shape_text(
+    document: &Document,
+    text: &nuif_core::TextContent,
+    context: &EvaluationContext,
+    direction: TextDirection,
+) -> Option<Vec<ShapedRun>> {
+    let binding = resolve_text_font_binding(document, text);
+    let sha256 = binding.effective_sha256()?;
+    if !context.font_hashes.contains(sha256) {
+        return None;
+    }
+    let request = ShapeRequest {
+        text: &text.content,
+        font_sha256: sha256,
+        font_size: text.size,
+        direction,
+        language: &context.locale,
+    };
+    if sha256 == PINNED_FONT_SHA256 {
+        return shape_hard_lines(&request).ok();
+    }
+    let asset_id = match binding {
+        TextFontBinding::Exact { asset, .. } | TextFontBinding::Substituted { asset, .. } => asset,
+        TextFontBinding::Unbound { .. }
+        | TextFontBinding::Unavailable { .. }
+        | TextFontBinding::Invalid { .. } => return None,
+    };
+    let (family, license) = font_asset_metadata(document, asset_id)?;
+    let bytes = context.font_resources.get(sha256)?;
+    shape_hard_lines_resource(&request, bytes, family, license).ok()
+}
+
+fn font_asset_metadata(document: &Document, asset_id: AssetId) -> Option<(&str, &str)> {
+    let asset = document.assets.get(&asset_id)?;
+    let AssetKind::Font(font) = &asset.kind else {
+        return None;
+    };
+    Some((
+        font.names.first()?.as_str(),
+        font.policy_evidence.get("license.expression")?.as_str(),
+    ))
 }
 
 fn layout_children(

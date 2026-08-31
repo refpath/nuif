@@ -83,6 +83,8 @@ pub struct ShapedRun {
     pub font: FontIdentity,
     pub font_size: f64,
     pub units_per_em: u16,
+    #[serde(default = "default_ascender_font_units")]
+    pub ascender_font_units: i32,
     pub direction: TextDirection,
     pub language: String,
     pub shaper: String,
@@ -220,12 +222,16 @@ pub enum TextError {
     },
     #[error("font hash {hash} is absent from the evaluation context")]
     FontAbsentFromContext { hash: String },
+    #[error("font resource digest does not match {expected}: observed {observed}")]
+    FontDigestMismatch { expected: String, observed: String },
     #[error("font size must be finite and positive")]
     InvalidFontSize,
     #[error("text has {observed} codepoints, exceeding the shaping limit {limit}")]
     TooManyCodepoints { limit: usize, observed: usize },
     #[error("the pinned font bytes are invalid: {0}")]
     InvalidPinnedFont(String),
+    #[error("the packaged font resource is invalid: {0}")]
+    InvalidResourceFont(String),
     #[error("language tag is empty")]
     InvalidLanguage,
     #[error("could not allocate the bounded shaping buffer")]
@@ -236,6 +242,147 @@ pub enum TextError {
     OutlineExtraction { glyph_id: u32, reason: String },
     #[error("glyph {glyph_id} contains a non-finite or out-of-range outline coordinate")]
     InvalidOutlineCoordinate { glyph_id: u32 },
+}
+
+const fn default_ascender_font_units() -> i32 {
+    PINNED_FONT_ASCENDER
+}
+
+/// One digest-checked, profile-validated static font face that can be reused
+/// across shaping and outline extraction without reparsing it per glyph.
+pub struct ResourceFont<'a> {
+    harf: HarfFontRef<'a>,
+    skrifa: SkrifaFontRef<'a>,
+    identity: FontIdentity,
+    ascender_font_units: i32,
+}
+
+impl<'a> ResourceFont<'a> {
+    /// Validates and opens an exact packaged static TrueType font.
+    ///
+    /// # Errors
+    ///
+    /// Returns a typed error for a digest mismatch, a decoder-profile
+    /// rejection, inconsistent family metadata, or an empty license record.
+    pub fn new(
+        bytes: &'a [u8],
+        expected_sha256: &str,
+        family: &str,
+        license: &str,
+    ) -> Result<Self, TextError> {
+        let observed = format!("{:x}", Sha256::digest(bytes));
+        if observed != expected_sha256 {
+            return Err(TextError::FontDigestMismatch {
+                expected: expected_sha256.to_owned(),
+                observed,
+            });
+        }
+        let inspection = nuif_font::inspect_opentype_static(bytes, 0)
+            .map_err(|error| TextError::InvalidResourceFont(error.to_string()))?;
+        if family.is_empty() || !inspection.names.iter().any(|name| name == family) {
+            return Err(TextError::InvalidResourceFont(
+                "asset family is absent from the inspected font".to_owned(),
+            ));
+        }
+        if license.trim().is_empty() {
+            return Err(TextError::InvalidResourceFont(
+                "asset license expression is empty".to_owned(),
+            ));
+        }
+        let harf = HarfFontRef::new(bytes)
+            .map_err(|error| TextError::InvalidResourceFont(error.to_string()))?;
+        let skrifa = SkrifaFontRef::new(bytes)
+            .map_err(|error| TextError::InvalidResourceFont(error.to_string()))?;
+        let ascent = skrifa
+            .metrics(Size::unscaled(), LocationRef::default())
+            .ascent;
+        let ascender_font_units = integral_font_metric(ascent, "font ascent")?;
+        Ok(Self {
+            harf,
+            skrifa,
+            identity: FontIdentity {
+                family: family.to_owned(),
+                version: "unreported".to_owned(),
+                sha256: expected_sha256.to_owned(),
+                byte_length: bytes.len(),
+                license: license.to_owned(),
+            },
+            ascender_font_units,
+        })
+    }
+
+    /// Shapes one logical run with this exact resource face.
+    ///
+    /// # Errors
+    ///
+    /// Returns typed request or shaping failures.
+    pub fn shape(&self, request: &ShapeRequest<'_>) -> Result<ShapedRun, TextError> {
+        if request.font_sha256 != self.identity.sha256 {
+            return Err(TextError::FontDigestMismatch {
+                expected: self.identity.sha256.clone(),
+                observed: request.font_sha256.to_owned(),
+            });
+        }
+        shape_with_font(
+            request,
+            &self.harf,
+            self.identity.clone(),
+            self.ascender_font_units,
+        )
+    }
+
+    /// Shapes every supported hard line with this exact resource face.
+    ///
+    /// # Errors
+    ///
+    /// Returns typed request or shaping failures.
+    pub fn shape_hard_lines(
+        &self,
+        request: &ShapeRequest<'_>,
+    ) -> Result<Vec<ShapedRun>, TextError> {
+        let codepoints = request.text.chars().count();
+        if codepoints > MAX_SHAPING_CODEPOINTS {
+            return Err(TextError::TooManyCodepoints {
+                limit: MAX_SHAPING_CODEPOINTS,
+                observed: codepoints,
+            });
+        }
+        hard_lines(request.text)
+            .into_iter()
+            .map(|line| {
+                self.shape(&ShapeRequest {
+                    text: line,
+                    font_sha256: request.font_sha256,
+                    font_size: request.font_size,
+                    direction: request.direction,
+                    language: request.language,
+                })
+            })
+            .collect()
+    }
+
+    /// Extracts one unhinted outline from this exact resource face.
+    ///
+    /// # Errors
+    ///
+    /// Returns a typed unavailable-glyph or outline-geometry failure.
+    pub fn outline_glyph(&self, glyph_id: u32) -> Result<GlyphOutline, TextError> {
+        outline_from_font(&self.skrifa, glyph_id)
+    }
+}
+
+#[expect(
+    clippy::cast_possible_truncation,
+    reason = "the finite rounded value is range-checked before conversion"
+)]
+fn integral_font_metric(value: f32, name: &str) -> Result<i32, TextError> {
+    let rounded = f64::from(value).round();
+    if !rounded.is_finite() || rounded < f64::from(i32::MIN) || rounded > f64::from(i32::MAX) {
+        return Err(TextError::InvalidResourceFont(format!(
+            "{name} is non-finite or outside the signed metric domain"
+        )));
+    }
+    Ok(rounded as i32)
 }
 
 /// Shapes one logical run with the exact profile-0 font and shaper inputs.
@@ -251,6 +398,49 @@ pub fn shape(request: &ShapeRequest<'_>) -> Result<ShapedRun, TextError> {
             observed: request.font_sha256.to_owned(),
         });
     }
+    let font = HarfFontRef::new(pinned_font_bytes())
+        .map_err(|error| TextError::InvalidPinnedFont(error.to_string()))?;
+    shape_with_font(request, &font, pinned_font_identity(), PINNED_FONT_ASCENDER)
+}
+
+/// Shapes one logical run with an exact, profile-validated packaged static
+/// TrueType font. The caller supplies the already reviewed family and license
+/// metadata carried by the NUIF font asset; this function verifies the bytes,
+/// digest and decoder profile before shaping.
+///
+/// # Errors
+///
+/// Returns a typed error for digest mismatch, profile rejection, inconsistent
+/// family metadata, invalid request inputs or shaping failure.
+pub fn shape_resource(
+    request: &ShapeRequest<'_>,
+    bytes: &[u8],
+    family: &str,
+    license: &str,
+) -> Result<ShapedRun, TextError> {
+    ResourceFont::new(bytes, request.font_sha256, family, license)?.shape(request)
+}
+
+/// Shapes every supported hard line with one exact packaged font resource.
+///
+/// # Errors
+///
+/// Returns the same typed failures as [`shape_resource`].
+pub fn shape_hard_lines_resource(
+    request: &ShapeRequest<'_>,
+    bytes: &[u8],
+    family: &str,
+    license: &str,
+) -> Result<Vec<ShapedRun>, TextError> {
+    ResourceFont::new(bytes, request.font_sha256, family, license)?.shape_hard_lines(request)
+}
+
+fn shape_with_font(
+    request: &ShapeRequest<'_>,
+    font: &HarfFontRef<'_>,
+    identity: FontIdentity,
+    ascender_font_units: i32,
+) -> Result<ShapedRun, TextError> {
     if !request.font_size.is_finite() || request.font_size <= 0.0 {
         return Err(TextError::InvalidFontSize);
     }
@@ -262,10 +452,8 @@ pub fn shape(request: &ShapeRequest<'_>) -> Result<ShapedRun, TextError> {
         });
     }
     let language = Language::from_str(request.language).map_err(|_| TextError::InvalidLanguage)?;
-    let font = HarfFontRef::new(pinned_font_bytes())
-        .map_err(|error| TextError::InvalidPinnedFont(error.to_string()))?;
-    let shaper_data = ShaperData::new(&font);
-    let shaper = shaper_data.shaper(&font).build();
+    let shaper_data = ShaperData::new(font);
+    let shaper = shaper_data.shaper(font).build();
     let mut buffer = UnicodeBuffer::new();
     if !buffer.reserve(codepoints) {
         return Err(TextError::BufferAllocationFailed);
@@ -302,9 +490,10 @@ pub fn shape(request: &ShapeRequest<'_>) -> Result<ShapedRun, TextError> {
     let y_advance_font_units = glyphs.iter().map(|glyph| i64::from(glyph.y_advance)).sum();
     Ok(ShapedRun {
         text: request.text.to_owned(),
-        font: pinned_font_identity(),
+        font: identity,
         font_size: request.font_size,
         units_per_em: u16::try_from(shaper.units_per_em()).unwrap_or(u16::MAX),
+        ascender_font_units,
         direction: request.direction,
         language: request.language.to_owned(),
         shaper: SHAPER_NAME.to_owned(),
@@ -331,6 +520,36 @@ pub fn shape(request: &ShapeRequest<'_>) -> Result<ShapedRun, TextError> {
 pub fn outline_glyph(glyph_id: u32) -> Result<GlyphOutline, TextError> {
     let font = SkrifaFontRef::new(pinned_font_bytes())
         .map_err(|error| TextError::InvalidPinnedFont(error.to_string()))?;
+    outline_from_font(&font, glyph_id)
+}
+
+/// Extracts one unhinted glyph outline from an exact profile-validated static
+/// font resource.
+///
+/// # Errors
+///
+/// Returns a typed error for digest mismatch, profile rejection, unavailable
+/// glyphs or invalid outline geometry.
+pub fn outline_resource_glyph(
+    bytes: &[u8],
+    expected_sha256: &str,
+    glyph_id: u32,
+) -> Result<GlyphOutline, TextError> {
+    let observed = format!("{:x}", Sha256::digest(bytes));
+    if observed != expected_sha256 {
+        return Err(TextError::FontDigestMismatch {
+            expected: expected_sha256.to_owned(),
+            observed,
+        });
+    }
+    nuif_font::inspect_opentype_static(bytes, 0)
+        .map_err(|error| TextError::InvalidResourceFont(error.to_string()))?;
+    let font = SkrifaFontRef::new(bytes)
+        .map_err(|error| TextError::InvalidResourceFont(error.to_string()))?;
+    outline_from_font(&font, glyph_id)
+}
+
+fn outline_from_font(font: &SkrifaFontRef<'_>, glyph_id: u32) -> Result<GlyphOutline, TextError> {
     let glyph = font
         .outline_glyphs()
         .get(GlyphId::new(glyph_id))
@@ -530,5 +749,42 @@ mod tests {
         assert_eq!(runs.len(), 2);
         assert_eq!(runs[0].serialized_glyphs, "[35=0+1000]");
         assert_eq!(runs[1].serialized_glyphs, "[36=0+1000]");
+    }
+
+    #[test]
+    fn exact_static_resource_is_reused_for_shaping_metrics_and_outlines() {
+        let bytes = font_test_data::TINOS_SUBSET;
+        let sha256 = format!("{:x}", Sha256::digest(bytes));
+        let inspection = nuif_font::inspect_opentype_static(bytes, 0).unwrap();
+        let family = inspection.names.first().unwrap();
+        let font = ResourceFont::new(bytes, &sha256, family, "Apache-2.0").unwrap();
+        let request = ShapeRequest {
+            text: "A\nB",
+            font_sha256: &sha256,
+            font_size: 18.0,
+            direction: TextDirection::LeftToRight,
+            language: "en",
+        };
+        let runs = font.shape_hard_lines(&request).unwrap();
+        assert_eq!(runs.len(), 2);
+        assert_eq!(runs[0].font.sha256, sha256);
+        assert_eq!(runs[0].font.family, *family);
+        assert_ne!(runs[0].ascender_font_units, PINNED_FONT_ASCENDER);
+        assert!(runs[0].ascender_font_units > 0);
+        let outline = font.outline_glyph(runs[0].glyphs[0].glyph_id).unwrap();
+        assert!(!outline.commands.is_empty());
+    }
+
+    #[test]
+    fn exact_static_resource_rejects_a_false_digest() {
+        assert!(matches!(
+            ResourceFont::new(
+                font_test_data::TINOS_SUBSET,
+                PINNED_FONT_SHA256,
+                "Tinos",
+                "Apache-2.0",
+            ),
+            Err(TextError::FontDigestMismatch { .. })
+        ));
     }
 }
