@@ -7,8 +7,9 @@ use nuif_core::{
     ResourceDescriptor, ResourceDigest, ResourceLocator, ResourceRole,
 };
 use nuif_package::{
-    MAX_PACKAGE_BYTES, MAX_RESOURCE_BYTES, MAX_RESOURCES, MAX_TOTAL_RESOURCE_BYTES, MIME_TYPE,
-    NuifPackage, PackageMode, ResourceResolver,
+    MAX_CAPABILITY_BYTES, MAX_PACKAGE_BYTES, MAX_REQUIRED_CAPABILITIES, MAX_RESOURCE_BYTES,
+    MAX_RESOURCES, MAX_TOTAL_RESOURCE_BYTES, MIME_TYPE, NuifPackage, PackageError, PackageMode,
+    ResourceResolver,
 };
 use serde_json::{Value, json};
 use sha2::{Digest, Sha256};
@@ -67,6 +68,7 @@ fn run() -> Result<(), String> {
         cache_hash_trial(&package, &semantic_hash, &package_hash)?,
         locator_hash_trial(&resource, &resource_bytes)?,
         resolver_trial(&resource, &resource_bytes)?,
+        capability_negotiation_trial(),
         shared_session_allocation_trial()?,
     ];
     let negative = negative_trials(&encoded, &package, &resource)?;
@@ -91,6 +93,8 @@ fn run() -> Result<(), String> {
                 "resource_bytes": MAX_RESOURCE_BYTES,
                 "total_resource_bytes": MAX_TOTAL_RESOURCE_BYTES,
                 "resources": MAX_RESOURCES,
+                "required_capabilities": MAX_REQUIRED_CAPABILITIES,
+                "capability_bytes": MAX_CAPABILITY_BYTES,
                 "session_resource_bytes": MAX_SESSION_RESOURCE_BYTES,
                 "session_total_resource_bytes": MAX_SESSION_TOTAL_RESOURCE_BYTES,
                 "session_resources": MAX_SESSION_RESOURCES,
@@ -317,6 +321,50 @@ fn resolver_trial(digest: &ResourceDigest, bytes: &[u8]) -> Result<Value, String
         explicit_required && exact && mismatch,
         json!({"implicit_rejected": explicit_required, "exact_resolved": exact, "mismatch_rejected": mismatch}),
     ))
+}
+
+fn capability_negotiation_trial() -> Value {
+    let mut package =
+        NuifPackage::new(Document::empty(EntityId::new(0x60)), PackageMode::Authoring);
+    package.required_capabilities = std::collections::BTreeSet::from([
+        "nuif-behavior-state-machine-0".to_owned(),
+        "nuif-layout-profile-0".to_owned(),
+    ]);
+    let supported = std::collections::BTreeSet::from(["nuif-layout-profile-0".to_owned()]);
+    let report = package.capability_report(&supported);
+    let missing_exact = matches!(
+        package.require_capabilities(&supported),
+        Err(PackageError::RequiredCapabilitiesUnavailable { capabilities })
+            if capabilities == report.missing_required
+    );
+    let full = package
+        .require_capabilities(&package.required_capabilities)
+        .is_ok();
+    let mut invalid = package.clone();
+    invalid.required_capabilities.insert("Not Valid".to_owned());
+    let malformed_rejected = invalid.encode().is_err();
+    let mut excessive = package;
+    excessive.required_capabilities = (0..=MAX_REQUIRED_CAPABILITIES)
+        .map(|index| format!("capability-{index}"))
+        .collect();
+    let excessive_rejected = excessive.encode().is_err();
+    trial(
+        "bounded_explicit_capability_negotiation",
+        !report.fully_supported
+            && report.missing_required
+                == std::collections::BTreeSet::from(["nuif-behavior-state-machine-0".to_owned()])
+            && missing_exact
+            && full
+            && malformed_rejected
+            && excessive_rejected,
+        json!({
+            "required": report.required,
+            "supported_required": report.supported_required,
+            "missing_required": report.missing_required,
+            "malformed_rejected": malformed_rejected,
+            "limit_plus_one_rejected": excessive_rejected,
+        }),
+    )
 }
 
 fn shared_session_allocation_trial() -> Result<Value, String> {

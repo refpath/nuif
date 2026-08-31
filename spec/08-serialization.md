@@ -82,6 +82,16 @@ descriptor, required capabilities, stable assets and every immutable resource
 descriptor. A descriptor includes media type, SHA-256 digest, size, role and an
 embedded or explicit linked locator. The manifest is not self-addressed.
 
+Required capabilities are a set of at most 256 identifiers, each at most 128
+ASCII bytes and matching `[a-z0-9][a-z0-9_.:-]*`. Structural package decode
+MUST validate and preserve this set without pretending the host implements it.
+Before claiming full package support, a host MUST compare the complete set with
+capabilities it explicitly declares. Missing requirements MUST be returned as
+an exact deterministic set. Inspection, preservation and migration tools MAY
+operate after structural decode without claiming full semantic or behavioral
+support and MUST NOT execute a resource merely because its capability is
+declared.
+
 Profile 0 uses stored ZIP members only; `mimetype` is first and other names
 are bytewise sorted. Names are exact ASCII registered paths. Writers use fixed
 timestamps/header attributes, no comments/extra fields/data descriptors,
@@ -102,4 +112,4 @@ stored in resource locators.
 
 Every serialized record kind carries a schema version. Migrations are registered pure functions per kind; reading a record whose version is newer than the implementation knows is an error with a diagnostic, never silent loss.
 
-Parsers MUST enforce resource limits and reject cycles where the relevant graph is specified acyclic. The experimental package limits are 80 MiB per archive, 32 MiB per resource, 64 MiB total embedded resources and 8,192 descriptors. `nuif-png-rgba8-0` additionally limits encoded input to 32 MiB, each dimension to 8,192, pixels to 16,777,216 and chunks to 4,096. `nuif-opentype-static-single-0` limits encoded input to 32 MiB, tables to 256, family names to 256, coverage ranges to 65,536 and feature settings to 64. Broader image interpretation and general font-format/policy limits remain experiment-required and MUST be accepted through later media profiles before implementations claim those capabilities.
+Parsers MUST enforce resource limits and reject cycles where the relevant graph is specified acyclic. The experimental package limits are 80 MiB per archive, 32 MiB per resource, 64 MiB total embedded resources, 8,192 descriptors and 256 required capabilities of at most 128 bytes each. `nuif-png-rgba8-0` additionally limits encoded input to 32 MiB, each dimension to 8,192, pixels to 16,777,216 and chunks to 4,096. `nuif-opentype-static-single-0` limits encoded input to 32 MiB, tables to 256, family names to 256, coverage ranges to 65,536 and feature settings to 64. Broader image interpretation and general font-format/policy limits remain experiment-required and MUST be accepted through later media profiles before implementations claim those capabilities.

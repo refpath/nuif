@@ -80,6 +80,7 @@ let digest = nuif_behavior::attach_behavior(&mut package, &program)?;
 let bytes = package.encode()?;
 
 let package = nuif_package::NuifPackage::decode(&bytes)?;
+package.require_capabilities(&host_capabilities)?;
 let attachment = nuif_behavior::attached_behavior(&package)?;
 ```
 

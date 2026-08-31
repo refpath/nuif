@@ -6,7 +6,7 @@ use nuif_codec::{
 };
 use nuif_core::{
     Asset, AssetId, AssetKind, AssetPortability, Document, ResourceDerivation, ResourceDescriptor,
-    ResourceDigest, ResourceLocator, ResourceRole, Severity, validate,
+    ResourceDigest, ResourceLocator, ResourceRole, Severity, is_identifier, validate,
 };
 use nuif_font::{FontError, validate_packaged_font};
 use serde::{Deserialize, Serialize};
@@ -25,6 +25,8 @@ pub const MAX_MANIFEST_BYTES: usize = 4 * 1024 * 1024;
 pub const MAX_RESOURCE_BYTES: usize = 32 * 1024 * 1024;
 pub const MAX_TOTAL_RESOURCE_BYTES: usize = 64 * 1024 * 1024;
 pub const MAX_RESOURCES: usize = 8_192;
+pub const MAX_REQUIRED_CAPABILITIES: usize = 256;
+pub const MAX_CAPABILITY_BYTES: usize = 128;
 pub const MAX_MEMBERS: usize = MAX_RESOURCES + 3;
 pub const MAX_PATH_BYTES: usize = 96;
 
@@ -69,6 +71,16 @@ pub struct PackageManifest {
     pub assets: BTreeMap<AssetId, ResourceDigest>,
     #[serde(default)]
     pub resources: BTreeMap<ResourceDigest, ResourceDescriptor>,
+}
+
+/// Deterministic comparison of package requirements with one host's declared
+/// capability set. Structural package validity is independent of this report.
+#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
+pub struct PackageCapabilityReport {
+    pub required: BTreeSet<String>,
+    pub supported_required: BTreeSet<String>,
+    pub missing_required: BTreeSet<String>,
+    pub fully_supported: bool,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -178,6 +190,47 @@ impl NuifPackage {
     #[must_use]
     pub fn embedded_resources(&self) -> BTreeMap<ResourceDigest, Arc<[u8]>> {
         self.embedded.clone()
+    }
+
+    /// Compares manifest requirements with capabilities explicitly declared by
+    /// the caller. Extra host capabilities do not affect the report.
+    #[must_use]
+    pub fn capability_report(&self, supported: &BTreeSet<String>) -> PackageCapabilityReport {
+        let supported_required = self
+            .required_capabilities
+            .intersection(supported)
+            .cloned()
+            .collect::<BTreeSet<_>>();
+        let missing_required = self
+            .required_capabilities
+            .difference(supported)
+            .cloned()
+            .collect::<BTreeSet<_>>();
+        PackageCapabilityReport {
+            required: self.required_capabilities.clone(),
+            supported_required,
+            fully_supported: missing_required.is_empty(),
+            missing_required,
+        }
+    }
+
+    /// Requires every manifest capability to be present in a caller-supplied
+    /// set before the caller claims full package support.
+    ///
+    /// # Errors
+    ///
+    /// Returns the exact deterministic set of unavailable requirements.
+    pub fn require_capabilities(&self, supported: &BTreeSet<String>) -> Result<(), PackageError> {
+        let capabilities = self
+            .required_capabilities
+            .difference(supported)
+            .cloned()
+            .collect::<BTreeSet<_>>();
+        if capabilities.is_empty() {
+            Ok(())
+        } else {
+            Err(PackageError::RequiredCapabilitiesUnavailable { capabilities })
+        }
     }
 
     /// Resolves a resource without granting the package network authority.
@@ -453,6 +506,8 @@ pub enum PackageError {
     ResourceUndeclared { digest: ResourceDigest },
     #[error("resource {digest} requires an explicit resolver")]
     ResolutionRequired { digest: ResourceDigest },
+    #[error("package requires unavailable capabilities: {capabilities:?}")]
+    RequiredCapabilitiesUnavailable { capabilities: BTreeSet<String> },
     #[error("resource resolver failed: {0}")]
     Resolver(String),
     #[error("resource {digest} size mismatch: expected {expected}, observed {observed}")]
@@ -494,6 +549,7 @@ fn validate_manifest(
             reason: "unsupported manifest version, profile, or document media type".to_owned(),
         });
     }
+    validate_required_capabilities(&manifest.required_capabilities)?;
     validate_document(document)?;
     let document_bytes = DeterministicCbor.encode(document)?;
     if manifest.document.size != u64::try_from(document_bytes.len()).unwrap_or(u64::MAX)
@@ -514,6 +570,25 @@ fn validate_manifest(
         });
     }
     validate_resources(manifest, document, embedded)
+}
+
+fn validate_required_capabilities(capabilities: &BTreeSet<String>) -> Result<(), PackageError> {
+    if capabilities.len() > MAX_REQUIRED_CAPABILITIES {
+        return Err(PackageError::ResourceLimit {
+            resource: "required capabilities",
+            limit: MAX_REQUIRED_CAPABILITIES,
+            observed: capabilities.len(),
+        });
+    }
+    if let Some(capability) = capabilities
+        .iter()
+        .find(|capability| capability.len() > MAX_CAPABILITY_BYTES || !is_identifier(capability))
+    {
+        return Err(PackageError::InvalidManifest {
+            reason: format!("required capability {capability:?} is not a bounded identifier"),
+        });
+    }
+    Ok(())
 }
 
 fn validate_resources(
@@ -1498,6 +1573,63 @@ mod tests {
                 )
                 .is_err()
         );
+    }
+
+    #[test]
+    fn required_capabilities_are_bounded_and_negotiated_explicitly() {
+        let mut package =
+            NuifPackage::new(Document::empty(EntityId::new(1)), PackageMode::Authoring);
+        package.required_capabilities = BTreeSet::from([
+            "nuif-behavior-state-machine-0".to_owned(),
+            "nuif-layout-profile-0".to_owned(),
+        ]);
+        let supported = BTreeSet::from([
+            "nuif-layout-profile-0".to_owned(),
+            "unrelated-host-capability".to_owned(),
+        ]);
+        let report = package.capability_report(&supported);
+        assert_eq!(report.required, package.required_capabilities);
+        assert_eq!(
+            report.supported_required,
+            BTreeSet::from(["nuif-layout-profile-0".to_owned()])
+        );
+        assert_eq!(
+            report.missing_required,
+            BTreeSet::from(["nuif-behavior-state-machine-0".to_owned()])
+        );
+        assert!(!report.fully_supported);
+        assert!(matches!(
+            package.require_capabilities(&supported),
+            Err(PackageError::RequiredCapabilitiesUnavailable { capabilities })
+                if capabilities == report.missing_required
+        ));
+        assert!(
+            package
+                .require_capabilities(&package.required_capabilities)
+                .is_ok()
+        );
+        package.encode().unwrap();
+
+        let mut invalid = package.clone();
+        invalid.required_capabilities.insert("Not Valid".to_owned());
+        assert!(matches!(
+            invalid.encode(),
+            Err(PackageError::InvalidManifest { reason })
+                if reason.contains("bounded identifier")
+        ));
+
+        let mut excessive = package;
+        excessive.required_capabilities = (0..=MAX_REQUIRED_CAPABILITIES)
+            .map(|index| format!("capability-{index}"))
+            .collect();
+        assert!(matches!(
+            excessive.encode(),
+            Err(PackageError::ResourceLimit {
+                resource: "required capabilities",
+                limit: MAX_REQUIRED_CAPABILITIES,
+                observed,
+            }) if observed == MAX_REQUIRED_CAPABILITIES + 1
+        ));
     }
 
     #[test]

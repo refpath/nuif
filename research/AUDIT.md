@@ -310,8 +310,10 @@ passes canonical/fixpoint, document-versus-package hash, disagreement,
 duplicate, linked, malformed, rebinding and corruption probes. A separately
 written Python standard-library reader checks exact ZIP bytes, ordering,
 metadata, CRC and the behavior blob digest. Generic package decode remains
-inert; explicit attachment decode and runtime capability authorization are
-separate steps. This is not a second CBOR or behavior implementation.
+inert; a bounded generic SDK report distinguishes structural validity from full
+host capability support and returns every missing requirement exactly. Explicit
+attachment decode and runtime capability authorization remain separate steps.
+This is not a second CBOR or behavior implementation.
 
 The one-way `nuif-web-behavior-0` adapter closes the bounded browser-DOM part
 of that non-claim without widening the source profile. It admits enabled native

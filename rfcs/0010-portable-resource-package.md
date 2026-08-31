@@ -167,6 +167,14 @@ declares profile/version, the semantic document descriptor, required
 capabilities, assets, all resource descriptors and their roles. It does not
 contain its own digest.
 
+The required-capability set contains at most 256 identifiers of at most 128
+ASCII bytes each. Structural readers validate and preserve those requirements.
+Hosts use `capability_report` or `require_capabilities` with an explicitly
+declared supported set before claiming full package support; missing
+requirements are reported exactly. Structural decode alone is intentionally
+available to inert inspection, preservation and migration tools and is not a
+semantic-support claim.
+
 Every embedded resource is stored at the path derived from its SHA-256 digest.
 The path is a locator. The manifest digest remains the identity and MUST match
 the bytes even if a future profile permits another physical layout.
@@ -331,6 +339,8 @@ interprets them.
 
 - two independent writers produce identical bytes on the normative fixture;
 - package write/read/write reaches a byte fixpoint;
+- required capabilities are bounded identifiers and missing host support is
+  returned as the exact deterministic requirement set;
 - document hash is unchanged by package creation and deletable-cache changes;
 - asset identity survives byte replacement while the resource/document hashes
   change as specified;

@@ -508,11 +508,13 @@ experiments:
       - two independently implemented writers produce identical package bytes from the same manifest document and resources
       - semantic document hash remains stable when declared nonsemantic caches are removed
       - every required descriptor is size- and digest-verified before media decoding
+      - bounded package requirements are compared with an explicit host capability set before a full-support claim
       - hostile archive structure and one-over resource cases fail atomically with named limits
     tests:
       - write fixed first mimetype manifest document and sorted SHA-256 blob members with normalized ZIP metadata
       - compare package bytes and package hash across writers and operating systems
       - distinguish semantic document hash package hash asset identity resource digest and locator in positive and negative fixtures
+      - report supported and missing required capabilities exactly and reject malformed or one-over requirement sets
       - reject duplicate traversal symlink directory encrypted split unsupported-compression undeclared and digest-mismatched members
       - measure compressed expanded per-member descriptor-count and total-resource budgets before accepting the profile
       - archive target/package-resources-report.json from cargo xtask gate-i-package

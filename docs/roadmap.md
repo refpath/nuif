@@ -160,8 +160,9 @@ canonical-CBOR, content-addressed `source` resource under
 `nuif-behavior-package-resource-0` without adding it to the semantic
 `Document`. The package gate proves document/package hash separation, exact
 round trip, hostile refusal and independent Python ZIP inspection; generic
-package decode remains inert and runtime capability authorization stays
-separate. Timers, internal events, numeric computation,
+package decode remains inert, the SDK reports exact missing package
+requirements before a full-support claim, and runtime effect authorization
+stays separate. Timers, internal events, numeric computation,
 navigation, animation, networking, scripts, native effects and browser effects
 beyond the following projection remain separate profiles and wire-design work.
 

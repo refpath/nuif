@@ -3,7 +3,7 @@
 use nuif_codec::{CanonicalText, CodecError, DeterministicCbor, Encoder, canonical_hash};
 use nuif_core::{Diagnostic, Document, EntityId, ResourceDigest, Severity, validate};
 use nuif_layout::{EvaluationContext, LayoutSnapshot, evaluate};
-use nuif_package::{NuifPackage, PackageError, PackageMode};
+use nuif_package::{NuifPackage, PackageCapabilityReport, PackageError, PackageMode};
 use nuif_protocol::{ApplyError, Operation, Patch, Transaction, apply_patch_with_inverse};
 use nuif_render::{
     RasterImage, RenderError, RenderScene, RenderTarget, build_scene, build_scene_with_resources,
@@ -12,7 +12,7 @@ use nuif_render::{
 use nuif_text::PINNED_FONT_SHA256;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use std::sync::Arc;
 use thiserror::Error;
 
@@ -203,7 +203,9 @@ impl NuifDocument {
         Ok(Self::from_document(document))
     }
 
-    /// Loads and fully verifies a deterministic package and its embedded bytes.
+    /// Loads and structurally verifies a deterministic package and its embedded
+    /// bytes. Required host capabilities remain available for explicit
+    /// negotiation through [`Self::package_capability_report`].
     ///
     /// # Errors
     ///
@@ -211,6 +213,26 @@ impl NuifDocument {
     /// digest mismatches and every declared package or session resource limit.
     pub fn load_package(bytes: &[u8]) -> Result<Self, EngineError> {
         let package = NuifPackage::decode(bytes)?;
+        Self::from_package(package)
+    }
+
+    /// Loads a package only when the caller declares every capability required
+    /// by its manifest.
+    ///
+    /// # Errors
+    ///
+    /// Returns structural package errors, session resource errors, or the
+    /// exact set of unavailable required capabilities.
+    pub fn load_package_with_capabilities(
+        bytes: &[u8],
+        supported: &BTreeSet<String>,
+    ) -> Result<Self, EngineError> {
+        let package = NuifPackage::decode(bytes)?;
+        package.require_capabilities(supported)?;
+        Self::from_package(package)
+    }
+
+    fn from_package(package: NuifPackage) -> Result<Self, EngineError> {
         let session =
             Session::with_resources(package.document.clone(), package.embedded_resources())?;
         Ok(Self {
@@ -227,6 +249,33 @@ impl NuifDocument {
     #[must_use]
     pub fn package_mode(&self) -> Option<PackageMode> {
         self.package.as_ref().map(|package| package.mode)
+    }
+
+    /// Compares a loaded package's declared requirements with one host's
+    /// supported capability set. Bare documents return no package report.
+    #[must_use]
+    pub fn package_capability_report(
+        &self,
+        supported: &BTreeSet<String>,
+    ) -> Option<PackageCapabilityReport> {
+        self.package
+            .as_ref()
+            .map(|package| package.capability_report(supported))
+    }
+
+    /// Requires full capability support for an already structurally loaded
+    /// package. Bare documents have no package requirements.
+    ///
+    /// # Errors
+    ///
+    /// Returns the exact unavailable requirement set.
+    pub fn require_package_capabilities(
+        &self,
+        supported: &BTreeSet<String>,
+    ) -> Result<(), EngineError> {
+        self.package.as_ref().map_or(Ok(()), |package| {
+            package.require_capabilities(supported).map_err(Into::into)
+        })
     }
 
     #[must_use]
@@ -963,5 +1012,44 @@ mod tests {
             Some("package edit")
         );
         assert_eq!(decoded.encode().unwrap(), exported);
+    }
+
+    #[test]
+    fn package_capability_negotiation_is_explicit_and_typed() {
+        let mut package = NuifPackage::new(document(), PackageMode::Portable);
+        package.required_capabilities = BTreeSet::from([
+            "nuif-behavior-state-machine-0".to_owned(),
+            "nuif-layout-profile-0".to_owned(),
+        ]);
+        let bytes = package.encode().unwrap();
+        let layout_only = BTreeSet::from(["nuif-layout-profile-0".to_owned()]);
+
+        let loaded = NuifDocument::load_package(&bytes).unwrap();
+        let report = loaded.package_capability_report(&layout_only).unwrap();
+        assert!(!report.fully_supported);
+        assert_eq!(
+            report.missing_required,
+            BTreeSet::from(["nuif-behavior-state-machine-0".to_owned()])
+        );
+        assert!(matches!(
+            loaded.require_package_capabilities(&layout_only),
+            Err(EngineError::Package(
+                PackageError::RequiredCapabilitiesUnavailable { capabilities }
+            )) if capabilities == report.missing_required
+        ));
+        assert!(matches!(
+            NuifDocument::load_package_with_capabilities(&bytes, &layout_only),
+            Err(EngineError::Package(
+                PackageError::RequiredCapabilitiesUnavailable { .. }
+            ))
+        ));
+        assert!(
+            NuifDocument::load_package_with_capabilities(&bytes, &package.required_capabilities)
+                .is_ok()
+        );
+
+        let bare = NuifDocument::from_document(document());
+        assert_eq!(bare.package_capability_report(&BTreeSet::new()), None);
+        assert!(bare.require_package_capabilities(&BTreeSet::new()).is_ok());
     }
 }

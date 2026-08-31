@@ -26,7 +26,7 @@ links:
   spec: [spec/08-serialization.md, spec/11-security.md, spec/13-semantics-accessibility-and-behavior.md]
   adr: []
   rfc: [rfcs/0010-portable-resource-package.md, rfcs/0012-behavior-package-resource.md]
-  code: [crates/nuif-behavior/src/lib.rs, crates/nuif-testing/src/bin/behavior-package.rs, tools/behavior-oracle/package_check.py, xtask/src/main.rs]
+  code: [crates/nuif-package/src/lib.rs, crates/nuif-api/src/lib.rs, crates/nuif-behavior/src/lib.rs, crates/nuif-testing/src/bin/behavior-package.rs, tools/behavior-oracle/package_check.py, xtask/src/main.rs]
   experiments: [nuif:experiment:behavior-package-resource]
 ---
 
@@ -96,8 +96,9 @@ Opening the package has two distinct levels:
 
 ```text
 NuifPackage::decode       ZIP, manifest, size, digest and document validation
-attached_behavior        cardinality, role, canonical CBOR and entity binding
-BehaviorRuntime::new     caller-supplied effect-capability authorization
+require_capabilities      explicit complete package/host support negotiation
+attached_behavior         cardinality, role, canonical CBOR and entity binding
+BehaviorRuntime::new      caller-supplied effect-capability authorization
 ```
 
 There is no automatic transition from one level to the next. In particular,
@@ -124,7 +125,8 @@ before deciding whether behavior belongs in a required semantic profile.
 
 `cargo xtask gate-behavior-package` generates a deterministic `.nuif` fixture,
 checks canonical encoding, document/package hash separation, exact round trip,
-capability/resource agreement and hostile mismatch cases, then invokes an
+capability/resource agreement, exact generic host-capability negotiation and
+hostile mismatch cases, then invokes an
 independent Python standard-library ZIP reader. The foreign reader checks the
 exact archive hash, member ordering and metadata, CRC reads, media marker and
 content-addressed behavior bytes. It intentionally does not decode CBOR; the
@@ -149,8 +151,6 @@ misstate container agreement as a second behavior implementation.
 
 - Whether enough independent native/presentation adapters will justify moving
   a future behavior profile into canonical semantics.
-- Whether a future package capability-negotiation API should make full-package
-  acceptance distinct from structural decode at the generic SDK layer.
 - Media-type registration and final naming remain standards-track work; the
   current identifier is explicitly provisional and must not be advertised as
   IANA-registered.

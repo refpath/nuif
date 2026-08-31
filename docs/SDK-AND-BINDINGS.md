@@ -21,9 +21,10 @@ delegate semantic work to this layer.
 ## Direct Rust use
 
 Bare encodings are explicit; the SDK does not guess from an arbitrary byte
-prefix. Package loading is a separate call because it fully validates the ZIP,
-manifest, document, resource descriptors, embedded bytes and policy before a
-session is returned.
+prefix. Package loading is a separate call because it structurally validates
+the ZIP, manifest, document, resource descriptors, embedded bytes and policy
+before a session is returned. Host support is negotiated after structural
+decode or atomically through `load_package_with_capabilities`.
 
 ```rust
 use nuif_api::{DocumentEncoding, NuifDocument};
@@ -43,9 +44,26 @@ and requested mode, then runs the ordinary package policy. It cannot silently
 fetch linked resources. Applying operations uses the same atomic transaction,
 revision and undo/redo implementation as the editor.
 
+```rust
+let structural = NuifDocument::load_package(package_bytes)?;
+let report = structural.package_capability_report(&host_capabilities);
+structural.require_package_capabilities(&host_capabilities)?;
+
+let supported = NuifDocument::load_package_with_capabilities(
+    package_bytes,
+    &host_capabilities,
+)?;
+```
+
+The report contains required, supported-required and missing-required sets in
+deterministic order. Extra host capabilities are ignored. Structural loading
+is appropriate for inert inspection, preservation and migration; it is not a
+claim that the host can evaluate every required profile.
+
 Structurally invalid but syntactically decodable bare documents can be loaded
 for diagnostics; canonical export, hashing, layout and rendering still fail
-closed. Package inputs are fully valid or rejected atomically.
+closed. Package inputs are structurally valid or rejected atomically; full
+package support additionally requires explicit capability negotiation.
 
 ## Binding rule
 

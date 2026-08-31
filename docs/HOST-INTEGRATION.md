@@ -57,12 +57,18 @@ the in-process session:
 
 ```rust
 let package = NuifPackage::decode(bytes)?;
+package.require_capabilities(&host_capabilities)?;
 let session = Session::with_resources(
     package.document.clone(),
     package.embedded_resources(),
 )?;
 let snapshot = session.snapshot(&context)?;
 ```
+
+Inspection or migration tools may instead call `capability_report` and retain
+unknown required resources without claiming full support. Structural decode
+never executes a capability. A rendering or behavior host must pass the exact
+declared supported set before it presents the package as fully evaluated.
 
 `Session::with_resources` rechecks every SHA-256 binding and enforces count,
 single-resource and total-byte limits before it can render. It grants no linked

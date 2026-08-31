@@ -7,6 +7,7 @@ use nuif_core::{Document, EntityId, ResourceRole};
 use nuif_package::{MIME_TYPE, NuifPackage, PackageMode, digest};
 use serde_json::{Value, json};
 use sha2::{Digest, Sha256};
+use std::collections::BTreeSet;
 use std::env;
 use std::fs;
 use std::path::PathBuf;
@@ -39,6 +40,9 @@ fn run() -> Result<(), String> {
         .embedded(&behavior_digest)
         .ok_or_else(|| "behavior bytes disappeared during package decode".to_owned())?;
     let behavior_path = descriptor_path(descriptor)?;
+    let behavior_supported = BTreeSet::from([BEHAVIOR_PROFILE.to_owned()]);
+    let supported_report = decoded.capability_report(&behavior_supported);
+    let unsupported_report = decoded.capability_report(&BTreeSet::new());
 
     let checks = json!({
         "canonical_behavior_bytes": encode_canonical_record(&attachment.program).map_err(stringify)? == behavior_bytes,
@@ -48,6 +52,8 @@ fn run() -> Result<(), String> {
         "program_roundtrip_exact": attachment.program == program,
         "digest_roundtrip_exact": attachment.digest == behavior_digest,
         "manifest_requires_behavior_profile": decoded.required_capabilities.contains(BEHAVIOR_PROFILE),
+        "package_capability_negotiation_accepts_exact_support": supported_report.fully_supported && decoded.require_capabilities(&behavior_supported).is_ok(),
+        "package_capability_negotiation_reports_missing": !unsupported_report.fully_supported && unsupported_report.missing_required == behavior_supported && decoded.require_capabilities(&BTreeSet::new()).is_err(),
         "resource_is_embedded_source": descriptor.role == ResourceRole::Source && descriptor.derivation.is_none(),
         "resource_path_is_content_addressed": behavior_path == format!("blobs/sha256/{}", behavior_digest.sha256_hex().unwrap_or_default()),
         "absent_attachment_is_optional": attached_behavior(&NuifPackage::new(document.clone(), PackageMode::Portable)).map_err(stringify)?.is_none(),

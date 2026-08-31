@@ -81,15 +81,17 @@ Package processing is layered:
 
 1. `NuifPackage::decode` validates the deterministic ZIP, canonical manifest,
    document, descriptors, sizes, hashes and embedded bytes.
-2. `attached_behavior` opts into this RFC, checks descriptor/capability
+2. `capability_report` or `require_capabilities` compares every package
+   requirement with a caller-declared host capability set without executing it.
+3. `attached_behavior` opts into this RFC, checks descriptor/capability
    agreement, decodes canonical behavior bytes and validates the program
    against the document.
-3. A caller creates a behavior runtime only with an explicit set of available
+4. A caller creates a behavior runtime only with an explicit set of available
    abstract-effect capabilities.
-4. A host adapter separately maps admitted effects under its own profile and
+5. A host adapter separately maps admitted effects under its own profile and
    security policy.
 
-Step 1 never implies steps 2–4. Generic tools may inspect, copy and deterministically
+Step 1 never implies steps 2–5. Generic tools may inspect, copy and deterministically
 re-encode the package without executing the resource. Tools that claim full
 behavioral conformance must understand the required behavior capability; a
 structural package decode alone is not such a claim.
@@ -141,5 +143,3 @@ trace gate. CI archives all generated package and report artifacts.
 - When independently implemented adapters provide enough evidence to propose a
   canonical behavior model.
 - Final media-type naming and registration timing.
-- Generic SDK negotiation for packages containing multiple unrelated required
-  capabilities.
