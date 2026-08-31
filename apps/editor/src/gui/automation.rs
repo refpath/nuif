@@ -1,6 +1,6 @@
 //! Deterministic whole-editor semantic and visual trial runner.
 
-use super::widgets::{AuthorAction, CanvasAction, DocumentCanvas};
+use super::widgets::{AuthorAction, CanvasAction, DocumentCanvas, ResizeHandle};
 use super::{Driver, ExternalFormat, UiAction};
 use crate::{EditorEvent, EditorFile, decode_editor_file, encode_editor_file};
 use masonry::accesskit::{Action, ActionData, ActionRequest, TreeId};
@@ -81,6 +81,8 @@ enum TrialAction {
         author_id: EntityId,
         delta_width: f64,
         delta_height: f64,
+        #[serde(default)]
+        handle: ResizeHandle,
     },
     Undo,
     Redo,
@@ -418,12 +420,13 @@ fn execute_action(
             author_id,
             delta_width,
             delta_height,
+            handle,
         } => drive_canvas_gesture(
             driver,
             &mut harness,
             *author_id,
             (*delta_width, *delta_height),
-            CanvasGestureKind::Resize,
+            CanvasGestureKind::Resize(*handle),
         )?,
         TrialAction::Undo => press_command(driver, &mut harness, UiAction::Undo)?,
         TrialAction::Redo => press_command(driver, &mut harness, UiAction::Redo)?,
@@ -437,7 +440,7 @@ fn execute_action(
 #[derive(Clone, Copy)]
 enum CanvasGestureKind {
     Move,
-    Resize,
+    Resize(ResizeHandle),
 }
 
 fn drive_canvas_gesture(
@@ -459,11 +462,11 @@ fn drive_canvas_gesture(
             CanvasGestureKind::Move => canvas
                 .local_entity_center(author_id)
                 .ok_or_else(|| format!("entity {author_id} has no resolved canvas box"))?,
-            CanvasGestureKind::Resize => {
-                canvas.local_resize_handle(author_id).ok_or_else(|| {
+            CanvasGestureKind::Resize(handle) => canvas
+                .local_resize_handle(author_id, handle)
+                .ok_or_else(|| {
                     format!("entity {author_id} is not selected or has no resize handle")
-                })?
-            }
+                })?,
         };
         let local_end = local_start + canvas.local_document_delta(document_delta);
         let transform = canvas.ctx().window_transform();
@@ -475,7 +478,7 @@ fn drive_canvas_gesture(
     harness.mouse_button_release(Some(PointerButton::Primary));
     let label = match kind {
         CanvasGestureKind::Move => "move",
-        CanvasGestureKind::Resize => "resize",
+        CanvasGestureKind::Resize(_) => "resize",
     };
     let (emitted, source) = harness
         .pop_action::<CanvasAction>()
@@ -483,7 +486,9 @@ fn drive_canvas_gesture(
     require_source(canvas_id, source)?;
     let matches_expected = match (kind, emitted) {
         (CanvasGestureKind::Move, CanvasAction::Move { entity, .. })
-        | (CanvasGestureKind::Resize, CanvasAction::Resize { entity, .. }) => entity == author_id,
+        | (CanvasGestureKind::Resize(_), CanvasAction::Resize { entity, .. }) => {
+            entity == author_id
+        }
         _ => false,
     };
     if !matches_expected {

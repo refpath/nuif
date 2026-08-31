@@ -5,7 +5,10 @@ mod widgets;
 #[cfg(feature = "editor-automation")]
 pub mod automation;
 
-use self::widgets::{AuthorAction, AuthorContainer, CanvasAction, CanvasShortcut, DocumentCanvas};
+use self::widgets::{
+    AuthorAction, AuthorContainer, CanvasAction, CanvasResizePolicy, CanvasShortcut,
+    DocumentCanvas, ResizeHandle,
+};
 use crate::{
     AccessibilityAction, EditorCommand, EditorDriver, EditorEvent, decode_editor_file,
     encode_editor_file, grid_position_label, grid_tracks_label, parse_grid_position,
@@ -393,6 +396,18 @@ impl Driver {
         };
 
         let selection = self.editor.selection().first().copied();
+        let resize_policy = selection.map_or(CanvasResizePolicy::None, |entity| {
+            let document = self.editor.document();
+            document
+                .parent_of(entity)
+                .map_or(CanvasResizePolicy::None, |parent| {
+                    if document.entities[&parent].authored.layout.family == LayoutFamily::Freeform {
+                        CanvasResizePolicy::Freeform
+                    } else {
+                        CanvasResizePolicy::Trailing
+                    }
+                })
+        });
         let (rgba, boxes) = snapshot.as_ref().map_or_else(
             || {
                 (
@@ -415,6 +430,7 @@ impl Driver {
         let canvas =
             DocumentCanvas::new(self.viewport_width, VIEWPORT_HEIGHT, rgba, boxes, selection)
                 .with_view_options(self.zoom, self.show_grid, self.show_rulers)
+                .with_resize_policy(resize_policy)
                 .prepare();
         self.canvas_widget_id = Some(canvas.id());
         let canvas = canvas.with_props(Dimensions::STRETCH);
@@ -1377,6 +1393,11 @@ impl Driver {
                     document_delta,
                     snap_to_pixel,
                 } => {
+                    if self.tool != Tool::Move {
+                        "Choose the Move tool before transforming a canvas selection"
+                            .clone_into(&mut self.status);
+                        return;
+                    }
                     if let Err(error) =
                         self.move_freeform_entity(entity, document_delta, snap_to_pixel)
                     {
@@ -1387,10 +1408,19 @@ impl Driver {
                 }
                 CanvasAction::Resize {
                     entity,
+                    start_size,
                     document_size,
+                    handle,
                     snap_to_pixel,
                 } => {
-                    if let Err(error) = self.resize_entity(entity, document_size, snap_to_pixel) {
+                    if self.tool != Tool::Move {
+                        "Choose the Move tool before transforming a canvas selection"
+                            .clone_into(&mut self.status);
+                        return;
+                    }
+                    if let Err(error) =
+                        self.resize_entity(entity, start_size, document_size, handle, snap_to_pixel)
+                    {
                         let _ = self.editor.execute(EditorCommand::Select { entity });
                         self.drafts.clear();
                         self.status = error;
@@ -1494,19 +1524,34 @@ impl Driver {
     fn resize_entity(
         &mut self,
         entity: EntityId,
+        start_size: (f64, f64),
         document_size: (f64, f64),
+        handle: ResizeHandle,
         snap_to_pixel: bool,
     ) -> Result<(), String> {
-        if !document_size.0.is_finite() || !document_size.1.is_finite() {
+        if !start_size.0.is_finite()
+            || !start_size.1.is_finite()
+            || !document_size.0.is_finite()
+            || !document_size.1.is_finite()
+        {
             return Err("Canvas size must be finite".to_owned());
         }
         if !self.editor.document().entities.contains_key(&entity) {
             return Err(format!("Entity {entity} no longer exists"));
         }
-        if self.editor.document().parent_of(entity).is_none() {
+        let parent = self.editor.document().parent_of(entity).ok_or_else(|| {
+            "Page roots use the evaluation viewport and cannot be resized on the canvas".to_owned()
+        })?;
+        let leading_edge = handle.horizontal_direction() < 0 || handle.vertical_direction() < 0;
+        if leading_edge
+            && self.editor.document().entities[&parent]
+                .authored
+                .layout
+                .family
+                != LayoutFamily::Freeform
+        {
             return Err(
-                "Page roots use the evaluation viewport and cannot be resized on the canvas"
-                    .to_owned(),
+                "Leading-edge resize is available only inside a freeform container".to_owned(),
             );
         }
         let mut width = document_size.0;
@@ -1515,7 +1560,11 @@ impl Driver {
             width = width.round();
             height = height.round();
         }
-        if width <= 0.0
+        if start_size.0 <= 0.0
+            || start_size.1 <= 0.0
+            || start_size.0 > MAX_DIRECT_DIMENSION
+            || start_size.1 > MAX_DIRECT_DIMENSION
+            || width <= 0.0
             || height <= 0.0
             || width > MAX_DIRECT_DIMENSION
             || height > MAX_DIRECT_DIMENSION
@@ -1524,21 +1573,41 @@ impl Driver {
                 "Canvas dimensions must be within (0, {MAX_DIRECT_DIMENSION}] px"
             ));
         }
+        let mut operations = Vec::new();
+        if handle.horizontal_direction() < 0 || handle.vertical_direction() < 0 {
+            let value = &self.editor.document().entities[&entity];
+            let mut position = value.authored.position;
+            if handle.horizontal_direction() < 0 {
+                position.x += start_size.0 - width;
+            }
+            if handle.vertical_direction() < 0 {
+                position.y += start_size.1 - height;
+            }
+            if snap_to_pixel {
+                position.x = position.x.round();
+                position.y = position.y.round();
+            }
+            operations.push(Operation::SetPosition {
+                entity,
+                value: position,
+            });
+        }
+        if handle.horizontal_direction() != 0 {
+            operations.push(Operation::SetSize {
+                entity,
+                axis: ProtocolAxis::Horizontal,
+                value: SizeIntent::Fixed(width),
+            });
+        }
+        if handle.vertical_direction() != 0 {
+            operations.push(Operation::SetSize {
+                entity,
+                axis: ProtocolAxis::Vertical,
+                value: SizeIntent::Fixed(height),
+            });
+        }
         self.editor
-            .execute(EditorCommand::Apply {
-                operations: vec![
-                    Operation::SetSize {
-                        entity,
-                        axis: ProtocolAxis::Horizontal,
-                        value: SizeIntent::Fixed(width),
-                    },
-                    Operation::SetSize {
-                        entity,
-                        axis: ProtocolAxis::Vertical,
-                        value: SizeIntent::Fixed(height),
-                    },
-                ],
-            })
+            .execute(EditorCommand::Apply { operations })
             .map_err(|error| error.to_string())?;
         self.editor
             .execute(EditorCommand::Select { entity })
@@ -2969,7 +3038,15 @@ mod tests {
         let entity = driver.editor.selection()[0];
         let before = driver.editor.operation_log().len();
 
-        driver.resize_entity(entity, (247.4, 95.6), true).unwrap();
+        driver
+            .resize_entity(
+                entity,
+                (160.0, 100.0),
+                (247.4, 95.6),
+                ResizeHandle::SouthEast,
+                true,
+            )
+            .unwrap();
 
         let resized = &driver.editor.document().entities[&entity];
         assert_eq!(resized.authored.width, SizeIntent::Fixed(247.0));
@@ -2991,7 +3068,15 @@ mod tests {
             .unwrap();
         let entity = driver.editor.selection()[0];
 
-        driver.resize_entity(entity, (247.4, 95.6), false).unwrap();
+        driver
+            .resize_entity(
+                entity,
+                (160.0, 100.0),
+                (247.4, 95.6),
+                ResizeHandle::SouthEast,
+                false,
+            )
+            .unwrap();
 
         let resized = &driver.editor.document().entities[&entity];
         assert_eq!(resized.authored.width, SizeIntent::Fixed(247.4));
@@ -3008,18 +3093,125 @@ mod tests {
 
         assert!(
             driver
-                .resize_entity(surface, (320.0, 240.0), true)
+                .resize_entity(
+                    surface,
+                    (768.0, 640.0),
+                    (320.0, 240.0),
+                    ResizeHandle::SouthEast,
+                    true,
+                )
                 .unwrap_err()
                 .contains("evaluation viewport")
         );
         assert!(
             driver
-                .resize_entity(EntityId::new(0x20), (f64::INFINITY, 20.0), true)
+                .resize_entity(
+                    EntityId::new(0x20),
+                    (16.0, 16.0),
+                    (f64::INFINITY, 20.0),
+                    ResizeHandle::SouthEast,
+                    true,
+                )
                 .unwrap_err()
                 .contains("finite")
         );
         assert_eq!(driver.editor.document(), &before_document);
         assert_eq!(driver.editor.operation_log().len(), before_operations);
+    }
+
+    #[test]
+    fn leading_resize_anchors_the_opposite_edge_in_one_transaction() {
+        let (_, mut driver) = harness();
+        let surface = driver.editor.document().roots[0];
+        driver
+            .insert_entity(Tool::Rectangle, Some(surface), 40.0, 60.0)
+            .unwrap();
+        let entity = driver.editor.selection()[0];
+        let before = driver.editor.operation_log().len();
+
+        driver
+            .resize_entity(
+                entity,
+                (160.0, 100.0),
+                (200.0, 120.0),
+                ResizeHandle::NorthWest,
+                true,
+            )
+            .unwrap();
+
+        let resized = &driver.editor.document().entities[&entity];
+        assert_eq!(resized.authored.position, Point { x: 0.0, y: 40.0 });
+        assert_eq!(resized.authored.width, SizeIntent::Fixed(200.0));
+        assert_eq!(resized.authored.height, SizeIntent::Fixed(120.0));
+        assert_eq!(driver.editor.operation_log().len(), before + 1);
+        assert_eq!(
+            driver.editor.operation_log().last().unwrap().transactions[0]
+                .operations
+                .len(),
+            3
+        );
+    }
+
+    #[test]
+    fn managed_layout_rejects_leading_edge_resize_without_mutation() {
+        let (_, mut driver) = harness();
+        let surface = driver.editor.document().roots[0];
+        driver
+            .insert_entity(Tool::Rectangle, Some(surface), 40.0, 60.0)
+            .unwrap();
+        let entity = driver.editor.selection()[0];
+        driver
+            .editor
+            .execute(EditorCommand::Select { entity: surface })
+            .unwrap();
+        driver.set_selected_layout_family(LayoutFamily::Stack);
+        let before_document = driver.editor.document().clone();
+        let before_operations = driver.editor.operation_log().len();
+
+        assert!(
+            driver
+                .resize_entity(
+                    entity,
+                    (160.0, 100.0),
+                    (200.0, 120.0),
+                    ResizeHandle::NorthWest,
+                    true,
+                )
+                .unwrap_err()
+                .contains("freeform")
+        );
+        assert_eq!(driver.editor.document(), &before_document);
+        assert_eq!(driver.editor.operation_log().len(), before_operations);
+    }
+
+    #[test]
+    fn canvas_transforms_require_the_move_tool() {
+        let (_, mut driver) = harness();
+        let surface = driver.editor.document().roots[0];
+        driver
+            .insert_entity(Tool::Rectangle, Some(surface), 40.0, 60.0)
+            .unwrap();
+        let entity = driver.editor.selection()[0];
+        driver.tool = Tool::Hand;
+        let before_document = driver.editor.document().clone();
+        let before_operations = driver.editor.operation_log().len();
+
+        driver.handle_canvas_action(CanvasAction::Move {
+            entity,
+            document_delta: (20.0, 20.0),
+            snap_to_pixel: true,
+        });
+        driver.handle_canvas_action(CanvasAction::Resize {
+            entity,
+            start_size: (160.0, 100.0),
+            document_size: (200.0, 120.0),
+            handle: ResizeHandle::SouthEast,
+            snap_to_pixel: true,
+        });
+
+        assert_eq!(driver.editor.document(), &before_document);
+        assert_eq!(driver.editor.operation_log().len(), before_operations);
+        assert!(driver.status.contains("Move tool"));
     }
 
     #[test]

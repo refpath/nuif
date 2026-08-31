@@ -48,8 +48,9 @@
     {
       "action": "resize_canvas",
       "author_id": "00000000000000000000000000000026",
-      "delta_width": 8.4,
-      "delta_height": 3.6
+      "delta_width": -8.4,
+      "delta_height": -3.6,
+      "handle": "north_west"
     },
     {
       "action": "undo"
@@ -93,12 +94,12 @@
       {
         "author_id": "00000000000000000000000000000026",
         "label": "x",
-        "value": "7"
+        "value": "-1"
       },
       {
         "author_id": "00000000000000000000000000000026",
         "label": "y",
-        "value": "6"
+        "value": "2"
       },
       {
         "author_id": "00000000000000000000000000000026",

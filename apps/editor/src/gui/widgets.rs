@@ -11,6 +11,7 @@ use masonry::layout::{LayoutSize, LenReq, Length, SizeDef};
 use masonry::peniko::{Color, ImageAlphaType, ImageBrush, ImageData, ImageFormat};
 use nuif_core::EntityId;
 use nuif_layout::Rect as LayoutRect;
+use serde::{Deserialize, Serialize};
 use tracing::{Span, trace_span};
 
 const CANVAS_BACKGROUND: Color = Color::from_rgb8(0x2C, 0x2C, 0x2C);
@@ -37,16 +38,77 @@ pub enum CanvasAction {
     },
     Resize {
         entity: EntityId,
+        start_size: (f64, f64),
         document_size: (f64, f64),
+        handle: ResizeHandle,
         snap_to_pixel: bool,
     },
     Shortcut(CanvasShortcut),
 }
 
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq, Deserialize, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ResizeHandle {
+    NorthWest,
+    North,
+    NorthEast,
+    East,
+    #[default]
+    SouthEast,
+    South,
+    SouthWest,
+    West,
+}
+
+impl ResizeHandle {
+    const ALL: [Self; 8] = [
+        Self::NorthWest,
+        Self::NorthEast,
+        Self::SouthEast,
+        Self::SouthWest,
+        Self::North,
+        Self::East,
+        Self::South,
+        Self::West,
+    ];
+    const TRAILING: [Self; 3] = [Self::SouthEast, Self::East, Self::South];
+
+    pub(super) const fn horizontal_direction(self) -> i8 {
+        match self {
+            Self::NorthWest | Self::SouthWest | Self::West => -1,
+            Self::North | Self::South => 0,
+            Self::NorthEast | Self::East | Self::SouthEast => 1,
+        }
+    }
+
+    pub(super) const fn vertical_direction(self) -> i8 {
+        match self {
+            Self::NorthWest | Self::North | Self::NorthEast => -1,
+            Self::East | Self::West => 0,
+            Self::SouthEast | Self::South | Self::SouthWest => 1,
+        }
+    }
+
+    const fn is_corner(self) -> bool {
+        self.horizontal_direction() != 0 && self.vertical_direction() != 0
+    }
+}
+
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
+pub(super) enum CanvasResizePolicy {
+    #[default]
+    None,
+    Trailing,
+    Freeform,
+}
+
 #[derive(Clone, Copy, Debug)]
 enum CanvasDragKind {
     Move,
-    ResizeSouthEast { start_size: Size },
+    Resize {
+        handle: ResizeHandle,
+        start_rect: LayoutRect,
+    },
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -57,6 +119,7 @@ struct CanvasDrag {
     start_document: Option<Point>,
     current_screen: Point,
     current_document: Option<Point>,
+    preserve_aspect_ratio: bool,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -86,6 +149,7 @@ pub struct DocumentCanvas {
     zoom: f64,
     show_grid: bool,
     show_rulers: bool,
+    resize_policy: CanvasResizePolicy,
     size: Size,
     drag: Option<CanvasDrag>,
 }
@@ -112,6 +176,7 @@ impl DocumentCanvas {
             zoom: 1.0,
             show_grid: true,
             show_rulers: true,
+            resize_policy: CanvasResizePolicy::None,
             size: Size::ZERO,
             drag: None,
         }
@@ -121,6 +186,11 @@ impl DocumentCanvas {
         self.zoom = zoom;
         self.show_grid = show_grid;
         self.show_rulers = show_rulers;
+        self
+    }
+
+    pub(super) fn with_resize_policy(mut self, policy: CanvasResizePolicy) -> Self {
+        self.resize_policy = policy;
         self
     }
 
@@ -183,20 +253,35 @@ impl DocumentCanvas {
         Point::new((point.x - offset.x) / scale, (point.y - offset.y) / scale)
     }
 
-    fn resize_target(&self, point: Point) -> Option<(EntityId, Size)> {
+    fn resize_handles(&self) -> &'static [ResizeHandle] {
+        match self.resize_policy {
+            CanvasResizePolicy::None => &[],
+            CanvasResizePolicy::Trailing => &ResizeHandle::TRAILING,
+            CanvasResizePolicy::Freeform => &ResizeHandle::ALL,
+        }
+    }
+
+    fn resize_handle_point(&self, rect: &LayoutRect, handle: ResizeHandle) -> Point {
+        let (scale, offset) = self.page_transform();
+        let horizontal = f64::from(handle.horizontal_direction());
+        let vertical = f64::from(handle.vertical_direction());
+        let x = rect.x + rect.width * (horizontal + 1.0) * 0.5;
+        let y = rect.y + rect.height * (vertical + 1.0) * 0.5;
+        Point::new(offset.x + x * scale, offset.y + y * scale)
+    }
+
+    fn resize_target(&self, point: Point) -> Option<(EntityId, LayoutRect, ResizeHandle)> {
         let entity = self.selection?;
         let (_, rect) = self.boxes.iter().find(|(id, _)| *id == entity)?;
-        let (scale, offset) = self.page_transform();
-        let handle = Point::new(
-            offset.x + (rect.x + rect.width) * scale,
-            offset.y + (rect.y + rect.height) * scale,
-        );
         let half = RESIZE_HIT_SIZE * 0.5;
-        (point.x >= handle.x - half
-            && point.x <= handle.x + half
-            && point.y >= handle.y - half
-            && point.y <= handle.y + half)
-            .then_some((entity, Size::new(rect.width, rect.height)))
+        self.resize_handles().iter().copied().find_map(|handle| {
+            let handle_point = self.resize_handle_point(rect, handle);
+            (point.x >= handle_point.x - half
+                && point.x <= handle_point.x + half
+                && point.y >= handle_point.y - half
+                && point.y <= handle_point.y + half)
+                .then_some((entity, *rect, handle))
+        })
     }
 
     #[cfg(feature = "editor-automation")]
@@ -216,14 +301,61 @@ impl DocumentCanvas {
     }
 
     #[cfg(feature = "editor-automation")]
-    pub(super) fn local_resize_handle(&self, entity: EntityId) -> Option<Point> {
+    pub(super) fn local_resize_handle(
+        &self,
+        entity: EntityId,
+        handle: ResizeHandle,
+    ) -> Option<Point> {
         (self.selection == Some(entity)).then_some(())?;
         let (_, rect) = self.boxes.iter().find(|(id, _)| *id == entity)?;
-        let (scale, offset) = self.page_transform();
-        Some(Point::new(
-            offset.x + (rect.x + rect.width) * scale,
-            offset.y + (rect.y + rect.height) * scale,
-        ))
+        self.resize_handles().contains(&handle).then_some(())?;
+        Some(self.resize_handle_point(rect, handle))
+    }
+}
+
+fn resized_rect(
+    start: LayoutRect,
+    handle: ResizeHandle,
+    delta: Vec2,
+    preserve_aspect_ratio: bool,
+) -> LayoutRect {
+    let horizontal = f64::from(handle.horizontal_direction());
+    let vertical = f64::from(handle.vertical_direction());
+    let mut width = if horizontal == 0.0 {
+        start.width
+    } else {
+        (start.width + delta.x * horizontal).max(1.0)
+    };
+    let mut height = if vertical == 0.0 {
+        start.height
+    } else {
+        (start.height + delta.y * vertical).max(1.0)
+    };
+    if preserve_aspect_ratio && handle.is_corner() && start.width > 0.0 && start.height > 0.0 {
+        let width_scale = width / start.width;
+        let height_scale = height / start.height;
+        let scale = if (width_scale - 1.0).abs() >= (height_scale - 1.0).abs() {
+            width_scale
+        } else {
+            height_scale
+        }
+        .max((1.0 / start.width).max(1.0 / start.height));
+        width = start.width * scale;
+        height = start.height * scale;
+    }
+    LayoutRect {
+        x: if horizontal < 0.0 {
+            start.x + start.width - width
+        } else {
+            start.x
+        },
+        y: if vertical < 0.0 {
+            start.y + start.height - height
+        } else {
+            start.y
+        },
+        width,
+        height,
     }
 }
 
@@ -351,16 +483,22 @@ impl Widget for DocumentCanvas {
                 ctx.capture_pointer();
                 let point = ctx.local_position(event.state.position);
                 let resize = self.resize_target(point);
+                let start_document = if resize.is_some() {
+                    Some(self.document_coordinates(point))
+                } else {
+                    self.document_position(point).map(|(x, y)| Point::new(x, y))
+                };
                 self.drag = Some(CanvasDrag {
                     entity: resize
-                        .map_or_else(|| self.entity_at(point), |(entity, _)| Some(entity)),
-                    kind: resize.map_or(CanvasDragKind::Move, |(_, start_size)| {
-                        CanvasDragKind::ResizeSouthEast { start_size }
+                        .map_or_else(|| self.entity_at(point), |(entity, _, _)| Some(entity)),
+                    kind: resize.map_or(CanvasDragKind::Move, |(_, start_rect, handle)| {
+                        CanvasDragKind::Resize { handle, start_rect }
                     }),
                     start_screen: point,
-                    start_document: self.document_position(point).map(|(x, y)| Point::new(x, y)),
+                    start_document,
                     current_screen: point,
                     current_document: self.document_position(point).map(|(x, y)| Point::new(x, y)),
+                    preserve_aspect_ratio: event.state.modifiers.shift(),
                 });
                 ctx.set_handled();
             }
@@ -370,6 +508,7 @@ impl Widget for DocumentCanvas {
                 if let Some(drag) = &mut self.drag {
                     drag.current_screen = point;
                     drag.current_document = Some(document);
+                    drag.preserve_aspect_ratio = event.current.modifiers.shift();
                     ctx.request_paint_only();
                     ctx.set_handled();
                 }
@@ -382,6 +521,7 @@ impl Widget for DocumentCanvas {
                 if let Some(mut drag) = self.drag.take() {
                     drag.current_screen = point;
                     drag.current_document = Some(document);
+                    drag.preserve_aspect_ratio = event.state.modifiers.shift();
                     let screen_delta = drag.current_screen - drag.start_screen;
                     let moved = screen_delta.hypot2() >= 9.0;
                     let action = match (
@@ -403,15 +543,22 @@ impl Widget for DocumentCanvas {
                             Some(entity),
                             Some(start),
                             Some(current),
-                            CanvasDragKind::ResizeSouthEast { start_size },
-                        ) => CanvasAction::Resize {
-                            entity,
-                            document_size: (
-                                (start_size.width + current.x - start.x).max(1.0),
-                                (start_size.height + current.y - start.y).max(1.0),
-                            ),
-                            snap_to_pixel: !event.state.modifiers.ctrl(),
-                        },
+                            CanvasDragKind::Resize { handle, start_rect },
+                        ) => {
+                            let resized = resized_rect(
+                                start_rect,
+                                handle,
+                                current - start,
+                                drag.preserve_aspect_ratio,
+                            );
+                            CanvasAction::Resize {
+                                entity,
+                                start_size: (start_rect.width, start_rect.height),
+                                document_size: (resized.width, resized.height),
+                                handle,
+                                snap_to_pixel: !event.state.modifiers.ctrl(),
+                            }
+                        }
                         _ => CanvasAction::Activate {
                             entity: drag.entity,
                             document_position: drag.start_document.map(|point| (point.x, point.y)),
@@ -556,46 +703,60 @@ impl Widget for DocumentCanvas {
 
         let mut selection = self.selection;
         let mut preview_delta = Vec2::ZERO;
-        let mut resize_preview = false;
+        let mut resize_preview = None;
         if let Some(drag) = &self.drag {
             selection = drag.entity.or(selection);
             if let (Some(start), Some(current)) = (drag.start_document, drag.current_document) {
                 preview_delta = current - start;
             }
-            resize_preview = matches!(drag.kind, CanvasDragKind::ResizeSouthEast { .. });
+            if let CanvasDragKind::Resize { handle, start_rect } = drag.kind {
+                resize_preview = Some(resized_rect(
+                    start_rect,
+                    handle,
+                    preview_delta,
+                    drag.preserve_aspect_ratio,
+                ));
+            }
         }
         if let Some(selection) = selection
             && let Some((_, rect)) = self.boxes.iter().find(|(entity, _)| *entity == selection)
         {
-            let (x, y, width, height) = if resize_preview {
-                (
-                    rect.x,
-                    rect.y,
-                    (rect.width + preview_delta.x).max(1.0),
-                    (rect.height + preview_delta.y).max(1.0),
-                )
+            let preview = if let Some(resized) = resize_preview {
+                resized
             } else {
-                (
-                    rect.x + preview_delta.x,
-                    rect.y + preview_delta.y,
-                    rect.width,
-                    rect.height,
-                )
+                LayoutRect {
+                    x: rect.x + preview_delta.x,
+                    y: rect.y + preview_delta.y,
+                    width: rect.width,
+                    height: rect.height,
+                }
             };
             let selected = Rect::new(
-                offset.x + x * scale,
-                offset.y + y * scale,
-                offset.x + (x + width) * scale,
-                offset.y + (y + height) * scale,
+                offset.x + preview.x * scale,
+                offset.y + preview.y * scale,
+                offset.x + (preview.x + preview.width) * scale,
+                offset.y + (preview.y + preview.height) * scale,
             );
             painter
                 .stroke(selected, &Stroke::new(2.0), SELECTION)
                 .draw();
-            let handle = Rect::from_center_size(
-                Point::new(selected.x1, selected.y1),
-                Size::new(RESIZE_HANDLE_SIZE, RESIZE_HANDLE_SIZE),
-            );
-            painter.fill(handle, SELECTION).draw();
+            for handle in self.resize_handles() {
+                let handle_point = Point::new(
+                    selected.x0
+                        + selected.width() * (f64::from(handle.horizontal_direction()) + 1.0) * 0.5,
+                    selected.y0
+                        + selected.height() * (f64::from(handle.vertical_direction()) + 1.0) * 0.5,
+                );
+                painter
+                    .fill(
+                        Rect::from_center_size(
+                            handle_point,
+                            Size::new(RESIZE_HANDLE_SIZE, RESIZE_HANDLE_SIZE),
+                        ),
+                        SELECTION,
+                    )
+                    .draw();
+            }
         }
         if self.show_rulers {
             paint_rulers(painter, content, scale, offset);
@@ -631,6 +792,124 @@ impl Widget for DocumentCanvas {
 
     fn make_trace_span(&self, id: WidgetId) -> Span {
         trace_span!("DocumentCanvas", id = id.trace())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn every_resize_handle_preserves_its_opposite_edges() {
+        let start = LayoutRect {
+            x: 10.0,
+            y: 20.0,
+            width: 100.0,
+            height: 50.0,
+        };
+        for (handle, delta, expected) in [
+            (
+                ResizeHandle::NorthWest,
+                Vec2::new(-20.0, -10.0),
+                LayoutRect {
+                    x: -10.0,
+                    y: 10.0,
+                    width: 120.0,
+                    height: 60.0,
+                },
+            ),
+            (
+                ResizeHandle::North,
+                Vec2::new(99.0, -10.0),
+                LayoutRect {
+                    x: 10.0,
+                    y: 10.0,
+                    width: 100.0,
+                    height: 60.0,
+                },
+            ),
+            (
+                ResizeHandle::NorthEast,
+                Vec2::new(20.0, -10.0),
+                LayoutRect {
+                    x: 10.0,
+                    y: 10.0,
+                    width: 120.0,
+                    height: 60.0,
+                },
+            ),
+            (
+                ResizeHandle::East,
+                Vec2::new(20.0, 99.0),
+                LayoutRect {
+                    x: 10.0,
+                    y: 20.0,
+                    width: 120.0,
+                    height: 50.0,
+                },
+            ),
+            (
+                ResizeHandle::SouthEast,
+                Vec2::new(20.0, 10.0),
+                LayoutRect {
+                    x: 10.0,
+                    y: 20.0,
+                    width: 120.0,
+                    height: 60.0,
+                },
+            ),
+            (
+                ResizeHandle::South,
+                Vec2::new(99.0, 10.0),
+                LayoutRect {
+                    x: 10.0,
+                    y: 20.0,
+                    width: 100.0,
+                    height: 60.0,
+                },
+            ),
+            (
+                ResizeHandle::SouthWest,
+                Vec2::new(-20.0, 10.0),
+                LayoutRect {
+                    x: -10.0,
+                    y: 20.0,
+                    width: 120.0,
+                    height: 60.0,
+                },
+            ),
+            (
+                ResizeHandle::West,
+                Vec2::new(-20.0, 99.0),
+                LayoutRect {
+                    x: -10.0,
+                    y: 20.0,
+                    width: 120.0,
+                    height: 50.0,
+                },
+            ),
+        ] {
+            assert_eq!(resized_rect(start, handle, delta, false), expected);
+        }
+    }
+
+    #[test]
+    fn corner_resize_can_preserve_aspect_ratio() {
+        let start = LayoutRect {
+            x: 10.0,
+            y: 20.0,
+            width: 100.0,
+            height: 50.0,
+        };
+        assert_eq!(
+            resized_rect(start, ResizeHandle::NorthWest, Vec2::new(-20.0, -1.0), true,),
+            LayoutRect {
+                x: -10.0,
+                y: 10.0,
+                width: 120.0,
+                height: 60.0,
+            }
+        );
     }
 }
 
