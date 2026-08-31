@@ -1783,6 +1783,7 @@ fn gate_ffi() -> Result<(), String> {
         ],
     )?;
     let cplusplus_runtime_status = run_ffi_cpp_consumer()?;
+    let swift_runtime_status = run_ffi_swift_consumer()?;
     let (runtime_status, sanitizer_status) =
         run_ffi_runtime_consumers(variable_font_package, ffi_report, sanitized_report)?;
     let variable_font = ffi_variable_font_evidence(
@@ -1795,6 +1796,7 @@ fn gate_ffi() -> Result<(), String> {
         && runtime_status != "failed"
         && sanitizer_status != "failed"
         && cplusplus_runtime_status != "failed"
+        && swift_runtime_status != "failed"
         && (cfg!(windows) || variable_font["status"] == "passed");
     fs::create_dir_all("target").map_err(|error| error.to_string())?;
     let report = serde_json::json!({
@@ -1813,9 +1815,10 @@ fn gate_ffi() -> Result<(), String> {
         "runtime_consumer": "tools/ffi/runtime-smoke.c",
         "runtime_status": runtime_status,
         "cplusplus_runtime_status": cplusplus_runtime_status,
+        "swift_runtime_status": swift_runtime_status,
         "sanitizer_status": sanitizer_status,
         "symbols": symbols,
-        "mode": "C/C++ header syntax, linked POSIX C++ consumer, exported-symbol baseline and POSIX release-library package/snapshot parity with an ASan/UBSan C consumer; no stable ABI claim",
+        "mode": "C/C++ header syntax, linked POSIX C++ consumer, linked macOS Swift importer, exported-symbol baseline and POSIX release-library package/snapshot parity with an ASan/UBSan C consumer; no stable ABI claim",
         "variable_font": variable_font,
         "source": {
             "revision": command_text("git", &["rev-parse", "HEAD"]),
@@ -1833,6 +1836,31 @@ fn gate_ffi() -> Result<(), String> {
     } else {
         Err("C ABI conformance report failed its assertions".to_owned())
     }
+}
+
+fn run_ffi_swift_consumer() -> Result<&'static str, String> {
+    if !cfg!(target_os = "macos") {
+        return Ok("not-run-on-non-macos");
+    }
+    command(
+        "swiftc",
+        &[
+            "tools/ffi/swift-smoke.swift",
+            "-import-objc-header",
+            "bindings/nuif_ffi.h",
+            "-L",
+            "target/release",
+            "-lnuif_ffi",
+            "-Xlinker",
+            "-rpath",
+            "-Xlinker",
+            "@loader_path/../release",
+            "-o",
+            "target/ffi-swift-smoke",
+        ],
+    )?;
+    command(path(Path::new("target/ffi-swift-smoke"))?, &[])?;
+    Ok("passed")
 }
 
 fn run_ffi_cpp_consumer() -> Result<&'static str, String> {
@@ -2498,16 +2526,13 @@ fn ffi_package() -> Result<(), String> {
     let libraries = package_root.join("lib");
     let abi = package_root.join("abi");
     let evidence = package_root.join("evidence");
+    let examples = package_root.join("examples");
     fs::create_dir_all(&include).map_err(|error| error.to_string())?;
     fs::create_dir_all(&libraries).map_err(|error| error.to_string())?;
     fs::create_dir_all(&abi).map_err(|error| error.to_string())?;
     fs::create_dir_all(&evidence).map_err(|error| error.to_string())?;
-    fs::copy("bindings/nuif_ffi.h", include.join("nuif_ffi.h"))
-        .map_err(|error| error.to_string())?;
-    fs::copy("bindings/nuif_ffi.symbols", abi.join("nuif_ffi.symbols"))
-        .map_err(|error| error.to_string())?;
-    fs::copy("bindings/README.md", package_root.join("README.md"))
-        .map_err(|error| error.to_string())?;
+    fs::create_dir_all(&examples).map_err(|error| error.to_string())?;
+    copy_ffi_package_sources(&package_root, &include, &abi, &examples)?;
     fs::copy(
         "target/ffi-header-report.json",
         evidence.join("conformance-report.json"),
@@ -2532,10 +2557,6 @@ fn ffi_package() -> Result<(), String> {
             fs::copy(source, evidence.join(destination)).map_err(|error| error.to_string())?;
         }
     }
-    for license in ["LICENSE-APACHE", "LICENSE-MIT"] {
-        fs::copy(license, package_root.join(license)).map_err(|error| error.to_string())?;
-    }
-
     let release = target_root.join("release");
     copy_ffi_libraries(&release, &libraries)?;
     let files = kit_file_manifest(&package_root)?;
@@ -2550,8 +2571,17 @@ fn ffi_package() -> Result<(), String> {
         "source_revision": command_text("git", &["rev-parse", "HEAD"]),
         "source_dirty": command_text("git", &["status", "--porcelain"])
             .map(|value| !value.is_empty()),
-        "header": {"path": "include/nuif_ffi.h"},
+        "header": {
+            "path": "include/nuif_ffi.h",
+            "generator": "cbindgen 0.29.4",
+            "config": "abi/cbindgen.toml"
+        },
         "symbol_baseline": {"path": "abi/nuif_ffi.symbols", "status": "experimental"},
+        "examples": {
+            "c": "examples/header-smoke.c",
+            "cplusplus": "examples/header-smoke.cpp",
+            "swift": "examples/swift-smoke.swift"
+        },
         "evidence": {"directory": "evidence"},
         "files": files,
         "stability": "experimental; not ABI-stable"
@@ -2575,6 +2605,35 @@ fn ffi_package() -> Result<(), String> {
     )
     .map_err(|error| error.to_string())?;
     println!("packaged experimental C ABI: {}", archive.display());
+    Ok(())
+}
+
+fn copy_ffi_package_sources(
+    package_root: &Path,
+    include: &Path,
+    abi: &Path,
+    examples: &Path,
+) -> Result<(), String> {
+    for (source, destination) in [
+        ("bindings/nuif_ffi.h", include.join("nuif_ffi.h")),
+        ("bindings/nuif_ffi.symbols", abi.join("nuif_ffi.symbols")),
+        ("bindings/cbindgen.toml", abi.join("cbindgen.toml")),
+        ("tools/ffi/header-smoke.c", examples.join("header-smoke.c")),
+        (
+            "tools/ffi/header-smoke.cpp",
+            examples.join("header-smoke.cpp"),
+        ),
+        (
+            "tools/ffi/swift-smoke.swift",
+            examples.join("swift-smoke.swift"),
+        ),
+        ("bindings/README.md", package_root.join("README.md")),
+    ] {
+        fs::copy(source, destination).map_err(|error| error.to_string())?;
+    }
+    for license in ["LICENSE-APACHE", "LICENSE-MIT"] {
+        fs::copy(license, package_root.join(license)).map_err(|error| error.to_string())?;
+    }
     Ok(())
 }
 
