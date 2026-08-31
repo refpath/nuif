@@ -267,7 +267,10 @@ source-resource recall claims and keeps unavailable hardware measurements
 explicit. Its deterministic synthetic fixture validates the evaluator
 contract, not reconstruction quality. The missing OCR/model baselines, licensed
 real and leak-resistant held-out corpus, standard perceptual implementations,
-distribution aggregation and independent evaluator keep the phase open.
+predeclared statistical uncertainty method and independent evaluator keep the
+phase open. A deterministic three-example fixture now exercises typed
+distribution aggregation, including micro/macro separation and explicit
+missingness, without presenting it as empirical accuracy evidence.
 
 ## Phase 12 — calibration and conditional adaptation (calibration primitive active; adaptation blocked on Phase 11)
 

@@ -4,6 +4,8 @@ use serde::{Deserialize, Serialize};
 use std::collections::BTreeSet;
 use thiserror::Error;
 
+pub mod aggregation;
+
 pub const EVALUATION_PROFILE: &str = "nuif-reconstruction-evaluation-0";
 pub const MAX_EVALUATION_ITEMS: usize = 100_000;
 pub const MAX_EDIT_DISTANCE_CELLS: usize = 16 * 1024 * 1024;

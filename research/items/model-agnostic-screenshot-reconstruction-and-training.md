@@ -376,6 +376,13 @@ Visual metrics are computed over the whole image and property-local masks. A
 large correct background must not hide missing small controls. Scores are
 reported with distributions and confidence intervals, not only one mean.
 
+The implemented evaluator contract currently provides exact micro-rate
+evidence and deterministic per-example scored/unscored, mean and nearest-rank
+p50/p95 aggregation. It intentionally does not invent a confidence interval
+from its synthetic fixtures. The real benchmark must predeclare a suitable
+cluster-aware or bootstrap uncertainty method after the sampling unit and
+corpus design are fixed.
+
 ## Baseline and ablation ladder
 
 The experiment order is:

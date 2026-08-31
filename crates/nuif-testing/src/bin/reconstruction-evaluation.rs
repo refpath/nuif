@@ -1,5 +1,6 @@
 use nuif_core::ResourceDigest;
 use nuif_reconstruct::Bounds;
+use nuif_reconstruct::evaluation::aggregation::EvaluationAggregate;
 use nuif_reconstruct::evaluation::{
     CalibrationMetrics, CalibrationSample, CostMetrics, DetectionMetrics, EVALUATION_PROFILE,
     ErrorMetrics, EvaluationReport, EvaluationSuite, GeometryMetrics, PerceptualDiagnostic,
@@ -121,6 +122,24 @@ fn run() -> Result<(), String> {
         Some(u64::try_from(started.elapsed().as_micros()).unwrap_or(u64::MAX));
     report.validate().map_err(|error| error.to_string())?;
 
+    let mut second_report = report.clone();
+    "synthetic-evaluation-fixture-2".clone_into(&mut second_report.example_id);
+    second_report.validity = RateMetric::new(4, 4);
+    second_report.accessibility = None;
+    second_report.cost.latency_microseconds = None;
+    let mut third_report = report.clone();
+    "synthetic-evaluation-fixture-3".clone_into(&mut third_report.example_id);
+    third_report.validity = RateMetric::new(2, 4);
+    third_report.accessibility = Some(RateMetric::new(3, 3));
+    third_report.cost.latency_microseconds = Some(40);
+    let aggregate =
+        EvaluationAggregate::build(&[third_report.clone(), report.clone(), second_report.clone()])
+            .map_err(|error| error.to_string())?;
+    let aggregate_bytes = serde_json::to_vec(&aggregate).map_err(|error| error.to_string())?;
+    let decoded_aggregate: EvaluationAggregate =
+        serde_json::from_slice(&aggregate_bytes).map_err(|error| error.to_string())?;
+    let aggregate_round_trip = decoded_aggregate.validate().is_ok();
+
     let encoded = serde_json::to_vec(&report).map_err(|error| error.to_string())?;
     let decoded: EvaluationReport =
         serde_json::from_slice(&encoded).map_err(|error| error.to_string())?;
@@ -142,6 +161,26 @@ fn run() -> Result<(), String> {
     let mut derived_rate_drift = report.clone();
     derived_rate_drift.validity.value = Some(1.0);
     let derived_rate_drift_rejected = derived_rate_drift.validate().is_err();
+    let aggregate_order_and_missingness = aggregate.example_ids
+        == [
+            "synthetic-evaluation-fixture-1",
+            "synthetic-evaluation-fixture-2",
+            "synthetic-evaluation-fixture-3",
+        ]
+        && aggregate.metrics.validity.micro.numerator == 9
+        && aggregate.metrics.validity.micro.denominator == 12
+        && aggregate
+            .metrics
+            .accessibility_accuracy
+            .per_example
+            .scored_examples
+            == 2
+        && aggregate
+            .metrics
+            .accessibility_accuracy
+            .per_example
+            .unscored_examples
+            == 1;
 
     let checks = vec![
         check("typed_report_round_trip", typed_report_round_trip),
@@ -162,6 +201,11 @@ fn run() -> Result<(), String> {
             local_error_visible,
         ),
         check("derived_rate_drift_rejected", derived_rate_drift_rejected),
+        check("typed_aggregate_round_trip", aggregate_round_trip),
+        check(
+            "aggregate_order_and_missingness_are_explicit",
+            aggregate_order_and_missingness,
+        ),
     ];
     let passed = checks.iter().all(|check| check["passed"] == true);
     let artifact = json!({
@@ -170,6 +214,7 @@ fn run() -> Result<(), String> {
         "status": if passed { "passed" } else { "failed" },
         "source": source_identity(),
         "metrics": report,
+        "synthetic_aggregate": aggregate,
         "checks": checks,
         "non_claims": [
             "one deterministic synthetic contract fixture is not an accuracy distribution",

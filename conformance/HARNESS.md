@@ -294,10 +294,14 @@ reconstruction-evaluation` computes and validates the complete typed
 synthetic fixture. It keeps exact rate evidence, nullable unavailable resource
 measurements and suite-specific resource claims, and asserts that one local
 pixel difference and one missed element remain independently visible. It also
-rejects inconsistent derived rates and edit-distance work beyond its bound.
-The report explicitly disclaims OCR/model accuracy, a real or held-out corpus,
-standard perceptual metrics, calibrated distributions and independent
-evaluation.
+rejects inconsistent derived rates and edit-distance work beyond its bound. A
+three-example `nuif-reconstruction-evaluation-aggregate-0` fixture proves
+input-order independence, pooled rate arithmetic, nearest-rank p50/p95 and
+explicit missingness. Aggregation rejects mixed suites, duplicate identities,
+incompatible calibration/perceptual configurations and mixed currencies. The
+report explicitly disclaims OCR/model accuracy, a real or held-out corpus,
+standard perceptual metrics, statistically calibrated uncertainty and
+independent evaluation.
 
 The separate live capture experiment writes
 `target/live-browser-capture-report.json`. `cargo xtask gate-j-live` installs or

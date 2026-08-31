@@ -205,7 +205,11 @@ never treated as perfect. Unavailable RAM/VRAM or latency measurements remain
 null rather than zero. Screenshot-only suites MUST leave exact source-resource
 recall unscored. `cargo xtask reconstruction-evaluation` exercises the schema,
 derived-value validation, resource-claim boundary, local-error visibility and
-hostile work limits. This synthetic contract fixture is not an accuracy corpus.
+hostile work limits. Its typed corpus aggregate refuses mixed evidence suites,
+duplicate examples, incompatible calibration thresholds, perceptual evaluator
+identity drift and mixed currencies. It reports pooled integer-evidence rates
+beside per-example scored/unscored counts, mean and nearest-rank p50/p95. This
+synthetic contract fixture is not an accuracy corpus or a confidence interval.
 
 No visual metric alone establishes conformance. Metrics are reported per example
 and as distributions; local/small-element errors MUST NOT be hidden by a large

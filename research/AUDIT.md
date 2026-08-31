@@ -236,11 +236,13 @@ point interpolation/selective-review fixture verifies the calibration API.
 report containing every required per-example metric family, explicit
 numerators/denominators, nullable unavailable cost measurements and separate
 local-pixel/element failures. It rejects derived-rate drift, oversized edit
-work and exact source-resource claims in screenshot-only suites. This is one
-synthetic contract fixture: no OCR/model baseline, licensed real or
-leak-resistant held-out accuracy corpus, standard perceptual evaluator,
-distribution aggregation or independent reproduction exists. Gate K remains
-open.
+work and exact source-resource claims in screenshot-only suites. Its typed
+three-example aggregate reports pooled rates, scored/unscored per-example
+distributions and nearest-rank p50/p95 while rejecting mixed suites,
+calibration/evaluator drift and mixed currencies. These are synthetic contract
+fixtures: no OCR/model baseline, licensed real or leak-resistant held-out
+accuracy corpus, standard perceptual evaluator, predeclared uncertainty method
+or independent reproduction exists. Gate K remains open.
 
 ### Gate L — conditional adaptation and distillation (blocked on Gate K)
 
