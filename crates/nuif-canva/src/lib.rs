@@ -130,6 +130,15 @@ pub struct ExportedPage {
     pub report: HostAdapterReport,
 }
 
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct CanvaMutationPlan {
+    pub schema_version: u32,
+    pub profile: String,
+    pub page: CanvaPage,
+    pub report: HostAdapterReport,
+}
+
 /// Imports one normalized, fixed-size Canva current-page snapshot.
 ///
 /// # Errors
@@ -307,6 +316,26 @@ pub fn export_page(
         elements,
     };
     Ok(ExportedPage { page, report })
+}
+
+/// Produces the exact envelope consumed by a Canva host review shell.
+///
+/// # Errors
+///
+/// Returns an [`AdapterError`] when the document is outside the bounded page
+/// profile. The returned report is lossless and describes an export from NUIF
+/// into a host-owned current-page session.
+pub fn plan_host_import(
+    document: &Document,
+    host_application_version: &str,
+) -> Result<CanvaMutationPlan, AdapterError> {
+    let ExportedPage { page, report } = export_page(document, host_application_version)?;
+    Ok(CanvaMutationPlan {
+        schema_version: 1,
+        profile: PROFILE_NAME.to_owned(),
+        page,
+        report,
+    })
 }
 
 struct ImportContext {
@@ -948,5 +977,17 @@ mod tests {
             import_normalized_page(&page),
             Err(AdapterError::DuplicateHostId(_))
         ));
+    }
+
+    #[test]
+    fn mutation_plan_is_an_exact_lossless_envelope() {
+        let plan = plan_host_import(&profile_fixture(), "2.12.0").unwrap();
+        assert_eq!(plan.schema_version, 1);
+        assert_eq!(plan.profile, PROFILE_NAME);
+        assert_eq!(plan.report.direction, HostDirection::Export);
+        assert!(plan.report.is_lossless());
+        let bytes = serde_json::to_vec(&plan).unwrap();
+        let decoded: CanvaMutationPlan = serde_json::from_slice(&bytes).unwrap();
+        assert_eq!(decoded, plan);
     }
 }

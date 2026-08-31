@@ -1,7 +1,7 @@
 use nuif_api::{Engine, ReferenceEngine, Session, profile_zero_context};
 use nuif_canva::{
     AdapterError as CanvaAdapterError, export_page as export_canva_page,
-    import_current_page as import_canva_page,
+    import_current_page as import_canva_page, plan_host_import as plan_canva_import,
 };
 use nuif_capture::{
     BrowserCapture, OcrSpan, SCREENSHOT_CAPTURE_PROFILE, ScreenshotCapture, Viewport,
@@ -488,13 +488,11 @@ fn import(args: &[String]) -> Result<(), CliError> {
 
 fn export(args: &[String]) -> Result<(), CliError> {
     let mut loaded = load_nuif(required(args, 0, "input document")?)?;
-    let target = args.get(1).map_or("nuif-text-0", String::as_str);
-    let output = args.get(2).map_or("-", String::as_str);
+    let (target, output, report_path) = export_arguments(args);
     if export_requires_package_evaluation(target) {
         require_package_evaluation(&loaded)?;
     }
     let document = loaded.document.clone();
-    let report_path = args.get(3).map(String::as_str);
     match target {
         "nuif-text-0" => write_output(
             output,
@@ -540,8 +538,11 @@ fn export(args: &[String]) -> Result<(), CliError> {
             write_output(output, exported.source.as_bytes())?;
             emit_adapter_report(&exported.report, report_path)
         }
-        "canva-design-editing-0" | "nuif-canva-design-editing-0" => {
-            export_canva(&document, output, report_path)
+        target @ ("canva-design-editing-0"
+        | "nuif-canva-design-editing-0"
+        | "canva-design-editing-plan-0"
+        | "nuif-canva-design-editing-plan-0") => {
+            export_canva_target(&document, target, output, report_path)
         }
         "penpot-v3-0" | "nuif-penpot-v3-0" => {
             let exported = match export_penpot_document(&document) {
@@ -585,6 +586,14 @@ fn export(args: &[String]) -> Result<(), CliError> {
             format!("target {target} is unsupported; no data was written"),
         )),
     }
+}
+
+fn export_arguments(args: &[String]) -> (&str, &str, Option<&str>) {
+    (
+        args.get(1).map_or("nuif-text-0", String::as_str),
+        args.get(2).map_or("-", String::as_str),
+        args.get(3).map(String::as_str),
+    )
 }
 
 fn export_requires_package_evaluation(target: &str) -> bool {
@@ -719,6 +728,36 @@ fn export_canva(
             .map_err(|error| CliError::new(1, "JSON_FAILED", error.to_string()))?,
     )?;
     emit_adapter_report(&exported.report, report_path)
+}
+
+fn export_canva_target(
+    document: &Document,
+    target: &str,
+    output: &str,
+    report_path: Option<&str>,
+) -> Result<(), CliError> {
+    if target.contains("plan") {
+        export_canva_plan(document, output, report_path)
+    } else {
+        export_canva(document, output, report_path)
+    }
+}
+
+fn export_canva_plan(
+    document: &Document,
+    output: &str,
+    report_path: Option<&str>,
+) -> Result<(), CliError> {
+    let plan = match plan_canva_import(document, "2.12.0") {
+        Ok(plan) => plan,
+        Err(error) => return canva_adapter_failure(&error, report_path),
+    };
+    write_output(
+        output,
+        &serde_json::to_vec_pretty(&plan)
+            .map_err(|error| CliError::new(1, "JSON_FAILED", error.to_string()))?,
+    )?;
+    emit_adapter_report(&plan.report, report_path)
 }
 
 fn sync(args: &[String]) -> Result<(), CliError> {
