@@ -5,6 +5,7 @@ use std::collections::BTreeSet;
 use thiserror::Error;
 
 pub mod aggregation;
+pub mod confidence;
 pub mod corpus;
 
 pub const EVALUATION_PROFILE: &str = "nuif-reconstruction-evaluation-0";

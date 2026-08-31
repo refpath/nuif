@@ -298,8 +298,11 @@ distillation. Exit: a candidate beats the untuned closed-loop baseline under the
 same frozen holdout/budget without validity, calibration, privacy, licensing or
 maintenance regression. Training is skipped if that gate is not met.
 
-The current interpolation/selective-review fixture tests only the calibration
-API contract. It is not evidence of calibrated risk coverage on real data.
+The current interpolation/selective-review fixture and
+`cargo xtask confidence-calibration` smoke test exercise only typed evaluator
+arithmetic, disjoint split enforcement, shifted holdouts and selective-review
+policy. They are not evidence of calibrated risk coverage on real data or of a
+production threshold.
 
 ## Early falsifiers
 Stop/rethink if: semantic model requires pervasive vendor-specific exceptions; opaque extensions cannot survive common operations; source synchronization routinely requires whole-file regeneration; independent implementation cannot reproduce normative layout/visual behavior from the spec; deterministic packages do not reproduce across writers; reconstruction optimizes pixels by discarding semantics; or tuning cannot beat the untuned tool-assisted baseline fairly.

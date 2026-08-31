@@ -786,7 +786,7 @@ experiments:
   - id: nuif:experiment:inference-confidence-calibration
     status: active
     evidence: [nuif:research:confidence-calibration-and-selective-prediction, nuif:research:model-agnostic-screenshot-reconstruction-and-training]
-    implementation: [crates/nuif-reconstruct/src/lib.rs, crates/nuif-testing/src/bin/capture-reconstruction.rs, xtask/src/main.rs]
+    implementation: [crates/nuif-reconstruct/src/evaluation/confidence.rs, crates/nuif-reconstruct/src/evaluation.rs, crates/nuif-testing/src/bin/confidence-calibration.rs, crates/nuif-testing/src/bin/capture-reconstruction.rs, xtask/src/main.rs]
     oracle: held-out-calibration-and-risk-coverage
     acceptance:
       - raw and calibrated confidence are reported separately for each supported decision type

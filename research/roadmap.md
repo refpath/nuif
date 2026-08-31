@@ -119,9 +119,10 @@ inference report: selection uses only 360/768 px training observations, retains
 all row/column stack, Grid, constraint and freeform alternatives with raw
 confidence and provenance, and evaluates the selected constraint only
 afterward at 900 px. The observed 0.0626 versus 0.2918 normalized error is one
-falsifiable fixture result, not calibrated confidence or general accuracy. This
-does not close the broader browser, screenshot, closed-loop or
-calibration experiments: no cross-browser/OS capture corpus, opaque-frame
+falsifiable fixture result, not calibrated confidence or general accuracy. The
+typed confidence evaluator now has a deterministic smoke report over normal and
+font-shifted holdouts, but this does not close the broader browser, screenshot,
+closed-loop or calibration experiments: no cross-browser/OS capture corpus, opaque-frame
 coverage, reconstruction accuracy corpus, independent evaluator or trained
 artifact is claimed. Adaptation/distillation remains conditional on evidence
 from that loop rather than a standing implementation commitment.

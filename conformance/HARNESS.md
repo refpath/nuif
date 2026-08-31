@@ -1,6 +1,6 @@
 # Test-harness architecture
 
-Status: profile-0 baseline, deterministic `nuif-package-0`, narrow cross-decoder `nuif-png-rgba8-0`, Gate C browser/Taffy, Gate D text/render, Gate E complete editor authoring, bounded and full-v0 Gate F HTML/CSS synchronization, SVG/DTCG/Penpot/React/Svelte retentive adapter gates, the pure Figma snapshot mapping gate, the three-engine bounded web-accessibility projection, the Rust/Node bounded behavior state-machine differential, `nuif-wasm-api-0`, Gate G independent v0 reproduction, Gate H property-register and existing-tree convergence, and a bounded five-target sanitizer fuzz suite are implemented. Bounded browser/screenshot capture and reconstruction contracts, typed per-example/corpus reconstruction evaluation, a group-isolated corpus-manifest auditor, canonical provider manifests, pinned LDR-FLIP diagnostics and the pinned local live-Chromium segment have executable evidence; their portable cross-provider accuracy corpus is not yet a release gate. Empirical perceptual thresholds and distributional reconstruction comparison, concurrent entity creation and broader foreign-runtime trials remain planned. This document specifies how round-trip trials run unattended, fail reproducibly, minimize themselves and report in machine-readable form. Evidence is cited by research record identifier.
+Status: profile-0 baseline, deterministic `nuif-package-0`, narrow cross-decoder `nuif-png-rgba8-0`, Gate C browser/Taffy, Gate D text/render, Gate E complete editor authoring, bounded and full-v0 Gate F HTML/CSS synchronization, SVG/DTCG/Penpot/React/Svelte retentive adapter gates, the pure Figma snapshot mapping gate, the three-engine bounded web-accessibility projection, the Rust/Node bounded behavior state-machine differential, `nuif-wasm-api-0`, Gate G independent v0 reproduction, Gate H property-register and existing-tree convergence, and a bounded five-target sanitizer fuzz suite are implemented. Bounded browser/screenshot capture and reconstruction contracts, typed per-example/corpus reconstruction evaluation, a group-isolated corpus-manifest auditor, canonical provider manifests, pinned LDR-FLIP diagnostics, the typed confidence-calibration evaluator and the pinned local live-Chromium segment have executable evidence; their portable cross-provider accuracy corpus is not yet a release gate. Empirical perceptual thresholds and distributional reconstruction comparison, concurrent entity creation and broader foreign-runtime trials remain planned. This document specifies how round-trip trials run unattended, fail reproducibly, minimize themselves and report in machine-readable form. Evidence is cited by research record identifier.
 
 ## Goals
 
@@ -306,6 +306,16 @@ pooling and platform-sensitivity parameters and refuses transparency or shape
 ambiguity. FLIP remains diagnostic: the report explicitly disclaims OCR/model
 accuracy, a real or held-out corpus, empirical perceptual thresholds,
 statistically calibrated uncertainty and independent evaluation.
+
+The separate confidence-calibration contract writes
+`target/confidence-calibration-report.json`. `cargo xtask confidence-calibration`
+evaluates typed decision events for text and geometry over disjoint calibration
+and test groups, includes normal and font-shifted holdouts, computes reliability
+bins, Brier score, ECE and risk/coverage/AURC, and validates a JSON round trip.
+Equal-confidence cases are admitted as a group and calibration mappings are
+monotonic, so input order cannot change selection. The report is a synthetic
+evaluator smoke test: it does not claim production calibration, model quality,
+distributional coverage or a rights-cleared corpus.
 
 The separate corpus-integrity contract writes
 `target/reconstruction-corpus-audit-report.json`. `cargo xtask
