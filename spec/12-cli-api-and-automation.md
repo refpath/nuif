@@ -51,12 +51,15 @@ inspection and exact package copying MAY remain available. A semantic mutation
 or changed save MUST fail atomically with the unavailable requirement set;
 silently carrying opaque resources onto a new document revision is forbidden.
 
-A future C ABI is a separate versioned profile. It MUST define opaque-handle
-lifetime, byte-buffer ownership and release, panic containment, stable error
-classes, threading, calling convention and exported-symbol compatibility. C,
-Swift or Kotlin bindings are not claimed merely because a shared library or
-generated header compiles. Native consumer tests and platform packages are
-required before integration status.
+The experimental `nuif-ffi-0` C ABI is a separate versioned profile. It defines
+opaque-handle lifetime, byte-buffer ownership and release, panic containment,
+stable error classes and explicit encoding values in `bindings/nuif_ffi.h`.
+`cargo xtask gate-ffi` checks its Rust surface and a C header consumer. The
+profile MUST NOT be treated as stable: threading, calling convention,
+exported-symbol compatibility, sanitizer-backed consumers and platform
+packages remain required before promotion to `nuif-ffi-1`. C, Swift or Kotlin
+bindings are not claimed merely because a shared library or generated header
+compiles.
 
 The experimental `nuif-mcp-tools-0` profile is a stateless, stdio-only process
 adapter for MCP `2026-07-28`. It exposes `validate`, `inspect`, `canonicalize`

@@ -101,12 +101,21 @@ measures direct text, CBOR and package loading plus canonical export.
 
 ## C, C++, Swift and Kotlin decision
 
-No stable foreign ABI is declared during the `0.0.x` semantic-API phase. Rust's
-native ABI has no stability guarantee. A C-compatible ABI is possible, but it
-adds an unsafe ownership boundary whose handle lifetime, buffer allocation and
-release, panic containment, error representation, thread rules, symbol set and
-calling convention become a compatibility promise independent of Rust source
-compatibility. Generating a header does not decide those rules.
+No stable foreign ABI is declared during the `0.0.x` semantic-API phase. The
+experimental `nuif-ffi-0` crate now exposes a byte-oriented C ABI over
+`NuifDocument`: opaque handles, explicit encoding values, bounded input
+buffers, allocator-matched returned buffers, stable numeric error classes and
+panic containment. It exposes no internal model structs and grants no
+filesystem, network or host-product authority. The checked draft header is
+`bindings/nuif_ffi.h`; `cargo xtask gate-ffi` runs the Rust ABI tests and a C
+header-consumer syntax check.
+
+Rust's native ABI has no stability guarantee. A C-compatible ABI adds an unsafe
+ownership boundary whose handle lifetime, buffer allocation and release, panic
+containment, error representation, thread rules, symbol set and calling
+convention become a compatibility promise independent of Rust source
+compatibility. The draft profile is evidence for those decisions, not a stable
+compatibility claim.
 
 The promotion path is:
 

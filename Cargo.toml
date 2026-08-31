@@ -15,6 +15,7 @@ members = [
   "crates/nuif-capture",
   "crates/nuif-query",
   "crates/nuif-api",
+  "crates/nuif-ffi",
   "crates/nuif-testing",
   "crates/nuif-adapter",
   "crates/nuif-dtcg",

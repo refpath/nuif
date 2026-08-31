@@ -2587,6 +2587,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "nuif-ffi"
+version = "0.0.0"
+dependencies = [
+ "nuif-api",
+ "nuif-codec",
+ "nuif-core",
+ "nuif-protocol",
+ "serde_json",
+]
+
+[[package]]
 name = "nuif-figma"
 version = "0.0.1"
 dependencies = [

@@ -22,6 +22,7 @@ const ALL_STEPS: &[Step] = &[
     ("verify", verify),
     ("gate-wasm", gate_wasm),
     ("gate-mcp", gate_mcp),
+    ("gate-ffi", gate_ffi),
     ("gate-b", gate_b),
     ("hostile-inputs", hostile_inputs),
     ("reduction-profile", reduction_profile),
@@ -67,6 +68,7 @@ const VERIFICATION_ARTIFACTS: &[&str] = &[
     "target/documentation-catalog.json",
     "target/documentation-report.json",
     "target/wasm-conformance-report.json",
+    "target/ffi-header-report.json",
     "target/nuif-wasm-web",
     "target/mcp-conformance-report.json",
     "target/gate-b-report.json",
@@ -210,6 +212,7 @@ fn run() -> Result<(), String> {
         Some("gate-web-hosts") => gate_web_hosts(),
         Some("gate-wasm") => gate_wasm(),
         Some("gate-mcp") => gate_mcp(),
+        Some("gate-ffi") => gate_ffi(),
         Some("wasm-install") => wasm_install(),
         Some("wasm-package") => wasm_package(),
         Some("mcp-package") => mcp_package(),
@@ -257,7 +260,7 @@ fn run() -> Result<(), String> {
         Some("manifest") => standalone_manifest(),
         Some("all") => all(),
         _ => Err(
-            "usage: cargo xtask <research|workflow-audit|adapter-audit|dependency-audit|diagnostic-audit|docs-check|docs-build|docs-paper|docs-serve|docs-setup|verify|trial [seed iterations snapshot-interval report-path]|gate-b|gate-c|gate-d|gate-d-text|gate-d-render|gate-f|gate-f-v0|gate-svg|gate-dtcg|gate-penpot|gate-react|gate-svelte|gate-figma|gate-behavior|gate-behavior-package|gate-web-behavior|gate-web-hosts|gate-wasm|gate-mcp|gate-g|gate-h|gate-i-package|gate-i-image|gate-i-font|gate-j-live|gate-accessibility|capture-baselines|reconstruction-provider-manifest|reconstruction-corpus-audit|reconstruction-evaluation|confidence-calibration|browser-install|wasm-install|wasm-package|mcp-package|cli-package|hostile-inputs|reduction-profile|editor-hostile-inputs|fuzz-smoke|codec-benchmark|performance|editor-trial|editor-gui-trial|editor-install-trial|editor-package|editor-launch|editor-install|editor-doctor|editor-rollback|editor-uninstall|editor-update|release-check <tag>|manifest|all>"
+            "usage: cargo xtask <research|workflow-audit|adapter-audit|dependency-audit|diagnostic-audit|docs-check|docs-build|docs-paper|docs-serve|docs-setup|verify|trial [seed iterations snapshot-interval report-path]|gate-b|gate-c|gate-d|gate-d-text|gate-d-render|gate-f|gate-f-v0|gate-svg|gate-dtcg|gate-penpot|gate-react|gate-svelte|gate-figma|gate-behavior|gate-behavior-package|gate-web-behavior|gate-web-hosts|gate-wasm|gate-mcp|gate-ffi|gate-g|gate-h|gate-i-package|gate-i-image|gate-i-font|gate-j-live|gate-accessibility|capture-baselines|reconstruction-provider-manifest|reconstruction-corpus-audit|reconstruction-evaluation|confidence-calibration|browser-install|wasm-install|wasm-package|mcp-package|cli-package|hostile-inputs|reduction-profile|editor-hostile-inputs|fuzz-smoke|codec-benchmark|performance|editor-trial|editor-gui-trial|editor-install-trial|editor-package|editor-launch|editor-install|editor-doctor|editor-rollback|editor-uninstall|editor-update|release-check <tag>|manifest|all>"
                 .to_owned(),
         ),
     }
@@ -1131,6 +1134,40 @@ fn generate_wasm_fixtures(fixture: &Path, package_fixture: &Path) -> Result<(), 
         path(package_fixture)?,
         "--portable",
     ])
+}
+
+fn gate_ffi() -> Result<(), String> {
+    cargo(&["test", "--locked", "-p", "nuif-ffi"])?;
+    command(
+        "cc",
+        &[
+            "-std=c11",
+            "-Wall",
+            "-Wextra",
+            "-Werror",
+            "-fsyntax-only",
+            "-I.",
+            "tools/ffi/header-smoke.c",
+        ],
+    )?;
+    let report = serde_json::json!({
+        "schema_version": 1,
+        "status": "passed",
+        "profile": "nuif-ffi-0",
+        "header": "bindings/nuif_ffi.h",
+        "consumer": "tools/ffi/header-smoke.c",
+        "mode": "header syntax only; no stable ABI claim",
+        "source": {
+            "revision": command_text("git", &["rev-parse", "HEAD"]),
+            "dirty": command_text("git", &["status", "--porcelain"]).map(|value| !value.is_empty()),
+            "toolchain": command_text("rustc", &["--version"]),
+        },
+    });
+    fs::write(
+        "target/ffi-header-report.json",
+        serde_json::to_vec_pretty(&report).map_err(|error| error.to_string())?,
+    )
+    .map_err(|error| error.to_string())
 }
 
 fn compare_wasm_patch(

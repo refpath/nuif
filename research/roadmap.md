@@ -170,10 +170,11 @@ until its checkpoint/position contract is versioned and independently tested.
     pure stable-API Canva current-page mapper before building its review shell.
     Retain host reports and never infer live behavior, marketplace approval or
     native NUIF support from API documentation.
-14. Keep `nuif-api::NuifDocument` as the single direct SDK façade and require
-    semantic-API promotion, stable errors/ownership, sanitizer-backed native
-    consumers and real platform packages before declaring C, Swift or Kotlin
-    binding profiles.
+14. Keep `nuif-api::NuifDocument` as the single direct SDK façade. The
+    experimental `nuif-ffi-0` header/handle boundary is now locally checked;
+    require semantic-API promotion, stable errors/ownership, sanitizer-backed
+    native consumers and real XCFramework/AAR/platform packages before
+    declaring C, Swift or Kotlin binding profiles.
 15. Package the conformance kit for externally authored reproduction; do not treat the in-repository Python path or Rust adapters as external interoperability evidence.
 16. Keep standards-development work behind the implementer-draft and external-support gates in `docs/STANDARDS-ROADMAP.md`.
 

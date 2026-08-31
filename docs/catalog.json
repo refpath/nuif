@@ -127,7 +127,8 @@
         "crates/nuif-media/PROFILE.md",
         "crates/nuif-font/PROFILE.md",
         "crates/nuif-collab/README.md",
-        "crates/nuif-behavior/README.md"
+        "crates/nuif-behavior/README.md",
+        "bindings/README.md"
       ]
     }
   ]
