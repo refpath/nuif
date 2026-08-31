@@ -64,6 +64,7 @@ jobs:
           node-version: "24.20.0"
           cache: npm
           cache-dependency-path: |
+            adapters/canva/app/package-lock.json
             adapters/figma/plugin/package-lock.json
             tools/svelte-oracle/package-lock.json
             tools/automerge-oracle/package-lock.json
@@ -340,13 +341,23 @@ jobs:
             target/figma-plugin-fixture-report.json
             target/figma-plugin-plan-validation.json
             target/nuif-figma-plugin-review-shell
-      - name: Upload Canva normalized mapping evidence
+      - name: Upload Canva mapping and compiled-shell evidence
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: canva-adapter-evidence
           if-no-files-found: error
-          path: target/canva-current-page-report.json
+          path: |
+            target/canva-current-page-report.json
+            target/canva-app-shell-report.json
+            target/canva-app-fixture.nuif.json
+            target/canva-app-fixture-page.json
+            target/canva-app-fixture-imported.nuif.json
+            target/canva-app-fixture-report.json
+            target/canva-app-plan.json
+            target/canva-app-plan-report.json
+            target/canva-app-plan-validation.json
+            target/nuif-canva-review-app
       - name: Upload behavior portability evidence
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1

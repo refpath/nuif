@@ -127,6 +127,15 @@ const VERIFICATION_ARTIFACTS: &[&str] = &[
     "target/figma-plugin-fixture-report.json",
     "target/figma-plugin-plan-validation.json",
     "target/nuif-figma-plugin-review-shell",
+    "target/canva-app-shell-report.json",
+    "target/canva-app-fixture.nuif.json",
+    "target/canva-app-fixture-page.json",
+    "target/canva-app-fixture-imported.nuif.json",
+    "target/canva-app-fixture-report.json",
+    "target/canva-app-plan.json",
+    "target/canva-app-plan-report.json",
+    "target/canva-app-plan-validation.json",
+    "target/nuif-canva-review-app",
     "target/behavior-portability-fixture.json",
     "target/behavior-portability-static-report.json",
     "target/behavior-portability-report.json",
@@ -2548,7 +2557,158 @@ fn gate_canva() -> Result<(), String> {
     {
         return Err("Canva current-page profile report failed its assertions".to_owned());
     }
+    let input = Path::new("target/canva-app-fixture.nuif.json");
+    let plan = Path::new("target/canva-app-plan.json");
+    let page = Path::new("target/canva-app-fixture-page.json");
+    let imported = Path::new("target/canva-app-fixture-imported.nuif.json");
+    let adapter_report = Path::new("target/canva-app-fixture-report.json");
+    nuif(&["fixture", "canva-profile", path(input)?])?;
+    nuif(&[
+        "export",
+        path(input)?,
+        "canva-design-editing-plan-0",
+        path(plan)?,
+        "target/canva-app-plan-report.json",
+    ])?;
+    let plan_json = read_json(plan)?;
+    fs::write(
+        page,
+        serde_json::to_vec_pretty(&plan_json["page"]).map_err(|error| error.to_string())?,
+    )
+    .map_err(|error| error.to_string())?;
+    nuif(&[
+        "import",
+        "canva-design-editing-0",
+        path(page)?,
+        path(imported)?,
+        path(adapter_report)?,
+    ])?;
+    if fs::read(input).map_err(|error| error.to_string())?
+        != fs::read(imported).map_err(|error| error.to_string())?
+    {
+        return Err("Canva CLI mapping did not reproduce canonical NUIF bytes".to_owned());
+    }
+    gate_canva_app_shell(plan)
+}
+
+fn gate_canva_app_shell(rust_plan: &Path) -> Result<(), String> {
+    const APP: &str = "adapters/canva/app";
+    command(
+        "npm",
+        &[
+            "--prefix",
+            APP,
+            "ci",
+            "--ignore-scripts",
+            "--no-audit",
+            "--no-fund",
+        ],
+    )?;
+    command("npm", &["--prefix", APP, "run", "check"])?;
+    let first_build = read_json(Path::new(APP).join("dist/build-report.json").as_path())?;
+    command("npm", &["--prefix", APP, "run", "build"])?;
+    let second_build = read_json(Path::new(APP).join("dist/build-report.json").as_path())?;
+    if first_build != second_build {
+        return Err("Canva review app did not rebuild deterministically".to_owned());
+    }
+    let root = env::current_dir().map_err(|error| error.to_string())?;
+    let rust_plan = if rust_plan.is_absolute() {
+        rust_plan.to_path_buf()
+    } else {
+        root.join(rust_plan)
+    };
+    let validation = root.join("target/canva-app-plan-validation.json");
+    command(
+        "npm",
+        &[
+            "--prefix",
+            APP,
+            "run",
+            "validate-plan",
+            "--",
+            path(&rust_plan)?,
+            path(&validation)?,
+        ],
+    )?;
+    let validated = read_json(&validation)?;
+    if validated["status"] != "passed" || validated["profile"] != "nuif-canva-design-editing-0" {
+        return Err("compiled Canva shell rejected the Rust mutation plan".to_owned());
+    }
+    package_canva_app_shell(APP, &second_build)?;
+    write_canva_app_report(&second_build, &validated)
+}
+
+fn package_canva_app_shell(app: &str, build: &serde_json::Value) -> Result<(), String> {
+    if build["status"] != "passed"
+        || build["review_bundle"] != true
+        || build["live_ready"] != false
+        || build["network_domains"] != serde_json::json!([])
+        || build["license_scope"] != "Canva Platform permitted apps only"
+    {
+        return Err("Canva review build report exceeds its credential-free scope".to_owned());
+    }
+    let source = Path::new(app).join("dist");
+    let package = Path::new("target/nuif-canva-review-app");
+    if package.exists() {
+        fs::remove_dir_all(package).map_err(|error| error.to_string())?;
+    }
+    fs::create_dir_all(package).map_err(|error| error.to_string())?;
+    for name in ["app.js", "CANVA-SDK-LICENSE.md", "build-report.json"] {
+        fs::copy(source.join(name), package.join(name)).map_err(|error| error.to_string())?;
+    }
+    fs::copy(Path::new(app).join("README.md"), package.join("README.md"))
+        .map_err(|error| error.to_string())?;
+    fs::copy(
+        "target/canva-app-types/report.json",
+        package.join("type-declaration-report.json"),
+    )
+    .map_err(|error| error.to_string())?;
     Ok(())
+}
+
+fn write_canva_app_report(
+    build: &serde_json::Value,
+    validation: &serde_json::Value,
+) -> Result<(), String> {
+    let lock = read_json(Path::new("adapters/canva/app/package-lock.json"))?;
+    let adapter = read_json(Path::new("target/canva-app-fixture-report.json"))?;
+    let report = serde_json::json!({
+        "schema_version": 1,
+        "status": "passed",
+        "profile": "nuif-canva-design-editing-0",
+        "scope": "static compiled Canva-only review app and normalized mapping; no live Canva execution",
+        "toolchain": {
+            "node": command_text("node", &["--version"]).unwrap_or_else(|| "unreported".to_owned()),
+            "canva_design": lock["packages"]["node_modules/@canva/design"]["version"],
+            "typescript": lock["packages"]["node_modules/typescript"]["version"],
+            "esbuild": lock["packages"]["node_modules/esbuild"]["version"]
+        },
+        "build": build,
+        "rust_plan_validation": validation,
+        "fixture": {
+            "canonical_hash": adapter["canonical_hash"],
+            "fidelity_entries": adapter["fidelity"].as_array().map_or(0, Vec::len),
+            "correspondences": adapter["correspondences"].as_array().map_or(0, Vec::len),
+            "canonical_bytes_equal": true
+        },
+        "safety": {
+            "network_domains": [],
+            "explicit_apply_confirmation": true,
+            "empty_page_preflight": true,
+            "single_sync_mock_test": true,
+            "sdk_license_included": true,
+            "marketplace_credentials": false
+        },
+        "live_host": {
+            "status": "not_run",
+            "required_before_vendor_integration_claim": true
+        }
+    });
+    fs::write(
+        "target/canva-app-shell-report.json",
+        serde_json::to_vec_pretty(&report).map_err(|error| error.to_string())?,
+    )
+    .map_err(|error| error.to_string())
 }
 
 fn gate_figma_plugin_shell(rust_plan: &Path) -> Result<(), String> {

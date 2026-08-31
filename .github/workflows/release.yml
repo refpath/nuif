@@ -39,6 +39,7 @@ jobs:
           node-version: "24.20.0"
           cache: npm
           cache-dependency-path: |
+            adapters/canva/app/package-lock.json
             adapters/figma/plugin/package-lock.json
             tools/automerge-oracle/package-lock.json
             tools/svelte-oracle/package-lock.json
@@ -88,6 +89,15 @@ jobs:
             target/figma-plugin-plan-validation.json
             target/nuif-figma-plugin-review-shell
             target/canva-current-page-report.json
+            target/canva-app-shell-report.json
+            target/canva-app-fixture.nuif.json
+            target/canva-app-fixture-page.json
+            target/canva-app-fixture-imported.nuif.json
+            target/canva-app-fixture-report.json
+            target/canva-app-plan.json
+            target/canva-app-plan-report.json
+            target/canva-app-plan-validation.json
+            target/nuif-canva-review-app
             target/ffi-header-report.json
             target/wasm-conformance-report.json
             target/mcp-conformance-report.json
