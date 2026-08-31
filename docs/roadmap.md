@@ -169,7 +169,12 @@ most three recorded fresh-profile attempts per viewport. It records a structured
 five declared response bodies, observes actual downloaded-font and
 accessibility results, repeats 360 px bytes exactly, excludes exercised query,
 cookie, storage, authorization and custom-header canaries, and beats the 360 px
-freeform geometry at held-out 900 px using the 360/768 px observations. Cross-OS/browser
+freeform geometry at held-out 900 px using the 360/768 px observations. The
+separate `target/layout-inference-report.json` ranks row stack, column stack,
+Grid, linear constraint and freeform alternatives without consulting the
+holdout, selects the constraint candidate, and records its 0.0626 normalized
+held-out error against 0.2918 for fixed freeform. This one fixture is an
+executable falsifier, not an accuracy distribution or proof of authored intent. Cross-OS/browser
 reproduction, opaque and cross-origin fixtures, complete matched-style/source
 correlation, canvas/video frame handling and real licensed pages remain open,
 so the broader phase does not yet exit.
@@ -186,7 +191,8 @@ profile; an independent evaluator reproduces the main result.
 
 The executable baseline currently proves observation-codec fixpoints, explicit
 observed/inferred evidence and omissions, typed atomic proposals, default
-flat-copy rejection and deterministic loop termination. Its report names the
+flat-copy rejection, deterministic loop termination and training-only ranking
+of five bounded layout hypotheses against a live held-out viewport. Its report names the
 missing OCR/model accuracy corpus, complete metric families and independent
 evaluator; those omissions keep the phase open.
 

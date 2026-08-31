@@ -146,6 +146,19 @@ prove original authored intent.
 An implementation claiming responsive reconstruction MUST evaluate at least one
 context not used to fit the candidate and MUST report its error separately.
 
+The bounded `nuif-layout-inference-0` experimental profile accepts two through
+sixteen strictly increasing training viewports, one untouched held-out viewport
+and no more than 4,096 ordered items with stable identities. It ranks row stack,
+column stack, Grid, linear constraint and fixed-parent-relative freeform
+candidates by training observations only. The held-out observation is a
+falsification oracle and MUST NOT influence selection. Its report retains all
+five alternatives, training score, held-out error, raw confidence and the exact
+geometry observation identities used for fitting. Confidence is not calibrated
+and the selected value remains `inferred`; neither a low error nor the selected
+family establishes original authored intent. Geometry and identity drift fail
+closed. The profile is a deterministic geometric baseline, not a general
+breakpoint, intrinsic-sizing, wrapping or layout-program synthesizer.
+
 ## Correction loop
 
 A profile MAY iteratively render and correct. Each iteration records:

@@ -5,7 +5,10 @@ use nuif_capture::live::{
 use nuif_capture::{BrowserCapture, Viewport, normalize_browser_capture};
 use nuif_core::{Document, EntityId};
 use nuif_package::{NuifPackage, PackageMode};
-use nuif_reconstruct::ObservationValue;
+use nuif_reconstruct::layout_inference::{
+    LayoutInferenceReport, LayoutItemObservation, LayoutSnapshot, infer_layout,
+};
+use nuif_reconstruct::{EvidenceClass, ObservationId, ObservationValue};
 use png::{BitDepth, ColorType};
 use serde_json::{Value, json};
 use sha2::{Digest, Sha256};
@@ -202,6 +205,7 @@ fn run() -> Result<(), String> {
     let heldout = &captures[2];
     let repeated = &captures[3];
     let responsive = responsive_errors(&narrow.capture, &wide.capture, &heldout.capture)?;
+    let layout_inference = infer_captured_layout(&narrow.capture, &wide.capture, &heldout.capture)?;
     let resource_bodies_exact = captures.iter().all(|evidence| {
         let mut observed = evidence
             .capture
@@ -351,6 +355,14 @@ fn run() -> Result<(), String> {
             "multi_viewport_beats_single_viewport_on_heldout",
             responsive.compared_nodes > 0 && responsive.multi_error < responsive.single_error,
         ),
+        trial(
+            "layout_candidates_ranked_before_heldout_evaluation",
+            layout_inference.selection_basis == "training_score_only"
+                && layout_inference.evidence == EvidenceClass::Inferred
+                && layout_inference.provenance.confidence.calibrated.is_none()
+                && layout_inference.candidates.len() == 5
+                && layout_inference.beats_freeform_on_heldout(),
+        ),
     ];
     let passed = trials.iter().all(|trial| trial["passed"] == true);
     let report = json!({
@@ -390,6 +402,7 @@ fn run() -> Result<(), String> {
             "multi_viewport_heldout_absolute_error": responsive.multi_error,
             "responsive_compared_nodes": responsive.compared_nodes,
         },
+        "layout_inference": layout_inference,
         "trials": trials,
         "non_claims": [
             "no cross-browser, cross-operating-system, cross-origin iframe, or authenticated-site coverage",
@@ -407,9 +420,18 @@ fn run() -> Result<(), String> {
     {
         fs::create_dir_all(parent).map_err(|error| error.to_string())?;
     }
+    if let Some(parent) = arguments.layout_output.parent()
+        && !parent.as_os_str().is_empty()
+    {
+        fs::create_dir_all(parent).map_err(|error| error.to_string())?;
+    }
     let mut bytes = serde_json::to_vec_pretty(&report).map_err(|error| error.to_string())?;
     bytes.push(b'\n');
     fs::write(&arguments.output, bytes).map_err(|error| error.to_string())?;
+    let mut layout_bytes =
+        serde_json::to_vec_pretty(&layout_inference).map_err(|error| error.to_string())?;
+    layout_bytes.push(b'\n');
+    fs::write(&arguments.layout_output, layout_bytes).map_err(|error| error.to_string())?;
     println!(
         "live browser capture: {} trials, status {}",
         trials.len(),
@@ -477,6 +499,66 @@ struct ResponsiveErrors {
     compared_nodes: usize,
 }
 
+fn infer_captured_layout(
+    narrow: &BrowserCapture,
+    wide: &BrowserCapture,
+    heldout: &BrowserCapture,
+) -> Result<LayoutInferenceReport, String> {
+    let (narrow, mut evidence) = panel_snapshot(narrow)?;
+    let (wide, wide_evidence) = panel_snapshot(wide)?;
+    let (heldout, _) = panel_snapshot(heldout)?;
+    evidence.extend(wide_evidence);
+    infer_layout(&[narrow, wide], &heldout, evidence).map_err(|error| error.to_string())
+}
+
+fn panel_snapshot(
+    capture: &BrowserCapture,
+) -> Result<(LayoutSnapshot, std::collections::BTreeSet<ObservationId>), String> {
+    let panels = capture
+        .nodes
+        .iter()
+        .filter(|node| node.tag == "section")
+        .collect::<Vec<_>>();
+    let [panel] = panels.as_slice() else {
+        return Err("live fixture must expose one section layout parent".to_owned());
+    };
+    let mut children = capture
+        .nodes
+        .iter()
+        .filter(|node| node.parent == Some(panel.backend_node_id))
+        .collect::<Vec<_>>();
+    children.sort_by_key(|node| (node.order, node.backend_node_id));
+    if children.len() < 2 {
+        return Err("live fixture layout parent has fewer than two children".to_owned());
+    }
+    let mut evidence = std::collections::BTreeSet::from([ObservationId(format!(
+        "{}-node-{}-geometry",
+        capture.capture_id, panel.backend_node_id
+    ))]);
+    let items = children
+        .iter()
+        .enumerate()
+        .map(|(index, node)| {
+            evidence.insert(ObservationId(format!(
+                "{}-node-{}-geometry",
+                capture.capture_id, node.backend_node_id
+            )));
+            LayoutItemObservation {
+                id: format!("child-{index}-{}", node.tag),
+                bounds: node.bounds,
+            }
+        })
+        .collect();
+    Ok((
+        LayoutSnapshot {
+            viewport_width: capture.viewport.width,
+            parent: panel.bounds,
+            items,
+        },
+        evidence,
+    ))
+}
+
 fn responsive_errors(
     narrow: &BrowserCapture,
     wide: &BrowserCapture,
@@ -522,6 +604,7 @@ struct Arguments {
     chrome: PathBuf,
     browser_version: String,
     output: PathBuf,
+    layout_output: PathBuf,
 }
 
 fn arguments() -> Result<Arguments, String> {
@@ -529,6 +612,7 @@ fn arguments() -> Result<Arguments, String> {
     let mut chrome = None;
     let mut browser_version = None;
     let mut output = PathBuf::from("target/live-browser-capture-report.json");
+    let mut layout_output = PathBuf::from("target/layout-inference-report.json");
     while let Some(argument) = values.next() {
         match argument.as_str() {
             "--chrome" => chrome = values.next().map(PathBuf::from),
@@ -539,9 +623,15 @@ fn arguments() -> Result<Arguments, String> {
                     .ok_or_else(|| "--output requires a path".to_owned())?
                     .into();
             }
+            "--layout-output" => {
+                layout_output = values
+                    .next()
+                    .ok_or_else(|| "--layout-output requires a path".to_owned())?
+                    .into();
+            }
             "--help" | "-h" => {
                 return Err(
-                    "usage: live-browser-capture --chrome <binary> --browser-version <version> [--output <json>]".to_owned(),
+                    "usage: live-browser-capture --chrome <binary> --browser-version <version> [--output <json>] [--layout-output <json>]".to_owned(),
                 );
             }
             unknown => return Err(format!("unknown argument {unknown:?}")),
@@ -564,6 +654,7 @@ fn arguments() -> Result<Arguments, String> {
         chrome,
         browser_version,
         output,
+        layout_output,
     })
 }
 

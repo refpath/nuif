@@ -32,17 +32,20 @@ experiments:
       - classify divergences outside the bounded subset as schema loss evaluator bug or target semantic difference
       - write target/layout-differential-report.json and archive it in CI
   - id: nuif:experiment:layout-inference
-    status: planned
+    status: automated
+    evidence: [nuif:research:reverse-layout-inference, nuif:research:live-chromium-cdp-capture, nuif:research:model-agnostic-screenshot-reconstruction-and-training]
+    implementation: [crates/nuif-reconstruct/src/layout_inference.rs, crates/nuif-testing/src/bin/live-browser-capture.rs, xtask/src/main.rs, .github/workflows/ci.yml]
     oracle: held-out-observations
     acceptance:
       - candidate ranking predicts held-out viewports better than a freeform baseline
       - inferred values always retain evidence confidence and alternatives
     tests:
-      - capture the same foreign UI at multiple viewport widths
-      - infer candidate stack flex grid constraint and freeform representations
-      - rank candidates using held-out viewport predictions
-      - retain observations confidence and alternatives as provenance
-      - verify inferred intent is never reported as lossless without source evidence
+      - fit stack-row stack-column grid constraint and freeform candidates to the same live UI at 360 and 768 pixels
+      - rank candidates using training score only before evaluating the untouched 900 pixel observation
+      - require the selected candidate to beat the fixed freeform baseline on the held-out viewport
+      - retain all five alternatives raw uncalibrated confidence and geometry observation identities
+      - classify every inferred value as inferred rather than lossless source evidence
+      - write and archive target/layout-inference-report.json
   - id: nuif:experiment:text-pinning
     status: automated
     evidence: [nuif:research:text-rendering-reproducibility, nuif:research:harfbuzz-unicode, nuif:research:golden-master-and-snapshot-testing]

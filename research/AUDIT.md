@@ -195,7 +195,14 @@ actual custom-font and accessibility results, reproduces the repeated 360 px
 capture/normalization/screenshot bytes, and excludes five query, cookie,
 storage, authorization and header canaries after proving they were exercised.
 Geometry fitted to 360/768 px beats copying the 360 px freeform geometry at the
-held-out 900 px fixture. This automates the local live segment. Gate J remains
+held-out 900 px fixture. A distinct `nuif-layout-inference-0` report now ranks
+five candidate families on training data alone, retains every alternative and
+its geometry observation provenance, labels the selection `inferred`, leaves
+confidence uncalibrated and evaluates the untouched 900 px observation only
+after selection. On this fixture the selected constraint records 0.0626
+normalized held-out error versus 0.2918 for fixed freeform. This automates the
+local live segment without establishing general accuracy or original authored
+intent. Gate J remains
 open for cross-OS/browser reproduction, opaque/cross-origin behavior,
 matched-style/source correspondence, canvas/video bounded frames and licensed
 real-page evidence.

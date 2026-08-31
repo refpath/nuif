@@ -258,16 +258,20 @@ fn validate_snapshot(
     snapshot: &LayoutSnapshot,
     expected: &[&str],
 ) -> Result<(), LayoutInferenceError> {
-    if !snapshot.viewport_width.is_finite()
-        || snapshot.viewport_width <= 0.0
-        || snapshot.viewport_width > 1_000_000.0
-        || !valid_bounds(snapshot.parent)
-        || snapshot.items.len() != expected.len()
+    if snapshot.items.len() != expected.len()
         || snapshot
             .items
             .iter()
             .zip(expected)
-            .any(|(item, expected)| item.id != *expected || !valid_bounds(item.bounds))
+            .any(|(item, expected)| item.id != *expected)
+    {
+        return Err(LayoutInferenceError::ItemIdentity);
+    }
+    if !snapshot.viewport_width.is_finite()
+        || snapshot.viewport_width <= 0.0
+        || snapshot.viewport_width > 1_000_000.0
+        || !valid_bounds(snapshot.parent)
+        || snapshot.items.iter().any(|item| !valid_bounds(item.bounds))
     {
         Err(LayoutInferenceError::Geometry)
     } else {
@@ -546,7 +550,7 @@ mod tests {
         let heldout = snapshot(500.0, [20.0, 80.0]);
         let report = infer_layout(&training, &heldout, evidence()).unwrap();
         assert_eq!(report.selected, LayoutCandidateKind::StackRow);
-        assert_eq!(report.selected_heldout_error, 0.0);
+        assert!(report.selected_heldout_error.abs() < f64::EPSILON);
     }
 
     #[test]
@@ -556,7 +560,7 @@ mod tests {
         heldout.items[1].id = "replacement".to_owned();
         assert_eq!(
             infer_layout(&training, &heldout, evidence()),
-            Err(LayoutInferenceError::Geometry)
+            Err(LayoutInferenceError::ItemIdentity)
         );
         let heldout = snapshot(500.0, [20.0, 80.0]);
         assert_eq!(

@@ -95,7 +95,7 @@ areas:
   reverse_inference_program_synthesis:
     status: ongoing
     evidence: [nuif:research:reverse-layout-inference, nuif:research:inferui-and-layout-synthesis, nuif:research:ui-code-generation-boundaries, nuif:research:design2code-real-world-benchmark, nuif:research:pix2struct-screenshot-parsing-pretraining, nuif:research:screenai-ui-annotation, nuif:research:omniparser-ui-grounding, nuif:research:ocr-text-detection-and-recognition, nuif:research:visrefiner-render-difference-learning, nuif:research:model-agnostic-screenshot-reconstruction-and-training]
-    artifacts: [research/items/model-agnostic-screenshot-reconstruction-and-training.md, spec/14-observation-capture-and-reconstruction.md, rfcs/0011-observation-and-inference-provenance.md, docs/whitepaper/12-resources-capture-and-reconstruction.md, research/questions.yaml, research/experiments/index.yaml]
+    artifacts: [research/items/model-agnostic-screenshot-reconstruction-and-training.md, spec/14-observation-capture-and-reconstruction.md, rfcs/0011-observation-and-inference-provenance.md, docs/whitepaper/12-resources-capture-and-reconstruction.md, research/questions.yaml, research/experiments/index.yaml, crates/nuif-reconstruct/src/layout_inference.rs, crates/nuif-testing/src/bin/live-browser-capture.rs]
   reconstruction_evaluation:
     status: experiment-required
     evidence: [nuif:research:design2code-real-world-benchmark, nuif:research:flip-perceptual-difference-metric, nuif:research:ssim-and-classical-image-metrics, nuif:research:lpips-learned-perceptual-similarity, nuif:research:confidence-calibration-and-selective-prediction, nuif:research:model-agnostic-screenshot-reconstruction-and-training]

@@ -81,7 +81,13 @@ response set, platform-font use, accessibility and PNG evidence; carry the
 pinned runtime context into observations; reproduce the repeated 360 px
 capture exactly; exclude five exercised secret canaries; and use 360/768 px
 geometry to beat the one-view baseline at held-out 900 px. This closes the
-local live-fixture segment, not the broader browser, screenshot, closed-loop or
+local live-fixture segment. The same gate now emits a separate bounded layout
+inference report: selection uses only 360/768 px training observations, retains
+all row/column stack, Grid, constraint and freeform alternatives with raw
+confidence and provenance, and evaluates the selected constraint only
+afterward at 900 px. The observed 0.0626 versus 0.2918 normalized error is one
+falsifiable fixture result, not calibrated confidence or general accuracy. This
+does not close the broader browser, screenshot, closed-loop or
 calibration experiments: no cross-browser/OS capture corpus, opaque-frame
 coverage, reconstruction accuracy corpus, independent evaluator or trained
 artifact is claimed. Adaptation/distillation remains conditional on evidence

@@ -122,6 +122,7 @@ const VERIFICATION_ARTIFACTS: &[&str] = &[
     "target/font-resources-report.json",
     "target/capture-reconstruction-report.json",
     "target/live-browser-capture-report.json",
+    "target/layout-inference-report.json",
 ];
 
 fn main() {
@@ -355,6 +356,8 @@ fn gate_j_live() -> Result<(), String> {
         browser_version,
         "--output",
         "target/live-browser-capture-report.json",
+        "--layout-output",
+        "target/layout-inference-report.json",
     ])
 }
 

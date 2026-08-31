@@ -3,7 +3,7 @@ id: nuif:whitepaper:resources-capture-reconstruction
 kind: whitepaper
 status: draft
 version: 0.0.1
-updated: 2026-08-30
+updated: 2026-08-31
 ---
 
 # Resources, capture and model-neutral reconstruction
@@ -271,6 +271,15 @@ response bodies and repeat the narrow capture bytes. Five exercised
 query/cookie/storage/authorization/header canaries are absent from serializable
 capture, observations, proposals and package bytes. The two fitted viewports
 beat the one-viewport freeform baseline on the held-out fixture.
+
+The separate bounded `nuif-layout-inference-0` artifact ranks row stack,
+column stack, Grid, linear constraint and fixed freeform candidates using only
+the 360/768 px observations. It then evaluates the untouched 900 px holdout,
+where the selected constraint records 0.0626 normalized error versus 0.2918
+for freeform. All alternatives and exact geometry observation identities are
+retained; confidence is raw and uncalibrated, and the result remains
+`inferred`. The trial tests a mechanism on one fixture, not general accuracy or
+recovery of original authored intent.
 
 This is a falsifiable local baseline, not the entire profile described above.
 Cross-browser/OS reproduction, opaque frames and response bodies, full
