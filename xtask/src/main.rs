@@ -1,4 +1,4 @@
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 use std::env;
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -271,6 +271,9 @@ fn run() -> Result<(), String> {
         Some("gate-i-font-gvar-generated") => gate_i_font_gvar_generated(),
         Some("gate-i-font-runtime") => gate_i_font_runtime(),
         Some("gate-i-font-surfaces") => gate_i_font_surfaces(),
+        Some("gate-i-font-host-matrix") => {
+            gate_i_font_host_matrix(&args.collect::<Vec<_>>())
+        }
         Some("capture-baselines") => capture_baselines(),
         Some("reconstruction-provider-manifest") => reconstruction_provider_manifest(),
         Some("reconstruction-corpus-audit") => reconstruction_corpus_audit(),
@@ -309,7 +312,7 @@ fn run() -> Result<(), String> {
         Some("manifest") => standalone_manifest(),
         Some("all") => all(),
         _ => Err(
-            "usage: cargo xtask <research|workflow-audit|adapter-audit|dependency-audit|diagnostic-audit|docs-check|docs-build|docs-paper|docs-serve|docs-setup|verify|trial [seed iterations snapshot-interval report-path]|gate-b|gate-c|gate-d|gate-d-text|gate-d-render|gate-f|gate-f-v0|gate-svg|gate-dtcg|gate-penpot|gate-react|gate-svelte|gate-figma|gate-canva|gate-behavior|gate-behavior-package|gate-web-behavior|gate-web-hosts|gate-wasm|gate-mcp|gate-ffi|gate-g|gate-h|gate-i-package|gate-i-image|gate-i-font|gate-i-font-metadata|gate-i-font-shaping|gate-i-font-metrics|gate-i-font-global-metrics|gate-i-font-security|gate-i-font-package|gate-i-font-corpus|gate-i-font-gvar-generated|gate-i-font-runtime|gate-i-font-surfaces|gate-j-live|gate-accessibility|capture-baselines|reconstruction-provider-manifest|reconstruction-corpus-audit|reconstruction-evaluation|confidence-calibration|browser-install|wasm-install|wasm-package|mcp-package|cli-package|ffi-package|conformance-kit|hostile-inputs|reduction-profile|editor-hostile-inputs|fuzz-smoke|codec-benchmark|performance|editor-trial|editor-gui-trial|editor-install-trial|editor-package|editor-launch|editor-install|editor-doctor|editor-rollback|editor-uninstall|editor-update|release-check <tag>|manifest|all>"
+            "usage: cargo xtask <research|workflow-audit|adapter-audit|dependency-audit|diagnostic-audit|docs-check|docs-build|docs-paper|docs-serve|docs-setup|verify|trial [seed iterations snapshot-interval report-path]|gate-b|gate-c|gate-d|gate-d-text|gate-d-render|gate-f|gate-f-v0|gate-svg|gate-dtcg|gate-penpot|gate-react|gate-svelte|gate-figma|gate-canva|gate-behavior|gate-behavior-package|gate-web-behavior|gate-web-hosts|gate-wasm|gate-mcp|gate-ffi|gate-g|gate-h|gate-i-package|gate-i-image|gate-i-font|gate-i-font-metadata|gate-i-font-shaping|gate-i-font-metrics|gate-i-font-global-metrics|gate-i-font-security|gate-i-font-package|gate-i-font-corpus|gate-i-font-gvar-generated|gate-i-font-runtime|gate-i-font-surfaces|gate-i-font-host-matrix <source-revision> <artifact-root>|gate-j-live|gate-accessibility|capture-baselines|reconstruction-provider-manifest|reconstruction-corpus-audit|reconstruction-evaluation|confidence-calibration|browser-install|wasm-install|wasm-package|mcp-package|cli-package|ffi-package|conformance-kit|hostile-inputs|reduction-profile|editor-hostile-inputs|fuzz-smoke|codec-benchmark|performance|editor-trial|editor-gui-trial|editor-install-trial|editor-package|editor-launch|editor-install|editor-doctor|editor-rollback|editor-uninstall|editor-update|release-check <tag>|manifest|all>"
                 .to_owned(),
         ),
     }
@@ -648,6 +651,138 @@ fn gate_i_font_surfaces() -> Result<(), String> {
     } else {
         Err("variable font cross-surface parity failed".to_owned())
     }
+}
+
+const VARIABLE_FONT_HOSTS: [&str; 3] = ["linux-x86_64", "macos-aarch64", "windows-x86_64"];
+
+fn gate_i_font_host_matrix(arguments: &[String]) -> Result<(), String> {
+    let [source_revision, artifact_root] = arguments else {
+        return Err(
+            "usage: cargo xtask gate-i-font-host-matrix <source-revision> <artifact-root>"
+                .to_owned(),
+        );
+    };
+    let artifact_root = Path::new(artifact_root);
+    let mut hosts = BTreeMap::new();
+    for platform in VARIABLE_FONT_HOSTS {
+        let path = artifact_root
+            .join(platform)
+            .join("variable-font-runtime-report.json");
+        let bytes =
+            fs::read(&path).map_err(|error| format!("cannot read {}: {error}", path.display()))?;
+        let value: serde_json::Value = serde_json::from_slice(&bytes)
+            .map_err(|error| format!("cannot decode {}: {error}", path.display()))?;
+        hosts.insert(
+            platform.to_owned(),
+            serde_json::json!({
+                "input": path,
+                "sha256": format!("{:x}", Sha256::digest(&bytes)),
+                "report": value,
+            }),
+        );
+    }
+    let report = variable_font_host_matrix_report(source_revision, &hosts);
+    fs::create_dir_all("target").map_err(|error| error.to_string())?;
+    fs::write(
+        "target/variable-font-host-matrix-report.json",
+        serde_json::to_vec_pretty(&report).map_err(|error| error.to_string())?,
+    )
+    .map_err(|error| error.to_string())?;
+    if report["status"] == "passed" {
+        Ok(())
+    } else {
+        Err(
+            "variable font host matrix failed; inspect target/variable-font-host-matrix-report.json"
+                .to_owned(),
+        )
+    }
+}
+
+fn variable_font_host_matrix_report(
+    source_revision: &str,
+    hosts: &BTreeMap<String, serde_json::Value>,
+) -> serde_json::Value {
+    let full_source_revision = source_revision.len() == 40
+        && source_revision
+            .bytes()
+            .all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte));
+    let required_platforms = hosts.keys().map(String::as_str).eq(VARIABLE_FONT_HOSTS);
+    let reports = hosts
+        .values()
+        .filter_map(|host| host.get("report"))
+        .collect::<Vec<_>>();
+    let reports_passed = reports.len() == VARIABLE_FONT_HOSTS.len()
+        && reports.iter().all(|report| report["status"] == "passed");
+    let report_contract_exact = reports.iter().all(|report| {
+        report["schema_version"] == 1
+            && report["experiment"] == "nuif:experiment:variable-font-runtime"
+            && report["profile"] == "nuif-opentype-variable-truetype-single-0"
+    });
+    let reference = reports.first().copied();
+    let fixture_exact = reference.is_some_and(|reference| {
+        reports
+            .iter()
+            .all(|report| report["fixture"] == reference["fixture"])
+    });
+    let cases_exact = reference.is_some_and(|reference| {
+        reports
+            .iter()
+            .all(|report| report["cases"] == reference["cases"])
+    });
+    let portable_payload_exact =
+        reference.is_some_and(|reference| reports.iter().all(|report| *report == reference));
+    let checks = serde_json::json!({
+        "source_revision_is_full_sha": full_source_revision,
+        "required_platforms_exact": required_platforms,
+        "reports_passed": reports_passed,
+        "report_contract_exact": report_contract_exact,
+        "fixture_exact": fixture_exact,
+        "cases_exact": cases_exact,
+        "portable_payload_exact": portable_payload_exact,
+    });
+    let passed = checks
+        .as_object()
+        .is_some_and(|checks| checks.values().all(|value| value == true));
+    let host_evidence = hosts
+        .iter()
+        .map(|(platform, host)| {
+            serde_json::json!({
+                "platform": platform,
+                "input": host["input"],
+                "sha256": host["sha256"],
+                "canonical_hashes": host["report"]["cases"]
+                    .as_array()
+                    .into_iter()
+                    .flatten()
+                    .map(|case| &case["canonical_hash"])
+                    .collect::<Vec<_>>(),
+                "raster_sha256": host["report"]["cases"]
+                    .as_array()
+                    .into_iter()
+                    .flatten()
+                    .map(|case| &case["raster_sha256"])
+                    .collect::<Vec<_>>(),
+            })
+        })
+        .collect::<Vec<_>>();
+    serde_json::json!({
+        "schema_version": 1,
+        "experiment": "nuif:experiment:variable-font-host-matrix",
+        "status": if passed { "passed" } else { "failed" },
+        "source_revision": source_revision,
+        "profile": "nuif-opentype-variable-truetype-single-0",
+        "hosts": host_evidence,
+        "checks": checks,
+        "summary": {
+            "hosts": hosts.len(),
+            "blocking_failures": i32::from(!passed),
+        },
+        "non_claims": [
+            "the hosted matrix covers only the declared Linux x86-64 Windows x86-64 and macOS arm64 runners",
+            "exact portable CPU output does not imply native system rasterizer equivalence",
+            "one Noto Sans variable TrueType fixture does not admit other font formats",
+        ],
+    })
 }
 
 fn capture_baselines() -> Result<(), String> {
@@ -5228,6 +5363,34 @@ fn path(path: &Path) -> Result<&str, String> {
 mod tests {
     use super::*;
 
+    fn variable_font_host_fixture() -> BTreeMap<String, serde_json::Value> {
+        let runtime = serde_json::json!({
+            "schema_version": 1,
+            "experiment": "nuif:experiment:variable-font-runtime",
+            "status": "passed",
+            "profile": "nuif-opentype-variable-truetype-single-0",
+            "fixture": {"sha256": "fixture"},
+            "cases": [{
+                "label": "interior",
+                "canonical_hash": "nuif-cbor-0:sha256:fixture",
+                "raster_sha256": "raster",
+            }],
+        });
+        VARIABLE_FONT_HOSTS
+            .into_iter()
+            .map(|platform| {
+                (
+                    platform.to_owned(),
+                    serde_json::json!({
+                        "input": format!("{platform}/variable-font-runtime-report.json"),
+                        "sha256": "report",
+                        "report": runtime,
+                    }),
+                )
+            })
+            .collect()
+    }
+
     #[test]
     fn release_tag_must_match_the_editor_version_exactly() {
         assert!(validate_release_tag("0.1.0-alpha.1", "v0.1.0-alpha.1").is_ok());
@@ -5274,6 +5437,26 @@ mod tests {
         );
         assert_eq!(paths, 2);
         assert_eq!(failures.len(), 1);
+    }
+
+    #[test]
+    fn variable_font_host_matrix_requires_exact_portable_reports() {
+        let hosts = variable_font_host_fixture();
+        let report = variable_font_host_matrix_report(&"a".repeat(40), &hosts);
+        assert_eq!(report["status"], "passed");
+        assert_eq!(report["summary"]["hosts"], 3);
+        assert_eq!(report["checks"]["portable_payload_exact"], true);
+    }
+
+    #[test]
+    fn variable_font_host_matrix_rejects_raster_drift() {
+        let mut hosts = variable_font_host_fixture();
+        hosts.get_mut("windows-x86_64").expect("Windows fixture")["report"]["cases"][0]["raster_sha256"] =
+            serde_json::json!("drift");
+        let report = variable_font_host_matrix_report(&"a".repeat(40), &hosts);
+        assert_eq!(report["status"], "failed");
+        assert_eq!(report["checks"]["cases_exact"], false);
+        assert_eq!(report["checks"]["portable_payload_exact"], false);
     }
 
     #[test]
