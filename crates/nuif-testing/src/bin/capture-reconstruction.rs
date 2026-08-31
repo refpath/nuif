@@ -1,7 +1,8 @@
 use nuif_capture::{
     BROWSER_CAPTURE_PROFILE, BrowserCapture, BrowserNode, BrowserResource, OcrSpan,
     PNG_DECODER_PROFILE, SCREENSHOT_CAPTURE_PROFILE, ScreenshotCapture, SourceSpan, Viewport,
-    analyze_screenshot, normalize_browser_capture,
+    analyze_screenshot, browser_capture_provider_manifest, normalize_browser_capture,
+    screenshot_baseline_provider_manifest,
 };
 use nuif_codec::canonical_hash;
 use nuif_core::{
@@ -9,6 +10,10 @@ use nuif_core::{
 };
 use nuif_package::{NuifPackage, PackageMode};
 use nuif_protocol::{Operation, Patch, Transaction};
+use nuif_reconstruct::provider::{
+    ExecutionMode, PROVIDER_MANIFEST_PROFILE, ProviderArtifact, ProviderArtifactRole,
+    ProviderCapability, ProviderIdentity, ProviderManifest, ProviderMaturity,
+};
 use nuif_reconstruct::{
     Bounds, CalibrationPoint, CalibrationTable, CandidateEvaluator, CandidateScore, Confidence,
     CorrectionProvider, EvidenceClass, InferenceProvenance, LoopBudget, LoopStatus,
@@ -149,6 +154,39 @@ fn run() -> Result<(), String> {
                 .iter()
                 .any(|omission| omission.category == category)
         });
+    let provider_registry_complete = browser
+        .observations
+        .observations
+        .iter()
+        .all(|observation| browser.observations.has_provider(&observation.provider))
+        && browser
+            .observations
+            .has_provider(&browser.proposal.provenance.provider)
+        && screenshot
+            .observations
+            .observations
+            .iter()
+            .all(|observation| screenshot.observations.has_provider(&observation.provider))
+        && screenshot
+            .observations
+            .has_provider(&screenshot.proposal.provenance.provider);
+    let mut duplicate_registry = screenshot.observations.clone();
+    duplicate_registry
+        .provider_manifests
+        .push(duplicate_registry.provider_manifests[0].clone());
+    let mut dangling_proposal = screenshot.proposal.clone();
+    dangling_proposal.provenance.provider = provider("unpublished-proposal");
+    let mut dangling_document = Document::empty(EntityId::new(2));
+    let unchanged_document = dangling_document.clone();
+    let provider_registry_fail_closed = duplicate_registry.validate().is_err()
+        && apply_proposal(
+            &mut dangling_document,
+            &screenshot.observations,
+            &dangling_proposal,
+            &ProposalPolicy::default(),
+        )
+        .is_err()
+        && dangling_document == unchanged_document;
     apply_proposal(
         &mut screenshot_package.document,
         &screenshot.observations,
@@ -208,6 +246,11 @@ fn run() -> Result<(), String> {
         trial("analysis_repeat_equivalence", screenshot_repeatable),
         trial("observation_codec_fixpoint", observation_fixpoint),
         trial("evidence_and_omissions_honest", honest_screenshot_evidence),
+        trial("provider_registry_complete", provider_registry_complete),
+        trial(
+            "provider_registry_fails_closed",
+            provider_registry_fail_closed,
+        ),
         trial("typed_proposal_package", screenshot_package_valid),
         trial("flat_copy_rejected", flat_copy_rejected),
         trial(
@@ -292,11 +335,14 @@ fn run() -> Result<(), String> {
 }
 
 fn browser_fixture(png: &[u8]) -> BrowserCapture {
+    let manifest = browser_capture_provider_manifest();
     BrowserCapture {
         schema_version: 1,
         profile: BROWSER_CAPTURE_PROFILE.to_owned(),
         capture_id: "browser-baseline".to_owned(),
         adapter_version: "1".to_owned(),
+        provider: manifest.identity().unwrap(),
+        provider_manifests: vec![manifest],
         source_url: "https://example.invalid/?token=fixture-secret".to_owned(),
         viewport: Viewport {
             width: 100.0,
@@ -353,10 +399,18 @@ fn browser_fixture(png: &[u8]) -> BrowserCapture {
 }
 
 fn screenshot_fixture(png: &[u8]) -> ScreenshotCapture {
+    let manifest = screenshot_baseline_provider_manifest();
     ScreenshotCapture {
         schema_version: 1,
         profile: SCREENSHOT_CAPTURE_PROFILE.to_owned(),
         capture_id: "screenshot-baseline".to_owned(),
+        provider: manifest.identity().unwrap(),
+        provider_manifests: vec![
+            manifest,
+            provider_manifest("ocr"),
+            provider_manifest("proposal"),
+            provider_manifest("correction"),
+        ],
         viewport: Viewport {
             width: 4.0,
             height: 4.0,
@@ -370,6 +424,7 @@ fn screenshot_fixture(png: &[u8]) -> ScreenshotCapture {
             raw_confidence: 0.9,
             engine: "fixture-ocr".to_owned(),
             engine_version: "1".to_owned(),
+            provider: provider("ocr"),
         }],
     }
 }
@@ -405,7 +460,7 @@ fn flat_copy_rejected(
         schema_version: 1,
         provenance: InferenceProvenance {
             method: "flat-copy".to_owned(),
-            artifact: None,
+            provider: provider("proposal"),
             observations: BTreeSet::from([evidence.id.clone()]),
             confidence: Confidence::raw(1.0),
         },
@@ -463,7 +518,7 @@ impl CorrectionProvider for ImprovingProvider {
             schema_version: 1,
             provenance: InferenceProvenance {
                 method: "deterministic-correction".to_owned(),
-                artifact: None,
+                provider: provider("correction"),
                 observations: BTreeSet::from([evidence]),
                 confidence: Confidence::raw(0.5),
             },
@@ -621,6 +676,37 @@ fn contains(haystack: &[u8], needle: &[u8]) -> bool {
 
 fn sha256(bytes: &[u8]) -> String {
     format!("{:x}", Sha256::digest(bytes))
+}
+
+fn provider(kind: &str) -> ProviderIdentity {
+    provider_manifest(kind).identity().unwrap()
+}
+
+fn provider_manifest(kind: &str) -> ProviderManifest {
+    ProviderManifest {
+        schema_version: 1,
+        profile: PROVIDER_MANIFEST_PROFILE.to_owned(),
+        provider_id: format!("{kind}-fixture-1"),
+        kind: kind.to_owned(),
+        maturity: ProviderMaturity::Development,
+        capabilities: BTreeSet::from([match kind {
+            "ocr" => ProviderCapability::Ocr,
+            "correction" => ProviderCapability::Correction,
+            _ => ProviderCapability::Proposal,
+        }]),
+        execution_modes: BTreeSet::from([ExecutionMode::Local]),
+        input_profiles: BTreeSet::from(["nuif-observations-0".to_owned()]),
+        output_profiles: BTreeSet::from(["nuif-proposal-0".to_owned()]),
+        artifacts: vec![ProviderArtifact {
+            id: "implementation".to_owned(),
+            role: ProviderArtifactRole::Implementation,
+            digest: ResourceDigest::from_sha256_hex(sha256(kind.as_bytes())),
+            format: "synthetic-test-fixture".to_owned(),
+            version: "1".to_owned(),
+        }],
+        model_card: None,
+        inventory: None,
+    }
 }
 
 fn source_identity() -> Value {

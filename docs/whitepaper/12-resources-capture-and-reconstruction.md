@@ -382,6 +382,17 @@ artifacts with digests, model cards, dataset datasheets, license lineage and
 training manifests. They never redefine `nuif-core` or travel as ordinary
 document resources.
 
+The executable provider boundary uses a deliberately small canonical wrapper,
+not a new AI bill-of-materials vocabulary. It binds NUIF capabilities,
+execution modes and observation/proposal profiles to exact implementation,
+model, processor, adapter, quantization, prompt and tool artifacts. Observation
+bundles carry the complete manifest registry, so a digest cannot dangle and a
+proposal cannot substitute an unpublished provider before mutation. Released
+or learned providers point to content-addressed SPDX 3.0.1 or CycloneDX 1.7
+inventory; learned providers also point to a model card. This complements
+runtime packaging such as MLflow or ONNX external data without making either a
+required NUIF dependency.
+
 Private/authenticated captures default to local processing, no retention and no
 training. Remote transfer, telemetry, retention and training are independent
 consent/policy decisions.
@@ -406,6 +417,7 @@ reconstruction promise.
 
 - `nuif:research:resource-packaging-and-source-capture-synthesis`
 - `nuif:research:model-agnostic-screenshot-reconstruction-and-training`
+- `nuif:research:provider-artifact-manifests-and-ai-boms`
 - `nuif:research:epub-ocf-package-container`
 - `nuif:research:oci-resource-descriptors`
 - `nuif:research:opentype-font-embedding-and-portability`

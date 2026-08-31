@@ -12,6 +12,11 @@ use nuif_core::{
 use nuif_media::{MediaError, Rgba8Image, decode_png_rgba8};
 use nuif_package::{NuifPackage, PackageError, PackageMode};
 use nuif_protocol::{Anchor, Operation, Patch, Transaction};
+use nuif_reconstruct::provider::{
+    ExecutionMode, MAX_PROVIDER_MANIFESTS, PROVIDER_MANIFEST_PROFILE, ProviderArtifact,
+    ProviderArtifactRole, ProviderCapability, ProviderIdentity, ProviderManifest, ProviderMaturity,
+    SupplyChainInventory,
+};
 use nuif_reconstruct::{
     Bounds, CaptureContext, Confidence, CoordinateSpace, EvidenceClass, InferenceProvenance,
     OBSERVATION_PROFILE, Observation, ObservationBundle, ObservationError, ObservationId,
@@ -34,6 +39,107 @@ pub const MAX_PNG_PIXELS: u64 = nuif_media::MAX_PNG_PIXELS;
 pub const MAX_PNG_CHUNKS: usize = nuif_media::MAX_PNG_CHUNKS;
 pub const MAX_COLOR_REGIONS: usize = 64;
 pub const MAX_OCR_SPANS: usize = 8_192;
+
+/// Returns the development manifest for the deterministic screenshot region
+/// and proposal baseline. It contains no learned artifact and makes no model
+/// accuracy claim.
+#[must_use]
+pub fn screenshot_baseline_provider_manifest() -> ProviderManifest {
+    development_provider_manifest(
+        "nuif-screenshot-baseline-provider-0",
+        "screenshot-baseline",
+        [
+            ProviderCapability::RegionDetection,
+            ProviderCapability::Proposal,
+        ],
+        SCREENSHOT_CAPTURE_PROFILE,
+        &[include_bytes!("lib.rs")],
+    )
+}
+
+/// Returns the development manifest for static browser-capture normalization.
+/// A live caller should add the exact browser/runtime artifact in its own
+/// manifest and pass that identity through `LiveBrowserOptions`.
+#[must_use]
+pub fn browser_capture_provider_manifest() -> ProviderManifest {
+    development_provider_manifest(
+        "nuif-browser-capture-provider-0",
+        "browser-capture",
+        [
+            ProviderCapability::UiGrounding,
+            ProviderCapability::Proposal,
+        ],
+        BROWSER_CAPTURE_PROFILE,
+        &[include_bytes!("lib.rs"), include_bytes!("live.rs")],
+    )
+}
+
+fn development_provider_manifest<const N: usize>(
+    provider_id: &str,
+    kind: &str,
+    capabilities: [ProviderCapability; N],
+    input_profile: &str,
+    source_parts: &[&[u8]],
+) -> ProviderManifest {
+    let mut implementation = Sha256::new();
+    for part in source_parts {
+        implementation.update(part);
+    }
+    ProviderManifest {
+        schema_version: 1,
+        profile: PROVIDER_MANIFEST_PROFILE.to_owned(),
+        provider_id: provider_id.to_owned(),
+        kind: kind.to_owned(),
+        maturity: ProviderMaturity::Development,
+        capabilities: capabilities.into_iter().collect(),
+        execution_modes: BTreeSet::from([ExecutionMode::Local]),
+        input_profiles: BTreeSet::from([input_profile.to_owned()]),
+        output_profiles: BTreeSet::from([
+            OBSERVATION_PROFILE.to_owned(),
+            "nuif-proposal-0".to_owned(),
+        ]),
+        artifacts: vec![ProviderArtifact {
+            id: "implementation".to_owned(),
+            role: ProviderArtifactRole::Implementation,
+            digest: ResourceDigest::from_sha256_hex(format!("{:x}", implementation.finalize())),
+            format: "rust-source-bundle".to_owned(),
+            version: env!("CARGO_PKG_VERSION").to_owned(),
+        }],
+        model_card: None,
+        inventory: None::<SupplyChainInventory>,
+    }
+}
+
+fn validate_provider_registry<'a>(
+    manifests: &[ProviderManifest],
+    required: impl IntoIterator<Item = &'a ProviderIdentity>,
+) -> Result<(), CaptureError> {
+    if manifests.is_empty() || manifests.len() > MAX_PROVIDER_MANIFESTS {
+        return Err(CaptureError::InvalidCapture(
+            "provider manifest registry is empty or excessive".to_owned(),
+        ));
+    }
+    let mut identities = BTreeSet::new();
+    for manifest in manifests {
+        let identity = manifest
+            .identity()
+            .map_err(|error| CaptureError::InvalidCapture(error.to_string()))?;
+        if !identities.insert(identity) {
+            return Err(CaptureError::InvalidCapture(
+                "provider manifest registry contains a duplicate identity".to_owned(),
+            ));
+        }
+    }
+    if required
+        .into_iter()
+        .any(|identity| !identities.contains(identity))
+    {
+        return Err(CaptureError::InvalidCapture(
+            "capture references a provider without its exact manifest".to_owned(),
+        ));
+    }
+    Ok(())
+}
 
 #[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -97,6 +203,8 @@ pub struct BrowserCapture {
     pub profile: String,
     pub capture_id: String,
     pub adapter_version: String,
+    pub provider: ProviderIdentity,
+    pub provider_manifests: Vec<ProviderManifest>,
     pub source_url: String,
     pub viewport: Viewport,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -154,6 +262,7 @@ pub fn normalize_browser_capture(
                 size: Some(u64::try_from(resource.body.len()).unwrap_or(u64::MAX)),
             },
             confidence: None,
+            provider: capture.provider.clone(),
             source: final_url,
         });
     }
@@ -184,6 +293,7 @@ pub fn normalize_browser_capture(
         adapter: "browser-source-capture".to_owned(),
         adapter_version: capture.adapter_version.clone(),
         context: capture.context.clone(),
+        provider_manifests: capture.provider_manifests.clone(),
         observations,
         omissions,
     };
@@ -203,11 +313,13 @@ fn validate_browser_capture(
         || capture.profile != BROWSER_CAPTURE_PROFILE
         || !nuif_core::is_identifier(&capture.capture_id)
         || capture.adapter_version.is_empty()
+        || capture.provider.validate().is_err()
     {
         return Err(CaptureError::InvalidCapture(
             "unsupported browser capture identity or profile".to_owned(),
         ));
     }
+    validate_provider_registry(&capture.provider_manifests, [&capture.provider])?;
     validate_viewport(capture.viewport)?;
     sanitize_url(&capture.source_url)?;
     if package.mode != PackageMode::Authoring {
@@ -354,6 +466,7 @@ fn append_browser_node_observations(
             bounds: node.bounds,
         },
         confidence: None,
+        provider: capture.provider.clone(),
         source: "dom-snapshot".to_owned(),
     });
     observations.push(Observation {
@@ -369,6 +482,7 @@ fn append_browser_node_observations(
             order: node.order,
         },
         confidence: None,
+        provider: capture.provider.clone(),
         source: "dom-snapshot".to_owned(),
     });
     if let Some(text) = &node.text {
@@ -383,6 +497,7 @@ fn append_browser_node_observations(
                 bounds: Some(node.bounds),
             },
             confidence: None,
+            provider: capture.provider.clone(),
             source: "dom-text".to_owned(),
         });
     }
@@ -395,6 +510,7 @@ fn append_browser_node_observations(
             transform: None,
             value: ObservationValue::Color { rgba: background },
             confidence: None,
+            provider: capture.provider.clone(),
             source: "computed-style".to_owned(),
         });
     }
@@ -410,6 +526,7 @@ fn append_browser_node_observations(
                 name: node.accessible_name.clone(),
             },
             confidence: None,
+            provider: capture.provider.clone(),
             source: "accessibility-tree".to_owned(),
         });
     }
@@ -427,6 +544,7 @@ fn append_browser_node_observations(
                 custom: font.custom,
             },
             confidence: None,
+            provider: capture.provider.clone(),
             source: "platform-font-use".to_owned(),
         });
     }
@@ -443,6 +561,7 @@ fn append_browser_node_observations(
                 end: span.end,
             },
             confidence: None,
+            provider: capture.provider.clone(),
             source: "source-map".to_owned(),
         });
     }
@@ -524,7 +643,7 @@ fn browser_proposal(
         schema_version: 1,
         provenance: InferenceProvenance {
             method: "browser-source-baseline".to_owned(),
-            artifact: None,
+            provider: capture.provider.clone(),
             observations: bundle.ids(),
             confidence: Confidence::raw(1.0),
         },
@@ -596,6 +715,7 @@ pub struct OcrSpan {
     pub raw_confidence: f64,
     pub engine: String,
     pub engine_version: String,
+    pub provider: ProviderIdentity,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -604,6 +724,8 @@ pub struct ScreenshotCapture {
     pub schema_version: u32,
     pub profile: String,
     pub capture_id: String,
+    pub provider: ProviderIdentity,
+    pub provider_manifests: Vec<ProviderManifest>,
     pub viewport: Viewport,
     #[serde(with = "serde_bytes")]
     pub png: Vec<u8>,
@@ -671,12 +793,17 @@ fn validate_screenshot_capture(
     if capture.schema_version != 1
         || capture.profile != SCREENSHOT_CAPTURE_PROFILE
         || !nuif_core::is_identifier(&capture.capture_id)
+        || capture.provider.validate().is_err()
     {
         return Err(CaptureError::InvalidCapture(
             "unsupported screenshot capture identity or profile".to_owned(),
         ));
     }
     validate_viewport(capture.viewport)?;
+    validate_provider_registry(
+        &capture.provider_manifests,
+        std::iter::once(&capture.provider).chain(capture.ocr.iter().map(|span| &span.provider)),
+    )?;
     if !package.document.entities.is_empty() {
         return Err(CaptureError::InvalidCapture(
             "screenshot baseline requires an empty destination document".to_owned(),
@@ -691,6 +818,7 @@ fn validate_screenshot_capture(
         if !nuif_core::is_identifier(&span.id)
             || !nuif_core::is_identifier(&span.engine)
             || span.engine_version.is_empty()
+            || span.provider.validate().is_err()
             || !span.raw_confidence.is_finite()
             || !(0.0..=1.0).contains(&span.raw_confidence)
             || !ids.insert(&span.id)
@@ -792,6 +920,7 @@ fn screenshot_observations(
                 size: Some(capture.png.len() as u64),
             },
             confidence: Some(Confidence::raw(1.0)),
+            provider: capture.provider.clone(),
             source: "screenshot-bytes".to_owned(),
         },
         Observation {
@@ -809,6 +938,7 @@ fn screenshot_observations(
                 },
             },
             confidence: Some(Confidence::raw(1.0)),
+            provider: capture.provider.clone(),
             source: "screenshot-pixels".to_owned(),
         },
     ];
@@ -823,6 +953,7 @@ fn screenshot_observations(
                 bounds: css_bounds(region.bounds, capture.viewport.device_scale_factor),
             },
             confidence: Some(Confidence::raw(region.density)),
+            provider: capture.provider.clone(),
             source: "flat-color-segmentation".to_owned(),
         });
         observations.push(Observation {
@@ -835,6 +966,7 @@ fn screenshot_observations(
                 rgba: region.rgba.map(|channel| f32::from(channel) / 255.0),
             },
             confidence: Some(Confidence::raw(region.density)),
+            provider: capture.provider.clone(),
             source: "flat-color-segmentation".to_owned(),
         });
     }
@@ -850,6 +982,7 @@ fn screenshot_observations(
                 bounds: Some(span.bounds),
             },
             confidence: Some(Confidence::raw(span.raw_confidence)),
+            provider: span.provider.clone(),
             source: format!("{}-{}", span.engine, span.engine_version),
         });
     }
@@ -860,6 +993,7 @@ fn screenshot_observations(
         adapter: "screenshot-baseline".to_owned(),
         adapter_version: "1".to_owned(),
         context: None,
+        provider_manifests: capture.provider_manifests.clone(),
         observations,
         omissions: screenshot_omissions(),
     };
@@ -971,7 +1105,7 @@ fn screenshot_proposal(
         schema_version: 1,
         provenance: InferenceProvenance {
             method: "deterministic-screenshot-baseline".to_owned(),
-            artifact: None,
+            provider: capture.provider.clone(),
             observations: observations.ids(),
             confidence: Confidence::raw(confidence),
         },
@@ -1146,6 +1280,24 @@ mod tests {
     use png::{BitDepth, ColorType};
     use std::io::Cursor;
 
+    fn provider(kind: &str) -> ProviderIdentity {
+        test_provider_manifest(kind).identity().unwrap()
+    }
+
+    fn test_provider_manifest(kind: &str) -> ProviderManifest {
+        development_provider_manifest(
+            &format!("{kind}-fixture-1"),
+            kind,
+            [if kind == "ocr" {
+                ProviderCapability::Ocr
+            } else {
+                ProviderCapability::Proposal
+            }],
+            SCREENSHOT_CAPTURE_PROFILE,
+            &[kind.as_bytes()],
+        )
+    }
+
     fn png(width: u32, height: u32, pixels: &[u8]) -> Vec<u8> {
         let mut bytes = Vec::new();
         {
@@ -1164,10 +1316,13 @@ mod tests {
         let pixels = [
             255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255,
         ];
+        let manifest = screenshot_baseline_provider_manifest();
         let capture = ScreenshotCapture {
             schema_version: 1,
             profile: SCREENSHOT_CAPTURE_PROFILE.to_owned(),
             capture_id: "shot-1".to_owned(),
+            provider: manifest.identity().unwrap(),
+            provider_manifests: vec![manifest, test_provider_manifest("ocr")],
             viewport: Viewport {
                 width: 2.0,
                 height: 2.0,
@@ -1186,6 +1341,7 @@ mod tests {
                 raw_confidence: 0.9,
                 engine: "fixture-ocr".to_owned(),
                 engine_version: "1".to_owned(),
+                provider: provider("ocr"),
             }],
         };
         let mut package =
@@ -1222,11 +1378,14 @@ mod tests {
 
     #[test]
     fn browser_capture_retains_sources_without_runtime_authority() {
+        let manifest = browser_capture_provider_manifest();
         let capture = BrowserCapture {
             schema_version: 1,
             profile: BROWSER_CAPTURE_PROFILE.to_owned(),
             capture_id: "browser-1".to_owned(),
             adapter_version: "1".to_owned(),
+            provider: manifest.identity().unwrap(),
+            provider_manifests: vec![manifest],
             source_url: "https://example.invalid/?token=redacted".to_owned(),
             viewport: Viewport {
                 width: 100.0,

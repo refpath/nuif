@@ -721,6 +721,21 @@ experiments:
       - inject every family leakage dimension and an exact artifact collision across partitions
       - reject forbidden adaptation calibration and evaluation uses screenshot-only source claims missing near-duplicate assignments and unauditable private captures
       - archive target/reconstruction-corpus-audit-report.json from cargo xtask reconstruction-corpus-audit
+  - id: nuif:experiment:reconstruction-provider-manifest
+    status: automated
+    evidence: [nuif:research:provider-artifact-manifests-and-ai-boms, nuif:research:model-and-dataset-documentation, nuif:research:oci-resource-descriptors]
+    implementation: [crates/nuif-reconstruct/src/provider.rs, crates/nuif-reconstruct/src/lib.rs, crates/nuif-capture/src/lib.rs, crates/nuif-capture/src/live.rs, crates/nuif-testing/src/bin/reconstruction-provider-manifest.rs, xtask/src/main.rs, .github/workflows/ci.yml, .github/workflows/release.yml]
+    oracle: canonical-manifest-and-adversarial-binding-fixtures
+    acceptance:
+      - every observation and proposal provider resolves to exact canonical manifest bytes in the evidence bundle
+      - changing an implementation model processor adapter quantization prompt or tool artifact changes provider identity
+      - released or learned providers bind an SPDX 3.0.1 or CycloneDX 1.7 inventory and learned providers bind a model card
+      - provider metadata remains separate from NUIF document resources and cannot bypass typed-operation validation
+    tests:
+      - canonical-CBOR round-trip a full synthetic learned-provider manifest and require an identity fixpoint
+      - reject missing duplicated malformed or dangling provider manifests before document mutation
+      - reject duplicate artifacts ambiguous implementation identity missing learned model card and missing released or learned inventory
+      - archive target/reconstruction-provider-manifest-report.json from cargo xtask reconstruction-provider-manifest
   - id: nuif:experiment:reconstruction-closed-loop
     status: active
     evidence: [nuif:research:ui-code-generation-boundaries, nuif:research:visrefiner-render-difference-learning, nuif:research:flip-perceptual-difference-metric, nuif:research:lpips-learned-perceptual-similarity, nuif:research:model-agnostic-screenshot-reconstruction-and-training]

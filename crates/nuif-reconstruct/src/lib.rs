@@ -2,12 +2,14 @@
 
 pub mod evaluation;
 pub mod layout_inference;
+pub mod provider;
 
 use nuif_codec::{
     CodecError, Encoder, canonical_hash, decode_canonical_record, encode_canonical_record,
 };
 use nuif_core::{AffineTransform, AssetId, Document, EntityId, Fidelity, ResourceDigest};
 use nuif_protocol::{ApplyError, Operation, Patch, apply_patch};
+use provider::{MAX_PROVIDER_MANIFESTS, ProviderIdentity, ProviderManifest};
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet};
 use std::time::{Duration, Instant};
@@ -170,6 +172,7 @@ pub struct Observation {
     pub transform: Option<CoordinateTransform>,
     pub value: ObservationValue,
     pub confidence: Option<Confidence>,
+    pub provider: ProviderIdentity,
     pub source: String,
 }
 
@@ -198,6 +201,7 @@ pub struct ObservationBundle {
     pub adapter_version: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub context: Option<CaptureContext>,
+    pub provider_manifests: Vec<ProviderManifest>,
     pub observations: Vec<Observation>,
     #[serde(default)]
     pub omissions: Vec<Omission>,
@@ -231,6 +235,7 @@ impl ObservationBundle {
                 observed: self.observations.len(),
             });
         }
+        let providers = self.provider_identities()?;
         if self.omissions.len() > MAX_OMISSIONS {
             return Err(ObservationError::ResourceLimit {
                 resource: "omissions",
@@ -270,7 +275,7 @@ impl ObservationBundle {
             }
         }
         for observation in &self.observations {
-            validate_observation(observation, &mut ids, &mut string_bytes)?;
+            validate_observation(observation, &providers, &mut ids, &mut string_bytes)?;
         }
         for omission in &self.omissions {
             if !identifier(&omission.category) {
@@ -328,6 +333,36 @@ impl ObservationBundle {
     }
 
     #[must_use]
+    pub fn has_provider(&self, provider: &ProviderIdentity) -> bool {
+        self.provider_manifests
+            .iter()
+            .filter_map(|manifest| manifest.identity().ok())
+            .any(|identity| &identity == provider)
+    }
+
+    fn provider_identities(&self) -> Result<BTreeSet<ProviderIdentity>, ObservationError> {
+        if self.provider_manifests.is_empty()
+            || self.provider_manifests.len() > MAX_PROVIDER_MANIFESTS
+        {
+            return Err(ObservationError::InvalidBundle(
+                "provider manifest registry is empty or excessive".to_owned(),
+            ));
+        }
+        let mut providers = BTreeSet::new();
+        for manifest in &self.provider_manifests {
+            let identity = manifest
+                .identity()
+                .map_err(|error| ObservationError::InvalidBundle(error.to_string()))?;
+            if !providers.insert(identity) {
+                return Err(ObservationError::InvalidBundle(
+                    "provider manifest registry contains a duplicate identity".to_owned(),
+                ));
+            }
+        }
+        Ok(providers)
+    }
+
+    #[must_use]
     pub fn observed_resource_digests(&self) -> BTreeSet<ResourceDigest> {
         self.observations
             .iter()
@@ -360,6 +395,7 @@ pub enum ObservationError {
 
 fn validate_observation(
     observation: &Observation,
+    providers: &BTreeSet<ProviderIdentity>,
     ids: &mut BTreeSet<ObservationId>,
     string_bytes: &mut usize,
 ) -> Result<(), ObservationError> {
@@ -371,6 +407,15 @@ fn validate_observation(
     }
     add_string(string_bytes, &observation.id.0)?;
     add_string(string_bytes, &observation.source)?;
+    observation
+        .provider
+        .validate()
+        .map_err(|error| ObservationError::InvalidBundle(error.to_string()))?;
+    if !providers.contains(&observation.provider) {
+        return Err(ObservationError::InvalidBundle(
+            "provider identity is not backed by the bundle manifest registry".to_owned(),
+        ));
+    }
     if let Some(confidence) = &observation.confidence {
         validate_confidence(confidence)?;
         if matches!(
@@ -575,7 +620,7 @@ fn identifier(value: &str) -> bool {
 #[serde(deny_unknown_fields)]
 pub struct InferenceProvenance {
     pub method: String,
-    pub artifact: Option<ResourceDigest>,
+    pub provider: ProviderIdentity,
     pub observations: BTreeSet<ObservationId>,
     pub confidence: Confidence,
 }
@@ -637,6 +682,16 @@ fn validate_proposal(
     if proposal.schema_version != 1 || !identifier(&proposal.provenance.method) {
         return Err(ReconstructionError::InvalidProposal(
             "unsupported proposal version or invalid method identifier".to_owned(),
+        ));
+    }
+    proposal
+        .provenance
+        .provider
+        .validate()
+        .map_err(|error| ReconstructionError::InvalidProposal(error.to_string()))?;
+    if !observations.has_provider(&proposal.provenance.provider) {
+        return Err(ReconstructionError::InvalidProposal(
+            "proposal provider is not backed by the observation manifest registry".to_owned(),
         ));
     }
     validate_confidence(&proposal.provenance.confidence)?;
@@ -1146,6 +1201,33 @@ mod tests {
     use nuif_core::{Asset, AssetId, AssetKind, AssetPortability, Entity, EntityKind, ImageAsset};
     use nuif_protocol::{Anchor, Transaction};
 
+    fn provider_manifest(kind: &str) -> ProviderManifest {
+        ProviderManifest {
+            schema_version: 1,
+            profile: provider::PROVIDER_MANIFEST_PROFILE.to_owned(),
+            provider_id: format!("{kind}-fixture-1"),
+            kind: kind.to_owned(),
+            maturity: provider::ProviderMaturity::Development,
+            capabilities: BTreeSet::from([provider::ProviderCapability::Proposal]),
+            execution_modes: BTreeSet::from([provider::ExecutionMode::Local]),
+            input_profiles: BTreeSet::from([OBSERVATION_PROFILE.to_owned()]),
+            output_profiles: BTreeSet::from(["nuif-proposal-0".to_owned()]),
+            artifacts: vec![provider::ProviderArtifact {
+                id: "implementation".to_owned(),
+                role: provider::ProviderArtifactRole::Implementation,
+                digest: ResourceDigest::from_sha256_hex("a".repeat(64)),
+                format: "test-fixture".to_owned(),
+                version: "1".to_owned(),
+            }],
+            model_card: None,
+            inventory: None,
+        }
+    }
+
+    fn provider(kind: &str) -> ProviderIdentity {
+        provider_manifest(kind).identity().unwrap()
+    }
+
     fn observations() -> ObservationBundle {
         ObservationBundle {
             schema_version: 1,
@@ -1157,6 +1239,11 @@ mod tests {
                 profile: "test-context-0".to_owned(),
                 properties: BTreeMap::from([("viewport".to_owned(), "100x100".to_owned())]),
             }),
+            provider_manifests: vec![
+                provider_manifest("screenshot-observation"),
+                provider_manifest("proposal"),
+                provider_manifest("correction"),
+            ],
             observations: vec![Observation {
                 id: ObservationId("root-geometry".to_owned()),
                 evidence: EvidenceClass::ObservedPixels,
@@ -1174,6 +1261,7 @@ mod tests {
                     },
                 },
                 confidence: Some(Confidence::raw(0.8)),
+                provider: provider("screenshot-observation"),
                 source: "pixels".to_owned(),
             }],
             omissions: Vec::new(),
@@ -1209,6 +1297,14 @@ mod tests {
                 ..
             })
         ));
+
+        let mut dangling = observations();
+        dangling.observations[0].provider = provider("unpublished-observation-provider");
+        assert!(matches!(
+            dangling.validate(),
+            Err(ObservationError::InvalidBundle(message))
+                if message.contains("not backed by the bundle manifest registry")
+        ));
     }
 
     #[test]
@@ -1218,7 +1314,7 @@ mod tests {
             schema_version: 1,
             provenance: InferenceProvenance {
                 method: "deterministic-baseline".to_owned(),
-                artifact: None,
+                provider: provider("proposal"),
                 observations: BTreeSet::from([ObservationId("root-geometry".to_owned())]),
                 confidence: Confidence::raw(0.6),
             },
@@ -1234,6 +1330,20 @@ mod tests {
                 }],
             },
         };
+        let mut dangling = proposal.clone();
+        dangling.provenance.provider = provider("unpublished-proposal-provider");
+        let unchanged = document.clone();
+        assert!(matches!(
+            apply_proposal(
+                &mut document,
+                &observations(),
+                &dangling,
+                &ProposalPolicy::default()
+            ),
+            Err(ReconstructionError::InvalidProposal(message))
+                if message.contains("not backed by the observation manifest registry")
+        ));
+        assert_eq!(document, unchanged);
         apply_proposal(
             &mut document,
             &observations(),
@@ -1262,6 +1372,7 @@ mod tests {
                 size: Some(4),
             },
             confidence: Some(Confidence::raw(1.0)),
+            provider: provider("screenshot-observation"),
             source: "screenshot-bytes".to_owned(),
         });
         let asset = Asset {
@@ -1281,7 +1392,7 @@ mod tests {
             schema_version: 1,
             provenance: InferenceProvenance {
                 method: "flat-copy".to_owned(),
-                artifact: None,
+                provider: provider("proposal"),
                 observations: BTreeSet::from([ObservationId("screenshot-resource".to_owned())]),
                 confidence: Confidence::raw(1.0),
             },
@@ -1359,7 +1470,7 @@ mod tests {
                     schema_version: 1,
                     provenance: InferenceProvenance {
                         method: "test-provider".to_owned(),
-                        artifact: None,
+                        provider: provider("correction"),
                         observations: BTreeSet::from([ObservationId("root-geometry".to_owned())]),
                         confidence: Confidence::raw(0.5),
                     },

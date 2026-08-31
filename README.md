@@ -150,7 +150,8 @@ The CI workflow now runs all three narrow resource gates independently on
 Linux, Windows and macOS and archives each platform report; that configuration
 does not become reproduction evidence until the hosted jobs pass. RFC
 0011/specification 14 have executable
-provider-neutral observation, browser/screenshot baseline, typed-proposal,
+provider-neutral observation with canonical artifact-manifest registries,
+browser/screenshot baseline, typed-proposal,
 flat-copy rejection, calibration and finite-loop primitives. The local Gate J
 segment now drives pinned Chromium, retains exact resources/font/accessibility
 evidence, excludes exercised secret canaries and beats a one-view baseline at a

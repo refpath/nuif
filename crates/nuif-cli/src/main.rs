@@ -1,7 +1,7 @@
 use nuif_api::{Engine, ReferenceEngine, Session, profile_zero_context};
 use nuif_capture::{
     BrowserCapture, OcrSpan, SCREENSHOT_CAPTURE_PROFILE, ScreenshotCapture, Viewport,
-    analyze_screenshot, normalize_browser_capture,
+    analyze_screenshot, normalize_browser_capture, screenshot_baseline_provider_manifest,
 };
 use nuif_codec::{
     BoundedReadError, CanonicalText, Canonicalizer, Decoder, DeterministicCbor, Encoder,
@@ -34,6 +34,7 @@ use nuif_react::{
     AdapterError as ReactAdapterError, export_document as export_react_document,
     import_source as import_react_source, synchronize as synchronize_react,
 };
+use nuif_reconstruct::provider::ProviderManifest;
 use nuif_reconstruct::{ObservationBundle, Proposal, ProposalPolicy, apply_proposal};
 use nuif_svelte::{
     AdapterError as SvelteAdapterError, export_document as export_svelte_document,
@@ -1077,6 +1078,8 @@ struct ScreenshotMetadata {
     capture_id: String,
     viewport: Viewport,
     #[serde(default)]
+    provider_manifests: Vec<ProviderManifest>,
+    #[serde(default)]
     ocr: Vec<OcrSpan>,
 }
 
@@ -1095,10 +1098,18 @@ fn capture_screenshot(args: &[String]) -> Result<(), CliError> {
             "screenshot metadata does not declare nuif-screenshot-baseline-0",
         ));
     }
+    let baseline_manifest = screenshot_baseline_provider_manifest();
+    let provider = baseline_manifest
+        .identity()
+        .map_err(|error| CliError::new(1, "CAPTURE_PROVIDER_INVALID", error.to_string()))?;
+    let mut provider_manifests = vec![baseline_manifest];
+    provider_manifests.extend(metadata.provider_manifests);
     let capture = ScreenshotCapture {
         schema_version: metadata.schema_version,
         profile: metadata.profile,
         capture_id: metadata.capture_id,
+        provider,
+        provider_manifests,
         viewport: metadata.viewport,
         png: read_input_with_limit(png, MAX_RESOURCE_BYTES)?,
         ocr: metadata.ocr,

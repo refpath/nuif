@@ -1,10 +1,10 @@
 # Research audit and corrected base plan
 
 Audit date: 2026-08-29. Inventory synchronized: 2026-08-31. Current scope: the
-research index, 145 substantive source records plus the record template,
+research index, 146 substantive source records plus the record template,
 questions, coverage map, experiments, whitepaper synthesis, accepted RFCs and
 ADRs, draft specification, conformance design and executable seams. The current
-record states are 119 reviewed, 26 verified and 1 seed template.
+record states are 120 reviewed, 26 verified and 1 seed template.
 
 ## Outcome
 
@@ -246,6 +246,17 @@ independent reproduction exists. The gate now executes the pinned LDR-FLIP
 wrapper at 67 PPD, records its full evaluator parameters, separates the pooled
 mean from exact/local semantic metrics and rejects implicit transparency. This
 validates evaluator wiring, not perceptual accuracy. Gate K remains open.
+
+`cargo xtask reconstruction-provider-manifest` separately makes provider
+identity resolvable rather than decorative. Canonical manifest bytes bind
+capabilities, execution modes, wire profiles and exact operational artifacts;
+every observation bundle carries the manifests referenced by its observations
+and proposals. Missing, duplicate, malformed or dangling entries fail before
+mutation. Released/learned fixtures require external SPDX 3.0.1 or CycloneDX
+1.7 inventory identity, and learned fixtures require a model card. The learned
+fixture contains synthetic digests and the browser/screenshot providers are
+development source-bundle identities, so this is not a released model,
+inventory audit or accuracy result.
 
 ### Gate L — conditional adaptation and distillation (blocked on Gate K)
 

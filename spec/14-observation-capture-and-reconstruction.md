@@ -9,7 +9,7 @@ status: draft
 Status: draft. This module specifies candidate contracts from RFC 0011. No
 screenshot reconstruction profile is currently conforming. The fixed-input
 contract baseline exercises observation/proposal encoding, evidence ceilings,
-flat-copy rejection and bounded correction stops. The separate
+manifest-bound providers, flat-copy rejection and bounded correction stops. The separate
 `nuif-cdp-live-0` baseline exercises one pinned, local Chromium fixture; it is
 not a cross-browser capture or reconstruction-accuracy conformance profile.
 
@@ -42,14 +42,18 @@ An observation contains:
 | `source_locator` | path/node/range or pixel region |
 | `coordinate_space` | named space and dimensions |
 | `context` | evaluation/capture context identifier |
-| `provider` | provider kind plus artifact/version digest |
+| `provider` | provider kind plus canonical provider-manifest digest |
 | `candidates` | typed value(s) and alternatives |
 | `raw_confidence` | optional provider score |
 | `calibrated_confidence` | optional calibrated score plus profile |
 | `privacy_class` | retention/transfer/training policy input |
 
-An observation MUST NOT imply that its candidate is already a semantic document
-value. Applying a candidate requires an operation and validation.
+Every observation bundle MUST carry the exact canonical provider manifest for
+each referenced identity. Missing, duplicate, malformed or digest-mismatched
+manifests fail the complete bundle. A proposal provider MUST resolve through
+the same registry before any operation is applied. An observation MUST NOT
+imply that its candidate is already a semantic document value. Applying a
+candidate requires an operation and validation.
 
 Coordinate spaces include source pixels, device pixels, viewport CSS pixels,
 crop-local pixels and NUIF logical units. A conversion MUST record source and
@@ -241,13 +245,25 @@ near duplicates, establish representativeness or confer permission.
 
 ## Provider neutrality and artifacts
 
-Every OCR/detector/grounder/proposal/correction provider publishes a capability
-manifest and exact artifact identity. Provider output is untrusted.
+Every OCR/detector/grounder/layout/proposal/correction/evaluation provider
+publishes a `nuif-reconstruction-provider-manifest-0` capability wrapper.
+Canonical CBOR bytes define its SHA-256 identity. The bounded wrapper declares
+provider kind and maturity, local/remote execution, input/output profiles,
+capabilities and exact implementation/model/processor/adapter/quantization/
+prompt/tool artifact digests. It contains exactly one implementation artifact.
+Provider output remains untrusted.
+
+Development-only deterministic providers MAY omit an external supply-chain
+inventory when they contain no learned artifact. Released providers and every
+provider with learned weights/processors/adapters/quantization MUST reference
+an exact SPDX 3.0.1 or CycloneDX 1.7 inventory. Learned providers MUST also
+reference a model card. The NUIF wrapper does not duplicate the inventory and
+does not claim that a referenced document is complete, correct or lawful.
 
 Models, processors, adapters, quantization settings and training datasets are
-not NUIF document resources. Released artifacts SHOULD have model cards,
-dataset datasheets and training/evaluation manifests containing content hashes,
-rights/provenance, intended use and limitations.
+not NUIF document resources. Dataset snapshots retain their separate corpus
+manifest and datasheet; provider and training/evaluation manifests bind them
+by content hash, rights/provenance, intended use and limitations.
 
 Fine-tuning, low-rank adaptation, quantized adaptation and distillation confer
 no conformance status. They are compared only after an untuned baseline and

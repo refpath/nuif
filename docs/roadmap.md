@@ -278,7 +278,14 @@ The typed corpus manifest and audit now pin snapshot/card/evaluator/artifact
 digests, separate disclosure and allowed-use policy, and reject exact or
 family-level leakage across all four partitions. Its four synthetic policy
 records prove the auditor, not the existence, legality, coverage or independence
-of a real corpus.
+of a real corpus. The provider-manifest gate now binds every browser,
+screenshot, OCR, proposal and correction identity to canonical manifest bytes,
+requires that observation bundles carry the complete bounded registry and
+rejects dangling proposal identities before mutation. Released/learned
+fixtures require external SPDX 3.0.1 or CycloneDX 1.7 inventory identity, and
+learned fixtures require a model card. Synthetic digests and source-bundle
+development providers prove the contract only; no released model or accuracy
+result exists.
 
 ## Phase 12 — calibration and conditional adaptation (calibration primitive active; adaptation blocked on Phase 11)
 

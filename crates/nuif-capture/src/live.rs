@@ -6,6 +6,7 @@ use crate::{
 };
 use base64::Engine;
 use base64::engine::general_purpose::STANDARD as BASE64;
+use nuif_reconstruct::provider::ProviderManifest;
 use nuif_reconstruct::{Bounds, CaptureContext};
 use serde_json::{Value, json};
 use std::collections::{BTreeMap, BTreeSet, VecDeque};
@@ -56,6 +57,7 @@ pub struct LiveBrowserOptions<'a> {
     pub chrome: &'a Path,
     pub source_url: &'a str,
     pub capture_id: &'a str,
+    pub provider_manifest: &'a ProviderManifest,
     pub viewport: Viewport,
     pub canaries: Option<LiveBrowserCanaries<'a>>,
 }
@@ -84,6 +86,10 @@ pub fn capture_chromium(
     options: &LiveBrowserOptions<'_>,
 ) -> Result<LiveBrowserEvidence, LiveCaptureError> {
     validate_options(options)?;
+    let provider = options
+        .provider_manifest
+        .identity()
+        .map_err(|_| LiveCaptureError::InvalidOptions)?;
     let (mut browser, port) = BrowserProcess::launch(options)?;
     let target = discover_page_target(port, &mut browser)?;
     let mut cdp = CdpClient::connect(&target.web_socket_debugger_url)?;
@@ -151,6 +157,8 @@ pub fn capture_chromium(
             adapter_version: format!(
                 "{LIVE_CAPTURE_ADAPTER_VERSION};{browser_product};cdp-{protocol_version}"
             ),
+            provider,
+            provider_manifests: vec![options.provider_manifest.clone()],
             source_url: strip_url_secrets(options.source_url)?.to_owned(),
             viewport: options.viewport,
             context: Some(context),
@@ -169,6 +177,7 @@ pub fn capture_chromium(
 fn validate_options(options: &LiveBrowserOptions<'_>) -> Result<(), LiveCaptureError> {
     if !options.chrome.is_file()
         || !nuif_core::is_identifier(options.capture_id)
+        || options.provider_manifest.validate().is_err()
         || !(options.source_url.starts_with("http://")
             || options.source_url.starts_with("https://"))
         || strip_url_secrets(options.source_url).is_err()

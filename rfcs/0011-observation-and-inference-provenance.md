@@ -10,8 +10,11 @@ Status: proposed. This RFC refines RFC 0003 for imported observations and
 probabilistic reconstruction. It does not make any model, capture provider or
 screenshot profile normative.
 
-Implementation note: `nuif-capture`, `nuif-reconstruct` and `cargo xtask
-capture-baselines` exercise a bounded fixed-input subset of these contracts.
+Implementation note: `nuif-capture`, `nuif-reconstruct`, `cargo xtask
+capture-baselines` and `cargo xtask reconstruction-provider-manifest` exercise
+a bounded fixed-input subset of these contracts. Every encoded observation
+bundle carries the canonical manifests behind its provider identities and
+proposal application rejects an identity that is absent from that registry.
 `cargo xtask gate-j-live` separately exercises one pinned local Chromium
 fixture, structured runtime context, exact response retention, secret canaries
 and held-out viewport measurement. That automation does not change this RFC's
@@ -80,7 +83,7 @@ subject: optional entity/property/resource reference
 source_artifact_digest
 source_region_or_locator
 coordinate_space_and_context
-provider: kind + artifact/version digest
+provider: kind + canonical provider-manifest digest
 value_or_candidates
 raw_confidence: optional
 calibrated_confidence: optional
@@ -180,6 +183,16 @@ OCR, region detection, UI grounding, proposal engines and correction engines
 are replaceable providers with capability/artifact manifests. The specification
 does not name a required model, vendor, training library, parameter count or
 deployment service.
+
+The implemented `nuif-reconstruction-provider-manifest-0` wrapper is canonical
+CBOR. It binds capabilities, local/remote execution modes and input/output wire
+profiles to one exact implementation plus optional model weights, processor,
+adapter, quantization, prompt and tool-configuration artifacts. Released or
+learned providers require a content-addressed SPDX 3.0.1 or CycloneDX 1.7
+inventory; learned providers additionally require a model card. NUIF points to
+that external inventory instead of defining another SBOM vocabulary. The
+current browser and screenshot baselines are explicitly development-only,
+source-bundle-identified providers with no learned-artifact or accuracy claim.
 
 Model weights, processors, low-rank adapters, quantization configurations and
 training datasets are not NUIF document resources. They are separately

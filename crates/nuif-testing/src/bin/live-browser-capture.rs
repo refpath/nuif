@@ -2,12 +2,15 @@ use nuif_capture::live::{
     LIVE_CAPTURE_ADAPTER_VERSION, LIVE_CONTEXT_LOCALE, LIVE_CONTEXT_PROFILE, LIVE_CONTEXT_TIMEZONE,
     LiveBrowserCanaries, LiveBrowserEvidence, LiveBrowserOptions, capture_chromium,
 };
-use nuif_capture::{BrowserCapture, Viewport, normalize_browser_capture};
-use nuif_core::{Document, EntityId};
+use nuif_capture::{
+    BrowserCapture, Viewport, browser_capture_provider_manifest, normalize_browser_capture,
+};
+use nuif_core::{Document, EntityId, ResourceDigest};
 use nuif_package::{NuifPackage, PackageMode};
 use nuif_reconstruct::layout_inference::{
     LayoutInferenceReport, LayoutItemObservation, LayoutSnapshot, infer_layout,
 };
+use nuif_reconstruct::provider::{ProviderArtifact, ProviderArtifactRole};
 use nuif_reconstruct::{EvidenceClass, ObservationId, ObservationValue};
 use png::{BitDepth, ColorType};
 use serde_json::{Value, json};
@@ -16,7 +19,7 @@ use std::env;
 use std::fs;
 use std::io::{Cursor, Read, Write};
 use std::net::{TcpListener, TcpStream};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
@@ -98,6 +101,17 @@ fn main() {
 )]
 fn run() -> Result<(), String> {
     let arguments = arguments()?;
+    let mut provider_manifest = browser_capture_provider_manifest();
+    provider_manifest.artifacts.push(ProviderArtifact {
+        id: "chrome-for-testing".to_owned(),
+        role: ProviderArtifactRole::ToolConfiguration,
+        digest: ResourceDigest::from_sha256_hex(sha256_file(&arguments.chrome)?),
+        format: "chrome-for-testing".to_owned(),
+        version: arguments.browser_version.clone(),
+    });
+    let provider_identity = provider_manifest
+        .identity()
+        .map_err(|error| error.to_string())?;
     let image_png = fixture_png()?;
     let mut expected_hashes = vec![
         sha256(INDEX_HTML.as_bytes()),
@@ -130,6 +144,7 @@ fn run() -> Result<(), String> {
                 chrome: &arguments.chrome,
                 source_url: &source_url,
                 capture_id,
+                provider_manifest: &provider_manifest,
                 viewport: Viewport {
                     width,
                     height: 560.0,
@@ -370,6 +385,8 @@ fn run() -> Result<(), String> {
         "experiment": "nuif:experiment:live-browser-source-capture",
         "status": if passed { "passed" } else { "failed" },
         "source": source_identity(),
+        "provider_manifest": provider_manifest,
+        "provider_identity": provider_identity,
         "browser": {
             "product": narrow.browser_product,
             "protocol_version": narrow.protocol_version,
@@ -504,11 +521,12 @@ fn infer_captured_layout(
     wide: &BrowserCapture,
     heldout: &BrowserCapture,
 ) -> Result<LayoutInferenceReport, String> {
+    let provider = narrow.provider.clone();
     let (narrow, mut evidence) = panel_snapshot(narrow)?;
     let (wide, wide_evidence) = panel_snapshot(wide)?;
     let (heldout, _) = panel_snapshot(heldout)?;
     evidence.extend(wide_evidence);
-    infer_layout(&[narrow, wide], &heldout, evidence).map_err(|error| error.to_string())
+    infer_layout(&[narrow, wide], &heldout, evidence, provider).map_err(|error| error.to_string())
 }
 
 fn panel_snapshot(
@@ -889,6 +907,20 @@ fn contains(haystack: &[u8], needle: &[u8]) -> bool {
 
 fn sha256(bytes: &[u8]) -> String {
     format!("{:x}", Sha256::digest(bytes))
+}
+
+fn sha256_file(path: &Path) -> Result<String, String> {
+    let mut file = fs::File::open(path).map_err(|error| error.to_string())?;
+    let mut hasher = Sha256::new();
+    let mut buffer = vec![0_u8; 64 * 1024];
+    loop {
+        let read = file.read(&mut buffer).map_err(|error| error.to_string())?;
+        if read == 0 {
+            break;
+        }
+        hasher.update(&buffer[..read]);
+    }
+    Ok(format!("{:x}", hasher.finalize()))
 }
 
 fn source_identity() -> Value {

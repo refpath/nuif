@@ -1,3 +1,4 @@
+use crate::provider::ProviderIdentity;
 use crate::{Bounds, Confidence, EvidenceClass, InferenceProvenance, ObservationId};
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeSet;
@@ -111,8 +112,12 @@ pub fn infer_layout(
     training: &[LayoutSnapshot],
     heldout: &LayoutSnapshot,
     observations: BTreeSet<ObservationId>,
+    provider: ProviderIdentity,
 ) -> Result<LayoutInferenceReport, LayoutInferenceError> {
     validate_inputs(training, heldout, &observations)?;
+    provider
+        .validate()
+        .map_err(|_| LayoutInferenceError::Provenance)?;
     let first = &training[0];
     let last = &training[training.len() - 1];
     let mut candidates = LayoutCandidateKind::all()
@@ -168,7 +173,7 @@ pub fn infer_layout(
         evidence: EvidenceClass::Inferred,
         provenance: InferenceProvenance {
             method: "geometric-layout-candidate-ranking".to_owned(),
-            artifact: None,
+            provider,
             observations,
             confidence: Confidence::raw(raw_confidence),
         },
@@ -496,6 +501,7 @@ fn bounded_f64(value: usize) -> f64 {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use nuif_core::ResourceDigest;
 
     fn item(id: &str, x: f64, y: f64, width: f64, height: f64) -> LayoutItemObservation {
         LayoutItemObservation {
@@ -529,6 +535,13 @@ mod tests {
         BTreeSet::from([ObservationId("capture-node-1-geometry".to_owned())])
     }
 
+    fn provider() -> ProviderIdentity {
+        ProviderIdentity {
+            kind: "layout-inference".to_owned(),
+            manifest: ResourceDigest::from_sha256_hex("d".repeat(64)),
+        }
+    }
+
     #[test]
     fn responsive_constraint_candidate_beats_fixed_freeform() {
         let training = [
@@ -536,7 +549,7 @@ mod tests {
             snapshot(400.0, [40.0, 320.0]),
         ];
         let heldout = snapshot(500.0, [50.0, 410.0]);
-        let report = infer_layout(&training, &heldout, evidence()).unwrap();
+        let report = infer_layout(&training, &heldout, evidence(), provider()).unwrap();
         assert_eq!(report.selected, LayoutCandidateKind::Constraint);
         assert!(report.beats_freeform_on_heldout());
         assert_eq!(report.evidence, EvidenceClass::Inferred);
@@ -548,7 +561,7 @@ mod tests {
     fn stable_regular_row_prefers_stack_over_node_coordinates() {
         let training = [snapshot(200.0, [20.0, 80.0]), snapshot(400.0, [20.0, 80.0])];
         let heldout = snapshot(500.0, [20.0, 80.0]);
-        let report = infer_layout(&training, &heldout, evidence()).unwrap();
+        let report = infer_layout(&training, &heldout, evidence(), provider()).unwrap();
         assert_eq!(report.selected, LayoutCandidateKind::StackRow);
         assert!(report.selected_heldout_error.abs() < f64::EPSILON);
     }
@@ -559,12 +572,12 @@ mod tests {
         let mut heldout = snapshot(500.0, [20.0, 80.0]);
         heldout.items[1].id = "replacement".to_owned();
         assert_eq!(
-            infer_layout(&training, &heldout, evidence()),
+            infer_layout(&training, &heldout, evidence(), provider()),
             Err(LayoutInferenceError::ItemIdentity)
         );
         let heldout = snapshot(500.0, [20.0, 80.0]);
         assert_eq!(
-            infer_layout(&training, &heldout, BTreeSet::new()),
+            infer_layout(&training, &heldout, BTreeSet::new(), provider()),
             Err(LayoutInferenceError::Provenance)
         );
     }
@@ -576,7 +589,7 @@ mod tests {
             snapshot(400.0, [40.0, 320.0]),
         ];
         let heldout = snapshot(500.0, [50.0, 410.0]);
-        let report = infer_layout(&training, &heldout, evidence()).unwrap();
+        let report = infer_layout(&training, &heldout, evidence(), provider()).unwrap();
         let bytes = nuif_codec::encode_canonical_record(&report).unwrap();
         let decoded: LayoutInferenceReport = nuif_codec::decode_canonical_record(&bytes).unwrap();
         assert_eq!(decoded, report);
