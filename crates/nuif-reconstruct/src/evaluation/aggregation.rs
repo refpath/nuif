@@ -228,6 +228,7 @@ pub struct SelectiveDistribution {
 pub struct PerceptualDistribution {
     pub lower_is_better: bool,
     pub artifact: Option<ResourceDigest>,
+    pub parameters: BTreeMap<String, String>,
     pub values: ScalarDistribution,
 }
 
@@ -409,6 +410,7 @@ impl EvaluationAggregate {
                     .artifact
                     .as_ref()
                     .is_some_and(|artifact| !artifact.is_valid())
+                || diagnostic.parameters.is_empty()
             {
                 return Err(AggregationError::InvalidAggregate("perceptual diagnostic"));
             }
@@ -610,6 +612,7 @@ fn perceptual_distributions(
         if matching.iter().any(|diagnostic| {
             diagnostic.lower_is_better != first.lower_is_better
                 || diagnostic.artifact != first.artifact
+                || diagnostic.parameters != first.parameters
         }) {
             return Err(AggregationError::IncompatiblePerceptualDiagnostic);
         }
@@ -618,6 +621,7 @@ fn perceptual_distributions(
             PerceptualDistribution {
                 lower_is_better: first.lower_is_better,
                 artifact: first.artifact.clone(),
+                parameters: first.parameters.clone(),
                 values: ScalarDistribution::build(
                     reports.iter().map(|report| {
                         report
@@ -786,12 +790,14 @@ mod tests {
             value: 0.5,
             lower_is_better: false,
             artifact: Some(ResourceDigest::from_sha256_hex("a".repeat(64))),
+            parameters: BTreeMap::from([("profile".to_owned(), "fixture-1".to_owned())]),
         }];
         second.perceptual_diagnostics = vec![PerceptualDiagnostic {
             method: "fixture-metric".to_owned(),
             value: 0.5,
             lower_is_better: false,
             artifact: Some(ResourceDigest::from_sha256_hex("b".repeat(64))),
+            parameters: BTreeMap::from([("profile".to_owned(), "fixture-1".to_owned())]),
         }];
         assert!(matches!(
             EvaluationAggregate::build(&[first, second]),

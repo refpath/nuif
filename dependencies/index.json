@@ -74,6 +74,14 @@
       "evidence": ["research/items/masonry-editor-stack-decision.md", "research/items/macos-metal-block-future-incompatibility.md"]
     },
     {
+      "name": "nv-flip",
+      "role": "test-only LDR-FLIP perceptual error-map oracle for rendered-image diagnostics",
+      "decision": "retain",
+      "alternatives": ["NVIDIA FLIP command-line oracle", "iqa SSIM", "LPIPS model sidecar", "DSSIM"],
+      "rationale": "The exact Rust wrapper is already exercised by Vello, embeds NVIDIA's BSD-3-Clause CPU implementation and exposes the required PPD plus error map without a runtime Python/model dependency. NUIF pins both resolved crate versions, records PPD/input handling in every result and keeps exact pixels, elements and geometry authoritative because FLIP pooling is non-normative and platform-sensitive.",
+      "evidence": ["research/items/flip-perceptual-difference-metric.md", "research/items/ssim-and-classical-image-metrics.md", "research/items/lpips-learned-perceptual-similarity.md", "research/items/vello-testing-and-cpu-reference.md"]
+    },
+    {
       "name": "png",
       "role": "deterministic PNG artifact encoding",
       "decision": "retain",

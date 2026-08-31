@@ -266,9 +266,11 @@ family, preserves empty denominators as unscored, rejects screenshot-only
 source-resource recall claims and keeps unavailable hardware measurements
 explicit. Its deterministic synthetic fixture validates the evaluator
 contract, not reconstruction quality. The missing OCR/model baselines, licensed
-real and leak-resistant held-out corpus, standard perceptual implementations,
-predeclared statistical uncertainty method and independent evaluator keep the
-phase open. A deterministic three-example fixture now exercises typed
+real and leak-resistant held-out corpus, predeclared FLIP thresholds/viewing
+contexts, statistical uncertainty method and independent evaluator keep the
+phase open. The pinned test-only LDR-FLIP implementation proves that exact and
+perceptual diagnostics can coexist and refuses implicit alpha handling; its one
+synthetic local error is not threshold calibration. A deterministic three-example fixture exercises typed
 distribution aggregation, including micro/macro separation and explicit
 missingness, without presenting it as empirical accuracy evidence.
 

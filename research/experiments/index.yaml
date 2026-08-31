@@ -690,6 +690,22 @@ experiments:
       - compare full-screen hierarchical-crop and observation-graph inputs under equal budgets
       - evaluate OCR detection recognition and baselines separately from hierarchy layout and paint
       - retain typed alternatives provenance confidence abstentions and every invalid-output diagnostic
+  - id: nuif:experiment:reconstruction-evaluation-contract
+    status: automated
+    evidence: [nuif:research:model-agnostic-screenshot-reconstruction-and-training, nuif:research:flip-perceptual-difference-metric, nuif:research:ssim-and-classical-image-metrics, nuif:research:confidence-calibration-and-selective-prediction]
+    implementation: [crates/nuif-reconstruct/src/evaluation.rs, crates/nuif-reconstruct/src/evaluation/aggregation.rs, crates/nuif-testing/src/bin/reconstruction-evaluation.rs, xtask/src/main.rs]
+    oracle: typed-derived-metric-and-pinned-ldr-flip-contract
+    acceptance:
+      - every required per-example metric family retains exact evidence or explicit missingness and rejects derived-value drift
+      - source-backed and screenshot-only resource claims cannot be mixed or promoted
+      - corpus aggregates are input-order independent and preserve micro rates macro distributions and unscored counts
+      - perceptual aggregation requires identical method direction parameters and evaluator artifact
+      - pinned LDR-FLIP detects a local opaque-sRGB8 difference while exact pixel and element errors remain independently visible
+    tests:
+      - validate and JSON-round-trip one typed report and one three-example aggregate
+      - reject zero-denominator perfection oversized edit work duplicate examples mixed suites calibration drift evaluator drift and mixed currencies
+      - compute nv-flip 0.1.2 mean at 67 PPD and reject transparency or dimension ambiguity before FFI
+      - archive target/reconstruction-evaluation-report.json from cargo xtask reconstruction-evaluation
   - id: nuif:experiment:reconstruction-closed-loop
     status: active
     evidence: [nuif:research:ui-code-generation-boundaries, nuif:research:visrefiner-render-difference-learning, nuif:research:flip-perceptual-difference-metric, nuif:research:lpips-learned-perceptual-similarity, nuif:research:model-agnostic-screenshot-reconstruction-and-training]

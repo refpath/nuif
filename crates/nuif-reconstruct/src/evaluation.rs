@@ -10,6 +10,8 @@ pub const EVALUATION_PROFILE: &str = "nuif-reconstruction-evaluation-0";
 pub const MAX_EVALUATION_ITEMS: usize = 100_000;
 pub const MAX_EDIT_DISTANCE_CELLS: usize = 16 * 1024 * 1024;
 pub const MAX_PERCEPTUAL_DIAGNOSTICS: usize = 64;
+pub const MAX_PERCEPTUAL_PARAMETERS: usize = 32;
+pub const MAX_PERCEPTUAL_PARAMETER_BYTES: usize = 4 * 1024;
 pub const MAX_CALIBRATION_BINS: usize = 100;
 pub const MAX_PIXEL_COUNT: usize = 16 * 1024 * 1024;
 const MAX_CALIBRATION_BINS_U32: u32 = 100;
@@ -369,6 +371,7 @@ pub struct PerceptualDiagnostic {
     pub value: f64,
     pub lower_is_better: bool,
     pub artifact: Option<ResourceDigest>,
+    pub parameters: std::collections::BTreeMap<String, String>,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
@@ -602,9 +605,21 @@ impl EvaluationReport {
         }
         let mut methods = BTreeSet::new();
         for diagnostic in &self.perceptual_diagnostics {
+            let parameter_bytes = diagnostic
+                .parameters
+                .iter()
+                .map(|(key, value)| key.len().saturating_add(value.len()))
+                .try_fold(0_usize, usize::checked_add);
             if !is_identifier(&diagnostic.method)
                 || !diagnostic.value.is_finite()
                 || !methods.insert(&diagnostic.method)
+                || diagnostic.parameters.is_empty()
+                || diagnostic.parameters.len() > MAX_PERCEPTUAL_PARAMETERS
+                || diagnostic
+                    .parameters
+                    .iter()
+                    .any(|(key, value)| !is_identifier(key) || value.is_empty())
+                || parameter_bytes.is_none_or(|bytes| bytes > MAX_PERCEPTUAL_PARAMETER_BYTES)
                 || diagnostic
                     .artifact
                     .as_ref()

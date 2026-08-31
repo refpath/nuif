@@ -241,8 +241,11 @@ three-example aggregate reports pooled rates, scored/unscored per-example
 distributions and nearest-rank p50/p95 while rejecting mixed suites,
 calibration/evaluator drift and mixed currencies. These are synthetic contract
 fixtures: no OCR/model baseline, licensed real or leak-resistant held-out
-accuracy corpus, standard perceptual evaluator, predeclared uncertainty method
-or independent reproduction exists. Gate K remains open.
+accuracy corpus, predeclared perceptual thresholds/uncertainty method or
+independent reproduction exists. The gate now executes the pinned LDR-FLIP
+wrapper at 67 PPD, records its full evaluator parameters, separates the pooled
+mean from exact/local semantic metrics and rejects implicit transparency. This
+validates evaluator wiring, not perceptual accuracy. Gate K remains open.
 
 ### Gate L — conditional adaptation and distillation (blocked on Gate K)
 

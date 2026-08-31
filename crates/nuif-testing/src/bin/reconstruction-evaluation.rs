@@ -7,8 +7,10 @@ use nuif_reconstruct::evaluation::{
     PixelMetrics, PropertyMetrics, RateMetric, TextMetrics, TreeMetrics, character_error,
     word_error,
 };
+use nv_flip::{DEFAULT_PIXELS_PER_DEGREE, FlipImageRgb8, FlipPool};
 use serde_json::{Value, json};
 use sha2::{Digest, Sha256};
+use std::collections::BTreeMap;
 use std::env;
 use std::fs;
 use std::path::PathBuf;
@@ -35,13 +37,15 @@ fn run() -> Result<(), String> {
     let held_out_reference = [bounds(0.0, 0.0, 96.0, 24.0)];
     let held_out_candidate = [bounds(0.0, 0.0, 92.0, 24.0)];
 
-    let reference_pixels = [0_u8, 102, 255, 255].repeat(16);
+    let reference_pixels = [0_u8, 102, 255, 255].repeat(64 * 64);
     let mut candidate_pixels = reference_pixels.clone();
     candidate_pixels[0] = 8;
     candidate_pixels[1] = 94;
     candidate_pixels[2] = 247;
-    let pixels = PixelMetrics::compare(4, 4, &reference_pixels, &candidate_pixels)
+    let pixels = PixelMetrics::compare(64, 64, &reference_pixels, &candidate_pixels)
         .map_err(|error| error.to_string())?;
+    let flip_mean = ldr_flip_mean(64, 64, &reference_pixels, &candidate_pixels)?;
+    let identical_flip_mean = ldr_flip_mean(64, 64, &reference_pixels, &reference_pixels)?;
     let elements = DetectionMetrics::new(3, 0, 1);
     let confidence = CalibrationMetrics::evaluate(
         &[
@@ -101,12 +105,25 @@ fn run() -> Result<(), String> {
         accessibility: Some(RateMetric::new(2, 3)),
         pixels,
         perceptual_diagnostics: vec![PerceptualDiagnostic {
-            method: "rec709-luma-similarity-v1".to_owned(),
-            value: rec709_luma_similarity(&reference_pixels, &candidate_pixels),
-            lower_is_better: false,
+            method: "ldr-flip-mean-v1".to_owned(),
+            value: flip_mean,
+            lower_is_better: true,
             artifact: Some(ResourceDigest::from_sha256_hex(sha256(
-                b"nuif fixture rec709 luma similarity v1: 1 - mean(abs(y1-y2))/255",
+                b"nv-flip=0.1.2;nv-flip-sys=0.1.1;ldr;opaque-srgb8;ppd=67;pool=mean",
             ))),
+            parameters: BTreeMap::from([
+                (
+                    "implementation".to_owned(),
+                    "nv-flip=0.1.2;nv-flip-sys=0.1.1".to_owned(),
+                ),
+                ("input".to_owned(), "opaque-srgb8".to_owned()),
+                (
+                    "pixels-per-degree".to_owned(),
+                    DEFAULT_PIXELS_PER_DEGREE.to_string(),
+                ),
+                ("pooling".to_owned(), "arithmetic-mean".to_owned()),
+                ("platform-sensitive".to_owned(), "true".to_owned()),
+            ]),
         }],
         confidence,
         cost: CostMetrics {
@@ -155,9 +172,16 @@ fn run() -> Result<(), String> {
         RateMetric::new(0, 0).value.is_none() && DetectionMetrics::new(0, 0, 0).f1.is_none();
     let oversized_edit_rejected = character_error(&"x".repeat(4_097), &"x".repeat(4_097)).is_err();
     let local_error_visible = report.pixels.differing_pixels == 1
-        && report.pixels.exact_pixel_rate.value == Some(15.0 / 16.0)
+        && report.pixels.exact_pixel_rate.value == Some(4_095.0 / 4_096.0)
         && report.elements.false_negative == 1
         && report.elements.recall.value == Some(0.75);
+    let flip_detects_local_error =
+        identical_flip_mean == 0.0 && flip_mean.is_finite() && flip_mean > 0.0 && flip_mean <= 1.0;
+    let mut transparent_pixels = reference_pixels.clone();
+    transparent_pixels[3] = 0;
+    let ambiguous_flip_input_rejected =
+        ldr_flip_mean(64, 64, &reference_pixels, &transparent_pixels).is_err()
+            && ldr_flip_mean(63, 64, &reference_pixels, &candidate_pixels).is_err();
     let mut derived_rate_drift = report.clone();
     derived_rate_drift.validity.value = Some(1.0);
     let derived_rate_drift_rejected = derived_rate_drift.validate().is_err();
@@ -200,6 +224,14 @@ fn run() -> Result<(), String> {
             "local_and_element_errors_remain_visible",
             local_error_visible,
         ),
+        check(
+            "pinned_ldr_flip_detects_local_error",
+            flip_detects_local_error,
+        ),
+        check(
+            "ambiguous_flip_input_rejected",
+            ambiguous_flip_input_rejected,
+        ),
         check("derived_rate_drift_rejected", derived_rate_drift_rejected),
         check("typed_aggregate_round_trip", aggregate_round_trip),
         check(
@@ -219,7 +251,8 @@ fn run() -> Result<(), String> {
         "non_claims": [
             "one deterministic synthetic contract fixture is not an accuracy distribution",
             "the fixture does not evaluate an OCR, detector, vision-language model, or correction provider",
-            "the REC.709 luma diagnostic is not SSIM, FLIP, LPIPS, or a human perceptual oracle",
+            "the pinned LDR-FLIP mean is a non-normative diagnostic, not a correctness oracle or human study",
+            "SSIM and LPIPS are not computed; exact pixels, elements, geometry, text, and provenance remain separate",
             "latency is shared-runner diagnostic evidence; peak RAM and VRAM are unavailable",
             "no independent evaluator or licensed real-screenshot corpus is exercised"
         ]
@@ -253,25 +286,45 @@ fn bounds(x: f64, y: f64, width: f64, height: f64) -> Bounds {
     }
 }
 
-fn rec709_luma_similarity(reference: &[u8], candidate: &[u8]) -> f64 {
-    let (reference, reference_remainder) = reference.as_chunks::<4>();
-    let (candidate, candidate_remainder) = candidate.as_chunks::<4>();
-    debug_assert!(reference_remainder.is_empty() && candidate_remainder.is_empty());
-    let absolute_error = reference
-        .iter()
-        .zip(candidate)
-        .map(|(reference, candidate)| {
-            let reference = 0.2126 * f64::from(reference[0])
-                + 0.7152 * f64::from(reference[1])
-                + 0.0722 * f64::from(reference[2]);
-            let candidate = 0.2126 * f64::from(candidate[0])
-                + 0.7152 * f64::from(candidate[1])
-                + 0.0722 * f64::from(candidate[2]);
-            (reference - candidate).abs()
+fn ldr_flip_mean(
+    width: u32,
+    height: u32,
+    reference: &[u8],
+    candidate: &[u8],
+) -> Result<f64, String> {
+    let reference = opaque_rgb(width, height, reference)?;
+    let candidate = opaque_rgb(width, height, candidate)?;
+    let error_map = nv_flip::flip(
+        FlipImageRgb8::with_data(width, height, &reference),
+        FlipImageRgb8::with_data(width, height, &candidate),
+        DEFAULT_PIXELS_PER_DEGREE,
+    );
+    Ok(f64::from(FlipPool::from_image(&error_map).mean()))
+}
+
+fn opaque_rgb(width: u32, height: u32, rgba: &[u8]) -> Result<Vec<u8>, String> {
+    let pixels = usize::try_from(width)
+        .ok()
+        .and_then(|width| {
+            usize::try_from(height)
+                .ok()
+                .and_then(|height| width.checked_mul(height))
         })
-        .sum::<f64>();
-    let pixels = f64::from(u32::try_from(reference.len()).unwrap_or(u32::MAX));
-    1.0 - absolute_error / (pixels * 255.0)
+        .ok_or_else(|| "FLIP dimensions overflow".to_owned())?;
+    if pixels == 0 || rgba.len() != pixels.saturating_mul(4) {
+        return Err("FLIP RGBA input dimensions do not match".to_owned());
+    }
+    let (rgba, remainder) = rgba.as_chunks::<4>();
+    if !remainder.is_empty() || rgba.iter().any(|pixel| pixel[3] != 255) {
+        return Err(
+            "FLIP input must be opaque RGBA8; composite transparency explicitly".to_owned(),
+        );
+    }
+    let mut rgb = Vec::with_capacity(pixels.saturating_mul(3));
+    for pixel in rgba {
+        rgb.extend_from_slice(&pixel[..3]);
+    }
+    Ok(rgb)
 }
 
 fn sha256(bytes: &[u8]) -> String {

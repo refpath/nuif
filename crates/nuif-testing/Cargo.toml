@@ -28,6 +28,7 @@ nuif-render = { version = "0.0.0", path = "../nuif-render" }
 nuif-svg = { version = "0.0.1", path = "../nuif-svg" }
 nuif-svelte = { version = "0.0.1", path = "../nuif-svelte" }
 nuif-text = { version = "0.0.1", path = "../nuif-text" }
+nv-flip.workspace = true
 png.workspace = true
 serde.workspace = true
 serde_json.workspace = true

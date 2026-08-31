@@ -1,6 +1,6 @@
 # Test-harness architecture
 
-Status: profile-0 baseline, deterministic `nuif-package-0`, narrow cross-decoder `nuif-png-rgba8-0`, Gate C browser/Taffy, Gate D text/render, Gate E complete editor authoring, bounded and full-v0 Gate F HTML/CSS synchronization, SVG/DTCG/Penpot/React/Svelte retentive adapter gates, the pure Figma snapshot mapping gate, the three-engine bounded web-accessibility projection, the Rust/Node bounded behavior state-machine differential, `nuif-wasm-api-0`, Gate G independent v0 reproduction, Gate H property-register and existing-tree convergence, and a bounded five-target sanitizer fuzz suite are implemented. Bounded browser/screenshot capture and reconstruction contracts, a typed per-example reconstruction-evaluation contract and the pinned local live-Chromium segment have executable evidence; their portable cross-provider accuracy corpus is not yet a release gate. Standard perceptual implementations and distributional reconstruction comparison, concurrent entity creation and broader foreign-runtime trials remain planned. This document specifies how round-trip trials run unattended, fail reproducibly, minimize themselves and report in machine-readable form. Evidence is cited by research record identifier.
+Status: profile-0 baseline, deterministic `nuif-package-0`, narrow cross-decoder `nuif-png-rgba8-0`, Gate C browser/Taffy, Gate D text/render, Gate E complete editor authoring, bounded and full-v0 Gate F HTML/CSS synchronization, SVG/DTCG/Penpot/React/Svelte retentive adapter gates, the pure Figma snapshot mapping gate, the three-engine bounded web-accessibility projection, the Rust/Node bounded behavior state-machine differential, `nuif-wasm-api-0`, Gate G independent v0 reproduction, Gate H property-register and existing-tree convergence, and a bounded five-target sanitizer fuzz suite are implemented. Bounded browser/screenshot capture and reconstruction contracts, typed per-example/corpus reconstruction evaluation, pinned LDR-FLIP diagnostics and the pinned local live-Chromium segment have executable evidence; their portable cross-provider accuracy corpus is not yet a release gate. Empirical perceptual thresholds and distributional reconstruction comparison, concurrent entity creation and broader foreign-runtime trials remain planned. This document specifies how round-trip trials run unattended, fail reproducibly, minimize themselves and report in machine-readable form. Evidence is cited by research record identifier.
 
 ## Goals
 
@@ -299,9 +299,13 @@ three-example `nuif-reconstruction-evaluation-aggregate-0` fixture proves
 input-order independence, pooled rate arithmetic, nearest-rank p50/p95 and
 explicit missingness. Aggregation rejects mixed suites, duplicate identities,
 incompatible calibration/perceptual configurations and mixed currencies. The
-report explicitly disclaims OCR/model accuracy, a real or held-out corpus,
-standard perceptual metrics, statistically calibrated uncertainty and
-independent evaluation.
+same gate runs pinned `nv-flip` 0.1.2/`nv-flip-sys` 0.1.1 LDR-FLIP at 67 PPD
+over explicitly opaque sRGB8 input. It requires zero mean for identity and a
+nonzero bounded mean for one local error, records the implementation, PPD,
+pooling and platform-sensitivity parameters and refuses transparency or shape
+ambiguity. FLIP remains diagnostic: the report explicitly disclaims OCR/model
+accuracy, a real or held-out corpus, empirical perceptual thresholds,
+statistically calibrated uncertainty and independent evaluation.
 
 The separate live capture experiment writes
 `target/live-browser-capture-report.json`. `cargo xtask gate-j-live` installs or

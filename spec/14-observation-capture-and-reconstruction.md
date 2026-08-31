@@ -210,6 +210,12 @@ duplicate examples, incompatible calibration thresholds, perceptual evaluator
 identity drift and mixed currencies. It reports pooled integer-evidence rates
 beside per-example scored/unscored counts, mean and nearest-rank p50/p95. This
 synthetic contract fixture is not an accuracy corpus or a confidence interval.
+Every perceptual entry also carries a bounded parameter map and optional
+content digest identifying the evaluator artifact. Aggregation is permitted
+only when method, direction, parameters and artifact identity agree. The
+current diagnostic is LDR-FLIP mean at a declared 67 PPD over opaque sRGB8;
+transparent input MUST be composited against a declared background before
+evaluation, never silently discarded.
 
 No visual metric alone establishes conformance. Metrics are reported per example
 and as distributions; local/small-element errors MUST NOT be hidden by a large

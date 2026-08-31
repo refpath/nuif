@@ -31,8 +31,8 @@ links:
   spec: [spec/00-conformance.md, spec/05-geometry-paint-text.md]
   adr: [adrs/0003-reference-renderer.md]
   rfc: []
-  code: [crates/nuif-render, conformance/PLAN.md]
-  experiments: []
+  code: [crates/nuif-render, crates/nuif-reconstruct/src/evaluation.rs, crates/nuif-testing/src/bin/reconstruction-evaluation.rs, conformance/PLAN.md]
+  experiments: [nuif:experiment:reconstruction-evaluation-contract]
 ---
 
 # Summary
@@ -105,8 +105,20 @@ The HDR compositing rule (per-pixel maximum with an exposure map) is stated in t
 - Do not use FLIP as the gate for the deterministic CPU reference path, because exact pixel equality is the normative requirement there and FLIP would mask real semantic regressions such as off-by-one clipping.
 - Do not use HDR-FLIP, because NUIF documents specify display-referred sRGB output rather than scene-referred radiance.
 
+## Implemented diagnostic boundary
+
+The synthetic reconstruction-evaluation gate uses exact `nv-flip` 0.1.2 with
+resolved `nv-flip-sys` 0.1.1, LDR input, arithmetic-mean pooling and the
+reference default of 67 PPD. It records those values, platform sensitivity and
+an evaluator digest in the typed report. The dependency is test-only. Exact
+pixel, element, text, geometry and provenance fields remain independent, so a
+low pooled error cannot hide a missing control. The adapter accepts only
+same-sized opaque sRGB8; callers must explicitly composite transparency under
+a recorded policy. This closes the wiring and alpha-ambiguity questions for
+the fixture, not the threshold or cross-platform reproducibility questions.
+
 ## Open questions
 
 - Which per-fixture-class thresholds (text, thin strokes, gradients) are appropriate; Vello's 0.01 mean is an engineering choice, not a published recommendation.
 - Whether a pure-Rust FLIP port with a pinned evaluation order is required so that the metric itself is reproducible across CI platforms.
-- How to report FLIP for fixtures with transparent backgrounds, since the metric consumes opaque RGB and Vello discards alpha before pooling.
+- Which declared compositing backgrounds should become separate transparent-fixture profiles; the current diagnostic refuses transparency rather than guessing.
