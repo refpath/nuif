@@ -195,13 +195,22 @@ Roboto Flex fixture and matches
 MVAR-adjusted x-height, cap height, ascent, descent, and line gap against
 HarfBuzz's public metric API at eight complete 13-axis locations. A fourth
 `cargo xtask gate-i-font-security` preflights the `gvar`, HVAR, MVAR and STAT
-graphs of all three fixtures, rejects 37 checksum-repaired hostile mutations,
-and enforces four warmed allocation/time regression trials. Nine hostile cases
+graphs of five fixtures, rejects 38 checksum-repaired hostile mutations,
+and enforces six warmed allocation/time regression trials. Nine hostile cases
 cover representative packed `gvar` point/delta failures, exact axis run counts,
 glyph/component-plus-phantom bounds, and exclusion of non-OpenType 32-bit delta
-runs. This closes the first graph/budget/packed-data milestone, but not every
-encoding combination, a broader rights-reviewed corpus, VVAR, or
-package/runtime requirements.
+runs; a separate mutation proves explicit VVAR exclusion. This closes the first
+graph/budget/packed-data milestone, but not every encoding combination, VVAR
+semantics, or package/runtime requirements.
+
+`cargo xtask gate-i-font-corpus` adds independently authored Noto Sans and
+Recursive OFL-1.1 subsets with exact source, registry, license, derivation and
+oracle identities. Eight locations across distinct 2- and 5-axis graphs agree
+with HarfBuzz on metadata, normalization, shaping, HVAR advances and MVAR
+global metrics. Seven unhinted outlines are byte-exact; one Recursive interior
+control coordinate differs by one 26.6 unit under identical path topology, so
+the corpus enforces that measured bound instead of making a false exactness
+claim. Both fixtures pass candidate asset validation without typed admission.
 
 `cargo xtask gate-i-font-package` separately proves that the exact OFL fixture
 bytes survive a resource-only deterministic package fixpoint and unrelated

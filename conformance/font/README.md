@@ -23,10 +23,16 @@ tool a build dependency or turn one fixture into a general format claim.
   `python3 tools/font/capture_harfbuzz_mvar.py <font>`. The fixture provenance,
   license, preparation command, and exact source/derived digests are retained
   beside the font.
-- `cargo xtask gate-i-font-security` runs the three variable fixtures through
+- `harfbuzz-14.4.0-noto-sans-variable.json` and
+  `harfbuzz-14.4.0-recursive-variable.json` record metadata, normalization,
+  shaping, horizontal advances, global metrics, and unhinted outlines at four
+  locations each. Their independently authored OFL-1.1 subsets, licenses,
+  derivation commands, and exact source/output digests are retained under
+  `fixtures/`.
+- `cargo xtask gate-i-font-security` runs five variable fixtures through
   structural `gvar`, HVAR, MVAR, item-variation-store, and STAT preflight. Its
-  37 checksum-repaired hostile mutations—including packed point/delta runs—and
-  four allocation/time trials write
+  38 checksum-repaired hostile mutations—including packed point/delta runs and
+  explicit VVAR exclusion—and six allocation/time trials write
   `target/variable-font-security-report.json`; the measured ceilings are
   reference-implementation regressions, not portable format limits.
 - `cargo xtask gate-i-font-package` validates the proposed asset metadata and
@@ -34,6 +40,9 @@ tool a build dependency or turn one fixture into a general format claim.
   exact-byte retention across an unrelated edit, and exercises explicit
   digest-pinned linked resolution. Typed package binding remains deliberately
   rejected until the runtime consumes the same normalized coordinates.
+- `cargo xtask gate-i-font-corpus` compares both OFL subsets against the pinned
+  HarfBuzz captures. It requires exact shaping, HVAR advances, MVAR metrics and
+  path topology, with at most the measured one-unit 26.6 outline tie.
 
 The variable fixture comes from `font-test-data` 0.9.1. Its package metadata
 declares `MIT OR Apache-2.0`, while the font's embedded copyright string is

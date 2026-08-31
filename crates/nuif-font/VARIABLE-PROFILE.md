@@ -83,6 +83,20 @@ public metric API. The `YTLC`, `YTUC`, and `opsz` cases distinguish targeted
 global-metric deltas from glyph shaping. This is one MVAR store and not broad
 MVAR, rights-policy, or package/runtime evidence.
 
+`cargo xtask gate-i-font-corpus` adds independently authored Noto Sans and
+Recursive subsets under OFL-1.1. Exact registry commits, upstream revisions,
+font/license/source/output digests, `hb-subset` 14.4.0 commands, and retained
+license texts make both fixtures reproducible and reviewable. Across eight
+default/minimum/maximum/interior locations, NUIF agrees with pinned HarfBuzz
+14.4.0 on 2- and 5-axis metadata and normalized coordinates, shaping, HVAR
+advances, and MVAR global metrics. Seven unhinted outlines agree exactly; the
+Recursive five-axis interior outline has identical topology and one control
+coordinate differs by one 26.6 unit, so the cross-implementation rule permits
+at most that measured 1/64-font-unit tie. The two graph shapes cover 639 `gvar`
+tuples, 24,024 explicit deltas, 11 HVAR data subtables, and four MVAR data
+subtables between them. Both exact assets pass candidate metadata/policy
+validation without becoming typed package/runtime inputs.
+
 ## Negative and security evidence
 
 The gate rejects static, CFF2-variable, color-variable, and nonzero-face inputs,
@@ -90,13 +104,13 @@ as well as missing, unknown, out-of-range, and non-finite coordinates. Unit
 tests compare twenty-one default/boundary/interior vectors with Skrifa and keep
 all static-profile admission tests green.
 
-`cargo xtask gate-i-font-security` repairs every sfnt checksum after 37 hostile
+`cargo xtask gate-i-font-security` repairs every sfnt checksum after 38 hostile
 mutations, then requires the profile—not checksum handling—to reject invalid
 `gvar`, HVAR, MVAR, item-variation-store, and STAT relationships. Nine `gvar`
 cases exercise tuple flags/header extents, normalized shared tuples, packed
 point counts/runs/bounds, tuple body sizes, packed delta counts, and rejection
 of the non-OpenType 32-bit delta extension. The
-gate also measures the three accepted fixtures after warmup: each inspection
+gate also measures five accepted fixtures after warmup: each inspection
 must allocate no more than 8 MiB, retain no more than 2 MiB, and finish within
 500 ms; one early malformed graph must reject below 256 KiB allocated. Graph
 limits cap 4,096 shared tuples, 65,536 tuple records, 4,194,304 explicit deltas,
@@ -105,9 +119,8 @@ region references, 256 MVAR records, and 4,096 STAT values.
 
 These ceilings are implementation regression guards measured on one machine,
 not portable timing or allocation semantics. Exhaustive packed-encoding
-combinations, a broader rights-reviewed variable corpus, VVAR, and process-level
-cancellation/sandbox evidence remain open. Parser admission is therefore not
-promoted to package acceptance.
+combinations, VVAR, and process-level cancellation/sandbox evidence remain
+open. Parser admission is therefore not promoted to package acceptance.
 
 `cargo xtask gate-i-font-package` adds a candidate asset validator that checks
 exact variable bytes, complete coordinates, names, coverage, feature bounds,
@@ -123,8 +136,8 @@ from silently evaluating the selected instance as a default instance.
 
 No variable font may yet pass `validate_packaged_font`, enter the evaluation
 context, participate in layout/rendering, or claim lossless fidelity under this
-candidate identifier. Resource-only package retention and candidate policy are
-now evidenced, but typed package binding remains off. The next executable gate
-must add a rights-reviewed broader HVAR/MVAR corpus and broader packed `gvar`
-encoding fixtures before layout/runtime work can safely wire the selected
-coordinates.
+candidate identifier. Resource-only package retention, candidate policy, and a
+broader OFL HVAR/MVAR/`gvar` corpus are now evidenced, but typed package binding
+remains off. The next executable gate must strengthen generated packed-encoding
+coverage and then wire the selected coordinates through package, layout, and
+runtime without weakening the fail-closed boundary.

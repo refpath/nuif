@@ -755,19 +755,19 @@ experiments:
   - id: nuif:experiment:variable-font-graph-security-baseline
     status: automated
     evidence: [nuif:research:opentype-font-embedding-and-portability, nuif:research:fontations, nuif:research:fuzzing-structured-inputs, nuif:research:resource-bounded-serde-and-ciborium]
-    implementation: [crates/nuif-font/src/lib.rs, crates/nuif-font/VARIABLE-PROFILE.md, crates/nuif-testing/src/bin/variable-font-security.rs, conformance/font/harfbuzz-14.4.0-material-symbols-variable.json, conformance/font/harfbuzz-14.4.0-hvar-truncated-map.json, conformance/font/harfbuzz-14.4.0-roboto-flex-mvar.json, xtask/src/main.rs]
+    implementation: [crates/nuif-font/src/lib.rs, crates/nuif-font/VARIABLE-PROFILE.md, crates/nuif-testing/src/bin/variable-font-security.rs, conformance/font/harfbuzz-14.4.0-material-symbols-variable.json, conformance/font/harfbuzz-14.4.0-hvar-truncated-map.json, conformance/font/harfbuzz-14.4.0-roboto-flex-mvar.json, conformance/font/fixtures/noto-sans-variable-subset/PROVENANCE.md, conformance/font/fixtures/recursive-variable-subset/PROVENANCE.md, xtask/src/main.rs]
     oracle: checksum-repaired-hostile-mutations-and-bounded-allocation-regressions
     acceptance:
       - structural preflight walks gvar HVAR MVAR item variation stores and STAT before returning variable metadata
       - explicit ceilings bound tuples deltas regions subtables rows references MVAR records and STAT values
       - every hostile mutation has repaired sfnt checksums and is rejected for its graph or packed-data defect rather than checksum failure
-      - three valid fixtures and one early malformed graph stay below warmed reference-implementation allocation time and retained-memory ceilings
+      - five valid fixtures and one early malformed graph stay below warmed reference-implementation allocation time and retained-memory ceilings
       - evidence remains isolated from exhaustive packed gvar encoding combinations VVAR package admission runtime fidelity and portable performance claims
     tests:
-      - reject 37 version flag count offset range ordering cross-reference and packed point or delta mutations across gvar HVAR MVAR and STAT
+      - reject 38 version flag count offset range ordering cross-reference profile and packed point or delta mutations across gvar HVAR VVAR MVAR and STAT
       - enforce exact packed gvar X and Y counts point bounds and tuple body consumption without relying on a truncating upstream iterator
       - validate raw reserved flag bits that generated bitflag readers intentionally truncate
-      - inspect the metadata shaping HVAR and MVAR fixtures below 8 MiB allocated 2 MiB retained and 500 ms after warmup
+      - inspect the metadata shaping HVAR MVAR Noto Sans and Recursive fixtures below 8 MiB allocated 2 MiB retained and 500 ms after warmup
       - reject one malformed graph below 256 KiB allocated
       - archive target/variable-font-security-report.json from cargo xtask gate-i-font-security
   - id: nuif:experiment:variable-font-package-candidate
@@ -786,6 +786,23 @@ experiments:
       - reject eleven incomplete stale out-of-range malformed unavailable or unapproved asset-policy cases
       - retain the exact 22104-byte OFL-1.1 fixture digest through deterministic package operations
       - archive target/variable-font-package-report.json from cargo xtask gate-i-font-package
+  - id: nuif:experiment:variable-font-corpus-baseline
+    status: automated
+    evidence: [nuif:research:opentype-font-embedding-and-portability, nuif:research:fontations, nuif:research:harfbuzz-unicode, nuif:research:text-rendering-reproducibility]
+    implementation: [crates/nuif-font/src/lib.rs, crates/nuif-text/src/lib.rs, crates/nuif-testing/src/bin/variable-font-corpus.rs, crates/nuif-testing/src/bin/variable-font-security.rs, conformance/font/harfbuzz-14.4.0-noto-sans-variable.json, conformance/font/harfbuzz-14.4.0-recursive-variable.json, conformance/font/fixtures/noto-sans-variable-subset/PROVENANCE.md, conformance/font/fixtures/recursive-variable-subset/PROVENANCE.md, tools/font/prepare_variable_font_corpus.py, tools/font/capture_harfbuzz_corpus.py, xtask/src/main.rs]
+    oracle: independently-authored-ofl-fixtures-and-pinned-harfbuzz-pipeline
+    acceptance:
+      - exact source registry upstream font license subset and oracle identities are retained for independently authored Noto Sans and Recursive OFL-1.1 fixtures
+      - NUIF and HarfBuzz 14.4.0 agree on two-axis and five-axis metadata normalization shaping HVAR advances and MVAR global metrics at eight total locations
+      - unhinted outline topology is exact and every 26.6 coordinate differs by at most one unit with seven of eight paths byte-exact
+      - both fixtures expose distinct bounded gvar HVAR MVAR and STAT graph shapes and pass exact candidate asset metadata and policy validation
+      - evidence remains isolated from VVAR hinted raster identity typed package admission runtime layout and exhaustive packed encodings
+    tests:
+      - reproduce seven-codepoint subsets with pinned hb-subset 14.4.0 exact source license and output digests and bounded fixture sizes
+      - compare axis order ranges names instances normalized vectors glyph runs per-glyph advances global metrics and first-glyph paths against public HarfBuzz APIs
+      - require location changes to exercise HVAR advances MVAR x-height and gvar outlines in each family
+      - include both fixtures in warmed graph allocation regressions and reject checksum-repaired VVAR admission through the horizontal profile
+      - archive target/variable-font-corpus-report.json from cargo xtask gate-i-font-corpus
   - id: nuif:experiment:font-resource-profile
     status: planned
     evidence: [nuif:research:opentype-font-embedding-and-portability, nuif:research:text-rendering-reproducibility]
@@ -793,10 +810,10 @@ experiments:
     continuation:
       class: profile-design
       blocked_by:
-        - RFC 0013 metadata normalization shaping outlines nonzero HVAR one MVAR fixture graph and representative packed-data security plus resource-only package policy now have bounded evidence but broader rights-reviewed HVAR MVAR and packed-encoding fixtures plus typed runtime coordinate delivery remain required before promotion
+        - RFC 0013 metadata normalization shaping outlines nonzero HVAR MVAR independently authored OFL corpus graph and representative packed-data security plus resource-only package policy now have bounded evidence but generated packed-encoding coverage and typed runtime coordinate delivery remain required before promotion
         - collection CFF/CFF2 COLR bitmap SVG-glyph and WOFF2 support remain separate capabilities with format-specific bounds and oracles
         - redistribution subsetting and derived-instance policy cannot be inferred from fsType and requires publisher-supplied license evidence plus rights-reviewed fixtures
-      next_action: Add a rights-reviewed broader HVAR MVAR and packed-encoding corpus before implementing typed package binding and shared runtime coordinate delivery.
+      next_action: Strengthen generated packed gvar encoding coverage before implementing typed package binding and shared runtime coordinate delivery.
     acceptance:
       - font bytes face index axes features coverage and shaping inputs are content-addressed and independently decoded
       - portable private-authoring linked substituted and unavailable policies produce distinct validated outcomes

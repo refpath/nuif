@@ -80,6 +80,7 @@ jobs:
             target/variable-font-global-metrics-report.json
             target/variable-font-security-report.json
             target/variable-font-package-report.json
+            target/variable-font-corpus-report.json
             target/capture-reconstruction-report.json
             target/reconstruction-provider-manifest-report.json
             target/reconstruction-corpus-audit-report.json

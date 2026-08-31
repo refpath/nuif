@@ -17,6 +17,12 @@ static GLOBAL: &StatsAlloc<System> = &INSTRUMENTED_SYSTEM;
 const ROBOTO_FLEX: &[u8] = include_bytes!(
     "../../../../conformance/font/fixtures/roboto-flex-mvar-subset/RobotoFlex-MVAR-subset.ttf"
 );
+const NOTO_SANS: &[u8] = include_bytes!(
+    "../../../../conformance/font/fixtures/noto-sans-variable-subset/NotoSans-variable-subset.ttf"
+);
+const RECURSIVE: &[u8] = include_bytes!(
+    "../../../../conformance/font/fixtures/recursive-variable-subset/Recursive-variable-subset.ttf"
+);
 const CHECKSUM_MAGIC: u32 = 0xb1b0_afba;
 const MAX_INSPECTION_ALLOCATED_BYTES: usize = 8 * 1024 * 1024;
 const MAX_INSPECTION_RETAINED_BYTES: usize = 2 * 1024 * 1024;
@@ -34,7 +40,7 @@ fn run() -> Result<(), String> {
     let output = output_path()?;
     let material = font_test_data::MATERIAL_SYMBOLS_SUBSET;
     let hvar = font_test_data::HVAR_WITH_TRUNCATED_ADVANCE_INDEX_MAP;
-    for bytes in [material, hvar, ROBOTO_FLEX] {
+    for bytes in [material, hvar, ROBOTO_FLEX, NOTO_SANS, RECURSIVE] {
         inspect_opentype_variable_metadata(bytes, 0).map_err(|error| error.to_string())?;
     }
 
@@ -69,7 +75,13 @@ fn run() -> Result<(), String> {
 }
 
 fn hostile_trials(material: &[u8], hvar: &[u8]) -> Result<Vec<Value>, String> {
-    let mut trials = gvar_trials(material)?;
+    let mut trials = vec![profile_rejection_trial(
+        "unsupported_vvar_table",
+        material,
+        |bytes| rename_table(bytes, *b"gasp", *b"VVAR"),
+        "VVAR",
+    )?];
+    trials.extend(gvar_trials(material)?);
     trials.extend(hvar_trials(hvar)?);
     trials.extend(mvar_trials()?);
     trials.extend(stat_trials()?);
@@ -282,11 +294,28 @@ fn rejection_trial(
     }))
 }
 
+fn profile_rejection_trial(
+    name: &str,
+    source: &[u8],
+    mutate: impl FnOnce(&mut [u8]) -> Result<(), String>,
+    expected_error: &str,
+) -> Result<Value, String> {
+    let mut result = rejection_trial(name, source, mutate)?;
+    let expected = result
+        .get("error")
+        .and_then(Value::as_str)
+        .is_some_and(|error| error.contains(expected_error));
+    result["status"] = Value::String(if expected { "passed" } else { "failed" }.to_owned());
+    Ok(result)
+}
+
 fn allocation_trials(material: &[u8], hvar: &[u8]) -> Result<Vec<Value>, String> {
     let fixtures = [
         ("material_symbols", material),
         ("truncated_hvar_map", hvar),
         ("roboto_flex_mvar", ROBOTO_FLEX),
+        ("noto_sans_corpus", NOTO_SANS),
+        ("recursive_corpus", RECURSIVE),
     ];
     let mut trials = Vec::new();
     for (name, bytes) in fixtures {
@@ -651,6 +680,32 @@ fn write_absolute(bytes: &mut [u8], offset: usize, value: &[u8]) -> Result<(), S
         .get_mut(offset..offset.saturating_add(value.len()))
         .ok_or_else(|| "mutation offset is outside the font".to_owned())?;
     target.copy_from_slice(value);
+    Ok(())
+}
+
+fn rename_table(bytes: &mut [u8], from: [u8; 4], to: [u8; 4]) -> Result<(), String> {
+    if directory_record(bytes, to).is_ok() {
+        return Err(format!(
+            "{} table already exists",
+            String::from_utf8_lossy(&to)
+        ));
+    }
+    let record = directory_record(bytes, from)?;
+    write_absolute(bytes, record, &to)?;
+    let count = usize::from(read_u16_at(bytes, 4)?);
+    let directory_end = 12 + count * 16;
+    let directory = bytes
+        .get(12..directory_end)
+        .ok_or_else(|| "truncated table directory".to_owned())?;
+    let (records, remainder) = directory.as_chunks::<16>();
+    if !remainder.is_empty() {
+        return Err("invalid table directory length".to_owned());
+    }
+    let mut records = records.to_vec();
+    records.sort_unstable_by(|left, right| left[..4].cmp(&right[..4]));
+    for (index, record) in records.iter().enumerate() {
+        write_absolute(bytes, 12 + index * 16, record)?;
+    }
     Ok(())
 }
 
