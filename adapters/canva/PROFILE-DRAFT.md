@@ -15,9 +15,11 @@ Executable implementation: `crates/nuif-canva`; conformance gate:
   APIs and the Design Editor intent.
 - One unlocked `current_page` session whose page is `absolute` and has fixed
   dimensions.
-- Groups, rectangles, shapes and rich-text elements with ordered layering,
+- The pure normalized mapper represents groups, rectangles, canonical ellipses,
+  rich-text elements, an optional solid page background, ordered layering,
   position, size, rotation, transparency and the explicitly mapped solid-color
-  and text properties.
+  and text properties. Page and element names are nullable because the public
+  current-page API does not expose them.
 - Image content only after a separate resource-upload and media-fill profile is
   admitted; profile 0 records existing image/video fills as unsupported.
 
@@ -37,10 +39,19 @@ one Canva undo action. The app does not replace the complete page with an
 opaque app element or flattened screenshot.
 
 Sessions are limited to one minute by the host. Profile 0 therefore caps one
-page at 16,384 traversed elements, 4,096 rich-text code points per element,
+page at 16,384 traversed elements, 4,096 rich-text UTF-16 code units per element,
 1 MiB of normalized metadata and a 16 MiB NUIF input. Limit-plus-one inputs must
 fail before `sync`. These are candidate limits pending live time and allocation
 calibration.
+
+The compiled review shell narrows live import further to unnamed opaque
+rectangles and canonical ellipses on an empty page of the same dimensions. It
+can set an absent or opaque solid page background. Groups, text, alpha and
+names remain in the pure schema for fixture and future-host evaluation but are
+rejected before live insertion because Apps SDK v2 cannot currently establish
+the stable element identity, writable names, font-file identity and exact text
+box metrics required by this profile. This narrowing is executable policy, not
+a claim that the host lacks those visual features.
 
 ## Browser and package boundary
 
@@ -49,6 +60,13 @@ packaged WebAssembly but forbids third-party scripts, nested frames and workers.
 The module parses and validates NUIF locally. Only the Apps SDK reads or mutates
 Canva objects. The build declares no remote code, and any optional backend is a
 separate authenticated feature with explicit data disclosure.
+
+`adapters/canva/app` pins `@canva/design` 2.12.0. Its published declaration
+currently contains one invalid empty statement after `PageRefList`. The build
+creates a type-check-only normalized copy, refuses any source shape other than
+the one audited defect, and records source and normalized hashes. Runtime code
+still bundles the untouched official module; the normalized declaration is not
+a replacement SDK or a distributable fork.
 
 ## Correspondence and fidelity
 

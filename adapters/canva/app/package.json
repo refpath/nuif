@@ -1,0 +1,24 @@
+{
+  "name": "nuif-canva-review-app",
+  "version": "0.0.1-alpha.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=24.20.0 <27"
+  },
+  "scripts": {
+    "build": "npm run prepare-types && node scripts/build.mjs",
+    "check": "npm run prepare-types && tsc --noEmit && node scripts/build.mjs && npm test",
+    "prepare-types": "node scripts/prepare-types.mjs",
+    "test": "node scripts/test.mjs",
+    "validate-plan": "node scripts/validate-plan.mjs"
+  },
+  "dependencies": {
+    "@canva/design": "2.12.0"
+  },
+  "devDependencies": {
+    "@types/node": "26.4.0",
+    "esbuild": "0.28.2",
+    "typescript": "7.0.2"
+  }
+}

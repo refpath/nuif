@@ -60,9 +60,10 @@ pub struct CanvaPage {
     pub host_document_id: String,
     pub host_document_revision: Option<String>,
     pub page_id: String,
-    pub page_name: String,
+    pub page_name: Option<String>,
     pub width: f64,
     pub height: f64,
+    pub background: Option<SolidColor>,
     #[serde(default)]
     pub elements: Vec<CanvaElement>,
 }
@@ -182,9 +183,22 @@ pub fn import_normalized_page(page: &CanvaPage) -> Result<ImportedPage, AdapterE
         return Err(AdapterError::DuplicateHostId(page.page_id.clone()));
     }
     let mut surface = Entity::new(surface_id, EntityKind::Surface);
-    surface.name = Some(page.page_name.clone());
+    surface.name.clone_from(&page.page_name);
     surface.authored.width = SizeIntent::Fixed(page.width);
     surface.authored.height = SizeIntent::Fixed(page.height);
+    if let Some(background) = page.background {
+        validate_color(background, "/background")?;
+        surface.authored.fill = Some(import_fill(background));
+        if (background.alpha - 1.0).abs() > f32::EPSILON {
+            context.fidelity.push(FidelityEntry {
+                target: CorrespondenceTarget::Entity { id: surface_id },
+                pointer: format!("/entities/{surface_id}/authored/fill/alpha"),
+                status: Fidelity::Unsupported {
+                    reason: "Canva page backgrounds do not expose independent alpha".to_owned(),
+                },
+            });
+        }
+    }
     context.document.roots.push(surface_id);
     context.document.entities.insert(surface_id, surface);
     for (index, element) in page.elements.iter().enumerate() {
@@ -282,6 +296,22 @@ pub fn export_page(
             "the page root must be a surface",
         );
     }
+    if root.authored.position != Point::default()
+        || root.authored.layout != LayoutStyle::default()
+        || !root.authored.responsive.is_empty()
+        || !root.authored.values.is_empty()
+        || root.authored.text.is_some()
+        || !root.extensions.0.is_empty()
+        || root.semantics != nuif_core::Semantics::default()
+    {
+        unsupported_entity(
+            root,
+            &mut report,
+            "/authored",
+            "page position, layout, responsive values, text, semantics, extensions and custom values are outside the profile",
+        );
+    }
+    let background = export_exact_fill(root.authored.fill, root, "/authored/fill", &mut report);
     let elements = root
         .children
         .iter()
@@ -310,9 +340,10 @@ pub fn export_page(
         host_document_id: format!("nuif-doc:{}", document.id),
         host_document_revision: None,
         page_id: format!("nuif-page:{}", root.id),
-        page_name: root.name.clone().unwrap_or_else(|| "NUIF page".to_owned()),
+        page_name: root.name.clone(),
         width: fixed_dimension(&root.authored.width, root, "/authored/width", &mut report)?,
         height: fixed_dimension(&root.authored.height, root, "/authored/height", &mut report)?,
+        background,
         elements,
     };
     Ok(ExportedPage { page, report })
@@ -360,11 +391,17 @@ fn validate_page_header(page: &CanvaPage) -> Result<(), AdapterError> {
         ("/host_api_version", &page.host_api_version),
         ("/host_document_id", &page.host_document_id),
         ("/page_id", &page.page_id),
-        ("/page_name", &page.page_name),
     ] {
         if value.trim().is_empty() {
             return invalid(pointer, "value must not be empty");
         }
+    }
+    if page
+        .page_name
+        .as_ref()
+        .is_some_and(|name| name.trim().is_empty())
+    {
+        return invalid("/page_name", "value must be null or non-empty");
     }
     if page.host_api_version != APPS_SDK_VERSION {
         return Err(AdapterError::ProfileMarker(format!(
@@ -411,6 +448,7 @@ fn import_element(
         return Err(AdapterError::DuplicateHostId(element.id.clone()));
     }
     validate_geometry(element, index)?;
+    validate_import_fill(context, element, index, id)?;
     let mut entity = Entity::new(id, imported_kind(element.kind));
     entity.name.clone_from(&element.name);
     entity.authored.position = Point {
@@ -516,6 +554,27 @@ fn validate_geometry(element: &CanvaElement, index: usize) -> Result<(), Adapter
     Ok(())
 }
 
+fn validate_import_fill(
+    context: &mut ImportContext,
+    element: &CanvaElement,
+    index: usize,
+    id: EntityId,
+) -> Result<(), AdapterError> {
+    let Some(fill) = element.fill else {
+        return Ok(());
+    };
+    validate_color(fill, &format!("/elements/{index}/fill"))?;
+    if (fill.alpha - 1.0).abs() > f32::EPSILON {
+        unsupported_element(
+            context,
+            id,
+            "/fill/alpha",
+            "Canva solid fills do not expose independent alpha",
+        );
+    }
+    Ok(())
+}
+
 fn imported_kind(kind: CanvaElementKind) -> EntityKind {
     match kind {
         CanvaElementKind::Group => EntityKind::Container,
@@ -533,6 +592,23 @@ fn import_fill(fill: SolidColor) -> Color {
         blue: fill.blue,
         alpha: fill.alpha,
     }
+}
+
+fn validate_color(fill: SolidColor, pointer: &str) -> Result<(), AdapterError> {
+    for (name, value) in [
+        ("red", fill.red),
+        ("green", fill.green),
+        ("blue", fill.blue),
+        ("alpha", fill.alpha),
+    ] {
+        if !value.is_finite() || !(0.0..=1.0).contains(&value) {
+            return invalid(
+                &format!("{pointer}/{name}"),
+                "color channel must be finite and in 0..=1",
+            );
+        }
+    }
+    Ok(())
 }
 
 fn import_text(
@@ -645,7 +721,7 @@ fn export_element(
         y: entity.authored.position.y,
         width,
         height,
-        fill: entity.authored.fill.map(export_fill),
+        fill: export_exact_fill(entity.authored.fill, entity, "/authored/fill", report),
         text,
         unsupported_properties: Vec::new(),
         children,
@@ -739,6 +815,34 @@ fn export_fill(color: Color) -> SolidColor {
     }
 }
 
+fn export_exact_fill(
+    color: Option<Color>,
+    entity: &Entity,
+    pointer: &str,
+    report: &mut HostAdapterReport,
+) -> Option<SolidColor> {
+    let color = color?;
+    if color.space != ColorSpace::Srgb
+        || !color.red.is_finite()
+        || !color.green.is_finite()
+        || !color.blue.is_finite()
+        || !color.alpha.is_finite()
+        || !(0.0..=1.0).contains(&color.red)
+        || !(0.0..=1.0).contains(&color.green)
+        || !(0.0..=1.0).contains(&color.blue)
+        || (color.alpha - 1.0).abs() > f32::EPSILON
+    {
+        unsupported_entity(
+            entity,
+            report,
+            pointer,
+            "Canva solid fills require finite sRGB channels and opaque alpha",
+        );
+        return None;
+    }
+    Some(export_fill(color))
+}
+
 fn fixed_dimension(
     value: &SizeIntent,
     entity: &Entity,
@@ -799,7 +903,7 @@ fn page_string_bytes(page: &CanvaPage) -> usize {
         + page.host_api_version.len()
         + page.host_document_id.len()
         + page.page_id.len()
-        + page.page_name.len();
+        + page.page_name.as_ref().map_or(0, String::len);
     for element in &page.elements {
         visit_element_string_bytes(element, &mut total);
     }
@@ -967,6 +1071,54 @@ mod tests {
         page.elements[0].opacity = 0.5;
         let error = import_normalized_page(&page).unwrap_err();
         assert!(matches!(error, AdapterError::UnsupportedProfile { .. }));
+    }
+
+    #[test]
+    fn opaque_page_background_round_trips_exactly() {
+        let mut page = page();
+        page.page_name = None;
+        page.background = Some(SolidColor {
+            red: 1.0,
+            green: 0.5,
+            blue: 0.0,
+            alpha: 1.0,
+        });
+        let imported = import_normalized_page(&page).unwrap();
+        let exported = export_page(&imported.document, "2026.1").unwrap();
+        assert_eq!(exported.page.page_name, None);
+        assert_eq!(exported.page.background, page.background);
+        assert!(exported.report.is_lossless());
+    }
+
+    #[test]
+    fn nonopaque_or_invalid_colors_fail_closed() {
+        let mut alpha = page();
+        alpha.elements[0].fill.as_mut().unwrap().alpha = 0.5;
+        assert!(matches!(
+            import_normalized_page(&alpha),
+            Err(AdapterError::UnsupportedProfile { .. })
+        ));
+
+        let mut invalid = page();
+        invalid.elements[0].fill.as_mut().unwrap().red = 1.1;
+        assert!(matches!(
+            import_normalized_page(&invalid),
+            Err(AdapterError::InvalidValue { .. })
+        ));
+
+        let mut document = profile_fixture();
+        let surface = document.entities.get_mut(&EntityId::new(0x10)).unwrap();
+        surface.authored.fill = Some(Color {
+            space: ColorSpace::Srgb,
+            red: 0.0,
+            green: 0.0,
+            blue: 0.0,
+            alpha: 0.5,
+        });
+        assert!(matches!(
+            export_page(&document, "2026.1"),
+            Err(AdapterError::UnsupportedProfile { .. })
+        ));
     }
 
     #[test]
