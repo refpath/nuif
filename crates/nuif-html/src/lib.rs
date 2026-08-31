@@ -1,5 +1,7 @@
 #![doc = "Retentive HTML/CSS profile adapter with byte-span correspondence."]
 
+pub mod accessibility;
+
 mod export;
 mod parse;
 mod profile;

@@ -54,8 +54,9 @@ An implementer draft requires all of the following evidence:
   by qualified counsel.
 
 The present repository has an independent Python profile-zero evaluator and
-eight executable adapter profiles, including a normalized Figma mapping and
-compiled no-network review shell that explicitly exclude live host behavior.
+nine executable adapter profiles, including a normalized Figma mapping and
+compiled no-network review shell that explicitly exclude live host behavior,
+plus a bounded three-engine web-accessibility projection.
 These results cover bounded subsets. They do
 not constitute two independent implementations of the complete draft.
 

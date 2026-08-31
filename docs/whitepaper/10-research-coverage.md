@@ -19,7 +19,11 @@ This distinction is important: marking an open research problem as finished woul
 
 ## Additional boundaries from the final sweep
 
-- WAI-ARIA and accessibility API mappings support a semantic-role/state layer distinct from platform-specific accessibility trees.
+- WAI-ARIA and accessibility API mappings support a semantic-role/state layer
+  distinct from platform-specific accessibility trees. The bounded
+  `nuif-web-accessibility-0` lowering now proves computed role/name/state
+  agreement for one eleven-node fixture across pinned Chromium, Firefox and
+  WebKit while retaining native-platform and behavior non-claims.
 - KHR_interactivity provides contemporary precedent for portable, capability-aware behavior graphs rather than arbitrary scripts embedded in visual nodes.
 - ReverseORC and related layout-inference work show that multiple viewport observations materially improve recovery of responsive intent.
 - Screenshot-to-code research continues to show that visual reconstruction is not equivalent to recovering authored layout or behavior.

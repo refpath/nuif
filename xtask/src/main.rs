@@ -183,6 +183,7 @@ fn run() -> Result<(), String> {
         Some("gate-i-font") => gate_i_font(),
         Some("capture-baselines") => capture_baselines(),
         Some("gate-j-live") => gate_j_live(),
+        Some("gate-accessibility") => gate_accessibility(),
         Some("browser-install") => browser_install(),
         Some("hostile-inputs") => hostile_inputs(),
         Some("reduction-profile") => reduction_profile(),
@@ -213,7 +214,7 @@ fn run() -> Result<(), String> {
         Some("manifest") => standalone_manifest(),
         Some("all") => all(),
         _ => Err(
-            "usage: cargo xtask <research|workflow-audit|adapter-audit|dependency-audit|docs-check|docs-build|docs-paper|docs-serve|docs-setup|verify|trial [seed iterations snapshot-interval report-path]|gate-b|gate-c|gate-d|gate-d-text|gate-d-render|gate-f|gate-f-v0|gate-svg|gate-dtcg|gate-penpot|gate-react|gate-svelte|gate-figma|gate-wasm|gate-mcp|gate-g|gate-h|gate-i-package|gate-i-image|gate-i-font|gate-j-live|capture-baselines|browser-install|wasm-install|wasm-package|mcp-package|cli-package|hostile-inputs|reduction-profile|editor-hostile-inputs|fuzz-smoke|codec-benchmark|performance|editor-trial|editor-gui-trial|editor-install-trial|editor-package|editor-launch|editor-install|editor-doctor|editor-rollback|editor-uninstall|editor-update|release-check <tag>|manifest|all>"
+            "usage: cargo xtask <research|workflow-audit|adapter-audit|dependency-audit|docs-check|docs-build|docs-paper|docs-serve|docs-setup|verify|trial [seed iterations snapshot-interval report-path]|gate-b|gate-c|gate-d|gate-d-text|gate-d-render|gate-f|gate-f-v0|gate-svg|gate-dtcg|gate-penpot|gate-react|gate-svelte|gate-figma|gate-wasm|gate-mcp|gate-g|gate-h|gate-i-package|gate-i-image|gate-i-font|gate-j-live|gate-accessibility|capture-baselines|browser-install|wasm-install|wasm-package|mcp-package|cli-package|hostile-inputs|reduction-profile|editor-hostile-inputs|fuzz-smoke|codec-benchmark|performance|editor-trial|editor-gui-trial|editor-install-trial|editor-package|editor-launch|editor-install|editor-doctor|editor-rollback|editor-uninstall|editor-update|release-check <tag>|manifest|all>"
                 .to_owned(),
         ),
     }
@@ -359,6 +360,53 @@ fn gate_j_live() -> Result<(), String> {
         "--layout-output",
         "target/layout-inference-report.json",
     ])
+}
+
+fn gate_accessibility() -> Result<(), String> {
+    const ORACLE: &str = "tools/accessibility-oracle";
+    const BROWSER_PATH: &str = "target/playwright-browsers";
+    cargo(&[
+        "run",
+        "--release",
+        "--locked",
+        "-p",
+        "nuif-testing",
+        "--bin",
+        "accessibility-mapping",
+    ])?;
+    command(
+        "npm",
+        &[
+            "ci",
+            "--ignore-scripts",
+            "--no-audit",
+            "--no-fund",
+            "--prefix",
+            ORACLE,
+        ],
+    )?;
+    let suffix = if cfg!(windows) { ".cmd" } else { "" };
+    let playwright = format!("{ORACLE}/node_modules/.bin/playwright{suffix}");
+    let install_arguments = ["install", "chromium", "firefox", "webkit"];
+    let install_status = Command::new(&playwright)
+        .args(install_arguments)
+        .env("PLAYWRIGHT_BROWSERS_PATH", BROWSER_PATH)
+        .status()
+        .map_err(|error| format!("could not start Playwright browser install: {error}"))?;
+    check_status(install_status, &playwright, &install_arguments)?;
+    let oracle_arguments = [
+        "tools/accessibility-oracle/check.mjs",
+        "target/accessibility-mapping-fixture.html",
+        "target/accessibility-mapping-expected.json",
+        "target/accessibility-mapping-static-report.json",
+        "target/accessibility-mapping-report.json",
+    ];
+    let oracle_status = Command::new("node")
+        .args(oracle_arguments)
+        .env("PLAYWRIGHT_BROWSERS_PATH", BROWSER_PATH)
+        .status()
+        .map_err(|error| format!("could not start accessibility oracle: {error}"))?;
+    check_status(oracle_status, "node", &oracle_arguments)
 }
 
 fn hostile_inputs() -> Result<(), String> {

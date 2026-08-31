@@ -22,6 +22,14 @@ Gate F: bounded retentive HTML/CSS synchronization. The declared container/text/
 
 Full-v0 source follow-on: `nuif-html-css-v0` retains 181 model correspondences for the complete responsive card. Eight token/padding/text/responsive edits and the two-edit semantic editor/CLI bridge both re-import exactly, while path, instance and unknown target limitations remain explicit.
 
+Web accessibility projection: `nuif-web-accessibility-0` lowers a bounded
+ten-role, Boolean-state and five-relationship subset to inert native HTML/ARIA.
+The exact Playwright 1.62.1 Chromium, Firefox and WebKit engines expose all eleven
+fixture entities with matching computed role/name/state and identical bounded
+ARIA snapshots on the recorded macOS/arm64 run. Host versions and differences
+remain separate from semantic loss; native APIs and interaction behavior are
+not claimed.
+
 Gate G: bounded mechanically independent reproduction. The standard-library-only Python implementation has no Rust/NUIF package dependency and exactly reproduces v0 canonical text, opaque preservation, 24 boxes, three decoded RGBA buffers and five fidelity records. External authorship and a general-purpose second implementation remain standards-publication work.
 
 Gate H: bounded metadata-free collaboration checkpoint. Two algorithmically distinct in-repository materializers converge for every delivery of a conflict-bearing property-register history; conflicts remain explicit and canonical NUIF contains no replica state.

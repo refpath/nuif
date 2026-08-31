@@ -207,15 +207,19 @@ experiments:
       - reject missing history duplicate identifiers unknown parents missing or noncausal change anchors and different-base merges
       - write and archive target/collaboration-structure-report.json and target/collaboration-automerge-report.json
   - id: nuif:experiment:accessibility-mapping
-    status: planned
+    status: automated
+    evidence: [nuif:research:accessibility-semantics]
+    implementation: [crates/nuif-html/src/accessibility.rs, crates/nuif-testing/src/bin/accessibility-mapping.rs, tools/accessibility-oracle/check.mjs, xtask/src/main.rs, .github/workflows/ci.yml]
     oracle: foreign-reference
     acceptance:
       - browser and platform versions are pinned
       - host differences are classified separately from NUIF semantic loss
     tests:
-      - map portable role name state and relationship fixtures to web ARIA
-      - compare exposed browser accessibility trees across engines
-      - classify platform differences separately from NUIF semantic loss
+      - map a bounded eleven-node fixture covering every admitted role Boolean state and relationship kind to native HTML and web ARIA
+      - reject unsupported roles misplaced states empty or ambiguous names duplicate relationships unnamed labels conflicting owners and owned-tree cycles atomically
+      - compare computed role accessible name checked disabled expanded pressed and required state across pinned Playwright Chromium Firefox and WebKit
+      - retain full per-engine ARIA snapshots and classify required-subset loss separately from host-tree differences
+      - record tool engine Node operating-system and architecture identities in target/accessibility-mapping-report.json
   - id: nuif:experiment:behavior-portability
     status: planned
     oracle: differential

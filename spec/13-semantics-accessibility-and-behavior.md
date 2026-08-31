@@ -10,9 +10,41 @@ Status: exploratory draft.
 
 ## Semantic role layer
 
-NUIF entities MAY carry semantic roles independently of visual entity kind. Core semantics include a portable role identifier, accessible name/description sources, state/property values and semantic relationships such as labelled-by, described-by, controls, owns and flow/order relationships.
+NUIF entities MAY carry semantic roles independently of visual entity kind. The
+current wire model carries a portable role identifier, one direct accessible
+name and Boolean state keys. Document relationships can express
+`labelled-by`, `described-by`, `controls`, `owns` and `flow-to`. A direct
+description string, non-Boolean value/state data and semantic relationship
+cardinality rules require a future schema revision; adapters MUST NOT invent
+them from visual geometry.
 
 Adapters MUST map portable semantics to host accessibility facilities where supported and MUST report unsupported or approximated semantics. Visual appearance MUST NOT be treated as sufficient evidence of semantic role.
+
+### Web accessibility projection profile 0
+
+`nuif-web-accessibility-0` is an experimental bounded lowering to inert HTML
+and ARIA. It admits at most 4,096 entities and 8,192 relationships. Its role set
+is `button`, `checkbox`, `group`, `img`, `main`, `navigation`, `paragraph`,
+`radio`, `region` and `switch`. Role-specific required/prohibited naming and
+Boolean-state rules are fixed by the profile. A `switch` MUST carry `checked`;
+unsupported or misplaced states MUST fail closed. A direct accessible name and
+`labelled-by` MUST NOT compete on one entity. Direct and referenced names MUST
+be whitespace-normalized for computed-name comparison and MUST NOT be empty
+after normalization.
+
+The five relationship kinds above lower to their corresponding ARIA IDREF
+attributes using stable NUIF entity identifiers. Relationship order is retained
+and duplicate targets fail closed. The `owns` graph MUST be acyclic and each
+owned target MUST have at most one ARIA owner. Native HTML semantics are used
+where the profile has an exact element; explicit ARIA is used only for `group`,
+`img` and `switch`. Output contains no script, external URL, event handler or
+synthesized host behavior.
+
+The foreign oracle MUST record the exact test-engine and host versions, compare
+computed role/name/state rather than source attributes alone and classify
+required-subset loss separately from other host-tree differences. Browser-tree
+agreement does not establish native platform API, keyboard interaction or
+application behavior equivalence.
 
 ## Behavior graph
 

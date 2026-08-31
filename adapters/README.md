@@ -6,6 +6,14 @@ The first executable adapter is the deliberately bounded [`nuif-html-css-0`](htm
 
 The follow-on [`nuif-html-css-v0`](html-css/V0-PROFILE.md) profile carries the complete responsive-card model, including responsive rules, component/instance identity, unknown kinds and opaque extensions. Its automated editor bridge proves semantic editor output can patch retained source and return through the CLI to byte-identical canonical NUIF. Path rendering, instance materialization, unknown visuals and arbitrary HTML/CSS remain explicitly outside the target profile.
 
+The separate [`nuif-web-accessibility-0`](html-css/ACCESSIBILITY-PROFILE.md)
+projection lowers a ten-role, role-specific Boolean-state and five-relationship
+subset into inert native HTML and ARIA. A pinned Playwright oracle compares the
+computed roles, accessible names and supported states of the same eleven-node
+fixture across Chromium, Firefox and WebKit while retaining host-tree
+differences separately. It does not synthesize behavior or claim native
+platform accessibility equivalence.
+
 The [`nuif-svg-0`](svg/PROFILE.md) profile maps one surface, freeform groups,
 rectangles, ellipses and literal pinned-font text to SVG 2 XML. It retains
 UTF-8 spans for identity, geometry, paint and accessibility scalars, preserves
@@ -50,7 +58,7 @@ The remaining researched or externally bounded targets are Adobe UXP,
 Flutter, SwiftUI and Jetpack Compose. Figma and Adobe retain bounded live-host
 draft profiles and a serializable host-object correspondence report, but no
 live plug-in claim. Broader HTML/CSS, SVG and DTCG profiles remain
-separate future work beyond the eight executable profiles. Each adapter must
+separate future work beyond the nine executable profiles. Each adapter must
 emit structured fidelity diagnostics and record provenance/correspondence
 sufficient for later synchronization and minimal source patches where feasible.
 

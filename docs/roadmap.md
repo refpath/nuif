@@ -133,7 +133,20 @@ release-time evidence, not a claim made from workflow configuration.
 `nuif-dtcg-scalar-0` maps flat boolean, string and number tokens to the Design Tokens Format Module 2025.10. Namespaced metadata retains NUIF document and token identity and distinguishes integer from real values; the trial applies eight edits through 21 correspondences while preserving unknown extension bytes. Groups, aliases, composite types and token-local extensions require a token-model RFC and a separate profile.
 
 ## Phase 6e — adapter inventory (complete for advertised targets)
-`adapters/index.json` enumerates eleven advertised targets. The blocking adapter audit requires a primary research record, integration surface, next bounded profile and exclusion boundary for every target; executable entries additionally require a crate, profile document and routed conformance gate. Eight profiles are integrated: the seven retentive HTML/CSS, SVG, DTCG, Penpot, static React JSX and static Svelte profiles plus `nuif-figma-plugin-snapshot-0`. The Figma profile proves normalized mapping, CLI parity and static compilation of its no-network shell, not plug-in execution in Figma. Adobe UXP, SwiftUI, Jetpack Compose and Flutter remain explicitly researched or externally bounded rather than carrying unsupported implementation claims. Svelte uses Tree-sitter only for retained spans and exact official `svelte/compiler` 5.57.0 as its foreign parse/compile oracle.
+`adapters/index.json` enumerates eleven advertised targets. The blocking adapter audit requires a primary research record, integration surface, next bounded profile and exclusion boundary for every target; executable entries additionally require a crate, profile document and routed conformance gate. Nine profiles are integrated: the seven retentive HTML/CSS, SVG, DTCG, Penpot, static React JSX and static Svelte profiles; `nuif-figma-plugin-snapshot-0`; and the one-way `nuif-web-accessibility-0` projection. The Figma profile proves normalized mapping, CLI parity and static compilation of its no-network shell, not plug-in execution in Figma. Adobe UXP, SwiftUI, Jetpack Compose and Flutter remain explicitly researched or externally bounded rather than carrying unsupported implementation claims. Svelte uses Tree-sitter only for retained spans and exact official `svelte/compiler` 5.57.0 as its foreign parse/compile oracle.
+
+## Phase 6f — bounded web accessibility projection (automated)
+
+`nuif-web-accessibility-0` lowers ten roles, role-specific Boolean states and
+five stable-identity relationships to inert native HTML/ARIA. It rejects
+unsupported roles and state combinations, ambiguous direct/relationship names,
+unnamed labels and duplicate relationships before output. The foreign oracle
+pins Playwright 1.62.1 and its Chromium, Firefox and WebKit engines, then
+compares computed role, accessible name and every admitted Boolean state for
+eleven entities. The first macOS/arm64 run has identical full snapshots across
+Chromium 151.0.7922.34, Firefox 153.0 and WebKit 26.5. Native platform APIs,
+keyboard/focus traces, application behavior and broader semantic value types
+remain separate work.
 
 ## Phase 7a — collaboration property registers (complete)
 `nuif-collab-registers-0` keeps causal metadata outside canonical documents and materializes concurrent register-like semantic operations through operation-set and replica-log algorithms. Every delivery of the three-replica trial converges, and distinct concurrent values remain explicit property conflicts.

@@ -19,9 +19,15 @@
           "crate": "crates/nuif-html",
           "profile": "adapters/html-css/V0-PROFILE.md",
           "gate": "gate-f-v0"
+        },
+        {
+          "name": "nuif-web-accessibility-0",
+          "crate": "crates/nuif-html",
+          "profile": "adapters/html-css/ACCESSIBILITY-PROFILE.md",
+          "gate": "gate-accessibility"
         }
       ],
-      "next_profile": "separately tested CSS and layout features",
+      "next_profile": "separately tested CSS, layout and accessibility features",
       "boundary": "Arbitrary cascade, scripts and unmarked DOM are not imported."
     },
     {

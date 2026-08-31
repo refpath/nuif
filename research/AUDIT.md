@@ -280,6 +280,17 @@ Gate E is complete for the headless profile-0 editor instrument. Twelve semantic
 
 Gate F remains complete for `nuif-html-css-0`, a deliberately bounded two-entity source profile: 25 lossless correspondences and six local edits retain every unmapped byte. Its full-v0 follow-on is also complete for model preservation. `nuif-html-css-v0` maps DOM containment, every responsive-card field, real size/layout/fill CSS, responsive media CSS and opaque metadata; its 181-correspondence trial and two-edit editor/CLI bridge both re-import exactly. Tree-sitter validates HTML and CSS under a 1 MiB bound, derived CSS drift fails closed, and target visual limitations are never described as lossless browser behavior. Arbitrary HTML/CSS, collaboration profiles and expanded path/instance rendering remain open.
 
+The separate `nuif-web-accessibility-0` projection makes the semantic web
+boundary executable rather than hiding semantics in retained metadata. It
+prefers native HTML for exact roles, admits ten roles with role-specific
+Boolean states, maps five stable-ID relationships and rejects every unsupported
+or ambiguous case atomically. `cargo xtask gate-accessibility` compares the
+computed role, name and supported state of eleven entities through exact
+Playwright 1.62.1 Chromium, Firefox and WebKit engines. The first macOS/arm64
+run passes with identical full snapshots and records all engine/host versions.
+This is web-engine evidence, not native platform API, assistive-technology,
+keyboard or application-behavior conformance.
+
 Gate G is complete for the bounded v0 profile. The Python implementation independently validates and canonicalizes the full fixture, preserves the opaque `vendor.probe` payload across an unrelated edit, implements the profile-0 layout algorithm and rasterizes the fixture's solid rectangles and pinned Ahem text. All 24 context/entity boxes and all three decoded RGBA buffers match exactly, with the fidelity list also byte-for-value equivalent. Its unsupported visual scope remains explicit, and an external implementation/reviewer is still required before a standards-readiness claim.
 
 Gate H is complete for property registers and the bounded existing-tree structural profile. The property operation-set and replica-log materializers converge to hash `nuif-cbor-0:sha256:29f24d0cb9613b7a6adaf1f57760031d12271c0eb06084e3807115ef869941ab` across all 5,040 deliveries and tested merge orders. Concurrent values remain explicit, causal overwrites select only maximal values and the opaque entity stays exact. The structural operation-set and replica-log materializers separately converge over every delivery of move/reorder/delete/rescue conflicts while preserving one parent, acyclicity and stable sibling origins; a 4,096-change scale trial is bounded, and Automerge reproduces immutable operation transport. Checkpoints contain no collaboration metadata. Concurrent creation, causal garbage collection, combined property/structure transactions and a foreign tree materializer remain required before a general collaboration-profile claim.
