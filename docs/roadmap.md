@@ -261,7 +261,10 @@ profile; an independent evaluator reproduces the main result.
 The executable baseline currently proves observation-codec fixpoints, explicit
 observed/inferred evidence and omissions, typed atomic proposals, default
 flat-copy rejection, deterministic loop termination and training-only ranking
-of five bounded layout hypotheses against a live held-out viewport. The typed
+of five bounded layout hypotheses against a live held-out viewport. The
+correction loop now has explicit `success`, `no_improvement`, and
+`repeated_state` outcomes, with a caller-provided objective threshold so a
+perfect score is never assumed by the core. The typed
 `nuif-reconstruction-evaluation-0` report now covers every required per-example
 family, preserves empty denominators as unscored, rejects screenshot-only
 source-resource recall claims and keeps unavailable hardware measurements

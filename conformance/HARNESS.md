@@ -284,6 +284,9 @@ uses fixed browser-provider and strict PNG inputs to exercise repeatability,
 resource identity, query-secret redaction, evidence classes and omissions,
 typed atomic proposal application, flat-copy rejection, observation codec
 fixpoints, calibration interpolation/selective review and finite loop stops.
+The correction-loop fixture now exercises an explicit successful objective
+threshold; the library also reports `no_improvement` when a fresh candidate is
+rejected, while repeated canonical state remains a separate terminal result.
 The report carries explicit non-claims for live browser capture, OCR/model
 accuracy, a broad or held-out corpus, independent evaluation and training.
 
