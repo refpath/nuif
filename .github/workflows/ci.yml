@@ -515,17 +515,17 @@ jobs:
         with:
           name: portable-resource-profiles-macos-aarch64
           path: target/resource-host-matrix/macos-aarch64
-      - name: Require exact portable variable-font output
+      - name: Require portable resource agreement
         env:
           SOURCE_REVISION: ${{ github.sha }}
-        run: cargo xtask gate-i-font-host-matrix "$SOURCE_REVISION" target/resource-host-matrix
+        run: cargo xtask gate-i-resource-host-matrix "$SOURCE_REVISION" target/resource-host-matrix
       - name: Upload cross-host resource evidence
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: portable-resource-profile-host-matrix
           if-no-files-found: error
-          path: target/variable-font-host-matrix-report.json
+          path: target/resource-host-matrix-report.json
 
   accessibility:
     name: web host browser oracles
