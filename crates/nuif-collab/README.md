@@ -117,6 +117,21 @@ fixture, checks merge convergence and metadata absence, and exercises every
 declared negative boundary. This is a separate extension profile; the original
 leaf-only creation profile remains unchanged.
 
+## Nested creation arbitrary-anchor profile 1
+
+`nuif-collab-tree-create-nested-1` keeps the same leaf payload and causal
+parent rules while allowing `After(entity)` to name a selected created sibling.
+The change must causally include the dot that won the entity-ID selection, and
+the selected anchor must belong to the same parent. This permits deterministic
+insertion chains below created parents without deriving order from delivery
+order or leaking position metadata into the canonical document.
+
+The profile remains bounded by the same change, replica and parent-depth
+limits. Deletion/resurrection, mixed property/structure transactions and
+anchors to collision losers remain outside its contract. Gate H exhausts all
+24 deliveries of a four-change fixture and checks causal, unknown-anchor and
+wrong-parent failures.
+
 ## Causal-stability compaction profile 0
 
 `nuif-collab-gc-0` provides the first executable history-collection boundary.

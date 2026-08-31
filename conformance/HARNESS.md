@@ -292,6 +292,15 @@ created-parent `After` anchors and incomplete history. The profile is separate
 from leaf creation so its narrower anchor and depth contract cannot silently
 change the first profile.
 
+The arbitrary-anchor extension writes
+`target/collaboration-nested-creation-v1-report.json`. It exhausts all 24
+deliveries of a four-change fixture with a created-parent sibling chain and a
+created sibling under a base parent. Created anchors require a causal witness
+and same-parent selection; missing, non-causal and wrong-parent anchors fail
+with typed errors. The report also checks merge convergence and metadata-free
+canonical output. It is a separate profile, so profile 0 remains strict about
+rejecting created-parent `After` anchors.
+
 The separate existing-tree experiment writes `target/collaboration-structure-report.json`, exhausts 5,040 deliveries of seven move/delete/cycle/stable-anchor changes through sorted-set and incremental rollback/replay materializers, requires one-parent/acyclic checkpoints plus explicit move, deletion, cycle and anchor conflicts, and runs a 4,096-change release scaling guard. `tools/automerge-oracle` uses pinned `@automerge/automerge` 3.4.1 to merge the seven immutable operation records in different orders and through save/load, writing `target/collaboration-automerge-report.json`. This is foreign transport evidence; Automerge does not provide the NUIF tree materializer. Both executable boundaries are specified in `crates/nuif-collab/README.md` and `spec/10-collaboration-profile.md`.
 
 The causal-stability experiment writes `target/collaboration-gc-report.json`.

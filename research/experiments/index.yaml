@@ -259,6 +259,21 @@ experiments:
       - compare a partitioned operation-set merge with the complete checkpoint
       - reject unknown and non-causal parents, created-parent anchors and incomplete history
       - write and archive target/collaboration-nested-creation-report.json
+  - id: nuif:experiment:crdt-nested-creation-arbitrary-anchor
+    status: automated
+    evidence: [nuif:research:crdt-tree-move-operation, nuif:research:automerge-yjs, nuif:research:list-ordering-fractional-indexing-vs-list-crdts]
+    implementation: [crates/nuif-collab/src/nested_creation.rs, conformance/src/bin/collaboration-nested-creation-v1.rs, crates/nuif-collab/README.md, spec/10-collaboration-profile.md, xtask/src/main.rs]
+    oracle: deterministic-operation-set
+    acceptance:
+      - a created sibling anchor is accepted only when the selected anchor dot is in the child context
+      - the selected anchor belongs to the same parent and recursive anchor chains converge independent of delivery order
+      - unavailable, non-causal and wrong-parent anchors fail closed
+      - canonical checkpoints contain no collaboration metadata
+    tests:
+      - exhaust all 24 deliveries of the causal created-parent sibling-chain fixture
+      - compare a partitioned operation-set merge with the complete checkpoint
+      - reject unavailable, non-causal and wrong-parent anchors and incomplete history
+      - write and archive target/collaboration-nested-creation-v1-report.json
   - id: nuif:experiment:accessibility-mapping
     status: automated
     evidence: [nuif:research:accessibility-semantics]

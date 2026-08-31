@@ -132,6 +132,24 @@ Deletions, resurrection, arbitrary created-parent anchors, mixed
 property/structure transactions and a second independently authored tree
 materializer remain future work.
 
+## Executable nested-creation arbitrary-anchor profile 1
+
+`nuif-collab-tree-create-nested-1` preserves profile 0's wire operation and
+causal parent contract while admitting `After(entity)` anchors under base or
+selected created parents. If the anchor is created, the change MUST causally
+include the selected anchor dot and the anchor's selected parent MUST equal the
+new change's parent. An anchor that is absent, non-causal, or owned by another
+parent fails with a typed diagnostic. Same-anchor candidates retain descending
+dot order, and anchor chains are materialized recursively under the bounded
+`MAX_PARENT_DEPTH` limit.
+
+The canonical checkpoint contains only ordinary entities and child arrays; the
+anchor dots, causal contexts and active positions remain outside the document.
+This profile still excludes deletion/resurrection, mixed property/structure
+transactions and anchors to non-selected collision candidates. Gate H exhausts
+all 24 deliveries of a causal sibling-chain fixture and checks merge
+convergence, metadata absence and the typed negative boundaries.
+
 ## Causal-stability compaction profile 0
 
 `nuif-collab-gc-0` is an explicit, conservative history-collection profile. It

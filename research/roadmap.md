@@ -83,9 +83,10 @@ and stable sibling origins across all 5,040 deliveries, while Automerge
 reproduces operation transport. The creation profile preserves base sibling
 order and reports duplicate IDs explicitly across all 24 deliveries. The
 compaction falsifier now covers exact-frontier complete-history collection and
-the nested-creation falsifier covers causal parent chains; the next
-collaboration falsifiers are partial causal garbage collection, arbitrary
-created-parent anchors, combined property/structure transactions and a foreign
+the nested-creation falsifier covers causal parent chains; its separately
+versioned arbitrary-anchor extension is complete under a 24-delivery causal
+sibling-chain acceptance. The next collaboration falsifiers are partial causal
+garbage collection, combined property/structure transactions and a foreign
 materializer of the tree algorithm itself.
 
 The package segment of `nuif:experiment:portable-package-resources` is active:
@@ -139,9 +140,9 @@ from that loop rather than a standing implementation commitment.
 1. Keep Gates B through H green with `cargo xtask all` and the separate nightly `cargo xtask fuzz-smoke`; reduce fuzz failures before committing them as named fixtures and retain all machine reports as CI artifacts.
 2. Implement the full Cap'n Proto candidate mapping only behind the codec admission preflight; compare it after canonical-writer, old-reader retention and hostile traversal tests pass. Keep the optimized typed CBOR decoder behind identical canonical-byte and hostile-input checks; investigate a streaming canonical validator only if profiling still justifies its added parser surface.
 3. Extend the bounded collaboration profiles to checkpoint-aware partial
-causal-stability garbage collection, arbitrary created-parent anchors and
-combined property/structure transactions; obtain a foreign tree materializer
-rather than treating the completed Automerge transport oracle as one.
+causal-stability garbage collection and combined property/structure
+transactions; obtain a foreign tree materializer rather than treating the
+completed Automerge transport oracle as one.
 4. Keep the implemented fixed/`fr`, sparse-flow, explicit-placement Grid subset
    exact; intrinsic, percentage, named, repeated, implicit, subgrid and masonry
    tracks require a separately versioned schema and foreign-oracle matrix.
