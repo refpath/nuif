@@ -88,7 +88,9 @@ Wrappers contain transport and ownership conversion only:
   structural read-only inspection and exact copying; it rejects semantic edits
   at both the session and package-save boundaries.
 - A host plug-in owns vendor objects, permissions and undo grouping. WASM does
-  not become the Figma or Adobe adapter merely because it runs in a plug-in.
+  not become the Figma or Canva adapter merely because it runs in a plug-in;
+  Affinity currently has no documented plug-in boundary for this project and
+  uses a user-mediated interchange profile instead.
 
 The cross-surface rule is exact: the same input and patch must produce the same
 canonical hash, canonical bytes and diagnostics. For package-aware surfaces it

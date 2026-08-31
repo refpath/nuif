@@ -111,18 +111,22 @@ The corresponding repository evidence includes:
 
 ## Vendor adoption
 
-Figma, Adobe and other hosts can evaluate the draft without replacing their
-internal document models. A host adapter maps a declared NUIF profile through a
-supported plug-in, scripting or service boundary. The headless CLI and WASM
-binding remain the semantic test surfaces. Vendor-private state is either
-represented, preserved as declared opaque data or reported through structured
-fidelity diagnostics.
+Figma, Affinity, Canva and other hosts can evaluate the draft without replacing
+their internal document models. API hosts map a declared NUIF profile through a
+supported plug-in or service boundary. Affinity currently uses a separately
+declared file-interchange trial because no stable public document API was found.
+The headless CLI and WASM binding remain the semantic test surfaces. Vendor-
+private state is either represented, preserved as declared opaque data or
+reported through structured fidelity diagnostics.
 
-The current Figma mapping, static shell and Adobe research describe feasible
-host boundaries but do not include live vendor-runtime trials. A vendor adoption claim therefore
-requires a signed test fixture, host-version matrix, import/export report and
-maintainer outside the reference-core implementation. The integration boundary
-is specified in `docs/HOST-INTEGRATION.md` and ADR 0008.
+The current Figma mapping and static shell, the Affinity SVG bridge draft and
+the Canva Apps SDK draft describe feasible boundaries but do not include their
+required live vendor-runtime trials. A vendor adoption claim therefore requires
+a signed test fixture, host-version matrix, import/export or transaction report
+and maintainer outside the reference-core implementation. Canva marketplace
+approval and native NUIF Connect support are separate upstream outcomes. The
+integration boundary is specified in `docs/HOST-INTEGRATION.md` and ADRs 0008
+and 0012.
 
 ## Decision authority
 

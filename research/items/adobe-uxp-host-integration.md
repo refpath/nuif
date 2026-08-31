@@ -26,11 +26,16 @@ links:
   spec: [spec/07-extensions-and-dialects.md, spec/12-cli-api-and-automation.md]
   adr: [adrs/0008-vendor-host-adapters.md]
   rfc: []
-  code: [crates/nuif-adapter/src/lib.rs, adapters/adobe/PROFILE-DRAFT.md, docs/HOST-INTEGRATION.md]
+  code: [crates/nuif-adapter/src/lib.rs, docs/HOST-INTEGRATION.md]
   experiments: []
 ---
 
 # Summary
+
+Current NUIF disposition: ADR 0012 removes this host from the active adapter
+inventory and delivery queue in favor of Affinity interchange and Canva Apps
+SDK adoption. This record remains reviewed historical prior art; the UXP facts
+below are not an active implementation commitment.
 
 UXP is a JavaScript/HTML plugin runtime whose manifest selects one Adobe host,
 entry points and explicit permissions. The current InDesign manifest reference

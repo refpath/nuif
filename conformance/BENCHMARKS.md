@@ -40,9 +40,11 @@ materializers, package/resource profiles and every integrated adapter profile:
 Figma and browser profiles measure pure mapping only; live host latency belongs
 to a separately versioned host trial. WASM, MCP and CLI process startup belong
 to their cross-surface package gates, because mixing process launch with
-in-process Criterion samples would obscure both costs. Adobe, SwiftUI, Compose
-and Flutter have no integrated executable profile and therefore no benchmark
-claim.
+in-process Criterion samples would obscure both costs. Affinity, Canva,
+SwiftUI, Compose and Flutter have no integrated executable profile and
+therefore no benchmark claim. The Affinity draft composes the already measured
+SVG adapter with a separately timed human/live-host trial; the Canva draft must
+gain a pure mapping gate before it enters Criterion.
 
 ## Optimization rule
 

@@ -70,7 +70,7 @@ not claim browser-layout, host plug-in or WASI CLI conformance.
 
 Run `cargo xtask adapter-audit` to validate the complete advertised adapter
 inventory independently of executable profile tests. It requires research and
-explicit boundaries for eleven targets, checks crate/profile/gate references for
+explicit boundaries for twelve targets, checks crate/profile/gate references for
 the ten integrated profiles and prevents researched or externally blocked
 targets from claiming executable directions.
 

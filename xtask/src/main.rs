@@ -3012,7 +3012,8 @@ fn adapter_audit() -> Result<(), String> {
         .as_array()
         .ok_or("adapters/index.json targets must be an array")?;
     let expected = BTreeSet::from([
-        "adobe-uxp",
+        "affinity",
+        "canva",
         "dtcg",
         "figma",
         "flutter",

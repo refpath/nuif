@@ -53,7 +53,13 @@ Gate G: bounded mechanically independent reproduction. The standard-library-only
 
 Gate H: bounded metadata-free collaboration checkpoint. Two algorithmically distinct in-repository materializers converge for every delivery of a conflict-bearing property-register history; conflicts remain explicit and canonical NUIF contains no replica state.
 
-Publication infrastructure: `docs/catalog.json` currently selects 254 canonical Markdown documents without copying their bodies. The bounded `xtask` compiler validates metadata and repository links, generates navigation and status indexes, builds a searchable mdBook site and composes a 13-module working manuscript. The Pages workflow retains pull-request artifacts and restricts deployment permission to its deployment job. This infrastructure publishes evidence; it does not promote evidence status.
+Publication infrastructure: `docs/catalog.json` selects canonical Markdown
+documents without copying their bodies. The bounded `xtask` compiler validates
+metadata and repository links, generates navigation and status indexes, builds
+a searchable mdBook site and composes a 13-module working manuscript. The Pages
+workflow retains pull-request artifacts and restricts deployment permission to
+its deployment job. This infrastructure publishes evidence; it does not
+promote evidence status.
 
 ## Current falsifiers
 
@@ -136,7 +142,11 @@ from that loop rather than a standing implementation commitment.
 10. Freeze the reconstruction corpus and evaluator, then compare deterministic OCR/CV, one-shot, observation-assisted, hierarchical and corrective-loop baselines through the existing typed boundary.
 11. Train or distill only if the frozen evaluation demonstrates a learnable gap and rights-cleared validated traces exist.
 12. Maintain the credential-free Penpot package profile under its shared ZIP resource-limit, foreign-producer and unknown-member-retention gate; defer the compact representation until upstream stability and a second fixture.
-13. Run the bounded Figma and Adobe profiles in named live host versions; retain host reports and do not infer live behavior from API documentation.
+13. Run the bounded Figma profile in a named live host; run the Affinity SVG
+    bridge as a retained user-mediated foreign-runtime trial; and implement the
+    pure stable-API Canva current-page mapper before building its review shell.
+    Retain host reports and never infer live behavior, marketplace approval or
+    native NUIF support from API documentation.
 14. Keep `nuif-api::NuifDocument` as the single direct SDK façade and require
     semantic-API promotion, stable errors/ownership, sanitizer-backed native
     consumers and real platform packages before declaring C, Swift or Kotlin

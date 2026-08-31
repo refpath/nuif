@@ -674,6 +674,37 @@ experiments:
       - emit a three-node shape-and-pinned-text fixture and import then validate it through the public CLI
       - require a Rust-generated plan and lossless fidelity report to pass the TypeScript validator
       - archive target/figma-plugin-shell-report.json and target/nuif-figma-plugin-review-shell
+  - id: nuif:experiment:affinity-svg-bridge
+    status: planned
+    evidence: [nuif:research:affinity-interchange-and-adoption, nuif:research:svg]
+    implementation: [adapters/affinity/PROFILE-DRAFT.md, crates/nuif-svg/src/lib.rs]
+    oracle: retained-user-mediated-foreign-runtime
+    acceptance:
+      - pre-host canonical NUIF SVG bytes and fidelity report pass the existing nuif-svg-0 gate
+      - a named Affinity and operating-system version imports and exports the fixture with every semantic difference classified
+      - native Affinity files remain opaque and no pointer automation or undocumented file parsing is treated as conformance
+      - a second reviewer verifies the retained artifacts and property-level loss report
+    tests:
+      - exercise unchanged import export reorder one covered edit and one unsupported effect
+      - compare canonical NUIF geometry text structure and render diagnostics separately from SVG byte serialization
+      - repeat the trial on every operating system advertised by the profile
+      - retain both SVG files environment metadata renders and reports as one content-addressed fixture
+  - id: nuif:experiment:canva-design-editing-adapter
+    status: planned
+    evidence: [nuif:research:canva-apps-and-connect-adoption, nuif:research:wasm-headless-execution]
+    implementation: [adapters/canva/PROFILE-DRAFT.md, crates/nuif-wasm/src/lib.rs, crates/nuif-adapter/src/lib.rs]
+    oracle: official-types-and-live-host-transaction
+    acceptance:
+      - pure current-page snapshot and mutation-plan mappings are exact for the declared fixed-page subset
+      - the official stable Apps SDK types compile a deterministic CSP-compliant no-remote-code review bundle
+      - one confirmed import produces one sync and one undo action in a named Canva host version
+      - locked unsupported conflicting expired and limit-plus-one cases fail before host mutation
+      - no preview API marketplace approval or native Connect NUIF support is inferred
+    tests:
+      - map groups rects shapes rich text ordering geometry transparency and solid fills with property-level fidelity
+      - compare direct TypeScript and bundled-WASM canonical bytes and host reports
+      - exercise cancellation session expiry locked page locked elements unsupported page and conflict paths
+      - archive the review bundle live-host report and exact official SDK package identities
   - id: nuif:experiment:screenshot-reconstruction-baseline
     status: active
     evidence: [nuif:research:design2code-real-world-benchmark, nuif:research:pix2struct-screenshot-parsing-pretraining, nuif:research:screenai-ui-annotation, nuif:research:omniparser-ui-grounding, nuif:research:ocr-text-detection-and-recognition, nuif:research:model-agnostic-screenshot-reconstruction-and-training]

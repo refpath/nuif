@@ -1,14 +1,18 @@
 # Host integration and vendor adoption
 
-Figma or an Adobe application would use NUIF through a small host adapter, not
-by embedding the native NUIF editor. The host continues to own its canvas,
-document, undo stack and plug-in lifecycle. The adapter translates between the
-host object model and a declared NUIF profile, then emits evidence describing
-what was exact, approximated, preserved or unsupported.
+Figma and Canva use NUIF through small host adapters, not by embedding the
+native NUIF editor. Affinity is currently a file-interchange and foreign-runtime
+target because no stable public Affinity document-object or scripting API was
+located in the reviewed official material. In every case the product continues
+to own its canvas, document and undo lifecycle. NUIF maps only a declared
+profile and emits evidence describing what was exact, approximated, preserved
+or unsupported.
 
-The decision is ADR 0008. Primary evidence is recorded in
+The architectural decision is ADR 0008; ADR 0012 sets the current vendor
+priority and evidence boundaries. Primary evidence is recorded in
 `nuif:research:figma-plugin-and-rest-api-as-automation-surface` and
-`nuif:research:adobe-uxp-host-integration`.
+`nuif:research:affinity-interchange-and-adoption` and
+`nuif:research:canva-apps-and-connect-adoption`.
 
 ## Deliverables for a host
 
@@ -18,13 +22,14 @@ A production host integration consists of five independently reviewable parts:
    resource limits, unsupported semantics and identity rules.
 2. Pure import/export mapping functions covered by checked-in host snapshots
    and expected canonical NUIF documents.
-3. A thin plug-in shell for file selection, host permission prompts, undo and
-   user-visible fidelity confirmation.
+3. For API hosts, a thin plug-in shell for file selection, host permission
+   prompts, undo and user-visible fidelity confirmation. For interchange-only
+   hosts, a documented user-mediated trial and exact input/output artifact set.
 4. A `nuif-adapter::HostAdapterReport` for every direction. The report records
    the host/API version and revision, canonical hash, host-object
    correspondences, property fidelity and preservation result.
-5. A host-specific package, version stream and release gate. Host packages do
-   not inherit the native editor's version.
+5. A host-specific package or interchange kit, version stream and release
+   gate. These artifacts do not inherit the native editor's version.
 
 The portable contract is canonical NUIF plus the report. Rust is optional for a
 vendor implementation. A TypeScript or JavaScript plug-in may implement the
@@ -41,17 +46,20 @@ façade. A stable C/Swift/Kotlin ABI is deliberately not claimed during the
 deterministic `.nuif` load/export, explicit manifest-capability negotiation and
 bounded semantic patch/history operations for browser and JavaScript consumers.
 It retains verified embedded resources without exposing a second mutable
-JavaScript model. The generated module has no filesystem, network, Figma or
-Adobe authority.
+JavaScript model. The generated module has no filesystem, network, Figma,
+Canva or Affinity authority.
 
 For Figma, the module belongs in the UI iframe, where Figma documents normal
 browser APIs including WebAssembly. The plug-in main thread still owns
-`SceneNode` access and exchanges bounded messages with that iframe. For Adobe,
-the UXP shell owns file tokens and host mutation. In both cases the WASM module
-can validate, edit and re-encode complete NUIF packages locally. The shell must
-still declare and require the exact package capability set before evaluation;
-WASM is not the host adapter and cannot justify a vendor fidelity claim by
-itself.
+`SceneNode` access and exchanges bounded messages with that iframe. Canva apps
+also run in an iframe; Canva's current content-security policy admits packaged
+WebAssembly while blocking third-party scripts, nested frames and workers. A
+Canva build must therefore bundle the NUIF module with the reviewed app and let
+the Apps SDK own every design mutation. Affinity has no equivalent documented
+embedding boundary, so its first profile invokes the existing SVG adapter
+outside the product and uses user-mediated import/export. The WASM module can
+validate, edit and re-encode complete NUIF packages locally, but it is not a
+host adapter and cannot justify a vendor fidelity claim by itself.
 
 ## Local package evaluation
 
@@ -141,28 +149,72 @@ The REST API is suitable for authenticated read snapshots and server-side
 validation, not the primary write path. The writable path is the user-run
 Plugin API. Dev Mode plug-ins are read-only and are not the import target.
 
-## Adobe path
+## Affinity path
 
-The first profile is `adapters/adobe/PROFILE-DRAFT.md` and targets InDesign.
-InDesign UXP is closer to an authored page-layout model than Photoshop. Its
-plug-in requests file access with `localFileSystem: request`; network access is
-not needed. The adapter reads or creates one document page and the declared
-page-item subset, then writes NUIF and host reports through user-selected file
-handles.
+The first Affinity contract is `adapters/affinity/PROFILE-DRAFT.md`. The
+all-new Affinity combines vector, photo and page-layout tools in one no-cost
+desktop product, which makes live interchange trials accessible to contributors.
+That product position is useful evidence for adoption priority; it does not
+create a public plug-in API or disclose the native `.af`, `.afdesign`,
+`.afphoto` or `.afpub` encodings.
 
-Photoshop requires a separate profile because layers and pixels do not encode
-responsive interface semantics. Covered changes run in one cancellable
-`core.executeAsModal` scope and one history state. The document object model is
-the first choice; `batchPlay` is isolated to properties absent from that model.
-XMP may store NUIF identity only for file types and save paths proven to retain
-the namespace.
+Profile 0 is consequently a user-mediated SVG bridge:
 
-Each Adobe host is a separate `.ccx` package with its own manifest host and
-minimum version. Direct distribution and Creative Cloud Marketplace
-publication are separate channels. A Marketplace build needs a Developer
-Distribution identifier and review. The repository does not currently claim
-an Illustrator package because the retrieved UXP host contract does not list
-Illustrator.
+```text
+canonical NUIF
+  -> nuif-svg-0 export + fidelity report
+  -> user imports SVG into a named Affinity version
+  -> user exports SVG
+  -> nuif-svg-0 import + host trial report
+```
+
+The bridge accepts only the existing `nuif-svg-0` basic-shape and pinned-text
+subset. An Affinity-exported SVG containing paths, transforms, effects, CSS,
+external resources or other excluded SVG features is rejected or reported as
+unsupported; it is never silently simplified. Native Affinity files remain
+opaque evidence artifacts. Canva's Connect API accepting Affinity file
+extensions proves a supported Canva ingestion route, not that their schema is
+public or suitable for a NUIF parser.
+
+No headless automation, stable identity persistence, undo integration or exact
+native round trip is claimed. Promotion requires named desktop versions on
+each supported operating system, retained input/output files, screenshots or
+renders, a complete fidelity report and a second-person review. A future public
+Affinity scripting or document API would justify a separately versioned host
+profile; undocumented UI automation and native-format reverse engineering do
+not.
+
+## Canva path
+
+The first programmable profile is `adapters/canva/PROFILE-DRAFT.md` and uses
+the stable Apps SDK Design Editing API. It is deliberately limited to one
+unlocked, fixed-dimension `current_page` session and the supported group, rect,
+shape and rich-text element kinds. Images are media fills on rectangles in the
+Canva model. Canva Docs, unbounded pages, tables, embeds, video, unsupported
+elements, unavailable fonts and preview-only APIs are outside profile 0.
+
+The app reads the page snapshot, translates it through a bounded normalized
+schema, validates the complete candidate and then calls `sync` once. This makes
+one confirmed NUIF import one host undo action and avoids partial mutation.
+Sessions expire after one minute, locked pages and elements remain untouched,
+and every unsupported property appears in the host report. The app never
+replaces the entire design with an opaque app element or raster screenshot.
+
+Canva Connect APIs are a secondary off-platform workflow. They support OAuth
+imports of listed foreign formats and asynchronous exports to formats such as
+PDF, PNG, JPG, PPTX, GIF, MP4, CSV and HTML. The current import list includes
+Affinity files but not NUIF. Therefore SVG/PDF may be used as explicitly lossy
+bridges, while exact NUIF import/export requires either the Apps SDK mapping or
+future native `application/nuif+zip` support from Canva. Connect download URLs
+are temporary and API scopes, rate limits, user authorization and server-side
+privacy obligations remain outside the core.
+
+The first public app uses only generally available APIs. Canva documents that
+preview APIs may change without versioning and prevent public review. CI can
+build and test a source bundle, but a public release still requires developer
+verification, source upload, listing and testing material, Canva review, and an
+explicit owner-triggered release. A team app is not the default open-source
+distribution path because Canva limits team apps to Enterprise teams.
 
 ## Conformance gate
 
@@ -186,10 +238,9 @@ evidence. Passing static shell tests does not justify a live integration claim.
 
 ## Release operation
 
-The native editor, `nuif-wasm` developer binding and Figma review shell are
-versioned independently. A promoted Figma integration and each Adobe `.ccx`
-use their own semantic versions and changelogs. CI should build review bundles, checksums,
-provenance, an SBOM where applicable and fixture reports. Publication to a
-vendor marketplace is never inferred from a Git tag: it requires the vendor
-account, assigned plug-in ID, disclosure or review forms, and an explicit
-authenticated release operation.
+The native editor, `nuif-wasm` developer binding, Figma review shell, Affinity
+interchange kit and Canva app are versioned independently. CI should build
+review bundles, checksums, provenance, an SBOM where applicable and fixture
+reports. Publication to a vendor marketplace is never inferred from a Git tag:
+it requires the vendor account, assigned app identifier, identity and legal
+disclosures, review forms, and an explicit authenticated release operation.

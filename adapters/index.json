@@ -152,14 +152,24 @@
       "boundary": "The executable claim covers pure mapping and the compiled no-network shell; writes, undo, cancellation, page loading and identity persistence still require a user-run Figma plug-in and named live-host evidence."
     },
     {
-      "id": "adobe-uxp",
-      "surface": "host-specific UXP document APIs and CCX packages",
+      "id": "affinity",
+      "surface": "user-mediated SVG import/export in a named Affinity desktop runtime",
       "status": "external_runtime",
-      "research": "adobe-uxp-host-integration",
+      "research": "affinity-interchange-and-adoption",
       "directions": [],
       "profiles": [],
-      "next_profile": "the InDesign page-item mapping and live-host fixtures in adapters/adobe/PROFILE-DRAFT.md",
-      "boundary": "UXP object models, mutation rules and packages are host-specific; no generic Adobe or Illustrator UXP capability is claimed."
+      "next_profile": "the bounded nuif-svg-0 bridge and retained live-host artifacts in adapters/affinity/PROFILE-DRAFT.md",
+      "boundary": "No public document-object API or native file schema is claimed; native Affinity files remain opaque and UI automation is not conformance evidence."
+    },
+    {
+      "id": "canva",
+      "surface": "Canva Apps SDK Design Editing API; Connect APIs as a separate OAuth workflow",
+      "status": "external_runtime",
+      "research": "canva-apps-and-connect-adoption",
+      "directions": [],
+      "profiles": [],
+      "next_profile": "the stable current-page snapshot and one-sync mutation mapping in adapters/canva/PROFILE-DRAFT.md",
+      "boundary": "Only documented stable supported element types on one fixed page are candidates; preview APIs, Canva Docs, native NUIF Connect import/export and marketplace approval are not claimed."
     },
     {
       "id": "swiftui",

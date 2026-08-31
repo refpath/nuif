@@ -8,8 +8,10 @@ canonical export and history delegate to `nuif-api::NuifDocument`; this crate
 owns only the JavaScript byte boundary and its transport limits.
 
 The generated package has no filesystem, network, host-document or rendering
-authority. A Figma, Adobe or browser integration owns those capabilities and
-passes only selected NUIF or patch bytes into this module.
+authority. A Figma, Canva or browser integration owns those capabilities and
+passes only selected NUIF or patch bytes into this module. Affinity currently
+uses the SVG interchange path outside the host because no stable public
+document API is claimed.
 
 ```js
 import init, { NuifDocument, capabilities } from "./nuif.js";

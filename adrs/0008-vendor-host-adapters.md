@@ -10,6 +10,10 @@ Decision delegated to research on 2026-08-30. Evidence:
 `nuif:research:figma-plugin-and-rest-api-as-automation-surface`,
 `nuif:research:figma`, and `nuif:research:adobe-uxp-host-integration`.
 
+ADR 0012 amends clauses 5 and 8 for the active vendor priority: Affinity is the
+desktop interchange target and Canva is the programmable adoption target. The
+Adobe clauses below remain the historical decision and prior-art record.
+
 ## Context
 
 The native NUIF editor is a reference implementation and conformance tool. It

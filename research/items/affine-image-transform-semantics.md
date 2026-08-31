@@ -71,7 +71,7 @@ invalid render command is rejected atomically.
 
 Flip, clockwise rotation, translation, singular-matrix and repeatability
 fixtures run through `cargo xtask gate-i-image`. This proves the reference CPU
-semantics. It does not prove that a Figma/Adobe host uses the same fit/crop
+semantics. It does not prove that a vendor host uses the same fit/crop
 composition until live adapter trials compare named host versions.
 
 ## NUIF relevance

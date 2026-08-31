@@ -62,10 +62,11 @@ It covers a deliberately narrow visible/opaque fixed-size subset, repairs
 portable identity deterministically and reports every declared Figma-only
 property. The shell is static evidence, not a live Figma claim.
 
-The remaining researched or externally bounded targets are Adobe UXP,
-Flutter, SwiftUI and Jetpack Compose. Figma and Adobe retain bounded live-host
-draft profiles and a serializable host-object correspondence report, but no
-live plug-in claim. Broader HTML/CSS, SVG and DTCG profiles remain
+The remaining researched or externally bounded targets are Affinity, Canva,
+Flutter, SwiftUI and Jetpack Compose. Figma and Canva retain bounded API-host
+draft profiles and a serializable host-object correspondence report; Affinity
+has a separate user-mediated SVG bridge draft. None has a corresponding live
+host claim. Broader HTML/CSS, SVG and DTCG profiles remain
 separate future work beyond the ten executable profiles. Each adapter must
 emit structured fidelity diagnostics and record provenance/correspondence
 sufficient for later synchronization and minimal source patches where feasible.
@@ -85,6 +86,7 @@ audit writes `target/adapter-coverage-report.json` and blocks the complete gate.
 
 Vendor-specific semantics belong in namespaced extensions or adapter-local logic; they must not leak into the core merely because a vendor is popular.
 
-Source adapters use `AdapterReport` and byte-span correspondence. Plug-in/API
-hosts use `HostAdapterReport` and stable host-object identifiers because they do
-not expose retained source bytes. See ADR 0008 and `docs/HOST-INTEGRATION.md`.
+Source and file-interchange adapters use `AdapterReport` and byte-span or
+artifact correspondence. Plug-in/API hosts use `HostAdapterReport` and stable
+host-object identifiers because they do not expose retained source bytes. See
+ADRs 0008 and 0012 and `docs/HOST-INTEGRATION.md`.
