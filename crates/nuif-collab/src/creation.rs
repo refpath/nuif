@@ -6,6 +6,7 @@
 //! rules testable without silently pretending that nested creation, deletion,
 //! or mixed property transactions are solved.
 
+use super::gc::{CompactionReceipt, StabilityFrontier};
 use super::structural::PositionId;
 use super::{ChangeId, CollaborationError, MAX_CHANGES, MAX_REPLICAS, validate_replica};
 use nuif_codec::canonical_hash;
@@ -80,6 +81,13 @@ pub struct CreationCheckpoint {
     pub applied: Vec<ChangeId>,
     pub conflicts: Vec<CreationConflict>,
     pub active_positions: BTreeMap<EntityId, PositionId>,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct CreationCompaction {
+    pub receipt: CompactionReceipt,
+    pub checkpoint: CreationCheckpoint,
 }
 
 #[derive(Clone, Debug, PartialEq, Error)]
@@ -267,6 +275,31 @@ impl CreationOperationSetEngine {
                 .collect(),
             conflicts,
             active_positions,
+        })
+    }
+
+    /// Replaces a complete, causally stable creation history with its
+    /// metadata-free canonical checkpoint.
+    ///
+    /// Profile 0 intentionally rejects partial collection. The frontier must
+    /// exactly cover every locally observed creation change; no nested payload
+    /// or position-anchor rebasing is attempted.
+    pub fn compact_stable(
+        &self,
+        frontier: &StabilityFrontier,
+    ) -> Result<CreationCompaction, CreationError> {
+        let checkpoint = self.checkpoint()?;
+        frontier.validate_complete(self.changes.keys())?;
+        let receipt = CompactionReceipt::complete_history(
+            PROFILE_NAME,
+            self.base_hash.clone(),
+            checkpoint.canonical_hash.clone(),
+            frontier,
+            self.changes.keys().cloned().collect(),
+        );
+        Ok(CreationCompaction {
+            receipt,
+            checkpoint,
         })
     }
 }
@@ -560,5 +593,19 @@ mod tests {
                 CollaborationError::MissingReplicaChange { .. }
             ))
         ));
+    }
+
+    #[test]
+    fn complete_stability_frontier_compacts_creation_history() {
+        let mut engine = CreationOperationSetEngine::new(base()).unwrap();
+        engine
+            .ingest(create("alice", 20, CreationAnchor::Start))
+            .unwrap();
+        let before = engine.checkpoint().unwrap();
+        let frontier = StabilityFrontier::new(BTreeMap::from([("alice".to_owned(), 1)])).unwrap();
+        let compacted = engine.compact_stable(&frontier).unwrap();
+        assert_eq!(compacted.checkpoint, before);
+        assert_eq!(compacted.receipt.dropped.len(), 1);
+        assert!(compacted.receipt.retained.is_empty());
     }
 }

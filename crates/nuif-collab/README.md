@@ -77,9 +77,10 @@ Pinned `@automerge/automerge` 3.4.1 independently merges immutable structural
 change records forward, reverse and in a different partition order, then
 checks duplicate merge and save/load. Automerge is the foreign convergent
 transport oracle only: it does not implement NUIF's tree move, cycle, trash or
-semantic-conflict rules. Concurrent creation, causally stable garbage
+semantic-conflict rules. Concurrent creation, partial causal garbage
 collection, combined property/structure transactions and an independently
-authored tree materializer remain outside this profile.
+authored tree materializer remain outside this profile; complete-history
+compaction is specified separately below.
 
 ## Concurrent creation profile 0
 

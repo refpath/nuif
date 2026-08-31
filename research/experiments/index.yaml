@@ -229,11 +229,11 @@ experiments:
   - id: nuif:experiment:crdt-causal-compaction
     status: automated
     evidence: [nuif:research:automerge-yjs, nuif:research:crdt-tree-move-operation, nuif:research:content-addressed-versioning]
-    implementation: [crates/nuif-collab/src/gc.rs, crates/nuif-collab/src/lib.rs, crates/nuif-collab/src/structural.rs, conformance/src/bin/collaboration-gc.rs, crates/nuif-collab/README.md, spec/10-collaboration-profile.md, xtask/src/main.rs]
+    implementation: [crates/nuif-collab/src/gc.rs, crates/nuif-collab/src/lib.rs, crates/nuif-collab/src/creation.rs, crates/nuif-collab/src/structural.rs, conformance/src/bin/collaboration-gc.rs, crates/nuif-collab/README.md, spec/10-collaboration-profile.md, xtask/src/main.rs]
     oracle: deterministic-checkpoint-receipt
     acceptance:
       - a caller-attested frontier exactly matching local replica clocks compacts a complete history
-      - register and structural checkpoints retain identical canonical hashes and semantic documents
+      - register, concurrent-creation and structural checkpoints retain identical canonical hashes and semantic documents
       - receipts record source profile, source base, compacted hash, frontier and dropped change IDs
       - canonical documents contain no collaboration metadata after compaction
       - partial and ahead frontiers fail closed without implicit context or position-anchor rebasing

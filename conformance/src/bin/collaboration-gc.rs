@@ -1,4 +1,7 @@
 use nuif_codec::{CanonicalText, Encoder};
+use nuif_collab::creation::{
+    CreationAnchor, CreationChange, CreationOperation, CreationOperationSetEngine,
+};
 use nuif_collab::gc::StabilityFrontier;
 use nuif_collab::structural::{
     StructuralAnchor, StructuralChange, StructuralOperation, StructuralOperationSetEngine,
@@ -59,6 +62,26 @@ fn run() -> Result<(), String> {
         .compact_stable(&structural_frontier)
         .map_err(|e| e.to_string())?;
 
+    let creation_base = structural_fixture();
+    let creation_change = CreationChange {
+        id: ChangeId::new("alice", 1),
+        context: BTreeMap::new(),
+        operation: CreationOperation::Insert {
+            parent: Some(ROOT),
+            anchor: CreationAnchor::Start,
+            entity: Box::new(Entity::new(EntityId::new(20), EntityKind::Container)),
+        },
+    };
+    let mut creation_engine =
+        CreationOperationSetEngine::new(creation_base).map_err(|e| e.to_string())?;
+    creation_engine
+        .ingest(creation_change)
+        .map_err(|e| e.to_string())?;
+    let creation_before = creation_engine.checkpoint().map_err(|e| e.to_string())?;
+    let creation_compacted = creation_engine
+        .compact_stable(&structural_frontier)
+        .map_err(|e| e.to_string())?;
+
     let empty = OperationSetEngine::default()
         .compact_stable(
             &register_base,
@@ -89,13 +112,18 @@ fn run() -> Result<(), String> {
         "structural_checkpoint_exact": structural_compacted.checkpoint == structural_before,
         "structural_history_fully_dropped": structural_compacted.receipt.dropped.len() == 1
             && structural_compacted.receipt.retained.is_empty(),
+        "creation_checkpoint_exact": creation_compacted.checkpoint == creation_before,
+        "creation_history_fully_dropped": creation_compacted.receipt.dropped.len() == 1
+            && creation_compacted.receipt.retained.is_empty(),
         "empty_history_compacts": empty.receipt.dropped.is_empty() && empty.receipt.retained.is_empty(),
         "partial_frontier_refused": partial_is_typed,
         "ahead_frontier_refused": ahead_is_typed,
         "metadata_absent_from_register_document": metadata_absent(&register_compacted.checkpoint.document)?,
         "metadata_absent_from_structural_document": metadata_absent(&structural_compacted.checkpoint.document)?,
+        "metadata_absent_from_creation_document": metadata_absent(&creation_compacted.checkpoint.document)?,
         "profile_receipt_versioned": register_compacted.receipt.profile == nuif_collab::gc::PROFILE_NAME
-            && structural_compacted.receipt.profile == nuif_collab::gc::PROFILE_NAME,
+            && structural_compacted.receipt.profile == nuif_collab::gc::PROFILE_NAME
+            && creation_compacted.receipt.profile == nuif_collab::gc::PROFILE_NAME,
     });
     let passed = checks
         .as_object()
@@ -125,8 +153,10 @@ fn run() -> Result<(), String> {
         "summary": {
             "register_changes": register_changes.len(),
             "structural_changes": 1,
+            "creation_changes": 1,
             "register_checkpoint_hash": register_compacted.checkpoint.canonical_hash,
             "structural_checkpoint_hash": structural_compacted.checkpoint.canonical_hash,
+            "creation_checkpoint_hash": creation_compacted.checkpoint.canonical_hash,
             "dropped_register_changes": register_compacted.receipt.dropped,
             "dropped_structural_changes": structural_compacted.receipt.dropped,
         },
@@ -134,8 +164,9 @@ fn run() -> Result<(), String> {
     });
     write_json(&output, &report)?;
     println!(
-        "causal compaction: {} register + {} structural changes, status {}",
+        "causal compaction: {} register + {} structural + {} creation changes, status {}",
         register_changes.len(),
+        1,
         1,
         report["status"]
     );
