@@ -55,8 +55,17 @@ and immediately below/at a GSUB FeatureVariations threshold. The same vector is
 then used for Skrifa advances and unhinted outlines. Every advance and
 canonical 26.6 path agrees exactly with HarfBuzz's public metric and draw
 callbacks; repeats are exact and the fixture's `gvar` changes the interior
-outline. The fixture's HVAR store has no active variation regions and it has no
-MVAR table, so nonzero advance/global-metric deltas remain untested.
+outline. That fixture's HVAR store has no active variation regions and it has
+no MVAR table.
+
+`cargo xtask gate-i-font-metrics` adds a second `font-test-data` fixture whose
+HVAR store changes three glyph advances across four `wght` locations. HarfRust
+shaping and Skrifa metrics agree exactly with pinned HarfBuzz 14.4.0 public-API
+observations at every location. The fixture deliberately uses a valid
+truncated advance-index map, so the test also covers the OpenType rule that
+missing trailing map entries reuse the final present entry. This is one narrow
+horizontal-metric case; MVAR, VVAR, side-bearing variation, `gvar` phantom-point
+fallback, and a broader HVAR corpus remain untested.
 
 ## Negative and security evidence
 
@@ -74,6 +83,6 @@ graphs. Parser admission is therefore not promoted to package acceptance.
 No variable font may yet pass `validate_packaged_font`, enter the evaluation
 context, participate in layout/rendering, or claim lossless fidelity under this
 candidate identifier. The next executable gate must add a rights-reviewed
-multi-fixture corpus with nonzero HVAR/MVAR deltas, malformed variation-graph
-cases, and allocation/time ceilings before the shared
+MVAR fixture and broader HVAR corpus, malformed variation-graph cases, and
+allocation/time ceilings before the shared
 package/runtime path changes.

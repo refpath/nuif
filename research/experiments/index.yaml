@@ -722,6 +722,21 @@ experiments:
       - compare every shaped glyph advance and canonical unhinted outline with HarfBuzz at the identical location and repeat every result exactly
       - require gvar to change an outline between the default and an interior coordinate while preserving exact HarfBuzz agreement
       - archive target/variable-font-shaping-report.json from cargo xtask gate-i-font-shaping
+  - id: nuif:experiment:variable-font-hvar-baseline
+    status: automated
+    evidence: [nuif:research:opentype-font-embedding-and-portability, nuif:research:fontations, nuif:research:harfbuzz-unicode, nuif:research:text-rendering-reproducibility]
+    implementation: [crates/nuif-font/src/lib.rs, crates/nuif-text/src/lib.rs, crates/nuif-testing/src/bin/variable-font-metrics.rs, conformance/font/harfbuzz-14.4.0-hvar-truncated-map.json, tools/font/capture_harfbuzz_hvar.py, xtask/src/main.rs]
+    oracle: external-harfbuzz-shaping-and-horizontal-metric-coherence
+    acceptance:
+      - HarfRust shaping and Skrifa horizontal metrics exactly reproduce pinned HarfBuzz 14.4.0 advances at default named interior and maximum locations
+      - all three measured glyph advances change monotonically through one nonzero HVAR variation store
+      - one valid truncated HVAR advance-index map is resolved without rejecting the font or losing the final repeated map entry
+      - evidence remains isolated from package validation layout rendering MVAR VVAR side-bearing and broad HVAR claims
+    tests:
+      - compare exact glyph IDs clusters and advances at four weight locations against hb-shape and HarfBuzz public metric callbacks
+      - require the NUIF-owned normalized coordinate to agree with HarfBuzz and drive both HarfRust and Skrifa
+      - reject one below-minimum coordinate and repeat every case exactly
+      - archive target/variable-font-metrics-report.json from cargo xtask gate-i-font-metrics
   - id: nuif:experiment:font-resource-profile
     status: planned
     evidence: [nuif:research:opentype-font-embedding-and-portability, nuif:research:text-rendering-reproducibility]
@@ -729,10 +744,10 @@ experiments:
     continuation:
       class: profile-design
       blocked_by:
-        - RFC 0013 metadata normalization shaping advances and outlines now have one bounded HarfBuzz/Skrifa fixture but nonzero HVAR MVAR evidence variation-table graph limits allocation ceilings and a rights-reviewed multi-fixture corpus remain required before promotion
+        - RFC 0013 metadata normalization shaping advances and outlines now have one bounded HarfBuzz/Skrifa fixture and a second nonzero HVAR fixture but MVAR broader HVAR evidence variation-table graph limits allocation ceilings and a rights-reviewed corpus remain required before promotion
         - collection CFF/CFF2 COLR bitmap SVG-glyph and WOFF2 support remain separate capabilities with format-specific bounds and oracles
         - redistribution subsetting and derived-instance policy cannot be inferred from fsType and requires publisher-supplied license evidence plus rights-reviewed fixtures
-      next_action: Add a rights-reviewed multi-fixture corpus with nonzero HVAR and MVAR deltas plus malformed variation-graph and allocation ceilings before changing package acceptance or runtime fidelity.
+      next_action: Add a rights-reviewed MVAR fixture and broader HVAR corpus plus malformed variation-graph and allocation ceilings before changing package acceptance or runtime fidelity.
     acceptance:
       - font bytes face index axes features coverage and shaping inputs are content-addressed and independently decoded
       - portable private-authoring linked substituted and unavailable policies produce distinct validated outcomes

@@ -12,6 +12,11 @@ tool a build dependency or turn one fixture into a general format claim.
   26.6 paths from HarfBuzz draw callbacks at every shaping location. Regenerate it with
   `python3 tools/font/capture_harfbuzz_variable.py <font>` and compare the exact
   font digest before review.
+- `harfbuzz-14.4.0-hvar-truncated-map.json` records nonzero horizontal
+  advances from a valid truncated HVAR advance-index map. Regenerate it with
+  `python3 tools/font/capture_harfbuzz_hvar.py <font>` and the exact fixture
+  named in the capture. It does not establish MVAR, VVAR, side-bearing, or
+  broad HVAR support.
 
 The variable fixture comes from `font-test-data` 0.9.1. Its package metadata
 declares `MIT OR Apache-2.0`, while the font's embedded copyright string is

@@ -183,7 +183,12 @@ and reproduces seven `hb-shape` cases, including a GSUB FeatureVariations
 boundary. Skrifa advances and unhinted outlines use the same vector and repeat
 exactly against HarfBuzz's independently captured horizontal advances and draw
 callbacks. The single fixture has no active HVAR deltas or MVAR table, so this
-does not complete variable-metric conformance.
+does not complete variable-metric conformance. A second isolated
+`cargo xtask gate-i-font-metrics` fixture applies nonzero HVAR deltas to three
+horizontal advances at four locations, including a valid truncated advance
+index map. HarfRust and Skrifa agree exactly with pinned HarfBuzz 14.4.0
+observations. MVAR, VVAR, side bearings, `gvar` phantom-point fallback, broader
+HVAR coverage, and package/runtime integration remain open.
 
 Promotion from proposed to experimental requires all of the following:
 

@@ -27,8 +27,8 @@ links:
   spec: [spec/05-geometry-paint-text.md, spec/08-serialization.md, spec/11-security.md]
   adr: [adrs/0003-reference-renderer.md]
   rfc: [rfcs/0010-portable-resource-package.md, rfcs/0013-variable-truetype-resource-profile.md]
-  code: [crates/nuif-text, crates/nuif-font, crates/nuif-package, crates/nuif-testing/src/bin/font-resources.rs, crates/nuif-testing/src/bin/variable-font-metadata.rs, crates/nuif-testing/src/bin/variable-font-shaping.rs, conformance/font/harfbuzz-14.4.0-material-symbols-variable.json]
-  experiments: [nuif:experiment:font-resource-static-baseline, nuif:experiment:variable-font-metadata-baseline, nuif:experiment:variable-font-shaping-baseline, nuif:experiment:font-resource-profile]
+  code: [crates/nuif-text, crates/nuif-font, crates/nuif-package, crates/nuif-testing/src/bin/font-resources.rs, crates/nuif-testing/src/bin/variable-font-metadata.rs, crates/nuif-testing/src/bin/variable-font-shaping.rs, crates/nuif-testing/src/bin/variable-font-metrics.rs, conformance/font/harfbuzz-14.4.0-material-symbols-variable.json, conformance/font/harfbuzz-14.4.0-hvar-truncated-map.json]
+  experiments: [nuif:experiment:font-resource-static-baseline, nuif:experiment:variable-font-metadata-baseline, nuif:experiment:variable-font-shaping-baseline, nuif:experiment:variable-font-hvar-baseline, nuif:experiment:font-resource-profile]
 ---
 
 # Summary
@@ -152,13 +152,17 @@ seven named instances and default/minimum/maximum plus two interior vectors;
 the interior `wght` values prove that an `avar` map is actually applied.
 
 This does not accept the resource in a package or runtime. HVAR, VVAR, MVAR and
-STAT graph limits, nonzero variable-metric fixtures, rendering, allocation
+STAT graph limits, broad variable-metric fixtures, rendering, allocation
 ceilings and cross-surface parity remain blocking. A second gate does reproduce
 seven HarfBuzz shapes including a GSUB FeatureVariations threshold and proves
 one coordinate vector is reused by HarfRust and Skrifa metrics/outlines. Every
 advance and canonical path now agrees with HarfBuzz's independently captured
 metric and draw callbacks. The fixture has no active HVAR regions or MVAR table,
 so the single-fixture result is not variable-metric or package evidence.
+An independent HVAR gate now compares three nonzero location-dependent advances
+across four `wght` positions with HarfBuzz and specifically exercises a valid
+truncated advance-index map. It still does not cover MVAR, VVAR, side bearings,
+phantom-point fallback, broad HVAR behavior, or package/runtime admission.
 The fixture's crate-level `MIT OR Apache-2.0` distribution metadata is retained,
 while its embedded copyright string prevents the experiment from presenting
 that fact as an automated publisher-rights determination.

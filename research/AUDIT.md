@@ -172,8 +172,11 @@ and out-of-range coordinate tuples. It does not enable variable package,
 layout or rendering behavior. A second isolated gate reproduces seven HarfBuzz
 shapes including a GSUB FeatureVariations boundary and reuses the same vector
 for Skrifa advances/outlines. Each advance and canonical path agrees exactly
-with HarfBuzz's independent metric/draw callbacks. Nonzero HVAR/MVAR behavior,
-multi-fixture coverage and package acceptance remain open.
+with HarfBuzz's independent metric/draw callbacks. A third isolated gate now
+checks nonzero HVAR deltas for three advances at four locations using a valid
+truncated advance-index map; HarfRust shaping and Skrifa metrics agree exactly
+with pinned HarfBuzz 14.4.0 observations. MVAR, VVAR, side-bearing, broader
+HVAR evidence and package acceptance remain open.
 Four accepted-font
 inspections and packaged validation now carry warmed 4 MiB allocated/2 MiB
 retained regression ceilings. Package-to-session handoff shares an 8 MiB buffer

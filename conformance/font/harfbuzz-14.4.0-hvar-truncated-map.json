@@ -1,0 +1,74 @@
+{
+  "capture_command": "python3 tools/font/capture_harfbuzz_hvar.py hvar_with_truncated_adv_index_map.ttf",
+  "cases": [
+    {
+      "glyph_advances_font_units": [
+        580,
+        190,
+        400
+      ],
+      "label": "default",
+      "normalized_2_14": [
+        0
+      ],
+      "serialized_glyphs": "[2=0+580|3=1+190|4=2+400]",
+      "text": "AIT",
+      "user": {
+        "wght": 400.0
+      }
+    },
+    {
+      "glyph_advances_font_units": [
+        620,
+        213,
+        433
+      ],
+      "label": "named_medium",
+      "normalized_2_14": [
+        5461
+      ],
+      "serialized_glyphs": "[2=0+620|3=1+213|4=2+433]",
+      "text": "AIT",
+      "user": {
+        "wght": 500.0
+      }
+    },
+    {
+      "glyph_advances_font_units": [
+        640,
+        225,
+        450
+      ],
+      "label": "interior",
+      "normalized_2_14": [
+        8192
+      ],
+      "serialized_glyphs": "[2=0+640|3=1+225|4=2+450]",
+      "text": "AIT",
+      "user": {
+        "wght": 550.0
+      }
+    },
+    {
+      "glyph_advances_font_units": [
+        700,
+        260,
+        500
+      ],
+      "label": "maximum",
+      "normalized_2_14": [
+        16384
+      ],
+      "serialized_glyphs": "[2=0+700|3=1+260|4=2+500]",
+      "text": "AIT",
+      "user": {
+        "wght": 700.0
+      }
+    }
+  ],
+  "fixture": "font-test-data 0.9.1 hvar_with_truncated_adv_index_map.ttf",
+  "font_sha256": "6549bbde7cdb55869d167a2587fad20dd33503a3b5c63dcd74b5be20d1978d1a",
+  "schema_version": 1,
+  "tool": "HarfBuzz public C API and hb-shape",
+  "version": "14.4.0"
+}
