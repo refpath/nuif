@@ -14,6 +14,7 @@ cargo xtask docs-check
 cargo xtask docs-build
 cargo xtask docs-serve
 cargo xtask docs-paper
+cargo xtask conformance-kit
 ```
 
 `docs-check` validates catalog paths, unique document identifiers, required
@@ -45,6 +46,13 @@ committed.
 The manuscript body is generated from the whitepaper modules listed in
 `docs/catalog.json`. The composition metadata does not copy chapter text.
 Publication does not imply peer review or specification maturity.
+
+`conformance-kit` is the separate external-implementer handoff. It packages
+the canonical specs, schemas, bounded fixtures, adapter profiles and passed
+in-repository evidence reports into a digest-bound GitHub release artifact.
+The archive deliberately carries no credentials or host documents and does not
+grant certification; an external implementation must publish independent
+provenance and results.
 
 ## Metadata boundary
 

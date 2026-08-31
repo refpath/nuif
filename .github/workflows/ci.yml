@@ -75,6 +75,18 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y libfontconfig1-dev
       - name: Complete automated research and conformance loop
         run: cargo xtask all
+      - name: Build external conformance kit
+        run: cargo xtask conformance-kit
+      - name: Upload external conformance kit
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: conformance-kit
+          if-no-files-found: error
+          path: |
+            target/dist/nuif-conformance-kit-*.tar.gz
+            target/dist/nuif-conformance-kit-*.zip
+            target/dist/nuif-conformance-kit-*.manifest.json
       - name: Upload Gate B trial report
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
