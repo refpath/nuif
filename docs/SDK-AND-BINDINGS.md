@@ -128,6 +128,22 @@ normal/sanitized conformance reports, licenses and a manifest covering every
 payload file by SHA-256. It is a developer package for experiments, not a
 promise of ABI stability or a platform store distribution.
 
+The committed header is generated from the Rust ABI declarations by pinned
+cbindgen 0.29.4 and `bindings/cbindgen.toml`. `cargo xtask ffi-header` performs
+the only authorized regeneration; `cargo xtask ffi-header --check` and
+`gate-ffi` reject any source/header drift. The configuration, header and exact
+experimental symbol baseline are reviewed together.
+
+`nuif-ffi-0` has an explicit pre-stability compatibility policy. Any change to
+a public declaration, numeric macro, ownership rule or exported symbol may be
+breaking, but must update the Rust implementation, generated header, symbol
+baseline, consumers and evidence in one commit. No downstream source or binary
+compatibility is promised for its `0.0.x` archives. A future `nuif-ffi-1`
+freezes existing signatures, layouts, numeric errors and ownership rules for
+its major profile; additions use new symbols, while removal or reinterpretation
+requires another major FFI profile. Header regeneration verifies declarations
+but does not by itself prove calling convention or binary compatibility.
+
 Rust's native ABI has no stability guarantee. A C-compatible ABI adds an unsafe
 ownership boundary whose handle lifetime, buffer allocation and release, panic
 containment, error representation, thread rules, symbol set and calling
@@ -143,11 +159,11 @@ The promotion path is:
    model, codec, operation and SDK crates under `unsafe_code = "forbid"`.
 3. Catch panics before the ABI boundary, return stable numeric error classes
    plus owned diagnostic bytes, and provide one allocator-matched buffer-free
-   function and one idempotent handle-free function.
+   function and one null-tolerant handle-free function.
 4. Preserve the implemented C/C++ compile checks, exported-symbol baseline and
-   POSIX sanitizer consumer; generate headers with a pinned cbindgen release,
-   define source-compatibility policy and extend runtime/sanitizer evidence to
-   every supported target before stabilization.
+   POSIX sanitizer consumer, pinned generated header and experimental
+   compatibility policy; extend linked runtime/sanitizer evidence to every
+   supported target before stabilization.
 5. Generate Swift and Kotlin wrappers with a pinned UniFFI release after its
    generated ownership/checksum behavior passes native tests. Package an
    XCFramework/Swift package and Android AAR separately; UniFFI generates

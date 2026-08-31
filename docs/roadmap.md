@@ -167,10 +167,11 @@ baseline and a linked release-library variable-font package/snapshot comparison
 under normal, AddressSanitizer and UndefinedBehaviorSanitizer execution on
 POSIX. The versioned native archive includes this evidence and hashes every
 payload. No stable C ABI is claimed while the semantic API remains `0.0.x`.
-ADR 0011 still requires a separately reviewed `nuif-ffi-1` contract, pinned
-header generation and source-compatibility policy, linked C++ and pinned UniFFI
-Swift/Kotlin consumers, full target-matrix sanitizer evidence and real
-XCFramework/AAR packages before that surface becomes stable. This is a
+Pinned cbindgen 0.29.4 now regenerates the committed header, and the gate rejects
+declaration drift under the reviewed experimental compatibility policy. ADR
+0011 still requires a separately reviewed `nuif-ffi-1` contract, linked C++ and
+pinned UniFFI Swift/Kotlin consumers, full target-matrix sanitizer evidence and
+real XCFramework/AAR packages before that surface becomes stable. This is a
 promotion gate, not missing logic that should be guessed into the core.
 
 ## Phase 5f — standalone developer CLI package (complete locally)

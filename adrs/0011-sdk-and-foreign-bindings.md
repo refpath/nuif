@@ -38,9 +38,12 @@ distribution system.
 5. No stable C ABI is declared while the semantic SDK is `0.0.x`. The eventual
    `nuif-ffi` is a small separately reviewed crate over SDK byte records, not a
    C representation of internal Rust structs.
-6. C/C++ headers should be generated with pinned cbindgen. Swift/Kotlin wrappers
-   should prefer pinned UniFFI over handwritten per-language ownership glue,
-   but only after ABI, sanitizer and native-consumer gates are defined.
+6. C/C++ headers are generated with pinned cbindgen and rejected when stale.
+   The experimental profile permits reviewed breaking changes only when Rust,
+   header, symbol baseline, consumers and evidence move together; stable major
+   profiles may only add symbols without another major FFI profile. Swift/Kotlin
+   wrappers should prefer pinned UniFFI over handwritten per-language ownership
+   glue, but only after ABI, sanitizer and native-consumer gates are defined.
 7. Each foreign binding and platform package has an independent profile,
    version, compatibility report and release stream.
 

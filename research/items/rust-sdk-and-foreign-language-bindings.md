@@ -7,7 +7,7 @@ source:
   url: https://doc.rust-lang.org/reference/items/external-blocks.html
   repository: https://github.com/mozilla/uniffi-rs
   authors: [Rust project contributors, Mozilla UniFFI contributors, cbindgen contributors]
-  published_at: "Rust 1.98 Reference; UniFFI 0.31.2; cbindgen main, reviewed 2026-08-31"
+  published_at: "Rust 1.98 Reference; UniFFI 0.31.2; cbindgen 0.29.4, reviewed 2026-08-31"
   license: "Rust documentation MIT OR Apache-2.0; UniFFI MPL-2.0; cbindgen MPL-2.0"
 retrieved_at: 2026-08-31
 tags: [rust, sdk, ffi, c, cplusplus, swift, kotlin, uniffi, cbindgen, abi, wasm]
@@ -149,7 +149,11 @@ snapshot JSON with the CLI oracle.
 The same gate compiles the header under C11 and C++17, compares all optimized
 exports with a checked-in experimental symbol set, and repeats the C consumer
 under ASan/UBSan. The developer archive carries those reports and hashes every
-payload; this is pre-stability evidence, not an ABI promise.
+payload. Pinned cbindgen 0.29.4 now derives the opaque types and function
+declarations from Rust; exact regeneration is a prerequisite of the same gate.
+Profile 0 permits breaking declarations only when implementation, header,
+symbol baseline, consumers and evidence change together. This is pre-stability
+evidence and an explicit review policy, not an ABI promise.
 
 ## NUIF relevance
 
@@ -166,8 +170,8 @@ shippable SDK.
 - semantic API and stable error-code registry leave `0.0.x`;
 - separate `nuif-ffi` unsafe-code review and panic-containment proof;
 - opaque handles plus allocator-matched bytes and destructors;
-- pinned cbindgen header generation plus a reviewed source-compatibility policy
-  over the implemented symbol baseline;
+- retain the pinned cbindgen regeneration check and reviewed experimental
+  compatibility policy over the implemented symbol baseline;
 - target-matrix C and linked C++ consumers, extending the implemented POSIX
   ASan/UBSan C trial;
 - pinned UniFFI generator/runtime with Swift and Kotlin consumer tests;
