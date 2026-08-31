@@ -797,7 +797,12 @@ fn resource_host_matrix_report(
         let mut host_evidence = Vec::new();
         for (platform, wrapper) in &reports {
             let report = &wrapper["report"];
-            if report.get("source").is_some() {
+            if matches!(
+                filename,
+                "package-resources-report.json"
+                    | "image-resources-report.json"
+                    | "font-resources-report.json"
+            ) {
                 source_metadata_reports += 1;
                 source_metadata_matches &= report_source_matches(report, platform, source_revision);
             }
@@ -5668,6 +5673,13 @@ mod tests {
                                 "canonical_hash": "nuif-cbor-0:sha256:fixture",
                                 "raster_sha256": "raster",
                             }]);
+                        }
+                        if filename == "variable-font-gvar-generated-report.json" {
+                            report["source"] = serde_json::json!({
+                                "fixture": "font-test-data fixture",
+                                "package_license": "MIT OR Apache-2.0",
+                                "sha256": "fixture",
+                            });
                         }
                         (
                             filename.to_owned(),

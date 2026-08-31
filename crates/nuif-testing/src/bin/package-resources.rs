@@ -22,7 +22,7 @@ use std::path::PathBuf;
 use std::process::Command;
 use std::time::Instant;
 use zip::write::SimpleFileOptions;
-use zip::{CompressionMethod, ZipWriter};
+use zip::{CompressionMethod, System as ZipSystem, ZipWriter};
 
 const PROFILE: &str = "nuif-package-0";
 const SHARED_RESOURCE_TRIAL_BYTES: usize = 8 * 1024 * 1024;
@@ -232,6 +232,7 @@ fn zip_bytes(
     let mut writer = ZipWriter::new(Cursor::new(Vec::new()));
     let options = SimpleFileOptions::default()
         .compression_method(compression)
+        .system(ZipSystem::Unix)
         .last_modified_time(
             zip::DateTime::from_date_and_time(1980, 1, 1, 0, 0, 0)
                 .map_err(|error| error.to_string())?,
