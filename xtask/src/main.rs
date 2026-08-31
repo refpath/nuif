@@ -3035,9 +3035,9 @@ fn editor_gui_trial() -> Result<(), String> {
     }
     if first["status"] != "passed"
         || first["window"] != serde_json::json!([1280, 800])
-        || first["semantic_nodes"] != 19
+        || first["semantic_nodes"] != 14
         || first["file_menu_routes"].as_array().map(Vec::len) != Some(17)
-        || first["operations"] != 7
+        || first["operations"] != 8
     {
         return Err("native editor trial report failed its evidence assertions".to_owned());
     }

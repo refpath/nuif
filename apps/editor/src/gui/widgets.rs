@@ -28,7 +28,21 @@ pub enum CanvasAction {
         entity: Option<EntityId>,
         document_position: Option<(f64, f64)>,
     },
+    Move {
+        entity: EntityId,
+        document_delta: (f64, f64),
+        snap_to_pixel: bool,
+    },
     Shortcut(CanvasShortcut),
+}
+
+#[derive(Clone, Copy, Debug)]
+struct CanvasDrag {
+    entity: Option<EntityId>,
+    start_screen: Point,
+    start_document: Option<Point>,
+    current_screen: Point,
+    current_document: Option<Point>,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -59,6 +73,7 @@ pub struct DocumentCanvas {
     show_grid: bool,
     show_rulers: bool,
     size: Size,
+    drag: Option<CanvasDrag>,
 }
 
 impl DocumentCanvas {
@@ -84,6 +99,7 @@ impl DocumentCanvas {
             show_grid: true,
             show_rulers: true,
             size: Size::ZERO,
+            drag: None,
         }
     }
 
@@ -140,11 +156,33 @@ impl DocumentCanvas {
     }
 
     fn document_position(&self, point: Point) -> Option<(f64, f64)> {
+        let point = self.document_coordinates(point);
+        (point.x >= 0.0
+            && point.x <= self.image_size.width
+            && point.y >= 0.0
+            && point.y <= self.image_size.height)
+            .then_some((point.x, point.y))
+    }
+
+    fn document_coordinates(&self, point: Point) -> Point {
         let (scale, offset) = self.page_transform();
-        let x = (point.x - offset.x) / scale;
-        let y = (point.y - offset.y) / scale;
-        (x >= 0.0 && x <= self.image_size.width && y >= 0.0 && y <= self.image_size.height)
-            .then_some((x, y))
+        Point::new((point.x - offset.x) / scale, (point.y - offset.y) / scale)
+    }
+
+    #[cfg(feature = "editor-automation")]
+    pub(super) fn local_entity_center(&self, entity: EntityId) -> Option<Point> {
+        let (_, rect) = self.boxes.iter().find(|(id, _)| *id == entity)?;
+        let (scale, offset) = self.page_transform();
+        Some(Point::new(
+            offset.x + (rect.x + rect.width * 0.5) * scale,
+            offset.y + (rect.y + rect.height * 0.5) * scale,
+        ))
+    }
+
+    #[cfg(feature = "editor-automation")]
+    pub(super) fn local_document_delta(&self, delta: (f64, f64)) -> Vec2 {
+        let (scale, _) = self.page_transform();
+        Vec2::new(delta.0 * scale, delta.1 * scale)
     }
 }
 
@@ -264,19 +302,69 @@ impl Widget for DocumentCanvas {
         _props: &mut PropertiesMut<'_>,
         event: &PointerEvent,
     ) {
-        let PointerEvent::Down(event) = event else {
-            return;
-        };
-        if !matches!(event.button, None | Some(PointerButton::Primary)) {
-            return;
+        match event {
+            PointerEvent::Down(event)
+                if matches!(event.button, None | Some(PointerButton::Primary)) =>
+            {
+                ctx.request_focus();
+                ctx.capture_pointer();
+                let point = ctx.local_position(event.state.position);
+                self.drag = Some(CanvasDrag {
+                    entity: self.entity_at(point),
+                    start_screen: point,
+                    start_document: self.document_position(point).map(|(x, y)| Point::new(x, y)),
+                    current_screen: point,
+                    current_document: self.document_position(point).map(|(x, y)| Point::new(x, y)),
+                });
+                ctx.set_handled();
+            }
+            PointerEvent::Move(event) if ctx.is_active() => {
+                let point = ctx.local_position(event.current.position);
+                let document = self.document_coordinates(point);
+                if let Some(drag) = &mut self.drag {
+                    drag.current_screen = point;
+                    drag.current_document = Some(document);
+                    ctx.request_paint_only();
+                    ctx.set_handled();
+                }
+            }
+            PointerEvent::Up(event)
+                if matches!(event.button, None | Some(PointerButton::Primary)) =>
+            {
+                let point = ctx.local_position(event.state.position);
+                let document = self.document_coordinates(point);
+                if let Some(mut drag) = self.drag.take() {
+                    drag.current_screen = point;
+                    drag.current_document = Some(document);
+                    let screen_delta = drag.current_screen - drag.start_screen;
+                    let moved = screen_delta.hypot2() >= 9.0;
+                    let action = match (
+                        moved,
+                        drag.entity,
+                        drag.start_document,
+                        drag.current_document,
+                    ) {
+                        (true, Some(entity), Some(start), Some(current)) => CanvasAction::Move {
+                            entity,
+                            document_delta: (current.x - start.x, current.y - start.y),
+                            snap_to_pixel: !event.state.modifiers.ctrl(),
+                        },
+                        _ => CanvasAction::Activate {
+                            entity: drag.entity,
+                            document_position: drag.start_document.map(|point| (point.x, point.y)),
+                        },
+                    };
+                    ctx.submit_action::<Self::Action>(action);
+                    ctx.request_paint_only();
+                    ctx.set_handled();
+                }
+            }
+            PointerEvent::Cancel(_) => {
+                self.drag = None;
+                ctx.request_paint_only();
+            }
+            _ => {}
         }
-        ctx.request_focus();
-        let point = ctx.local_position(event.state.position);
-        let action = CanvasAction::Activate {
-            entity: self.entity_at(point),
-            document_position: self.document_position(point),
-        };
-        ctx.submit_action::<Self::Action>(action);
     }
 
     fn on_text_event(
@@ -403,14 +491,22 @@ impl Widget for DocumentCanvas {
         let transform = Affine::translate(offset) * Affine::scale(scale);
         painter.draw_image(&self.image, transform);
 
-        if let Some(selection) = self.selection
+        let mut selection = self.selection;
+        let mut preview_delta = Vec2::ZERO;
+        if let Some(drag) = &self.drag {
+            selection = drag.entity.or(selection);
+            if let (Some(start), Some(current)) = (drag.start_document, drag.current_document) {
+                preview_delta = current - start;
+            }
+        }
+        if let Some(selection) = selection
             && let Some((_, rect)) = self.boxes.iter().find(|(entity, _)| *entity == selection)
         {
             let selected = Rect::new(
-                offset.x + rect.x * scale,
-                offset.y + rect.y * scale,
-                offset.x + (rect.x + rect.width) * scale,
-                offset.y + (rect.y + rect.height) * scale,
+                offset.x + (rect.x + preview_delta.x) * scale,
+                offset.y + (rect.y + preview_delta.y) * scale,
+                offset.x + (rect.x + rect.width + preview_delta.x) * scale,
+                offset.y + (rect.y + rect.height + preview_delta.y) * scale,
             );
             painter
                 .stroke(selected, &Stroke::new(2.0), SELECTION)

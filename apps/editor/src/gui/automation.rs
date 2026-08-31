@@ -1,10 +1,10 @@
 //! Deterministic whole-editor semantic and visual trial runner.
 
-use super::widgets::AuthorAction;
+use super::widgets::{AuthorAction, CanvasAction, DocumentCanvas};
 use super::{Driver, ExternalFormat, UiAction};
 use crate::{EditorEvent, EditorFile, decode_editor_file, encode_editor_file};
 use masonry::accesskit::{Action, ActionData, ActionRequest, TreeId};
-use masonry::core::{Widget, WidgetId};
+use masonry::core::{PointerButton, Widget, WidgetId};
 use masonry::theme::default_property_set;
 use masonry::widgets::{ButtonPress, SizedBox};
 use masonry_testing::{TestHarness, TestHarnessParams};
@@ -71,6 +71,11 @@ enum TrialAction {
         author_id: EntityId,
         label: String,
         value: String,
+    },
+    DragCanvas {
+        author_id: EntityId,
+        delta_x: f64,
+        delta_y: f64,
     },
     Undo,
     Redo,
@@ -308,6 +313,18 @@ fn validate_scenario(scenario: &Scenario) -> Result<(), String> {
             "window must be between {MIN_WINDOW_WIDTH}×{MIN_WINDOW_HEIGHT} and {MAX_WINDOW_EDGE}×{MAX_WINDOW_EDGE}"
         ));
     }
+    for action in &scenario.actions {
+        if let TrialAction::DragCanvas {
+            delta_x, delta_y, ..
+        } = action
+            && (!delta_x.is_finite()
+                || !delta_y.is_finite()
+                || delta_x.abs() > 1_000_000.0
+                || delta_y.abs() > 1_000_000.0)
+        {
+            return Err("canvas drag deltas must be finite and at most 1,000,000 px".to_owned());
+        }
+    }
     Ok(())
 }
 
@@ -374,6 +391,41 @@ fn execute_action(
             })?;
             require_source(widget_id, source)?;
             driver.handle_author_action(emitted);
+        }
+        TrialAction::DragCanvas {
+            author_id,
+            delta_x,
+            delta_y,
+        } => {
+            let canvas_id = driver
+                .canvas_widget_id
+                .ok_or_else(|| "document canvas is absent".to_owned())?;
+            let (start, end) = {
+                let canvas = harness
+                    .get_widget_with_id(canvas_id)
+                    .downcast::<DocumentCanvas>()
+                    .ok_or_else(|| "document canvas has the wrong widget type".to_owned())?;
+                let local_start = canvas
+                    .local_entity_center(*author_id)
+                    .ok_or_else(|| format!("entity {author_id} has no resolved canvas box"))?;
+                let local_end = local_start + canvas.local_document_delta((*delta_x, *delta_y));
+                let transform = canvas.ctx().window_transform();
+                (transform * local_start, transform * local_end)
+            };
+            harness.mouse_move(start);
+            harness.mouse_button_press(Some(PointerButton::Primary));
+            harness.mouse_move(end);
+            harness.mouse_button_release(Some(PointerButton::Primary));
+            let (emitted, source) = harness
+                .pop_action::<CanvasAction>()
+                .ok_or_else(|| format!("canvas drag for {author_id} emitted no action"))?;
+            require_source(canvas_id, source)?;
+            if !matches!(emitted, CanvasAction::Move { entity, .. } if entity == *author_id) {
+                return Err(format!(
+                    "canvas drag targeted {author_id} but emitted {emitted:?}"
+                ));
+            }
+            driver.handle_canvas_action(emitted);
         }
         TrialAction::Undo => press_command(driver, &mut harness, UiAction::Undo)?,
         TrialAction::Redo => press_command(driver, &mut harness, UiAction::Redo)?,

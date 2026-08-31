@@ -85,7 +85,7 @@ from that loop rather than a standing implementation commitment.
 3. Keep the implemented fixed/`fr`, sparse-flow, explicit-placement Grid subset
    exact; intrinsic, percentage, named, repeated, implicit, subgrid and masonry
    tracks require a separately versioned schema and foreign-oracle matrix.
-4. Keep the tested Masonry shell attached only through the editor driver boundary; complete direct manipulation without moving semantic rules into shell code.
+4. Keep the tested Masonry shell attached only through the editor driver boundary; extend the implemented one-transaction freeform move gesture to resize and managed-layout reorder without moving semantic rules into shell code.
 5. Treat soft wrapping, gradients, strokes, paths, images and instance materialization as a separately versioned expanded profile; do not weaken profile-0 exactness to add them.
 6. Keep `cargo xtask gate-i-package` green across CLI/editor/package changes and add a recorded cross-platform/external writer before accepting the wire profile.
 7. Extend the narrow PNG and static TrueType baselines only through new declared fixtures, add cross-platform media reproduction, and complete the broader OpenType format/policy matrix with calibrated allocation/time budgets; do not expand profile 0 by fallback.

@@ -327,6 +327,7 @@ struct Driver {
     show_file_menu: bool,
     show_grid: bool,
     show_rulers: bool,
+    canvas_widget_id: Option<WidgetId>,
     actions: HashMap<WidgetId, UiAction>,
     entity_widgets: HashMap<EntityId, WidgetId>,
     control_widgets: HashMap<(EntityId, &'static str), WidgetId>,
@@ -362,6 +363,7 @@ impl Driver {
             show_file_menu: false,
             show_grid: true,
             show_rulers: true,
+            canvas_widget_id: None,
             actions: HashMap::new(),
             entity_widgets: HashMap::new(),
             control_widgets: HashMap::new(),
@@ -375,6 +377,7 @@ impl Driver {
         self.entity_widgets.clear();
         self.control_widgets.clear();
         self.text_fields.clear();
+        self.canvas_widget_id = None;
 
         let snapshot = match self.editor.execute(EditorCommand::Snapshot {
             width: self.viewport_width,
@@ -411,8 +414,9 @@ impl Driver {
         let canvas =
             DocumentCanvas::new(self.viewport_width, VIEWPORT_HEIGHT, rgba, boxes, selection)
                 .with_view_options(self.zoom, self.show_grid, self.show_rulers)
-                .prepare()
-                .with_props(Dimensions::STRETCH);
+                .prepare();
+        self.canvas_widget_id = Some(canvas.id());
+        let canvas = canvas.with_props(Dimensions::STRETCH);
         let mut canvas_stack = ZStack::new().with(canvas, UnitPoint::CENTER);
         if !self.hide_ui {
             canvas_stack = canvas_stack.with(self.build_toolbar(), UnitPoint::BOTTOM);
@@ -1366,10 +1370,23 @@ impl Driver {
             document_position,
         } = action
         else {
-            let CanvasAction::Shortcut(shortcut) = action else {
-                unreachable!()
-            };
-            self.handle_shortcut(shortcut);
+            match action {
+                CanvasAction::Move {
+                    entity,
+                    document_delta,
+                    snap_to_pixel,
+                } => {
+                    if let Err(error) =
+                        self.move_freeform_entity(entity, document_delta, snap_to_pixel)
+                    {
+                        let _ = self.editor.execute(EditorCommand::Select { entity });
+                        self.drafts.clear();
+                        self.status = error;
+                    }
+                }
+                CanvasAction::Shortcut(shortcut) => self.handle_shortcut(shortcut),
+                CanvasAction::Activate { .. } => unreachable!(),
+            }
             return;
         };
         match self.tool {
@@ -1402,6 +1419,64 @@ impl Driver {
                 }
             }
         }
+    }
+
+    fn move_freeform_entity(
+        &mut self,
+        entity: EntityId,
+        document_delta: (f64, f64),
+        snap_to_pixel: bool,
+    ) -> Result<(), String> {
+        if !document_delta.0.is_finite() || !document_delta.1.is_finite() {
+            return Err("Canvas movement must be finite".to_owned());
+        }
+        let document = self.editor.document();
+        let value = document
+            .entities
+            .get(&entity)
+            .ok_or_else(|| format!("Entity {entity} no longer exists"))?;
+        let parent = document
+            .parent_of(entity)
+            .ok_or_else(|| "Page roots cannot be moved on the canvas".to_owned())?;
+        if document.entities[&parent].authored.layout.family != LayoutFamily::Freeform {
+            return Err(
+                "Direct movement is available only inside a freeform container; use layout order for Stack, Flex, or Grid children"
+                    .to_owned(),
+            );
+        }
+        let mut position = Point {
+            x: value.authored.position.x + document_delta.0,
+            y: value.authored.position.y + document_delta.1,
+        };
+        if snap_to_pixel {
+            position.x = position.x.round();
+            position.y = position.y.round();
+        }
+        if position == value.authored.position {
+            self.editor
+                .execute(EditorCommand::Select { entity })
+                .map_err(|error| error.to_string())?;
+            "Movement rounded to the current pixel position".clone_into(&mut self.status);
+            return Ok(());
+        }
+        self.editor
+            .execute(EditorCommand::SetPosition {
+                entity,
+                value: position,
+            })
+            .map_err(|error| error.to_string())?;
+        self.editor
+            .execute(EditorCommand::Select { entity })
+            .map_err(|error| error.to_string())?;
+        self.drafts.clear();
+        self.dirty = true;
+        self.status = format!(
+            "Moved {entity} to {} px, {} px{}",
+            position.x,
+            position.y,
+            if snap_to_pixel { " · snapped" } else { "" }
+        );
+        Ok(())
     }
 
     fn handle_shortcut(&mut self, shortcut: CanvasShortcut) {
@@ -2735,6 +2810,80 @@ mod tests {
             SizeIntent::Fixed(240.0)
         );
         assert_eq!(driver.editor.operation_log().len(), 2);
+    }
+
+    #[test]
+    fn freeform_canvas_move_is_one_snapped_semantic_transaction() {
+        let (_, mut driver) = harness();
+        let surface = driver.editor.document().roots[0];
+        driver
+            .insert_entity(Tool::Rectangle, Some(surface), 40.0, 60.0)
+            .unwrap();
+        let entity = driver.editor.selection()[0];
+        let before = driver.editor.operation_log().len();
+
+        driver
+            .move_freeform_entity(entity, (7.4, 5.6), true)
+            .unwrap();
+
+        assert_eq!(
+            driver.editor.document().entities[&entity].authored.position,
+            Point { x: 47.0, y: 66.0 }
+        );
+        assert_eq!(driver.editor.selection(), &[entity]);
+        assert_eq!(driver.editor.operation_log().len(), before + 1);
+        assert!(matches!(
+            driver.editor.operation_log().last().unwrap().transactions[0].operations.as_slice(),
+            [Operation::SetPosition { entity: moved, .. }] if *moved == entity
+        ));
+    }
+
+    #[test]
+    fn freeform_canvas_move_can_preserve_subpixel_position() {
+        let (_, mut driver) = harness();
+        let surface = driver.editor.document().roots[0];
+        driver
+            .insert_entity(Tool::Rectangle, Some(surface), 40.0, 60.0)
+            .unwrap();
+        let entity = driver.editor.selection()[0];
+        let before = driver.editor.operation_log().len();
+
+        driver
+            .move_freeform_entity(entity, (7.4, 5.6), false)
+            .unwrap();
+
+        assert_eq!(
+            driver.editor.document().entities[&entity].authored.position,
+            Point { x: 47.4, y: 65.6 }
+        );
+        assert_eq!(driver.editor.operation_log().len(), before + 1);
+        assert!(!driver.status.contains("snapped"));
+    }
+
+    #[test]
+    fn canvas_move_rejects_managed_layout_children_atomically() {
+        let (_, mut driver) = harness();
+        let surface = driver.editor.document().roots[0];
+        driver
+            .insert_entity(Tool::Rectangle, Some(surface), 40.0, 60.0)
+            .unwrap();
+        let entity = driver.editor.selection()[0];
+        driver
+            .editor
+            .execute(EditorCommand::Select { entity: surface })
+            .unwrap();
+        driver.set_selected_layout_family(LayoutFamily::Stack);
+        let before_document = driver.editor.document().clone();
+        let before_operations = driver.editor.operation_log().len();
+
+        assert!(
+            driver
+                .move_freeform_entity(entity, (8.0, 8.0), true)
+                .unwrap_err()
+                .contains("layout order")
+        );
+        assert_eq!(driver.editor.document(), &before_document);
+        assert_eq!(driver.editor.operation_log().len(), before_operations);
     }
 
     #[test]
