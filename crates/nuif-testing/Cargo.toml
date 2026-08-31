@@ -9,6 +9,7 @@ repository.workspace = true
 ciborium.workspace = true
 font-test-data.workspace = true
 nuif-api = { version = "0.0.0", path = "../nuif-api" }
+nuif-behavior = { version = "0.0.1", path = "../nuif-behavior" }
 nuif-capture = { version = "0.0.1", path = "../nuif-capture" }
 nuif-codec = { version = "0.0.0", path = "../nuif-codec" }
 nuif-core = { version = "0.0.1", path = "../nuif-core" }

@@ -148,6 +148,18 @@ Chromium 151.0.7922.34, Firefox 153.0 and WebKit 26.5. Native platform APIs,
 keyboard/focus traces, application behavior and broader semantic value types
 remain separate work.
 
+## Phase 6g — bounded behavior state-machine sidecar (automated)
+
+`nuif-behavior-state-machine-0` executes stable-entity `activate` events through
+one flat deterministic state machine. Ordered guarded transitions, sequential
+Boolean/string actions, visibility/announcement effects, required capability
+refusal and explicit optional no-op degradation have complete traces. The Rust
+reference and independently written Node interpreter agree for both capability
+sets over the five-event fixture. The profile is a research sidecar, not yet a
+canonical wire section. Timers, internal events, numeric computation,
+navigation, animation, networking, scripts and actual browser/native effects
+remain separate profiles and wire-design work.
+
 ## Phase 7a — collaboration property registers (complete)
 `nuif-collab-registers-0` keeps causal metadata outside canonical documents and materializes concurrent register-like semantic operations through operation-set and replica-log algorithms. Every delivery of the three-replica trial converges, and distinct concurrent values remain explicit property conflicts.
 

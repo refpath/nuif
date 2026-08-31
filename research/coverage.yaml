@@ -90,8 +90,8 @@ areas:
     artifacts: [adapters/README.md, adapters/html-css/PROFILE.md, adapters/html-css/V0-PROFILE.md, adapters/html-css/ACCESSIBILITY-PROFILE.md, crates/nuif-html]
   semantics_accessibility_behavior:
     status: experiment-required
-    evidence: [nuif:research:accessibility-semantics, nuif:research:gltf-interactivity, nuif:research:open-ui]
-    artifacts: [spec/13-semantics-accessibility-and-behavior.md, adapters/html-css/ACCESSIBILITY-PROFILE.md, crates/nuif-html/src/accessibility.rs, crates/nuif-testing/src/bin/accessibility-mapping.rs, tools/accessibility-oracle/check.mjs]
+    evidence: [nuif:research:accessibility-semantics, nuif:research:gltf-interactivity, nuif:research:behavior-portability-state-machines, nuif:research:open-ui]
+    artifacts: [spec/13-semantics-accessibility-and-behavior.md, adapters/html-css/ACCESSIBILITY-PROFILE.md, crates/nuif-html/src/accessibility.rs, crates/nuif-testing/src/bin/accessibility-mapping.rs, tools/accessibility-oracle/check.mjs, crates/nuif-behavior/src/lib.rs, crates/nuif-testing/src/bin/behavior-portability.rs, tools/behavior-oracle/check.mjs]
   reverse_inference_program_synthesis:
     status: ongoing
     evidence: [nuif:research:reverse-layout-inference, nuif:research:inferui-and-layout-synthesis, nuif:research:ui-code-generation-boundaries, nuif:research:design2code-real-world-benchmark, nuif:research:pix2struct-screenshot-parsing-pretraining, nuif:research:screenai-ui-annotation, nuif:research:omniparser-ui-grounding, nuif:research:ocr-text-detection-and-recognition, nuif:research:visrefiner-render-difference-learning, nuif:research:model-agnostic-screenshot-reconstruction-and-training]

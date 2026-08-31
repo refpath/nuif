@@ -129,6 +129,7 @@ Testing is designed for automated trial loops: generate or load a document, appl
 | Direct Rust SDK | Experimental `nuif-api` façade | Package-aware load/validate/apply/export over one core; no stable C ABI or crates.io publication claim |
 | Package/resources | Experimental implementation; Gate I incomplete | Deterministic package plus narrow independently parsed RGBA8 PNG and static TrueType resource paths are executable; a three-OS CI matrix is configured, while broad media/font matrices, external reproduction and successful hosted matrix evidence remain open |
 | Capture/reconstruction | Experimental contracts and deterministic baselines | Browser/screenshot normalization plus one pinned local live-CDP segment, typed proposals, calibration primitives and a finite loop exist; no portable capture, broad accuracy or model claim |
+| Behavior runtime | Experimental `nuif-behavior-state-machine-0` sidecar | Rust and independent Node traces agree for a bounded two-state profile; not yet canonical wire data or browser/native behavior |
 | Project | Open research project; not a standard | Standards status requires neutral governance and independent implementations |
 
 Gates B through H are complete under the bounded, quantified criteria in `research/AUDIT.md`. The workspace executes structural validation, anchored atomic operations, replay/inversion, canonical text and deterministic CBOR, measured hostile-input limits, responsive profile-0 layout, bounded explicit fixed/`fr` Grid tracks and placement, exact CPU rasterization, pinned NUIF/Taffy/Chrome layout trials, seeded reports and headless and native-shell editor drivers. Gate C covers sparse row/column flow, explicit placement and spans without a schema-loss exemption. Gate D pins shaping, outlines, hard-line layout, encoded-sRGB paint and integer composition; scene and raw-RGBA hashes reproduce on macOS/aarch64, Linux/aarch64 and Linux/x86_64, while PNG encoding is non-normative and paths, images, instances and extension paint remain property-attributed fidelity records. Seven retentive source/package adapter profiles are integrated across HTML/CSS, SVG 2, DTCG 2025.10, Penpot v3 packages, static React JSX and static Svelte, with import, export, synchronization, hostile-input checks and CLI conformance; Svelte additionally passes a pinned official-compiler oracle. An eighth executable profile covers normalized Figma Plugin API snapshot and mutation-plan mapping plus a compiled no-network review shell, without claiming live host execution. The ninth is a one-way bounded HTML/ARIA accessibility projection whose computed role/name/state surface agrees across pinned Chromium, Firefox and WebKit test engines. A machine-audited inventory separates these executable profiles from four researched or externally bounded targets. Complete fixture authoring, AccessKit-driven deterministic GUI trials, standard-library-only Python v0 reproduction, metadata-free register and existing-tree collaboration checkpoints, a pinned Automerge operation-transport oracle, hostile editor interaction trials, a scaling benchmark suite, native host packaging and cross-checked WebAssembly and MCP developer surfaces are automated. The native shell exposes the complete model-backed profile-zero editing surface while leaving future-profile sections of the draft UI specification explicit; concurrent entity creation and collaboration garbage collection, a foreign tree materializer, a general-purpose second implementation, signed native distribution and external interoperability review remain incomplete.
@@ -162,6 +163,11 @@ The separate bounded web-accessibility gate projects portable semantics to inert
 HTML/ARIA and compares computed role, name and state across exact Playwright
 Chromium, Firefox and WebKit engines; it does not claim native platform or
 application-behavior equivalence.
+The bounded behavior gate executes one stable-identity state-machine sidecar
+through independent Rust and Node runtimes. It proves complete trace parity for
+ordered guards, sequential Boolean/string actions and required/optional effect
+capabilities; it excludes timers, internal events, numeric computation,
+networking, arbitrary scripts and real host UI effects.
 
 Run the automated baseline:
 
@@ -202,6 +208,7 @@ cargo xtask gate-i-package # deterministic package/resource evidence
 cargo xtask gate-i-image # independent RGBA8 PNG/resource/render evidence
 cargo xtask gate-i-font # independent static TrueType/resource/policy evidence
 cargo xtask gate-figma # pure Plugin API snapshot/plan mapping (not a live host)
+cargo xtask gate-behavior # deterministic Rust/Node behavior traces
 cargo xtask capture-baselines # bounded capture/reconstruction contract evidence
 cargo xtask gate-j-live # pinned live Chromium/resource/secret/held-out evidence
 cargo xtask gate-accessibility # three-engine computed accessibility evidence
@@ -212,7 +219,7 @@ cargo run --locked -p nuif-editor -- --headless \
 cargo run --locked -p nuif-editor # launch the native editor
 ```
 
-`cargo xtask all` bootstraps the pinned Python research-validator environment, wasm-bindgen toolchain and Chrome for Testing under ignored `target/`, then runs research validation, Rust verification, WebAssembly/native API parity, the short full-raster trial, the 10,000-patch Gate B trial, release-mode hostile-input, codec-decision and performance trials, the Gate C differential layout trial, both Gate D text/render trials, complete headless/native editor trials, bounded retentive adapter bridges, the independent Gate G reproduction, exhaustive Gate H collaboration-register convergence, the Gate I package, narrow-image and narrow-font segments, and the bounded capture/reconstruction contract report. Each measured run leaves a JSON report or snapshot under `target/`; `target/verification-manifest.json` indexes the complete evidence set and records success or the first failed step. CI archives both the individual evidence and this manifest.
+`cargo xtask all` bootstraps the pinned Python research-validator environment, wasm-bindgen toolchain and Chrome for Testing under ignored `target/`, then runs research validation, Rust verification, WebAssembly/native API parity, the short full-raster trial, the 10,000-patch Gate B trial, release-mode hostile-input, codec-decision and performance trials, the Gate C differential layout trial, both Gate D text/render trials, complete headless/native editor trials, bounded retentive adapter bridges, the bounded Rust/Node behavior differential, the independent Gate G reproduction, exhaustive Gate H collaboration-register convergence, the Gate I package, narrow-image and narrow-font segments, and the bounded capture/reconstruction contract report. Each measured run leaves a JSON report or snapshot under `target/`; `target/verification-manifest.json` indexes the complete evidence set and records success or the first failed step. CI archives both the individual evidence and this manifest.
 
 ## Contributing
 

@@ -27,6 +27,7 @@ members = [
   "crates/nuif-wasm",
   "crates/nuif-mcp",
   "crates/nuif-collab",
+  "crates/nuif-behavior",
   "apps/editor",
   "conformance",
   "xtask",

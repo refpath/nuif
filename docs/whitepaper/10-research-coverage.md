@@ -24,7 +24,11 @@ This distinction is important: marking an open research problem as finished woul
   `nuif-web-accessibility-0` lowering now proves computed role/name/state
   agreement for one eleven-node fixture across pinned Chromium, Firefox and
   WebKit while retaining native-platform and behavior non-claims.
-- KHR_interactivity provides contemporary precedent for portable, capability-aware behavior graphs rather than arbitrary scripts embedded in visual nodes.
+- KHR_interactivity provides contemporary precedent for portable,
+  capability-aware behavior graphs rather than arbitrary scripts embedded in
+  visual nodes. The smaller `nuif-behavior-state-machine-0` sidecar now has
+  exact Rust/Node traces for ordered guards, state, effects and explicit
+  required/optional capability handling without claiming a final wire schema.
 - ReverseORC and related layout-inference work show that multiple viewport observations materially improve recovery of responsive intent.
 - Screenshot-to-code research continues to show that visual reconstruction is not equivalent to recovering authored layout or behavior.
 - Merkle/content addressing is appropriate for immutable assets and snapshots but not for editable semantic identity.

@@ -48,13 +48,45 @@ application behavior equivalence.
 
 ## Behavior graph
 
-Portable interaction is represented as a separate bounded graph referencing stable entity/property identities. The initial graph vocabulary should cover events, state variables, conditions, value transforms, property writes, navigation/state transitions and animation triggers without embedding arbitrary general-purpose code.
+Portable interaction is represented as a separate bounded graph referencing stable entity/property identities. It MUST NOT embed arbitrary general-purpose code. The initial executable research profile is deliberately smaller than the eventual vocabulary of events, state, value transforms, property writes, navigation and animation triggers.
 
 Behavior capabilities are negotiated like extensions. Missing optional capabilities may degrade according to declared fallback; missing required capabilities prevent a claim of behavioral conformance.
 
+### Behavior state-machine profile 0
+
+`nuif-behavior-state-machine-0` is an experimental sidecar and is not part of
+the canonical wire model. It defines a flat deterministic state machine with a
+single active state. Its only external event is `activate`, addressed to a
+stable entity carrying role `button`, `checkbox`, `radio` or `switch`.
+Transitions in the active state are evaluated in authored order; the first
+exact event and equality-guard match executes its actions sequentially and
+selects its target state. An unmatched event is a no-op. An event MUST complete
+before the next external event is accepted.
+
+Profile values are Boolean or bounded string. Actions may set a value, toggle a
+Boolean or emit an abstract `visibility(Boolean)` or `announcement(String)`
+effect to a stable entity. The reference runtime MUST NOT directly mutate the
+document or invoke host APIs. Target adapters consume effects under separately
+declared capability and fidelity contracts.
+
+Every used effect capability MUST be declared `required` or `optional_noop`.
+A missing required capability MUST reject runtime construction before actions
+execute. An unavailable optional capability MUST emit no host effect and MUST
+be recorded as skipped in the trace. Unknown or incompatible entities, states,
+variables, value types, capabilities, unreachable states and over-limit graphs
+MUST fail closed before execution.
+
+The profile admits at most 128 states, 1,024 transitions, 4,096 total actions,
+64 actions per transition, 128 variables, 64 capabilities and 4,096 external
+events per run. Timers, internal events, parallel states, numeric computation,
+navigation, animation, filesystem/network effects and scripts are excluded.
+Conformance compares complete event, selected-transition, state, variable,
+effect and skipped-capability traces. Final-state agreement alone is
+insufficient.
+
 ## Host logic boundary
 
-Application business logic, arbitrary network effects and unrestricted scripts are outside the core document model. Adapters may preserve references/bindings to host logic using extensions and provenance, but another implementation is not required to execute unknown host code.
+Application business logic, arbitrary network effects and unrestricted scripts are outside the core document model. Adapters may preserve references/bindings to host logic using extensions and provenance, but another implementation is not required to execute unknown host code. The state-machine sidecar MUST NOT be interpreted as authority to execute such bindings.
 
 ## Inference
 

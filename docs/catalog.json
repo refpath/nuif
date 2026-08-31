@@ -26,8 +26,8 @@
     "title": "NUIF authored-interface interchange research manuscript",
     "subtitle": "Architecture, executable profiles, resource packaging, reconstruction research and open risks",
     "authors": ["Refpath contributors"],
-    "version": "working-2026-08-30",
-    "date": "2026-08-30",
+    "version": "working-2026-08-31",
+    "date": "2026-08-31",
     "status": "working technical manuscript; not peer reviewed",
     "abstract": "This manuscript evaluates a layered authored-interface interchange model through prior-art synthesis, bounded adapter profiles and executable conformance experiments. It also separates proposed resource packaging, source-backed capture and screenshot reconstruction from the narrower implemented alpha evidence. It records the architectural hypothesis, implemented evidence, unresolved risks and governance conditions without claiming specification stability, reconstruction accuracy or universal format coverage.",
     "sources": [
@@ -120,7 +120,8 @@
         "tools/refpath/README.md",
         "crates/nuif-media/PROFILE.md",
         "crates/nuif-font/PROFILE.md",
-        "crates/nuif-collab/README.md"
+        "crates/nuif-collab/README.md",
+        "crates/nuif-behavior/README.md"
       ]
     }
   ]

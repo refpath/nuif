@@ -40,6 +40,7 @@ const ALL_STEPS: &[Step] = &[
     ("gate-react", gate_react),
     ("gate-svelte", gate_svelte),
     ("gate-figma", gate_figma),
+    ("gate-behavior", gate_behavior),
     ("gate-g", gate_g),
     ("gate-h", gate_h),
     ("gate-i-package", gate_i_package),
@@ -111,6 +112,9 @@ const VERIFICATION_ARTIFACTS: &[&str] = &[
     "target/figma-plugin-fixture-report.json",
     "target/figma-plugin-plan-validation.json",
     "target/nuif-figma-plugin-review-shell",
+    "target/behavior-portability-fixture.json",
+    "target/behavior-portability-static-report.json",
+    "target/behavior-portability-report.json",
     "target/gate-g-report.json",
     "target/gate-g-independent",
     "target/collaboration-report.json",
@@ -170,6 +174,7 @@ fn run() -> Result<(), String> {
         Some("gate-react") => gate_react(),
         Some("gate-svelte") => gate_svelte(),
         Some("gate-figma") => gate_figma(),
+        Some("gate-behavior") => gate_behavior(),
         Some("gate-wasm") => gate_wasm(),
         Some("gate-mcp") => gate_mcp(),
         Some("wasm-install") => wasm_install(),
@@ -214,7 +219,7 @@ fn run() -> Result<(), String> {
         Some("manifest") => standalone_manifest(),
         Some("all") => all(),
         _ => Err(
-            "usage: cargo xtask <research|workflow-audit|adapter-audit|dependency-audit|docs-check|docs-build|docs-paper|docs-serve|docs-setup|verify|trial [seed iterations snapshot-interval report-path]|gate-b|gate-c|gate-d|gate-d-text|gate-d-render|gate-f|gate-f-v0|gate-svg|gate-dtcg|gate-penpot|gate-react|gate-svelte|gate-figma|gate-wasm|gate-mcp|gate-g|gate-h|gate-i-package|gate-i-image|gate-i-font|gate-j-live|gate-accessibility|capture-baselines|browser-install|wasm-install|wasm-package|mcp-package|cli-package|hostile-inputs|reduction-profile|editor-hostile-inputs|fuzz-smoke|codec-benchmark|performance|editor-trial|editor-gui-trial|editor-install-trial|editor-package|editor-launch|editor-install|editor-doctor|editor-rollback|editor-uninstall|editor-update|release-check <tag>|manifest|all>"
+            "usage: cargo xtask <research|workflow-audit|adapter-audit|dependency-audit|docs-check|docs-build|docs-paper|docs-serve|docs-setup|verify|trial [seed iterations snapshot-interval report-path]|gate-b|gate-c|gate-d|gate-d-text|gate-d-render|gate-f|gate-f-v0|gate-svg|gate-dtcg|gate-penpot|gate-react|gate-svelte|gate-figma|gate-behavior|gate-wasm|gate-mcp|gate-g|gate-h|gate-i-package|gate-i-image|gate-i-font|gate-j-live|gate-accessibility|capture-baselines|browser-install|wasm-install|wasm-package|mcp-package|cli-package|hostile-inputs|reduction-profile|editor-hostile-inputs|fuzz-smoke|codec-benchmark|performance|editor-trial|editor-gui-trial|editor-install-trial|editor-package|editor-launch|editor-install|editor-doctor|editor-rollback|editor-uninstall|editor-update|release-check <tag>|manifest|all>"
                 .to_owned(),
         ),
     }
@@ -407,6 +412,27 @@ fn gate_accessibility() -> Result<(), String> {
         .status()
         .map_err(|error| format!("could not start accessibility oracle: {error}"))?;
     check_status(oracle_status, "node", &oracle_arguments)
+}
+
+fn gate_behavior() -> Result<(), String> {
+    cargo(&[
+        "run",
+        "--release",
+        "--locked",
+        "-p",
+        "nuif-testing",
+        "--bin",
+        "behavior-portability",
+    ])?;
+    command(
+        "node",
+        &[
+            "tools/behavior-oracle/check.mjs",
+            "target/behavior-portability-fixture.json",
+            "target/behavior-portability-static-report.json",
+            "target/behavior-portability-report.json",
+        ],
+    )
 }
 
 fn hostile_inputs() -> Result<(), String> {

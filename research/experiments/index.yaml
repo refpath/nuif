@@ -221,15 +221,21 @@ experiments:
       - retain full per-engine ARIA snapshots and classify required-subset loss separately from host-tree differences
       - record tool engine Node operating-system and architecture identities in target/accessibility-mapping-report.json
   - id: nuif:experiment:behavior-portability
-    status: planned
-    oracle: differential
+    status: automated
+    evidence: [nuif:research:behavior-portability-state-machines, nuif:research:gltf-interactivity]
+    implementation: [crates/nuif-behavior/src/lib.rs, crates/nuif-testing/src/bin/behavior-portability.rs, tools/behavior-oracle/check.mjs, xtask/src/main.rs, .github/workflows/ci.yml]
+    oracle: differential-foreign-runtime
     acceptance:
       - reference and foreign target traces agree for the required capability subset
       - missing required capabilities prevent behavioral-conformance claims
     tests:
-      - author bounded state and interaction graphs once
-      - execute through reference engine and at least one foreign target adapter
-      - verify required optional capability negotiation and deterministic replay
+      - validate a two-state five-event program with ordered guarded transitions Boolean state sequential actions and stable entity effects
+      - execute full and required-only capability sets through the Rust reference runtime and an independently written Node interpreter
+      - compare every event selected transition state variable effect and skipped optional operation
+      - require unavailable optional announcement effects to follow an explicit recorded no-op policy
+      - reject missing required visibility capability before execution
+      - reject unsupported headers identifiers references value types capabilities unreachable states and resource overflow with typed errors
+      - write and archive target/behavior-portability-fixture.json target/behavior-portability-static-report.json and target/behavior-portability-report.json
   - id: nuif:experiment:unknown-extension-roundtrip
     status: automated
     evidence: [nuif:research:opentimelineio, nuif:research:godot-tscn-scene-format, nuif:research:gltf-validator-and-sample-assets]
