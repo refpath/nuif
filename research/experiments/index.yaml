@@ -276,7 +276,7 @@ experiments:
       - write and archive target/collaboration-nested-creation-v1-report.json
   - id: nuif:experiment:crdt-mixed-property-structure
     status: automated
-    evidence: [nuif:research:crdt-tree-move-operation, nuif:research:automerge-yjs, nuif:research:crdt-registers]
+    evidence: [nuif:research:crdt-tree-move-operation, nuif:research:automerge-yjs, nuif:research:operational-transformation-vs-crdt]
     implementation: [crates/nuif-collab/src/mixed.rs, conformance/src/bin/collaboration-mixed.rs, crates/nuif-collab/README.md, spec/10-collaboration-profile.md, xtask/src/main.rs]
     oracle: structure-then-register-operation-set
     acceptance:
