@@ -135,6 +135,7 @@ const VERIFICATION_ARTIFACTS: &[&str] = &[
     "target/gate-g-independent",
     "target/collaboration-report.json",
     "target/collaboration-structure-report.json",
+    "target/collaboration-creation-report.json",
     "target/collaboration-automerge-input.json",
     "target/collaboration-automerge-report.json",
     "target/package-resources-report.json",
@@ -2788,6 +2789,18 @@ fn gate_h() -> Result<(), String> {
         "target/collaboration-structure-report.json",
         "--oracle-input",
         "target/collaboration-automerge-input.json",
+    ])?;
+    cargo(&[
+        "run",
+        "--release",
+        "--locked",
+        "-p",
+        "nuif-conformance",
+        "--bin",
+        "collaboration-creation",
+        "--",
+        "--output",
+        "target/collaboration-creation-report.json",
     ])?;
     command(
         "npm",
