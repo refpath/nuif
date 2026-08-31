@@ -126,8 +126,8 @@
           "gate": "gate-figma"
         }
       ],
-      "next_profile": "the compiled no-network shell and live-host fixtures in adapters/figma/PROFILE-DRAFT.md",
-      "boundary": "The executable claim covers normalized pure mapping only; writes, undo, cancellation, page loading and identity persistence still require a user-run Figma plug-in and named live-host evidence."
+      "next_profile": "the assigned-ID reviewer run and live-host fixtures in adapters/figma/PROFILE-DRAFT.md",
+      "boundary": "The executable claim covers pure mapping and the compiled no-network shell; writes, undo, cancellation, page loading and identity persistence still require a user-run Figma plug-in and named live-host evidence."
     },
     {
       "id": "adobe-uxp",

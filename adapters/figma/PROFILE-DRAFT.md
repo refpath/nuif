@@ -1,8 +1,7 @@
 # Draft Figma Plugin API profile 0
 
-Status: pure normalized mapping is executable as
-`nuif-figma-plugin-snapshot-0`; no compiled Figma plug-in or live host
-conformance claim.
+Status: pure normalized mapping and the compiled source-review shell are
+executable as `nuif-figma-plugin-snapshot-0`; no live host conformance claim.
 
 Profile identifier: `nuif-figma-plugin-0`.
 
@@ -90,6 +89,9 @@ candidate profile limits pending live Figma timing/allocation calibration.
 - resource-limit and user-cancellation cases;
 - undo returns the exact pre-import host tree.
 
-The pure mapping, deterministic fixture and CLI bridge are implemented.
-Publication as a Figma integration remains blocked until the compiled plug-in
-bundle and live Figma product/version trial exist.
+The pure mapping, deterministic fixture, CLI bridge and no-network TypeScript
+shell are implemented. The checked-in manifest is a template because Figma
+assigns plug-in IDs; `FIGMA_PLUGIN_ID=<assigned-id> npm run package` produces a
+reviewer's local manifest. Publication as a Figma integration remains blocked
+until a named live Figma product/version trial proves the required host
+fixtures.

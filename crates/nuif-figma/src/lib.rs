@@ -23,6 +23,7 @@ pub const MAX_NODES: usize = 16_384;
 pub const MAX_DEPTH: usize = 64;
 pub const MAX_TEXT_UTF16: usize = 4_096;
 pub const MAX_STRING_BYTES: usize = 256 * 1024;
+pub const MIN_NODE_DIMENSION: f64 = 0.01;
 
 #[derive(Clone, Debug, Error)]
 pub enum AdapterError {
@@ -332,6 +333,7 @@ fn map_snapshot_node(
         .string_bytes
         .saturating_add(node.id.len())
         .saturating_add(node.name.len())
+        .saturating_add(node.nuif_entity_id.as_ref().map_or(0, String::len))
         .saturating_add(
             node.unsupported_properties
                 .iter()
@@ -417,16 +419,13 @@ fn map_geometry(node: &SnapshotNode, entity: &mut Entity) -> Result<(), AdapterE
             "values must be finite",
         );
     }
-    if node.width < 0.0 || node.height < 0.0 || !(0.0..=1.0).contains(&node.opacity) {
+    if node.width < MIN_NODE_DIMENSION
+        || node.height < MIN_NODE_DIMENSION
+        || !(0.0..=1.0).contains(&node.opacity)
+    {
         return invalid(
             &format!("/nodes/{}/geometry", node.id),
-            "dimensions must be non-negative and opacity must be in 0..=1",
-        );
-    }
-    if entity.kind == EntityKind::Surface && (node.width <= 0.0 || node.height <= 0.0) {
-        return invalid(
-            &format!("/nodes/{}/geometry", node.id),
-            "the selected root frame must have positive dimensions",
+            "dimensions must be at least 0.01 and opacity must be in 0..=1",
         );
     }
     if node.kind == HostNodeKind::Group && node.fill.is_some() {
@@ -887,7 +886,10 @@ fn export_node_header(
     }
     let dimensions = match (&entity.authored.width, &entity.authored.height) {
         (SizeIntent::Fixed(width), SizeIntent::Fixed(height))
-            if width.is_finite() && *width >= 0.0 && height.is_finite() && *height >= 0.0 =>
+            if width.is_finite()
+                && *width >= MIN_NODE_DIMENSION
+                && height.is_finite()
+                && *height >= MIN_NODE_DIMENSION =>
         {
             (*width, *height)
         }
@@ -896,19 +898,11 @@ fn export_node_header(
                 entity,
                 report,
                 "/authored",
-                "width and height must be finite fixed values",
+                "width and height must be finite fixed values of at least 0.01",
             );
             (0.0, 0.0)
         }
     };
-    if root && (dimensions.0 <= 0.0 || dimensions.1 <= 0.0) {
-        unsupported_entity(
-            entity,
-            report,
-            "/authored",
-            "the surface requires positive dimensions",
-        );
-    }
     (kind, dimensions.0, dimensions.1)
 }
 
@@ -1291,6 +1285,13 @@ mod tests {
             Err(AdapterError::InvalidValue { .. })
         ));
 
+        let mut claimed_ids = plan.snapshot.clone();
+        claimed_ids.root.nuif_entity_id = Some("x".repeat(MAX_STRING_BYTES));
+        assert!(matches!(
+            import_snapshot(&serde_json::to_vec(&claimed_ids).unwrap()),
+            Err(AdapterError::InvalidValue { .. })
+        ));
+
         let mut text = plan.snapshot;
         text.root.children[1].text.as_mut().unwrap().characters = "x".repeat(MAX_TEXT_UTF16 + 1);
         assert!(matches!(
@@ -1319,6 +1320,24 @@ mod tests {
             entry.pointer.ends_with("/authored/layout/family")
                 && matches!(entry.status, Fidelity::Unsupported { .. })
         }));
+    }
+
+    #[test]
+    fn dimensions_below_the_figma_resize_minimum_are_rejected_both_ways() {
+        let mut plan = plan_import(&profile_fixture(), "desktop-test").unwrap();
+        plan.snapshot.root.children[0].width = 0.0;
+        assert!(matches!(
+            import_snapshot(&serde_json::to_vec(&plan.snapshot).unwrap()),
+            Err(AdapterError::InvalidValue { .. })
+        ));
+
+        let mut document = profile_fixture();
+        let child = document.entities[&document.roots[0]].children[0];
+        document.entities.get_mut(&child).unwrap().authored.width = SizeIntent::Fixed(0.0);
+        assert!(matches!(
+            plan_import(&document, "desktop-test"),
+            Err(AdapterError::UnsupportedProfile { .. })
+        ));
     }
 
     fn empty_frame(id: String) -> SnapshotNode {

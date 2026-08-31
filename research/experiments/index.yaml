@@ -595,6 +595,23 @@ experiments:
       - exercise hidden and partially transparent nodes effects and variable bindings
       - reject duplicate host object identities and a 16 MiB plus one input
       - write and archive target/figma-snapshot-report.json
+  - id: nuif:experiment:figma-plugin-shell-static-conformance
+    status: automated
+    evidence: [nuif:research:figma-plugin-and-rest-api-as-automation-surface]
+    implementation: [adapters/figma/plugin/manifest.template.json, adapters/figma/plugin/src/protocol.ts, adapters/figma/plugin/src/normalize.ts, adapters/figma/plugin/src/apply.ts, adapters/figma/plugin/src/main.ts, adapters/figma/plugin/src/ui.ts, adapters/figma/plugin/scripts/build.mjs, xtask/src/main.rs, .github/workflows/ci.yml]
+    oracle: official-typings-and-cross-language-fixture
+    acceptance:
+      - exact pinned official Figma typings compile the main-thread host calls
+      - generated main and inline iframe bundles contain no remote URL and the manifest declares no domains
+      - mutation plans require exact bounded schema validation and explicit user confirmation before host mutation
+      - a TypeScript-normalized mock frame imports through the Rust adapter with a valid canonical hash and correspondence report
+      - the static report says live host not run and never substitutes an invented Figma plug-in ID
+    tests:
+      - run strict TypeScript checking and eleven pure protocol and normalizer tests
+      - build deterministic ES2020 bundles and record byte counts plus SHA-256 digests
+      - emit a three-node shape-and-pinned-text fixture and import then validate it through the public CLI
+      - require a Rust-generated plan and lossless fidelity report to pass the TypeScript validator
+      - archive target/figma-plugin-shell-report.json and target/nuif-figma-plugin-review-shell
   - id: nuif:experiment:screenshot-reconstruction-baseline
     status: active
     evidence: [nuif:research:design2code-real-world-benchmark, nuif:research:pix2struct-screenshot-parsing-pretraining, nuif:research:screenai-ui-annotation, nuif:research:omniparser-ui-grounding, nuif:research:ocr-text-detection-and-recognition, nuif:research:model-agnostic-screenshot-reconstruction-and-training]

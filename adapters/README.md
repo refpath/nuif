@@ -39,10 +39,12 @@ the exact official Svelte compiler as a foreign oracle.
 
 The [`nuif-figma-plugin-snapshot-0`](figma/SNAPSHOT-PROFILE.md) profile now
 implements the credential-free pure mapping between normalized Plugin API
-objects, canonical NUIF and a host mutation-plan tree. It covers a deliberately
-narrow visible/opaque fixed-size subset, repairs portable identity
-deterministically and reports every declared Figma-only property. It is not a
-compiled plug-in or live Figma claim.
+objects, canonical NUIF and a host mutation-plan tree. The compiled no-network
+review shell in [`figma/plugin`](figma/plugin) consumes that exact schema,
+requires confirmation before mutation and is checked against the Rust importer.
+It covers a deliberately narrow visible/opaque fixed-size subset, repairs
+portable identity deterministically and reports every declared Figma-only
+property. The shell is static evidence, not a live Figma claim.
 
 The remaining researched or externally bounded targets are Adobe UXP,
 Flutter, SwiftUI and Jetpack Compose. Figma and Adobe retain bounded live-host

@@ -34,6 +34,14 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
           ref: ${{ env.RELEASE_TAG }}
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: "24.20.0"
+          cache: npm
+          cache-dependency-path: |
+            adapters/figma/plugin/package-lock.json
+            tools/automerge-oracle/package-lock.json
+            tools/svelte-oracle/package-lock.json
       - name: Install the pinned Rust toolchain
         run: |
           rustup toolchain install 1.98.0 --profile minimal --component clippy --component rustfmt
@@ -69,6 +77,12 @@ jobs:
             target/svelte-sync-report.json
             target/svelte-compiler-oracle-report.json
             target/figma-snapshot-report.json
+            target/figma-plugin-shell-report.json
+            target/figma-plugin-fixture-snapshot.json
+            target/figma-plugin-fixture.nuif.json
+            target/figma-plugin-fixture-report.json
+            target/figma-plugin-plan-validation.json
+            target/nuif-figma-plugin-review-shell
             target/wasm-conformance-report.json
             target/mcp-conformance-report.json
             target/editor-gui-trial/report.json

@@ -70,9 +70,11 @@ semantic patches without copying the model into JavaScript. A Node/native
 differential checks exact edited bytes, and the direct-browser target
 initializes in pinned headless Chrome. Its JavaScript, TypeScript and WASM are
 packaged as a CI and tagged-release developer artifact. The module declares no
-filesystem, network or host-document authority. Browser-layout execution, a
-WASI CLI, npm publication and live Figma/Adobe adapters remain separate
-profiles and version streams.
+filesystem, network or host-document authority. The Figma review shell now
+compiles against pinned official typings and crosses a mock snapshot into the
+Rust core, but its assigned-ID live-host run remains separate. Browser-layout
+execution, a WASI CLI, npm publication and live Figma/Adobe adapters remain
+separate profiles and version streams.
 
 ## Phase 5d — external agent binding (complete for `nuif-mcp-tools-0`)
 
@@ -127,7 +129,7 @@ release-time evidence, not a claim made from workflow configuration.
 `nuif-dtcg-scalar-0` maps flat boolean, string and number tokens to the Design Tokens Format Module 2025.10. Namespaced metadata retains NUIF document and token identity and distinguishes integer from real values; the trial applies eight edits through 21 correspondences while preserving unknown extension bytes. Groups, aliases, composite types and token-local extensions require a token-model RFC and a separate profile.
 
 ## Phase 6e — adapter inventory (complete for advertised targets)
-`adapters/index.json` enumerates eleven advertised targets. The blocking adapter audit requires a primary research record, integration surface, next bounded profile and exclusion boundary for every target; executable entries additionally require a crate, profile document and routed conformance gate. Eight profiles are integrated: the seven retentive HTML/CSS, SVG, DTCG, Penpot, static React JSX and static Svelte profiles plus `nuif-figma-plugin-snapshot-0`. The Figma profile proves normalized pure mapping and CLI parity, not plug-in execution. Adobe UXP, SwiftUI, Jetpack Compose and Flutter remain explicitly researched or externally bounded rather than carrying unsupported implementation claims. Svelte uses Tree-sitter only for retained spans and exact official `svelte/compiler` 5.57.0 as its foreign parse/compile oracle.
+`adapters/index.json` enumerates eleven advertised targets. The blocking adapter audit requires a primary research record, integration surface, next bounded profile and exclusion boundary for every target; executable entries additionally require a crate, profile document and routed conformance gate. Eight profiles are integrated: the seven retentive HTML/CSS, SVG, DTCG, Penpot, static React JSX and static Svelte profiles plus `nuif-figma-plugin-snapshot-0`. The Figma profile proves normalized mapping, CLI parity and static compilation of its no-network shell, not plug-in execution in Figma. Adobe UXP, SwiftUI, Jetpack Compose and Flutter remain explicitly researched or externally bounded rather than carrying unsupported implementation claims. Svelte uses Tree-sitter only for retained spans and exact official `svelte/compiler` 5.57.0 as its foreign parse/compile oracle.
 
 ## Phase 7a — collaboration property registers (complete)
 `nuif-collab-registers-0` keeps causal metadata outside canonical documents and materializes concurrent register-like semantic operations through operation-set and replica-log algorithms. Every delivery of the three-replica trial converges, and distinct concurrent values remain explicit property conflicts.

@@ -103,6 +103,12 @@ const VERIFICATION_ARTIFACTS: &[&str] = &[
     "target/svelte-sync-cli-output.svelte",
     "target/svelte-compiler-oracle-report.json",
     "target/figma-snapshot-report.json",
+    "target/figma-plugin-shell-report.json",
+    "target/figma-plugin-fixture-snapshot.json",
+    "target/figma-plugin-fixture.nuif.json",
+    "target/figma-plugin-fixture-report.json",
+    "target/figma-plugin-plan-validation.json",
+    "target/nuif-figma-plugin-review-shell",
     "target/gate-g-report.json",
     "target/gate-g-independent",
     "target/collaboration-report.json",
@@ -1656,11 +1662,163 @@ fn gate_figma() -> Result<(), String> {
     {
         return Err("Figma CLI reports do not declare both mapping directions".to_owned());
     }
+    gate_figma_plugin_shell(&plan)?;
     fs::remove_dir_all(&directory).map_err(|error| {
         format!(
             "trial passed but temporary directory {} could not be removed: {error}",
             directory.display()
         )
+    })
+}
+
+fn gate_figma_plugin_shell(rust_plan: &Path) -> Result<(), String> {
+    const PLUGIN: &str = "adapters/figma/plugin";
+    command(
+        "npm",
+        &[
+            "--prefix",
+            PLUGIN,
+            "ci",
+            "--ignore-scripts",
+            "--no-audit",
+            "--no-fund",
+        ],
+    )?;
+    command("npm", &["--prefix", PLUGIN, "run", "check"])?;
+    let root = env::current_dir().map_err(|error| error.to_string())?;
+    let plan_validation = root.join("target/figma-plugin-plan-validation.json");
+    command(
+        "npm",
+        &[
+            "--prefix",
+            PLUGIN,
+            "run",
+            "validate-plan",
+            "--",
+            path(rust_plan)?,
+            path(&plan_validation)?,
+        ],
+    )?;
+    let snapshot = root.join("target/figma-plugin-fixture-snapshot.json");
+    command(
+        "npm",
+        &["--prefix", PLUGIN, "run", "fixture", "--", path(&snapshot)?],
+    )?;
+    let document = Path::new("target/figma-plugin-fixture.nuif.json");
+    let adapter_report = Path::new("target/figma-plugin-fixture-report.json");
+    nuif(&[
+        "import",
+        "figma-plugin-snapshot-0",
+        path(&snapshot)?,
+        path(document)?,
+        path(adapter_report)?,
+    ])?;
+    nuif(&["validate", path(document)?])?;
+
+    let build = package_figma_plugin_shell(PLUGIN)?;
+
+    let fixture = read_json(&snapshot)?;
+    let imported = read_json(adapter_report)?;
+    let validated_plan = read_json(&plan_validation)?;
+    if fixture["schema_version"] != 1
+        || fixture["root"]["kind"] != "FRAME"
+        || imported["profile"] != "nuif-figma-plugin-snapshot-0"
+        || imported["direction"] != "export"
+        || validated_plan["status"] != "passed"
+        || validated_plan["profile"] != "nuif-figma-plugin-snapshot-0"
+    {
+        return Err(
+            "compiled Figma shell fixture did not cross the Rust adapter boundary".to_owned(),
+        );
+    }
+    let fixture_nodes = count_snapshot_json_nodes(&fixture["root"])?;
+    let lock = read_json(Path::new(PLUGIN).join("package-lock.json").as_path())?;
+    let report = serde_json::json!({
+        "schema_version": 1,
+        "status": "passed",
+        "profile": "nuif-figma-plugin-snapshot-0",
+        "scope": "static compiled no-network review shell plus TypeScript-to-Rust fixture; no live Figma execution",
+        "toolchain": {
+            "node": command_text("node", &["--version"]).unwrap_or_else(|| "unreported".to_owned()),
+            "figma_plugin_typings": lock["packages"]["node_modules/@figma/plugin-typings"]["version"],
+            "typescript": lock["packages"]["node_modules/typescript"]["version"],
+            "esbuild": lock["packages"]["node_modules/esbuild"]["version"]
+        },
+        "build": build,
+        "rust_plan_validation": validated_plan,
+        "fixture": {
+            "snapshot_bytes": fs::metadata(&snapshot).map_err(|error| error.to_string())?.len(),
+            "nodes": fixture_nodes,
+            "canonical_hash": imported["canonical_hash"],
+            "fidelity_entries": imported["fidelity"].as_array().map_or(0, Vec::len),
+            "correspondences": imported["correspondences"].as_array().map_or(0, Vec::len)
+        },
+        "safety": {
+            "network_domains": [],
+            "manifest_id": "reviewer-assigned-required",
+            "explicit_apply_confirmation": true,
+            "host_mutation_cleanup_compiled": true
+        },
+        "live_host": {
+            "status": "not_run",
+            "required_before_vendor_integration_claim": true
+        }
+    });
+    fs::write(
+        "target/figma-plugin-shell-report.json",
+        serde_json::to_vec_pretty(&report).map_err(|error| error.to_string())?,
+    )
+    .map_err(|error| error.to_string())
+}
+
+fn package_figma_plugin_shell(plugin: &str) -> Result<serde_json::Value, String> {
+    let source_dist = Path::new(plugin).join("dist");
+    let build = read_json(source_dist.join("build-report.json").as_path())?;
+    if build["status"] != "passed"
+        || build["live_ready"] != false
+        || build["network_domains"] != serde_json::json!([])
+    {
+        return Err("Figma review shell build report overclaims its static evidence".to_owned());
+    }
+    if source_dist.join("manifest.json").exists() {
+        return Err("credential-free Figma build unexpectedly emitted a live manifest".to_owned());
+    }
+    let template = fs::read_to_string(source_dist.join("manifest.template.json"))
+        .map_err(|error| error.to_string())?;
+    if !template.contains("REPLACE_WITH_FIGMA_PLUGIN_ID")
+        || !template.contains("\"allowedDomains\": [\"none\"]")
+    {
+        return Err(
+            "Figma manifest template lost its assigned-ID or no-network boundary".to_owned(),
+        );
+    }
+    let package = Path::new("target/nuif-figma-plugin-review-shell");
+    if package.exists() {
+        fs::remove_dir_all(package).map_err(|error| error.to_string())?;
+    }
+    fs::create_dir_all(package).map_err(|error| error.to_string())?;
+    for name in [
+        "main.js",
+        "ui.html",
+        "manifest.template.json",
+        "build-report.json",
+    ] {
+        fs::copy(source_dist.join(name), package.join(name)).map_err(|error| error.to_string())?;
+    }
+    fs::copy(
+        Path::new(plugin).join("README.md"),
+        package.join("README.md"),
+    )
+    .map_err(|error| error.to_string())?;
+    Ok(build)
+}
+
+fn count_snapshot_json_nodes(node: &serde_json::Value) -> Result<usize, String> {
+    let children = node["children"]
+        .as_array()
+        .ok_or("Figma fixture node is missing its children array")?;
+    children.iter().try_fold(1_usize, |count, child| {
+        count_snapshot_json_nodes(child).map(|child_count| count + child_count)
     })
 }
 

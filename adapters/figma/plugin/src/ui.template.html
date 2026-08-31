@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <style>
+      :root { color-scheme: light dark; font: 12px/1.45 Inter, system-ui, sans-serif; }
+      * { box-sizing: border-box; }
+      body { margin: 0; color: var(--figma-color-text); background: var(--figma-color-bg); }
+      main { display: grid; gap: 16px; padding: 16px; }
+      h1 { margin: 0; font-size: 15px; }
+      h2 { margin: 0 0 8px; font-size: 12px; }
+      p { margin: 6px 0; color: var(--figma-color-text-secondary); }
+      section { padding: 12px; border: 1px solid var(--figma-color-border); border-radius: 6px; }
+      button, input::file-selector-button {
+        min-height: 32px; border: 1px solid var(--figma-color-border); border-radius: 5px;
+        padding: 6px 12px; font: inherit;
+      }
+      button { width: 100%; color: var(--figma-color-text-onbrand); background: var(--figma-color-bg-brand); }
+      button:disabled { opacity: .45; }
+      input[type="file"] { width: 100%; }
+      label { display: flex; gap: 8px; align-items: flex-start; margin: 10px 0; }
+      code { font-size: 11px; }
+      #status { min-height: 36px; padding: 9px; border-radius: 5px; background: var(--figma-color-bg-secondary); }
+      #status[data-kind="error"] { color: var(--figma-color-text-danger); }
+      #status[data-kind="ok"] { color: var(--figma-color-text-success); }
+    </style>
+  </head>
+  <body>
+    <main>
+      <div>
+        <h1>NUIF review bridge</h1>
+        <p>No network access. Files remain on this machine.</p>
+      </div>
+      <section>
+        <h2>Export selected frame</h2>
+        <p>Downloads a bounded snapshot for <code>nuif import figma-plugin-snapshot-0</code>.</p>
+        <button id="export-selection" type="button">Export snapshot</button>
+      </section>
+      <section>
+        <h2>Import reviewed plan</h2>
+        <input id="plan-file" type="file" accept="application/json,.json" />
+        <p id="plan-summary">No mutation plan loaded.</p>
+        <label><input id="confirm-plan" type="checkbox" /> I reviewed the fidelity report and want to create this frame.</label>
+        <button id="apply-plan" type="button" disabled>Apply plan</button>
+      </section>
+      <div id="status" role="status" aria-live="polite" data-kind="working">Starting…</div>
+    </main>
+    <script>/* NUIF_UI_BUNDLE */</script>
+  </body>
+</html>

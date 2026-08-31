@@ -14,6 +14,8 @@ const SITE_OUTPUT: &str = "target/docs-site";
 const CATALOG_OUTPUT: &str = "target/documentation-catalog.json";
 const REPORT_OUTPUT: &str = "target/documentation-report.json";
 const MDBOOK_VERSION: &str = "0.5.4";
+const GENERATED_DIRECTORY_NAMES: &[&str] =
+    &["build", "dist", "dist-test", "node_modules", "target"];
 
 const DOCUMENT_KINDS: &[&str] = &[
     "adr",
@@ -478,6 +480,13 @@ fn collect_markdown(directory: &Path, output: &mut Vec<PathBuf>) -> Result<(), S
     entries.sort_by_key(std::fs::DirEntry::file_name);
     for entry in entries {
         let path = entry.path();
+        if entry
+            .file_name()
+            .to_str()
+            .is_some_and(is_generated_directory_name)
+        {
+            continue;
+        }
         let file_type = entry
             .file_type()
             .map_err(|error| format!("cannot inspect {}: {error}", path.display()))?;
@@ -496,6 +505,10 @@ fn collect_markdown(directory: &Path, output: &mut Vec<PathBuf>) -> Result<(), S
         }
     }
     Ok(())
+}
+
+fn is_generated_directory_name(name: &str) -> bool {
+    GENERATED_DIRECTORY_NAMES.contains(&name)
 }
 
 fn read_document(
@@ -1516,6 +1529,15 @@ mod tests {
     fn duplicate_yaml_keys_are_rejected() {
         let yaml = "id: nuif:spec:test\nid: nuif:spec:other\nkind: specification\nstatus: draft\n";
         assert!(serde_saphyr::from_str::<Frontmatter>(yaml).is_err());
+    }
+
+    #[test]
+    fn generated_dependency_and_bundle_directories_are_not_document_sources() {
+        for name in GENERATED_DIRECTORY_NAMES {
+            assert!(is_generated_directory_name(name));
+        }
+        assert!(!is_generated_directory_name("plugin"));
+        assert!(!is_generated_directory_name("research"));
     }
 
     #[test]

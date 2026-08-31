@@ -1,0 +1,13 @@
+{
+  "name": "NUIF Review Bridge",
+  "id": "REPLACE_WITH_FIGMA_PLUGIN_ID",
+  "api": "1.0.0",
+  "main": "main.js",
+  "ui": "ui.html",
+  "editorType": ["figma"],
+  "documentAccess": "dynamic-page",
+  "networkAccess": {
+    "allowedDomains": ["none"]
+  },
+  "enableProposedApi": false
+}

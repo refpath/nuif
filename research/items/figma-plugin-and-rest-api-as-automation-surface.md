@@ -35,8 +35,8 @@ links:
   spec: [spec/12-cli-api-and-automation.md, spec/07-extensions-and-dialects.md]
   adr: [adrs/0008-vendor-host-adapters.md]
   rfc: [rfcs/0004-headless-qa-contract.md, rfcs/0002-extension-preservation.md]
-  code: [apps/editor/ARCHITECTURE.md, apps/editor/QA.md, adapters/README.md, adapters/figma/PROFILE-DRAFT.md, adapters/figma/SNAPSHOT-PROFILE.md, crates/nuif-adapter/src/lib.rs, crates/nuif-figma/src/lib.rs]
-  experiments: [nuif:experiment:figma-plugin-snapshot-mapping]
+  code: [apps/editor/ARCHITECTURE.md, apps/editor/QA.md, adapters/README.md, adapters/figma/PROFILE-DRAFT.md, adapters/figma/SNAPSHOT-PROFILE.md, adapters/figma/plugin/src/main.ts, crates/nuif-adapter/src/lib.rs, crates/nuif-figma/src/lib.rs]
+  experiments: [nuif:experiment:figma-plugin-snapshot-mapping, nuif:experiment:figma-plugin-shell-static-conformance]
 ---
 
 # Summary
@@ -63,6 +63,14 @@ Retrieval date for all locators: 2026-08-30.
   constrain network requests with `networkAccess.allowedDomains`; `["none"]`
   declares no network. Locator: *Plugin Manifest*, retrieved 2026-08-30:
   https://developers.figma.com/docs/plugins/manifest/.
+- The manifest `id` is assigned by Figma, normally through Create new Plugin;
+  Figma can also allocate one during publication. A repository can therefore
+  compile a credential-free manifest template, but an importable development
+  manifest requires the reviewer's assigned ID. The field is specified only as
+  a string, and Figma's official sample repository includes descriptive sample
+  IDs, so tooling must not impose a numeric-only grammar. Locators, retrieved
+  2026-08-31: same manifest page and
+  https://github.com/figma/plugin-samples/blob/main/post-message/manifest.json.
 - Figma recommends loading pages only as needed. Document-wide traversal under
   dynamic loading requires explicit page loads, and several `DocumentNode`
   searches require `loadAllPagesAsync()`. Locators: *Accessing the Document*
@@ -92,6 +100,11 @@ Retrieval date for all locators: 2026-08-30.
 - `figma.on` events: selectionchange, currentpagechange, documentchange, close, run, drop, timer events, stylechange, textreview. `documentchange` requires `"documentAccess": "dynamic-page"` in the manifest and a prior `figma.loadAllPagesAsync()`; Figma "will not call the 'documentchange' callback synchronously and will instead batch the updates". https://developers.figma.com/docs/plugins/api/properties/figma-on/.
 - `exportAsync` overloads: `(settings?: ExportSettings): Promise<Uint8Array>` for PNG/JPG/PDF/SVG bytes; `(ExportSettingsSVGString): Promise<string>`; `(ExportSettingsREST): Promise<Object>` returning `JSON_REST_V1`, the REST-compatible node JSON; MP4/GIF/WEBM for animated top-level frames; default PNG at 1x. https://developers.figma.com/docs/plugins/api/properties/nodes-exportasync/.
 - `figma.skipInvisibleInstanceChildren: boolean` — default `true` in Dev Mode, `false` in Figma and FigJam; when enabled, `children`, `findAll`, `findOne`, `findAllWithCriteria` skip invisible instance descendants and `getNodeByIdAsync` returns null for them; `findAll`/`findOne` become "up to several times faster" and `findAllWithCriteria` "up to hundreds of times faster in large documents". https://developers.figma.com/docs/plugins/api/properties/figma-skipinvisibleinstancechildren/.
+- `resize(width, height)` requires both dimensions to be at least `0.01`
+  except that a line has height zero. The bounded frame/shape/text profile does
+  not include lines, so `0.01` is the uniform import/export minimum. Locator:
+  `ResizeMixin`, retrieved 2026-08-31:
+  https://developers.figma.com/docs/plugins/api/ResizeMixin/.
 - `layoutMode` currently admits `NONE`, `HORIZONTAL`, `VERTICAL` and `GRID`.
   Changing it can move children and resize the frame; the documented padding,
   spacing and axis-alignment properties apply to HORIZONTAL or VERTICAL modes.
@@ -139,6 +152,11 @@ Call surface relevant to a programmable editor, grouped by the QA capabilities i
     visible, fully opaque, fixed-size nodes, packed row/column auto layout and
     exact pinned-font metadata. This is executable mapping evidence, not proof
     of page loading, object creation, undo, messaging or persistence in Figma.
+11. Static shell boundary: the pinned official typings, strict local sources,
+    inline iframe UI and `allowedDomains: ["none"]` manifest template compile
+    deterministically. A mock public-API object crosses the TypeScript
+    normalizer and Rust importer in `cargo xtask gate-figma`. The manifest ID
+    remains reviewer-assigned and all runtime host claims remain `not_run`.
 
 ## NUIF relevance
 

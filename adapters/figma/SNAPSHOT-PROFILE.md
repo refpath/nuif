@@ -2,8 +2,9 @@
 
 Profile identifier: `nuif-figma-plugin-snapshot-0`.
 
-Status: executable pure mapping. No live Figma runtime, plug-in bundle,
-marketplace package or vendor interoperability claim is included.
+Status: executable pure mapping plus a compiled no-network review shell. No
+live Figma runtime, marketplace package or vendor interoperability claim is
+included.
 
 The profile is the deterministic boundary between a thin Figma main-thread
 shell and the NUIF engine. The shell normalizes public Plugin API objects into
@@ -16,7 +17,8 @@ converts that snapshot to canonical NUIF. The reverse direction produces a
 - one selected `FRAME` as the NUIF surface root;
 - nested `FRAME` and `GROUP` containers;
 - `RECTANGLE`, `ELLIPSE` and `TEXT` leaves;
-- ordered containment, finite relative position and finite fixed size;
+- ordered containment, finite relative position and finite fixed dimensions of
+  at least `0.01`, matching the Figma resize contract;
 - one optional solid sRGB fill;
 - freeform frames or packed horizontal/vertical auto layout with finite
   non-negative gap/padding and MIN/CENTER/MAX counter-axis alignment;
@@ -56,19 +58,22 @@ are normalized to the surface origin; non-zero root coordinates are
 - 256 KiB combined normalized string payload.
 
 Malformed JSON, duplicate host IDs, non-finite geometry, invalid colours,
-negative dimensions/spacing, non-default leaf layout, children on leaves and
+dimensions below `0.01`, negative spacing, non-default leaf layout, children on leaves and
 limit-plus-one inputs fail before returning a document or plan. Export rejects
 NUIF properties outside the subset with a property-attributed
 `HostAdapterReport`.
 
 ## Gate
 
-`cargo xtask gate-figma` runs the release-mode mapper trial and the CLI bridge.
-It requires repeated snapshot bytes, exact canonical round trip, 28 host
-correspondences for the fixture, explicit visibility/opacity/effect/variable
-loss, duplicate-ID rejection and input-limit-plus-one rejection. The report is
-`target/figma-snapshot-report.json`.
+`cargo xtask gate-figma` runs the release-mode mapper, CLI bridge, strict
+TypeScript check, deterministic shell build and a mock Plugin API fixture
+through the Rust importer. It requires repeated snapshot bytes, exact canonical
+round trip, explicit loss, duplicate-ID and limit-plus-one rejection, and a
+compiled manifest-template bundle with no network domains. The reports are
+`target/figma-snapshot-report.json` and
+`target/figma-plugin-shell-report.json`.
 
-Live promotion still requires the draft profile's compiled no-network plug-in,
-Figma product/version record, host mutation/undo/cancellation trials, page-load
-and identity persistence evidence, and a human-confirmed import preview.
+The shell is `adapters/figma/plugin`. Figma assigns its manifest ID, so CI does
+not invent one. Live promotion still requires a Figma product/version record,
+host mutation/undo/cancellation trials, page-load and identity persistence
+evidence, and a human-confirmed import preview.

@@ -103,16 +103,20 @@ Figma Plugin main thread
 `nuif-figma` implements the normalized JSON boundary between those two
 threads. It maps one visible, opaque, fixed-size frame subtree to canonical
 NUIF and produces a deterministic mutation-plan tree in the other direction.
-The release-mode and CLI gates cover exact round trips, identity repair,
-unsupported-property evidence and hostile bounds. They do not exercise
-`figma.create*`, font loading, page loading, undo or plug-in messaging; those
-remain live-host promotion evidence.
+`adapters/figma/plugin` compiles the thin main-thread and iframe shell against
+the pinned official typings. The release-mode gate covers exact round trips,
+identity repair, unsupported-property evidence, hostile bounds, static message
+validation, a no-network bundle and a TypeScript fixture imported by Rust. It
+does not execute `figma.create*`, font loading, page loading, undo or plug-in
+messaging in Figma; those remain live-host promotion evidence.
 
-The manifest targets only `figma`, requires dynamic page loading and declares
-no network domains. The plug-in loads the current page by default; a separate
-user choice is required before loading every page. Import mutates nodes only
-after showing the report and closes as one undo group. Export does not mutate
-the file.
+The manifest template targets only `figma`, requires dynamic page loading and
+declares no network domains. Figma assigns the required plug-in ID; a reviewer
+passes that assigned value at packaging time, and CI never substitutes a fake
+ID. The shell only reads the selected subtree on the current page. Import
+validates a precomputed plan, stays disabled until confirmation, removes nodes
+created by a failed attempt and commits success as one undo step. Export does
+not mutate the file.
 
 Host node IDs are recorded in correspondence evidence. A shared `nuif`
 plug-in-data namespace may carry document/entity identifiers for
@@ -165,15 +169,15 @@ these pass:
   unchanged;
 - one native-host trial recording product version and package version.
 
-Credential-free CI tests mapping functions and snapshots. Live-host CI or
-manual certification supplies the final product/version evidence. Passing only
-the snapshot tests does not justify a live integration claim.
+Credential-free CI tests mapping functions, the compiled shell and snapshots.
+Live-host CI or manual certification supplies the final product/version
+evidence. Passing static shell tests does not justify a live integration claim.
 
 ## Release operation
 
-The native editor and `nuif-wasm` developer binding are versioned
-independently. A future Figma plug-in and each Adobe `.ccx` use their own
-semantic versions and changelogs. CI should build review bundles, checksums,
+The native editor, `nuif-wasm` developer binding and Figma review shell are
+versioned independently. A promoted Figma integration and each Adobe `.ccx`
+use their own semantic versions and changelogs. CI should build review bundles, checksums,
 provenance, an SBOM where applicable and fixture reports. Publication to a
 vendor marketplace is never inferred from a Git tag: it requires the vendor
 account, assigned plug-in ID, disclosure or review forms, and an explicit

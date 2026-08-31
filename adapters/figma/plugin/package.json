@@ -1,0 +1,23 @@
+{
+  "name": "nuif-figma-review-plugin",
+  "version": "0.0.1-alpha.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=24.20.0 <27"
+  },
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "check": "tsc --noEmit && npm run build && npm test",
+    "fixture": "node scripts/fixture.mjs",
+    "test": "node scripts/test.mjs",
+    "validate-plan": "node scripts/validate-plan.mjs",
+    "package": "node scripts/build.mjs --manifest"
+  },
+  "devDependencies": {
+    "@figma/plugin-typings": "1.136.0",
+    "@types/node": "26.4.0",
+    "esbuild": "0.28.2",
+    "typescript": "7.0.2"
+  }
+}
