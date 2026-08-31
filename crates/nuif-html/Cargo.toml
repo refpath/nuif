@@ -10,7 +10,9 @@ name = "nuif_html"
 path = "src/lib.rs"
 
 [dependencies]
+base64.workspace = true
 nuif-adapter = { version = "0.0.1", path = "../nuif-adapter" }
+nuif-behavior = { version = "0.0.1", path = "../nuif-behavior" }
 nuif-codec = { version = "0.0.0", path = "../nuif-codec" }
 nuif-core = { version = "0.0.1", path = "../nuif-core" }
 serde.workspace = true

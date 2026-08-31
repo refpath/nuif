@@ -37,11 +37,20 @@ absence rejects before execution and optional effects follow a recorded no-op.
 The sidecar is not yet canonical NUIF wire data and excludes timers, internal
 events, numeric computation and host UI execution.
 
+Web behavior projection: `nuif-web-behavior-0` composes the bounded sidecar and
+accessibility projection into enabled native-button activation, HTML `hidden`
+visibility and one polite status announcement. A delimiter-safe generated
+runtime is admitted by its exact CSP SHA-256 hash. Separate pointer and
+Enter/Space keyboard sequences match the Rust reference transition/state/effect
+sequence in pinned Playwright Chromium,
+Firefox and WebKit; focus, control-state mutation, assistive-technology speech,
+native UI and arbitrary authored scripts remain outside the profile.
+
 Gate G: bounded mechanically independent reproduction. The standard-library-only Python implementation has no Rust/NUIF package dependency and exactly reproduces v0 canonical text, opaque preservation, 24 boxes, three decoded RGBA buffers and five fidelity records. External authorship and a general-purpose second implementation remain standards-publication work.
 
 Gate H: bounded metadata-free collaboration checkpoint. Two algorithmically distinct in-repository materializers converge for every delivery of a conflict-bearing property-register history; conflicts remain explicit and canonical NUIF contains no replica state.
 
-Publication infrastructure: `docs/catalog.json` currently selects 250 canonical Markdown documents without copying their bodies. The bounded `xtask` compiler validates metadata and repository links, generates navigation and status indexes, builds a searchable mdBook site and composes a 13-module working manuscript. The Pages workflow retains pull-request artifacts and restricts deployment permission to its deployment job. This infrastructure publishes evidence; it does not promote evidence status.
+Publication infrastructure: `docs/catalog.json` currently selects 252 canonical Markdown documents without copying their bodies. The bounded `xtask` compiler validates metadata and repository links, generates navigation and status indexes, builds a searchable mdBook site and composes a 13-module working manuscript. The Pages workflow retains pull-request artifacts and restricts deployment permission to its deployment job. This infrastructure publishes evidence; it does not promote evidence status.
 
 ## Current falsifiers
 

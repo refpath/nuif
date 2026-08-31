@@ -4,7 +4,7 @@ The adapter program separates an ecosystem's public interchange or source
 surface from the subset for which NUIF can provide executable round-trip laws.
 Research coverage does not imply an implemented conformance profile.
 
-The inventory contains eleven targets and nine executable profiles across
+The inventory contains eleven targets and ten executable profiles across
 seven target families. The remaining targets have no executable direction in
 `adapters/index.json`.
 
@@ -14,7 +14,7 @@ gate references and writes `target/adapter-coverage-report.json`.
 
 | Target | Primary integration surface | Executable status | Next bounded profile | Boundary |
 | --- | --- | --- | --- | --- |
-| HTML/CSS | DOM and CSS source | `nuif-html-css-0`, `nuif-html-css-v0` and the one-way `nuif-web-accessibility-0` projection | Extend only with separately tested CSS/layout/accessibility features | Arbitrary cascade, script and unmarked DOM are not imported; the accessibility profile does not synthesize behavior |
+| HTML/CSS | DOM and CSS source | `nuif-html-css-0`, `nuif-html-css-v0`, `nuif-web-accessibility-0` and `nuif-web-behavior-0` | Extend only with separately tested CSS/layout/focus/control-state features | Arbitrary cascade, authored scripts and unmarked DOM are not imported; behavior lowering is one-way and finite |
 | SVG | SVG 2 XML | `nuif-svg-0` | Add paths or transforms only under separately declared geometry laws | Paths, transforms, CSS cascade, paint servers, effects, animation, scripts and external resources are excluded |
 | DTCG tokens | Design Tokens Format Module 2025.10 JSON | `nuif-dtcg-scalar-0` | Expand only after a token-model RFC and separate profile | Core tokens lack declared type, groups, aliases, descriptions, deprecation and token-local extensions |
 | React | JSX source and React DOM properties | `nuif-react-jsx-0` | TSX or CSS-class support only under a separate grammar/runtime matrix | Components, hooks, spreads, control flow and runtime expressions require execution |

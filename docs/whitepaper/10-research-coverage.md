@@ -29,6 +29,10 @@ This distinction is important: marking an open research problem as finished woul
   visual nodes. The smaller `nuif-behavior-state-machine-0` sidecar now has
   exact Rust/Node traces for ordered guards, state, effects and explicit
   required/optional capability handling without claiming a final wire schema.
+  A separate one-way web lowering maps the bounded effects through native
+  activation, `hidden` and an ARIA status region; five events agree across
+  pinned Chromium, Firefox and WebKit under one exact CSP-hash-authorized
+  runtime without extending that evidence to native UI or screen-reader speech.
 - ReverseORC and related layout-inference work show that multiple viewport observations materially improve recovery of responsive intent.
 - Screenshot-to-code research continues to show that visual reconstruction is not equivalent to recovering authored layout or behavior.
 - Merkle/content addressing is appropriate for immutable assets and snapshots but not for editable semantic identity.

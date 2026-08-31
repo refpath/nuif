@@ -1,5 +1,5 @@
 {
-  "name": "nuif-accessibility-browser-oracle",
+  "name": "nuif-web-host-browser-oracle",
   "private": true,
   "type": "module",
   "engines": {

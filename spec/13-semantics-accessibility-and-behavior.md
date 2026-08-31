@@ -84,6 +84,39 @@ Conformance compares complete event, selected-transition, state, variable,
 effect and skipped-capability traces. Final-state agreement alone is
 insufficient.
 
+### Web behavior projection profile 0
+
+`nuif-web-behavior-0` is an experimental one-way composition of
+`nuif-behavior-state-machine-0` and `nuif-web-accessibility-0`. The complete
+source profiles MUST validate before host output. The web projection admits
+`activate` only for enabled native button elements or the button-backed
+`switch` role. Checkbox and radio event sources and disabled transition sources
+MUST fail closed. Every enabled button/switch in the document MUST be bound so
+an activation with no matching transition retains the source profile's no-op
+semantics. A visibility effect MUST NOT hide an admitted event source or its
+containing ancestor because later native activation would become impossible.
+
+`visibility(Boolean)` MUST map to the target HTML element's `hidden` property.
+A non-empty `announcement(String)` MUST map to the text of one unfocused
+`status` live region with polite, atomic semantics and retain its stable target
+identity as observation metadata. A transition MUST NOT emit more than one
+announcement or repeat the same effect-kind/target pair because a single host
+task may collapse those abstract effects into one observation.
+
+The generated output MUST contain only a fixed finite interpreter plus the
+validated program as escaped data. Program strings MUST NOT terminate the
+script element. Arbitrary authored script, handler attributes, evaluation,
+dynamic import, timers, network and filesystem authority are prohibited. A
+self-contained document MUST restrict the exact runtime by a content hash and
+deny every unneeded resource class. A serving host SHOULD deliver its own
+response-header Content Security Policy and MUST NOT assume a nested document's
+policy transfers to the host page.
+
+Conformance MUST drive native activation and compare selected transition,
+target state and retained host effects after every event through each declared
+engine. DOM and browser accessibility-tree observations do not establish
+assistive-technology speech, focus behavior or native platform UI equivalence.
+
 ## Host logic boundary
 
 Application business logic, arbitrary network effects and unrestricted scripts are outside the core document model. Adapters may preserve references/bindings to host logic using extensions and provenance, but another implementation is not required to execute unknown host code. The state-machine sidecar MUST NOT be interpreted as authority to execute such bindings.

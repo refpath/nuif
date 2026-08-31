@@ -14,6 +14,14 @@ fixture across Chromium, Firefox and WebKit while retaining host-tree
 differences separately. It does not synthesize behavior or claim native
 platform accessibility equivalence.
 
+The one-way [`nuif-web-behavior-0`](html-css/BEHAVIOR-PROFILE.md) projection
+composes that semantic mapping with the bounded state-machine sidecar. It maps
+enabled native button/switch activation, `hidden` visibility and one polite
+status announcement through a generated finite runtime authorized by its exact
+CSP hash. Three Playwright engines reproduce every event's transition, state
+and retained host effects. Authored JavaScript, behavior import, focus,
+checkbox/radio mutation and assistive-technology speech remain excluded.
+
 The [`nuif-svg-0`](svg/PROFILE.md) profile maps one surface, freeform groups,
 rectangles, ellipses and literal pinned-font text to SVG 2 XML. It retains
 UTF-8 spans for identity, geometry, paint and accessibility scalars, preserves
@@ -58,7 +66,7 @@ The remaining researched or externally bounded targets are Adobe UXP,
 Flutter, SwiftUI and Jetpack Compose. Figma and Adobe retain bounded live-host
 draft profiles and a serializable host-object correspondence report, but no
 live plug-in claim. Broader HTML/CSS, SVG and DTCG profiles remain
-separate future work beyond the nine executable profiles. Each adapter must
+separate future work beyond the ten executable profiles. Each adapter must
 emit structured fidelity diagnostics and record provenance/correspondence
 sufficient for later synchronization and minimal source patches where feasible.
 

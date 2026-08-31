@@ -367,7 +367,7 @@ jobs:
             target/font-resources-report.json
 
   accessibility:
-    name: web accessibility browser oracle
+    name: web host browser oracles
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
@@ -383,15 +383,9 @@ jobs:
         run: |
           rustup toolchain install 1.98.0 --profile minimal
           rustup default 1.98.0
-      - name: Install the pinned browser oracle
-        env:
-          PLAYWRIGHT_BROWSERS_PATH: target/playwright-browsers
-        run: |
-          npm ci --ignore-scripts --no-audit --no-fund --prefix tools/accessibility-oracle
-          tools/accessibility-oracle/node_modules/.bin/playwright install --with-deps chromium firefox webkit
-      - name: Compare portable semantics across three engines
-        run: cargo xtask gate-accessibility
-      - name: Upload accessibility mapping evidence
+      - name: Compare portable semantics and behavior across three engines
+        run: cargo xtask gate-web-hosts
+      - name: Upload web host mapping evidence
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
@@ -402,6 +396,10 @@ jobs:
             target/accessibility-mapping-report.json
             target/accessibility-mapping-fixture.html
             target/accessibility-mapping-expected.json
+            target/web-behavior-static-report.json
+            target/web-behavior-report.json
+            target/web-behavior-fixture.html
+            target/web-behavior-expected.json
 
   native-editor:
     name: native-editor (${{ matrix.platform }})

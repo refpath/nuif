@@ -25,10 +25,16 @@
           "crate": "crates/nuif-html",
           "profile": "adapters/html-css/ACCESSIBILITY-PROFILE.md",
           "gate": "gate-accessibility"
+        },
+        {
+          "name": "nuif-web-behavior-0",
+          "crate": "crates/nuif-html",
+          "profile": "adapters/html-css/BEHAVIOR-PROFILE.md",
+          "gate": "gate-web-behavior"
         }
       ],
-      "next_profile": "separately tested CSS, layout and accessibility features",
-      "boundary": "Arbitrary cascade, scripts and unmarked DOM are not imported."
+      "next_profile": "separately tested CSS, layout, focus, control-state and behavior features",
+      "boundary": "Arbitrary cascade, authored scripts and unmarked DOM are not imported; behavior lowering is one-way and finite."
     },
     {
       "id": "svg",

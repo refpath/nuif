@@ -133,7 +133,7 @@ release-time evidence, not a claim made from workflow configuration.
 `nuif-dtcg-scalar-0` maps flat boolean, string and number tokens to the Design Tokens Format Module 2025.10. Namespaced metadata retains NUIF document and token identity and distinguishes integer from real values; the trial applies eight edits through 21 correspondences while preserving unknown extension bytes. Groups, aliases, composite types and token-local extensions require a token-model RFC and a separate profile.
 
 ## Phase 6e — adapter inventory (complete for advertised targets)
-`adapters/index.json` enumerates eleven advertised targets. The blocking adapter audit requires a primary research record, integration surface, next bounded profile and exclusion boundary for every target; executable entries additionally require a crate, profile document and routed conformance gate. Nine profiles are integrated: the seven retentive HTML/CSS, SVG, DTCG, Penpot, static React JSX and static Svelte profiles; `nuif-figma-plugin-snapshot-0`; and the one-way `nuif-web-accessibility-0` projection. The Figma profile proves normalized mapping, CLI parity and static compilation of its no-network shell, not plug-in execution in Figma. Adobe UXP, SwiftUI, Jetpack Compose and Flutter remain explicitly researched or externally bounded rather than carrying unsupported implementation claims. Svelte uses Tree-sitter only for retained spans and exact official `svelte/compiler` 5.57.0 as its foreign parse/compile oracle.
+`adapters/index.json` enumerates eleven advertised targets. The blocking adapter audit requires a primary research record, integration surface, next bounded profile and exclusion boundary for every target; executable entries additionally require a crate, profile document and routed conformance gate. Ten profiles are integrated: the seven retentive HTML/CSS, SVG, DTCG, Penpot, static React JSX and static Svelte profiles; `nuif-figma-plugin-snapshot-0`; the one-way `nuif-web-accessibility-0` projection; and the one-way `nuif-web-behavior-0` host lowering. The Figma profile proves normalized mapping, CLI parity and static compilation of its no-network shell, not plug-in execution in Figma. Adobe UXP, SwiftUI, Jetpack Compose and Flutter remain explicitly researched or externally bounded rather than carrying unsupported implementation claims. Svelte uses Tree-sitter only for retained spans and exact official `svelte/compiler` 5.57.0 as its foreign parse/compile oracle.
 
 ## Phase 6f — bounded web accessibility projection (automated)
 
@@ -157,8 +157,22 @@ refusal and explicit optional no-op degradation have complete traces. The Rust
 reference and independently written Node interpreter agree for both capability
 sets over the five-event fixture. The profile is a research sidecar, not yet a
 canonical wire section. Timers, internal events, numeric computation,
-navigation, animation, networking, scripts and actual browser/native effects
-remain separate profiles and wire-design work.
+navigation, animation, networking, scripts, native effects and browser effects
+beyond the following projection remain separate profiles and wire-design work.
+
+## Phase 6h — bounded web behavior projection (automated)
+
+`nuif-web-behavior-0` composes the behavior sidecar and accessibility
+projection without accepting authored JavaScript. Enabled native button/switch
+clicks select the same transitions as the reference runtime; visibility uses
+`hidden`, and one advisory announcement per transition uses an unfocused polite
+status region. Delimiter-safe program data is interpreted by one finite runtime
+authorized by an exact CSP hash. Separate pointer and alternating Enter/Space
+keyboard sequences pass all five events' state, transition, retained visibility
+and announcement comparisons in Playwright
+Chromium 151.0.7922.34, Firefox 153.0 and WebKit 26.5 on macOS/arm64. Checkbox,
+radio, disabled-control, focus, navigation, animation, screen-reader speech,
+native UI and arbitrary script remain explicit exclusions.
 
 ## Phase 7a — collaboration property registers (complete)
 `nuif-collab-registers-0` keeps causal metadata outside canonical documents and materializes concurrent register-like semantic operations through operation-set and replica-log algorithms. Every delivery of the three-replica trial converges, and distinct concurrent values remain explicit property conflicts.

@@ -19,8 +19,8 @@ pub const MAX_IDENTIFIER_BYTES: usize = 128;
 pub const MAX_STRING_BYTES: usize = 4_096;
 
 const ACTIVATABLE_ROLES: &[&str] = &["button", "checkbox", "radio", "switch"];
-const VISIBILITY_CAPABILITY: &str = "effect.visibility";
-const ANNOUNCEMENT_CAPABILITY: &str = "effect.announcement";
+pub const VISIBILITY_CAPABILITY: &str = "effect.visibility";
+pub const ANNOUNCEMENT_CAPABILITY: &str = "effect.announcement";
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]

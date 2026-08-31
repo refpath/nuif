@@ -175,6 +175,8 @@ fn run() -> Result<(), String> {
         Some("gate-svelte") => gate_svelte(),
         Some("gate-figma") => gate_figma(),
         Some("gate-behavior") => gate_behavior(),
+        Some("gate-web-behavior") => gate_web_behavior(),
+        Some("gate-web-hosts") => gate_web_hosts(),
         Some("gate-wasm") => gate_wasm(),
         Some("gate-mcp") => gate_mcp(),
         Some("wasm-install") => wasm_install(),
@@ -219,7 +221,7 @@ fn run() -> Result<(), String> {
         Some("manifest") => standalone_manifest(),
         Some("all") => all(),
         _ => Err(
-            "usage: cargo xtask <research|workflow-audit|adapter-audit|dependency-audit|docs-check|docs-build|docs-paper|docs-serve|docs-setup|verify|trial [seed iterations snapshot-interval report-path]|gate-b|gate-c|gate-d|gate-d-text|gate-d-render|gate-f|gate-f-v0|gate-svg|gate-dtcg|gate-penpot|gate-react|gate-svelte|gate-figma|gate-behavior|gate-wasm|gate-mcp|gate-g|gate-h|gate-i-package|gate-i-image|gate-i-font|gate-j-live|gate-accessibility|capture-baselines|browser-install|wasm-install|wasm-package|mcp-package|cli-package|hostile-inputs|reduction-profile|editor-hostile-inputs|fuzz-smoke|codec-benchmark|performance|editor-trial|editor-gui-trial|editor-install-trial|editor-package|editor-launch|editor-install|editor-doctor|editor-rollback|editor-uninstall|editor-update|release-check <tag>|manifest|all>"
+            "usage: cargo xtask <research|workflow-audit|adapter-audit|dependency-audit|docs-check|docs-build|docs-paper|docs-serve|docs-setup|verify|trial [seed iterations snapshot-interval report-path]|gate-b|gate-c|gate-d|gate-d-text|gate-d-render|gate-f|gate-f-v0|gate-svg|gate-dtcg|gate-penpot|gate-react|gate-svelte|gate-figma|gate-behavior|gate-web-behavior|gate-web-hosts|gate-wasm|gate-mcp|gate-g|gate-h|gate-i-package|gate-i-image|gate-i-font|gate-j-live|gate-accessibility|capture-baselines|browser-install|wasm-install|wasm-package|mcp-package|cli-package|hostile-inputs|reduction-profile|editor-hostile-inputs|fuzz-smoke|codec-benchmark|performance|editor-trial|editor-gui-trial|editor-install-trial|editor-package|editor-launch|editor-install|editor-doctor|editor-rollback|editor-uninstall|editor-update|release-check <tag>|manifest|all>"
                 .to_owned(),
         ),
     }
@@ -368,8 +370,21 @@ fn gate_j_live() -> Result<(), String> {
 }
 
 fn gate_accessibility() -> Result<(), String> {
-    const ORACLE: &str = "tools/accessibility-oracle";
-    const BROWSER_PATH: &str = "target/playwright-browsers";
+    generate_accessibility_mapping()?;
+    prepare_web_host_oracle()?;
+    run_web_host_oracle(
+        "accessibility",
+        &[
+            "tools/accessibility-oracle/check.mjs",
+            "target/accessibility-mapping-fixture.html",
+            "target/accessibility-mapping-expected.json",
+            "target/accessibility-mapping-static-report.json",
+            "target/accessibility-mapping-report.json",
+        ],
+    )
+}
+
+fn generate_accessibility_mapping() -> Result<(), String> {
     cargo(&[
         "run",
         "--release",
@@ -378,7 +393,12 @@ fn gate_accessibility() -> Result<(), String> {
         "nuif-testing",
         "--bin",
         "accessibility-mapping",
-    ])?;
+    ])
+}
+
+fn prepare_web_host_oracle() -> Result<(), String> {
+    const ORACLE: &str = "tools/accessibility-oracle";
+    const BROWSER_PATH: &str = "target/playwright-browsers";
     command(
         "npm",
         &[
@@ -392,26 +412,27 @@ fn gate_accessibility() -> Result<(), String> {
     )?;
     let suffix = if cfg!(windows) { ".cmd" } else { "" };
     let playwright = format!("{ORACLE}/node_modules/.bin/playwright{suffix}");
-    let install_arguments = ["install", "chromium", "firefox", "webkit"];
+    let install_arguments = if cfg!(target_os = "linux") && env::var_os("CI").is_some() {
+        vec!["install", "--with-deps", "chromium", "firefox", "webkit"]
+    } else {
+        vec!["install", "chromium", "firefox", "webkit"]
+    };
     let install_status = Command::new(&playwright)
-        .args(install_arguments)
+        .args(&install_arguments)
         .env("PLAYWRIGHT_BROWSERS_PATH", BROWSER_PATH)
         .status()
         .map_err(|error| format!("could not start Playwright browser install: {error}"))?;
-    check_status(install_status, &playwright, &install_arguments)?;
-    let oracle_arguments = [
-        "tools/accessibility-oracle/check.mjs",
-        "target/accessibility-mapping-fixture.html",
-        "target/accessibility-mapping-expected.json",
-        "target/accessibility-mapping-static-report.json",
-        "target/accessibility-mapping-report.json",
-    ];
+    check_status(install_status, &playwright, &install_arguments)
+}
+
+fn run_web_host_oracle(name: &str, oracle_arguments: &[&str]) -> Result<(), String> {
+    const BROWSER_PATH: &str = "target/playwright-browsers";
     let oracle_status = Command::new("node")
         .args(oracle_arguments)
         .env("PLAYWRIGHT_BROWSERS_PATH", BROWSER_PATH)
         .status()
-        .map_err(|error| format!("could not start accessibility oracle: {error}"))?;
-    check_status(oracle_status, "node", &oracle_arguments)
+        .map_err(|error| format!("could not start {name} oracle: {error}"))?;
+    check_status(oracle_status, "node", oracle_arguments)
 }
 
 fn gate_behavior() -> Result<(), String> {
@@ -433,6 +454,54 @@ fn gate_behavior() -> Result<(), String> {
             "target/behavior-portability-report.json",
         ],
     )
+}
+
+fn gate_web_behavior() -> Result<(), String> {
+    generate_web_behavior_mapping()?;
+    prepare_web_host_oracle()?;
+    run_web_behavior_oracle()
+}
+
+fn generate_web_behavior_mapping() -> Result<(), String> {
+    cargo(&[
+        "run",
+        "--release",
+        "--locked",
+        "-p",
+        "nuif-testing",
+        "--bin",
+        "web-behavior-mapping",
+    ])
+}
+
+fn run_web_behavior_oracle() -> Result<(), String> {
+    run_web_host_oracle(
+        "web behavior",
+        &[
+            "tools/accessibility-oracle/behavior-check.mjs",
+            "target/web-behavior-fixture.html",
+            "target/web-behavior-expected.json",
+            "target/web-behavior-static-report.json",
+            "target/web-behavior-report.json",
+        ],
+    )
+}
+
+fn gate_web_hosts() -> Result<(), String> {
+    generate_accessibility_mapping()?;
+    generate_web_behavior_mapping()?;
+    prepare_web_host_oracle()?;
+    run_web_host_oracle(
+        "accessibility",
+        &[
+            "tools/accessibility-oracle/check.mjs",
+            "target/accessibility-mapping-fixture.html",
+            "target/accessibility-mapping-expected.json",
+            "target/accessibility-mapping-static-report.json",
+            "target/accessibility-mapping-report.json",
+        ],
+    )?;
+    run_web_behavior_oracle()
 }
 
 fn hostile_inputs() -> Result<(), String> {

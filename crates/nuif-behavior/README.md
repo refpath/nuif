@@ -22,8 +22,10 @@ a Boolean, or emit one of two abstract effects:
 - `announcement`, carrying a bounded string for a stable target entity.
 
 The runtime emits effects as data and does not directly mutate the document or
-call a host API. A later web, native or presentation adapter can map admitted
-effects under its own fidelity contract.
+call a host API. The separate `nuif-web-behavior-0` adapter now maps the first
+admitted subset to native browser activation, DOM visibility and a status live
+region. Native and presentation adapters still require their own fidelity
+contracts.
 
 ## Capabilities and limits
 
@@ -58,4 +60,6 @@ Artifacts:
 - `target/behavior-portability-report.json`.
 
 The JavaScript oracle is a second implementation of this profile. It is not a
-browser DOM adapter, a native UI runtime or evidence for excluded behavior.
+browser DOM adapter or native UI runtime. Browser host mapping is tested
+separately by `cargo xtask gate-web-behavior`; neither gate is evidence for
+excluded behavior.

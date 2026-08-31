@@ -236,6 +236,24 @@ experiments:
       - reject missing required visibility capability before execution
       - reject unsupported headers identifiers references value types capabilities unreachable states and resource overflow with typed errors
       - write and archive target/behavior-portability-fixture.json target/behavior-portability-static-report.json and target/behavior-portability-report.json
+  - id: nuif:experiment:web-behavior-mapping
+    status: automated
+    evidence: [nuif:research:web-behavior-host-lowering, nuif:research:behavior-portability-state-machines, nuif:research:accessibility-semantics]
+    implementation: [crates/nuif-html/src/behavior.rs, crates/nuif-testing/src/bin/web-behavior-mapping.rs, tools/accessibility-oracle/behavior-check.mjs, xtask/src/main.rs, .github/workflows/ci.yml]
+    oracle: foreign-browser-host-effects
+    acceptance:
+      - every native event produces the same selected transition and state as the reference trace
+      - every retained visibility and announcement effect is observable in each pinned browser engine
+      - generated program data cannot terminate or widen the authority of the exact hash-restricted runtime
+    tests:
+      - compose the bounded behavior and web-accessibility profiles into one self-contained HTML document
+      - bind all enabled button and switch sources so unmatched activation remains an observed no-op
+      - reject checkbox radio and disabled transition sources repeated effect targets multiple announcements and empty announcements before output
+      - escape script-delimiting program strings and enforce one SHA-256 CSP-authorized runtime with no dynamic code or network authority
+      - run the five-event fixture by pointer and alternating Enter Space keyboard activation in exact Playwright Chromium Firefox and WebKit engines
+      - compare transition state retained hidden property live-region text and stable announcement target after every event
+      - retain browser and status/body ARIA snapshots plus tool Node OS architecture and runtime-error evidence
+      - write and archive target/web-behavior-static-report.json target/web-behavior-report.json target/web-behavior-fixture.html and target/web-behavior-expected.json
   - id: nuif:experiment:unknown-extension-roundtrip
     status: automated
     evidence: [nuif:research:opentimelineio, nuif:research:godot-tscn-scene-format, nuif:research:gltf-validator-and-sample-assets]

@@ -2612,7 +2612,9 @@ dependencies = [
 name = "nuif-html"
 version = "0.0.1"
 dependencies = [
+ "base64",
  "nuif-adapter",
+ "nuif-behavior",
  "nuif-codec",
  "nuif-core",
  "serde",

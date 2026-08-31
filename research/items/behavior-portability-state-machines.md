@@ -115,7 +115,8 @@ RFC can decide whether behavior becomes a package member, a canonical document
 section or a namespaced extension.
 
 The abstract-effect boundary also keeps target fidelity honest. A web adapter
-may map visibility to DOM state; a presentation runtime may map it to scene
+now maps the bounded subset to native activation, DOM visibility and one status
+region under `nuif-web-behavior-0`; a presentation runtime may map it to scene
 visibility; a device profile may reject announcements. Those adapters share a
 trace contract but retain independent capability and host-observation reports.
 
@@ -129,5 +130,5 @@ trace contract but retain independent capability and host-observation reports.
   without JavaScript precision loss?
 - Which internal events, timers and animation triggers admit a static
   termination/budget rule strong enough for the next profile?
-- What browser DOM and native UI adapters can observe real host effects without
-  confusing trace agreement with visual or accessibility equivalence?
+- What native UI adapter can observe the same effects without confusing host
+  agreement with visual or assistive-technology equivalence?
