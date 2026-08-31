@@ -2,6 +2,7 @@ use criterion::{BatchSize, BenchmarkId, Criterion, Throughput, criterion_group, 
 use nuif_api::{DocumentEncoding, NuifDocument};
 use nuif_codec::{CanonicalText, DeterministicCbor, Encoder};
 use nuif_collab::creation::{CreationAnchor, CreationChange, CreationOperation};
+use nuif_collab::gc::StabilityFrontier;
 use nuif_collab::mixed::{MixedChange, MixedOperation, MixedOperationSetEngine};
 use nuif_collab::nested_creation::ArbitraryAnchorCreationOperationSetEngine;
 use nuif_collab::structural::{StructuralAnchor, StructuralOperation};
@@ -219,6 +220,31 @@ fn benchmark_advanced_collaboration(criterion: &mut Criterion) {
         mixed.ingest(change).unwrap();
     }
 
+    let prefix_base = responsive_card_fixture();
+    let mut prefix = OperationSetEngine::default();
+    prefix
+        .ingest(Change {
+            id: ChangeId::new("alice", 1),
+            context: BTreeMap::new(),
+            operation: Operation::Rename {
+                entity: EntityId::new(0x20),
+                name: Some("stable".to_owned()),
+            },
+        })
+        .unwrap();
+    prefix
+        .ingest(Change {
+            id: ChangeId::new("alice", 2),
+            context: BTreeMap::from([("alice".to_owned(), 1)]),
+            operation: Operation::Rename {
+                entity: EntityId::new(0x20),
+                name: Some("retained".to_owned()),
+            },
+        })
+        .unwrap();
+    let prefix_frontier =
+        StabilityFrontier::new(BTreeMap::from([("alice".to_owned(), 1)])).unwrap();
+
     let mut group = criterion.benchmark_group("collaboration/advanced_profiles");
     group.throughput(Throughput::Elements(2));
     group.bench_function("nested_creation_v1", |bencher| {
@@ -226,6 +252,13 @@ fn benchmark_advanced_collaboration(criterion: &mut Criterion) {
     });
     group.bench_function("mixed_property_structure", |bencher| {
         bencher.iter(|| mixed.checkpoint().unwrap());
+    });
+    group.bench_function("causal_register_prefix_compaction", |bencher| {
+        bencher.iter(|| {
+            prefix
+                .compact_stable_prefix(black_box(&prefix_base), black_box(&prefix_frontier))
+                .unwrap()
+        });
     });
     group.finish();
 }
