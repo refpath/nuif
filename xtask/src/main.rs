@@ -136,6 +136,7 @@ const VERIFICATION_ARTIFACTS: &[&str] = &[
     "target/collaboration-report.json",
     "target/collaboration-structure-report.json",
     "target/collaboration-creation-report.json",
+    "target/collaboration-nested-creation-report.json",
     "target/collaboration-gc-report.json",
     "target/collaboration-automerge-input.json",
     "target/collaboration-automerge-report.json",
@@ -2802,6 +2803,18 @@ fn gate_h() -> Result<(), String> {
         "--",
         "--output",
         "target/collaboration-creation-report.json",
+    ])?;
+    cargo(&[
+        "run",
+        "--release",
+        "--locked",
+        "-p",
+        "nuif-conformance",
+        "--bin",
+        "collaboration-nested-creation",
+        "--",
+        "--output",
+        "target/collaboration-nested-creation-report.json",
     ])?;
     cargo(&[
         "run",
