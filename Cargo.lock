@@ -2435,6 +2435,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "nuif-canva"
+version = "0.0.1"
+dependencies = [
+ "nuif-adapter",
+ "nuif-codec",
+ "nuif-core",
+ "nuif-text",
+ "serde",
+ "serde_json",
+ "sha2",
+ "thiserror 2.0.20",
+]
+
+[[package]]
 name = "nuif-capture"
 version = "0.0.1"
 dependencies = [

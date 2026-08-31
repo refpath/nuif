@@ -23,6 +23,7 @@ members = [
   "crates/nuif-svg",
   "crates/nuif-penpot",
   "crates/nuif-figma",
+  "crates/nuif-canva",
   "crates/nuif-react",
   "crates/nuif-svelte",
   "crates/nuif-wasm",
