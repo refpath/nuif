@@ -12,6 +12,7 @@ nuif-collab = { version = "0.0.1", path = "../crates/nuif-collab" }
 nuif-core = { version = "0.0.1", path = "../crates/nuif-core" }
 nuif-dtcg = { version = "0.0.1", path = "../crates/nuif-dtcg" }
 nuif-font = { version = "0.0.1", path = "../crates/nuif-font" }
+nuif-figma = { version = "0.0.1", path = "../crates/nuif-figma" }
 nuif-html = { version = "0.0.1", path = "../crates/nuif-html" }
 nuif-layout = { version = "0.0.0", path = "../crates/nuif-layout" }
 nuif-media = { version = "0.0.1", path = "../crates/nuif-media" }

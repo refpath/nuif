@@ -25,10 +25,15 @@ const WARMUP_INVOCATIONS: usize = 3;
 const MAX_ALLOCATED_BYTES_PER_INVOCATION: usize = 256 * 1024 * 1024;
 const FOREIGN_PENPOT: &[u8] =
     include_bytes!("../../../../conformance/foreign/penpot/fixture.penpot");
+const ADAPTER_INDEX: &str = include_str!("../../../../adapters/index.json");
 
 #[derive(Debug, Serialize)]
 struct CaseReport {
     name: &'static str,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    adapter_profile: Option<&'static str>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    adapter_direction: Option<&'static str>,
     scale: usize,
     iterations_per_sample: usize,
     samples: usize,
@@ -43,6 +48,19 @@ struct CaseReport {
     checksum: u64,
     within_time_budget: bool,
     within_allocation_budget: bool,
+    passed: bool,
+}
+
+#[derive(Debug, Serialize)]
+struct AdapterCoverage {
+    expected_profiles: Vec<String>,
+    benchmarked_profiles: Vec<String>,
+    expected_directions: Vec<String>,
+    benchmarked_directions: Vec<String>,
+    missing_profiles: Vec<String>,
+    unexpected_profiles: Vec<String>,
+    missing_directions: Vec<String>,
+    unexpected_directions: Vec<String>,
     passed: bool,
 }
 
@@ -105,6 +123,8 @@ fn main() {
     let html_document = nuif_html::profile_fixture();
     let html_exported = nuif_html::export_document(&html_document).unwrap();
     let html_imported = nuif_html::import_source(&html_exported.source).unwrap();
+    let html_v0_exported = nuif_html::export_v0_document(&html_document).unwrap();
+    let html_v0_imported = nuif_html::import_v0_source(&html_v0_exported.source).unwrap();
     let mut html_edited = html_document.clone();
     html_edited
         .tokens
@@ -168,6 +188,10 @@ fn main() {
         .unwrap()
         .authored
         .width = SizeIntent::Fixed(280.0);
+
+    let figma_document = nuif_figma::profile_fixture();
+    let figma_plan = nuif_figma::plan_import(&figma_document, "performance-fixture").unwrap();
+    let figma_snapshot = serde_json::to_vec(&figma_plan.snapshot).unwrap();
 
     let mut image_package = nuif_testing::rgba8_image_package_fixture();
     let image_entity = image_package
@@ -383,148 +407,384 @@ fn main() {
             let image = render_cpu(black_box(&image_scene), image_target).unwrap();
             image.rgba.len() as u64 ^ u64::from(image.rgba[0])
         }),
-        measure("adapter_html_export", 2, 20, 500_000_000, || {
-            nuif_html::export_document(black_box(&html_document))
+        measure_adapter(
+            "nuif-html-css-0",
+            "export",
+            "adapter_html_export",
+            2,
+            20,
+            500_000_000,
+            || {
+                nuif_html::export_document(black_box(&html_document))
+                    .unwrap()
+                    .source
+                    .len() as u64
+            },
+        ),
+        measure_adapter(
+            "nuif-html-css-0",
+            "import",
+            "adapter_html_import",
+            2,
+            20,
+            500_000_000,
+            || {
+                nuif_html::import_source(black_box(&html_exported.source))
+                    .unwrap()
+                    .document
+                    .entities
+                    .len() as u64
+            },
+        ),
+        measure_adapter(
+            "nuif-html-css-0",
+            "synchronize",
+            "adapter_html_sync",
+            2,
+            20,
+            500_000_000,
+            || {
+                nuif_html::synchronize(black_box(&html_imported.retentive), black_box(&html_edited))
+                    .unwrap()
+                    .source
+                    .len() as u64
+            },
+        ),
+        measure_adapter(
+            "nuif-html-css-v0",
+            "export",
+            "adapter_html_v0_export",
+            2,
+            20,
+            500_000_000,
+            || {
+                nuif_html::export_v0_document(black_box(&html_document))
+                    .unwrap()
+                    .source
+                    .len() as u64
+            },
+        ),
+        measure_adapter(
+            "nuif-html-css-v0",
+            "import",
+            "adapter_html_v0_import",
+            2,
+            20,
+            500_000_000,
+            || {
+                nuif_html::import_v0_source(black_box(&html_v0_exported.source))
+                    .unwrap()
+                    .document
+                    .entities
+                    .len() as u64
+            },
+        ),
+        measure_adapter(
+            "nuif-html-css-v0",
+            "synchronize",
+            "adapter_html_v0_sync",
+            2,
+            20,
+            500_000_000,
+            || {
+                nuif_html::synchronize_v0(
+                    black_box(&html_v0_imported.retentive),
+                    black_box(&html_edited),
+                )
                 .unwrap()
                 .source
                 .len() as u64
-        }),
-        measure("adapter_html_import", 2, 20, 500_000_000, || {
-            nuif_html::import_source(black_box(&html_exported.source))
-                .unwrap()
-                .document
-                .entities
-                .len() as u64
-        }),
-        measure("adapter_html_sync", 2, 20, 500_000_000, || {
-            nuif_html::synchronize(black_box(&html_imported.retentive), black_box(&html_edited))
+            },
+        ),
+        measure_adapter(
+            "nuif-svg-0",
+            "export",
+            "adapter_svg_export",
+            4,
+            20,
+            500_000_000,
+            || {
+                nuif_svg::export_document(black_box(&svg_document))
+                    .unwrap()
+                    .source
+                    .len() as u64
+            },
+        ),
+        measure_adapter(
+            "nuif-svg-0",
+            "import",
+            "adapter_svg_import",
+            4,
+            20,
+            500_000_000,
+            || {
+                nuif_svg::import_source(black_box(&svg_exported.source))
+                    .unwrap()
+                    .document
+                    .entities
+                    .len() as u64
+            },
+        ),
+        measure_adapter(
+            "nuif-svg-0",
+            "synchronize",
+            "adapter_svg_sync",
+            4,
+            20,
+            500_000_000,
+            || {
+                nuif_svg::synchronize(black_box(&svg_imported.retentive), black_box(&svg_edited))
+                    .unwrap()
+                    .source
+                    .len() as u64
+            },
+        ),
+        measure_adapter(
+            "nuif-dtcg-scalar-0",
+            "export",
+            "adapter_dtcg_export",
+            3,
+            20,
+            500_000_000,
+            || {
+                nuif_dtcg::export_document(black_box(&dtcg_document))
+                    .unwrap()
+                    .source
+                    .len() as u64
+            },
+        ),
+        measure_adapter(
+            "nuif-dtcg-scalar-0",
+            "import",
+            "adapter_dtcg_import",
+            3,
+            20,
+            500_000_000,
+            || {
+                nuif_dtcg::import_source(black_box(&dtcg_exported.source))
+                    .unwrap()
+                    .document
+                    .tokens
+                    .len() as u64
+            },
+        ),
+        measure_adapter(
+            "nuif-dtcg-scalar-0",
+            "synchronize",
+            "adapter_dtcg_sync",
+            3,
+            20,
+            500_000_000,
+            || {
+                nuif_dtcg::synchronize(black_box(&dtcg_imported.retentive), black_box(&dtcg_edited))
+                    .unwrap()
+                    .source
+                    .len() as u64
+            },
+        ),
+        measure_adapter(
+            "nuif-react-jsx-0",
+            "export",
+            "adapter_react_export",
+            2,
+            20,
+            500_000_000,
+            || {
+                nuif_react::export_document(black_box(&react_document))
+                    .unwrap()
+                    .source
+                    .len() as u64
+            },
+        ),
+        measure_adapter(
+            "nuif-react-jsx-0",
+            "import",
+            "adapter_react_import",
+            2,
+            20,
+            500_000_000,
+            || {
+                nuif_react::import_source(black_box(&react_exported.source))
+                    .unwrap()
+                    .document
+                    .entities
+                    .len() as u64
+            },
+        ),
+        measure_adapter(
+            "nuif-react-jsx-0",
+            "synchronize",
+            "adapter_react_sync",
+            2,
+            20,
+            500_000_000,
+            || {
+                nuif_react::synchronize(
+                    black_box(&react_imported.retentive),
+                    black_box(&react_edited),
+                )
                 .unwrap()
                 .source
                 .len() as u64
-        }),
-        measure("adapter_svg_export", 4, 20, 500_000_000, || {
-            nuif_svg::export_document(black_box(&svg_document))
+            },
+        ),
+        measure_adapter(
+            "nuif-svelte-static-0",
+            "export",
+            "adapter_svelte_export",
+            2,
+            20,
+            500_000_000,
+            || {
+                nuif_svelte::export_document(black_box(&svelte_document))
+                    .unwrap()
+                    .source
+                    .len() as u64
+            },
+        ),
+        measure_adapter(
+            "nuif-svelte-static-0",
+            "import",
+            "adapter_svelte_import",
+            2,
+            20,
+            500_000_000,
+            || {
+                nuif_svelte::import_source(black_box(&svelte_exported.source))
+                    .unwrap()
+                    .document
+                    .entities
+                    .len() as u64
+            },
+        ),
+        measure_adapter(
+            "nuif-svelte-static-0",
+            "synchronize",
+            "adapter_svelte_sync",
+            2,
+            20,
+            500_000_000,
+            || {
+                nuif_svelte::synchronize(
+                    black_box(&svelte_imported.retentive),
+                    black_box(&svelte_edited),
+                )
                 .unwrap()
                 .source
                 .len() as u64
-        }),
-        measure("adapter_svg_import", 4, 20, 500_000_000, || {
-            nuif_svg::import_source(black_box(&svg_exported.source))
-                .unwrap()
-                .document
-                .entities
-                .len() as u64
-        }),
-        measure("adapter_svg_sync", 4, 20, 500_000_000, || {
-            nuif_svg::synchronize(black_box(&svg_imported.retentive), black_box(&svg_edited))
-                .unwrap()
-                .source
-                .len() as u64
-        }),
-        measure("adapter_dtcg_export", 3, 20, 500_000_000, || {
-            nuif_dtcg::export_document(black_box(&dtcg_document))
-                .unwrap()
-                .source
-                .len() as u64
-        }),
-        measure("adapter_dtcg_import", 3, 20, 500_000_000, || {
-            nuif_dtcg::import_source(black_box(&dtcg_exported.source))
-                .unwrap()
-                .document
-                .tokens
-                .len() as u64
-        }),
-        measure("adapter_dtcg_sync", 3, 20, 500_000_000, || {
-            nuif_dtcg::synchronize(black_box(&dtcg_imported.retentive), black_box(&dtcg_edited))
-                .unwrap()
-                .source
-                .len() as u64
-        }),
-        measure("adapter_react_export", 2, 20, 500_000_000, || {
-            nuif_react::export_document(black_box(&react_document))
-                .unwrap()
-                .source
-                .len() as u64
-        }),
-        measure("adapter_react_import", 2, 20, 500_000_000, || {
-            nuif_react::import_source(black_box(&react_exported.source))
-                .unwrap()
-                .document
-                .entities
-                .len() as u64
-        }),
-        measure("adapter_react_sync", 2, 20, 500_000_000, || {
-            nuif_react::synchronize(
-                black_box(&react_imported.retentive),
-                black_box(&react_edited),
-            )
-            .unwrap()
-            .source
-            .len() as u64
-        }),
-        measure("adapter_svelte_export", 2, 20, 500_000_000, || {
-            nuif_svelte::export_document(black_box(&svelte_document))
-                .unwrap()
-                .source
-                .len() as u64
-        }),
-        measure("adapter_svelte_import", 2, 20, 500_000_000, || {
-            nuif_svelte::import_source(black_box(&svelte_exported.source))
-                .unwrap()
-                .document
-                .entities
-                .len() as u64
-        }),
-        measure("adapter_svelte_sync", 2, 20, 500_000_000, || {
-            nuif_svelte::synchronize(
-                black_box(&svelte_imported.retentive),
-                black_box(&svelte_edited),
-            )
-            .unwrap()
-            .source
-            .len() as u64
-        }),
-        measure("adapter_penpot_export", 4, 20, 500_000_000, || {
-            nuif_penpot::export_document(black_box(&penpot_document))
+            },
+        ),
+        measure_adapter(
+            "nuif-penpot-v3-0",
+            "export",
+            "adapter_penpot_export",
+            4,
+            20,
+            500_000_000,
+            || {
+                nuif_penpot::export_document(black_box(&penpot_document))
+                    .unwrap()
+                    .bytes
+                    .len() as u64
+            },
+        ),
+        measure_adapter(
+            "nuif-penpot-v3-0",
+            "import",
+            "adapter_penpot_import",
+            4,
+            20,
+            500_000_000,
+            || {
+                nuif_penpot::import_package(black_box(&penpot_exported.bytes))
+                    .unwrap()
+                    .document
+                    .entities
+                    .len() as u64
+            },
+        ),
+        measure_adapter(
+            "nuif-penpot-v3-0",
+            "import",
+            "adapter_penpot_foreign_import",
+            4,
+            20,
+            500_000_000,
+            || {
+                nuif_penpot::import_package(black_box(FOREIGN_PENPOT))
+                    .unwrap()
+                    .document
+                    .entities
+                    .len() as u64
+            },
+        ),
+        measure_adapter(
+            "nuif-penpot-v3-0",
+            "synchronize",
+            "adapter_penpot_sync_noop",
+            4,
+            50,
+            500_000_000,
+            || {
+                nuif_penpot::synchronize(
+                    black_box(&penpot_imported.retentive),
+                    black_box(&penpot_document),
+                )
                 .unwrap()
                 .bytes
                 .len() as u64
-        }),
-        measure("adapter_penpot_import", 4, 20, 500_000_000, || {
-            nuif_penpot::import_package(black_box(&penpot_exported.bytes))
+            },
+        ),
+        measure_adapter(
+            "nuif-penpot-v3-0",
+            "synchronize",
+            "adapter_penpot_sync_edit",
+            4,
+            20,
+            500_000_000,
+            || {
+                nuif_penpot::synchronize(
+                    black_box(&penpot_imported.retentive),
+                    black_box(&penpot_edited),
+                )
                 .unwrap()
-                .document
-                .entities
+                .bytes
                 .len() as u64
-        }),
-        measure("adapter_penpot_foreign_import", 4, 20, 500_000_000, || {
-            nuif_penpot::import_package(black_box(FOREIGN_PENPOT))
-                .unwrap()
-                .document
-                .entities
-                .len() as u64
-        }),
-        measure("adapter_penpot_sync_noop", 4, 50, 500_000_000, || {
-            nuif_penpot::synchronize(
-                black_box(&penpot_imported.retentive),
-                black_box(&penpot_document),
-            )
-            .unwrap()
-            .bytes
-            .len() as u64
-        }),
-        measure("adapter_penpot_sync_edit", 4, 20, 500_000_000, || {
-            nuif_penpot::synchronize(
-                black_box(&penpot_imported.retentive),
-                black_box(&penpot_edited),
-            )
-            .unwrap()
-            .bytes
-            .len() as u64
-        }),
+            },
+        ),
+        measure_adapter(
+            "nuif-figma-plugin-snapshot-0",
+            "import",
+            "adapter_figma_plan",
+            3,
+            20,
+            500_000_000,
+            || {
+                let plan = nuif_figma::plan_import(
+                    black_box(&figma_document),
+                    black_box("performance-fixture"),
+                )
+                .unwrap();
+                plan.report.fidelity.len() as u64 ^ plan.snapshot.root.children.len() as u64
+            },
+        ),
+        measure_adapter(
+            "nuif-figma-plugin-snapshot-0",
+            "export",
+            "adapter_figma_import",
+            3,
+            20,
+            500_000_000,
+            || {
+                let imported = nuif_figma::import_snapshot(black_box(&figma_snapshot)).unwrap();
+                imported.document.entities.len() as u64
+                    ^ imported.report.correspondences.len() as u64
+            },
+        ),
     ];
     cases.sort_by_key(|case| case.name);
-    let passed = cases.iter().all(|case| case.passed);
+    let adapter_coverage = adapter_benchmark_coverage(&cases);
+    let passed = cases.iter().all(|case| case.passed) && adapter_coverage.passed;
     let report = serde_json::json!({
         "schema_version": 1,
         "experiment": "nuif:experiment:profile-zero-performance",
@@ -557,13 +817,16 @@ fn main() {
         },
         "adapter_fixtures": {
             "html_css_bytes": html_exported.source.len(),
+            "html_css_v0_bytes": html_v0_exported.source.len(),
             "svg_bytes": svg_exported.source.len(),
             "dtcg_bytes": dtcg_exported.source.len(),
             "react_jsx_bytes": react_exported.source.len(),
             "svelte_bytes": svelte_exported.source.len(),
             "penpot_bytes": penpot_exported.bytes.len(),
-            "foreign_penpot_bytes": FOREIGN_PENPOT.len()
+            "foreign_penpot_bytes": FOREIGN_PENPOT.len(),
+            "figma_snapshot_bytes": figma_snapshot.len()
         },
+        "adapter_coverage": adapter_coverage,
         "resource_fixtures": {
             "image_resource_bytes": image_resource.len(),
             "image_package_bytes": image_package_bytes.len(),
@@ -585,6 +848,114 @@ fn main() {
     if !passed {
         std::process::exit(1);
     }
+}
+
+fn adapter_benchmark_coverage(cases: &[CaseReport]) -> AdapterCoverage {
+    let index: serde_json::Value =
+        serde_json::from_str(ADAPTER_INDEX).expect("checked-in adapter index parses");
+    let integrated = index["targets"]
+        .as_array()
+        .expect("adapter targets array")
+        .iter()
+        .filter(|target| target["status"] == "integrated")
+        .collect::<Vec<_>>();
+    let mut expected_profiles = Vec::new();
+    let mut expected_directions = Vec::new();
+    for target in integrated {
+        let directions = target["directions"]
+            .as_array()
+            .expect("integrated directions array");
+        for profile in target["profiles"]
+            .as_array()
+            .expect("integrated profiles array")
+        {
+            let name = profile["name"].as_str().expect("integrated profile name");
+            expected_profiles.push(name.to_owned());
+            for direction in directions {
+                expected_directions.push(format!(
+                    "{name}:{}",
+                    direction.as_str().expect("integrated direction")
+                ));
+            }
+        }
+    }
+    expected_profiles.sort();
+    expected_profiles.dedup();
+    expected_directions.sort();
+    expected_directions.dedup();
+    let mut benchmarked_profiles = cases
+        .iter()
+        .filter_map(|case| case.adapter_profile.map(ToOwned::to_owned))
+        .collect::<Vec<_>>();
+    benchmarked_profiles.sort();
+    benchmarked_profiles.dedup();
+    let mut benchmarked_directions = cases
+        .iter()
+        .filter_map(|case| {
+            Some(format!(
+                "{}:{}",
+                case.adapter_profile?, case.adapter_direction?
+            ))
+        })
+        .collect::<Vec<_>>();
+    benchmarked_directions.sort();
+    benchmarked_directions.dedup();
+    let missing_profiles = expected_profiles
+        .iter()
+        .filter(|profile| !benchmarked_profiles.contains(profile))
+        .cloned()
+        .collect::<Vec<_>>();
+    let unexpected_profiles = benchmarked_profiles
+        .iter()
+        .filter(|profile| !expected_profiles.contains(profile))
+        .cloned()
+        .collect::<Vec<_>>();
+    let missing_directions = expected_directions
+        .iter()
+        .filter(|direction| !benchmarked_directions.contains(direction))
+        .cloned()
+        .collect::<Vec<_>>();
+    let unexpected_directions = benchmarked_directions
+        .iter()
+        .filter(|direction| !expected_directions.contains(direction))
+        .cloned()
+        .collect::<Vec<_>>();
+    let passed = missing_profiles.is_empty()
+        && unexpected_profiles.is_empty()
+        && missing_directions.is_empty()
+        && unexpected_directions.is_empty();
+    AdapterCoverage {
+        expected_profiles,
+        benchmarked_profiles,
+        expected_directions,
+        benchmarked_directions,
+        missing_profiles,
+        unexpected_profiles,
+        missing_directions,
+        unexpected_directions,
+        passed,
+    }
+}
+
+fn measure_adapter(
+    adapter_profile: &'static str,
+    adapter_direction: &'static str,
+    name: &'static str,
+    scale: usize,
+    iterations_per_sample: usize,
+    budget_nanoseconds: u128,
+    operation: impl FnMut() -> u64,
+) -> CaseReport {
+    let mut report = measure(
+        name,
+        scale,
+        iterations_per_sample,
+        budget_nanoseconds,
+        operation,
+    );
+    report.adapter_profile = Some(adapter_profile);
+    report.adapter_direction = Some(adapter_direction);
+    report
 }
 
 fn measure(
@@ -619,6 +990,8 @@ fn measure(
     let within_allocations = allocation.bytes_allocated <= MAX_ALLOCATED_BYTES_PER_INVOCATION;
     CaseReport {
         name,
+        adapter_profile: None,
+        adapter_direction: None,
         scale,
         iterations_per_sample,
         samples: SAMPLES,

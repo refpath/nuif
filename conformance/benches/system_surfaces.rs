@@ -212,6 +212,37 @@ fn benchmark_html_adapter(criterion: &mut Criterion) {
     group.finish();
 }
 
+fn benchmark_html_v0_adapter(criterion: &mut Criterion) {
+    let document = nuif_html::profile_fixture();
+    let exported = nuif_html::export_v0_document(&document).unwrap();
+    let imported = nuif_html::import_v0_source(&exported.source).unwrap();
+    let mut edited = document.clone();
+    edited.tokens.get_mut(&EntityId::new(0x100)).unwrap().value = PropertyValue::Real(32.0);
+    edited
+        .entities
+        .get_mut(&EntityId::new(0x11))
+        .unwrap()
+        .authored
+        .text
+        .as_mut()
+        .unwrap()
+        .content = String::from("Edited v0 adapter benchmark");
+    let mut group = criterion.benchmark_group("adapter/html_css_v0");
+    group.throughput(Throughput::Bytes(exported.source.len() as u64));
+    group.bench_function("export", |bencher| {
+        bencher.iter(|| nuif_html::export_v0_document(black_box(&document)).unwrap());
+    });
+    group.bench_function("import", |bencher| {
+        bencher.iter(|| nuif_html::import_v0_source(black_box(&exported.source)).unwrap());
+    });
+    group.bench_function("synchronize", |bencher| {
+        bencher.iter(|| {
+            nuif_html::synchronize_v0(black_box(&imported.retentive), black_box(&edited)).unwrap()
+        });
+    });
+    group.finish();
+}
+
 fn benchmark_svg_adapter(criterion: &mut Criterion) {
     let document = nuif_svg::profile_fixture();
     let exported = nuif_svg::export_document(&document).unwrap();
@@ -362,6 +393,23 @@ fn benchmark_penpot_adapter(criterion: &mut Criterion) {
     group.finish();
 }
 
+fn benchmark_figma_adapter(criterion: &mut Criterion) {
+    let document = nuif_figma::profile_fixture();
+    let plan = nuif_figma::plan_import(&document, "criterion-fixture").unwrap();
+    let snapshot = serde_json::to_vec(&plan.snapshot).unwrap();
+    let mut group = criterion.benchmark_group("adapter/figma_plugin_snapshot_0");
+    group.throughput(Throughput::Bytes(snapshot.len() as u64));
+    group.bench_function("plan_import", |bencher| {
+        bencher.iter(|| {
+            nuif_figma::plan_import(black_box(&document), black_box("criterion-fixture")).unwrap()
+        });
+    });
+    group.bench_function("import_snapshot", |bencher| {
+        bencher.iter(|| nuif_figma::import_snapshot(black_box(&snapshot)).unwrap());
+    });
+    group.finish();
+}
+
 fn criterion_config() -> Criterion {
     Criterion::default()
         .sample_size(20)
@@ -379,10 +427,12 @@ criterion_group! {
         benchmark_package,
         benchmark_resource_profiles,
         benchmark_html_adapter,
+        benchmark_html_v0_adapter,
         benchmark_svg_adapter,
         benchmark_dtcg_adapter,
         benchmark_react_adapter,
         benchmark_svelte_adapter,
-        benchmark_penpot_adapter
+        benchmark_penpot_adapter,
+        benchmark_figma_adapter
 }
 criterion_main!(system_surfaces);

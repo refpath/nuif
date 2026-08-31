@@ -90,12 +90,12 @@ experiments:
       - release report records hardware toolchain warmup sample protocol latency distributions allocations and workload scale
       - catastrophic-regression budgets pass on supported CI hosts
       - stable Criterion suite compiles and measures scaling from 8 through 4096 entities
-      - every integrated adapter measures export import and retentive synchronization under its declared fixture
+      - every integrated adapter measures each declared import or export direction and retentive synchronization when its profile defines synchronization
       - embedded image and font paths measure profile inspection exact-resource package round trips and resolved image rendering
     tests:
       - validate canonical text deterministic CBOR protocol layout and scene work at 1024 entities
       - measure CPU raster and end-to-end snapshot latency at representative viewport sizes
-      - measure HTML CSS SVG DTCG Penpot static React JSX and static Svelte adapter boundaries including official-foreign Penpot import and exact no-op package synchronization
+      - measure both HTML CSS profiles SVG DTCG Penpot static React JSX static Svelte and normalized Figma snapshot boundaries including official-foreign Penpot import and exact no-op package synchronization
       - measure bounded PNG inspection and decode static TrueType inspection image and font package encode decode and resource-aware scene raster paths
       - retain statistical baselines under target for controlled before-and-after comparisons
       - write and archive target/performance-profile-report.json
