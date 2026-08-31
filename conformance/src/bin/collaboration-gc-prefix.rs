@@ -25,7 +25,7 @@ fn main() {
 }
 
 fn run() -> Result<(), String> {
-    let output = output_path();
+    let output = output_path()?;
     let base = nuif_testing::responsive_card_fixture();
     let changes = fixture_changes();
     let frontier = StabilityFrontier::new(BTreeMap::from([("alice".to_owned(), 1)]))
@@ -175,13 +175,18 @@ fn concurrent_retained_typed() -> bool {
     )
 }
 
-fn output_path() -> PathBuf {
-    let mut args = env::args_os();
-    let _ = args.next();
-    if let Some(path) = args.next() {
-        return PathBuf::from(path);
+fn output_path() -> Result<PathBuf, String> {
+    let mut args = env::args_os().skip(1);
+    let Some(argument) = args.next() else {
+        return Ok(PathBuf::from("target/collaboration-gc-prefix-report.json"));
+    };
+    if argument == "--output" {
+        return args
+            .next()
+            .map(PathBuf::from)
+            .ok_or_else(|| "--output requires a path".to_owned());
     }
-    PathBuf::from("target/collaboration-gc-prefix-report.json")
+    Err(format!("unknown argument {}", argument.to_string_lossy()))
 }
 
 fn write_json(path: &Path, value: &Value) -> Result<(), String> {

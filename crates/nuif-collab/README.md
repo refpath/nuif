@@ -160,3 +160,20 @@ future protocol work. Compaction never mutates the canonical document or puts
 collaboration metadata into it. Gate H writes
 `target/collaboration-gc-report.json` and checks both successful and refused
 paths.
+
+## Causal register prefix profile 0
+
+`nuif-collab-gc-prefix-0` is the first bounded partial-collection extension.
+It is register-only and accepts a caller-attested frontier when the stable
+prefix is causally closed and every retained change includes the complete
+frontier. The stable prefix is materialized into a metadata-bearing
+`CausalCheckpointBase`; retained changes are replayed through
+`ResumedOperationSetEngine` and must reproduce the complete checkpoint's
+canonical hash, document and conflicts. A `CompactionReceipt` records both
+dropped and retained dots.
+
+The profile deliberately refuses concurrent retained-versus-stable register
+changes, structural position rebasing, frontier inference and unseen remote
+history. These boundaries are typed (`StablePrefixNotClosed` and
+`RetainedChangeNotAfterFrontier`) and are not inferred from delivery order.
+The conformance report is `target/collaboration-gc-prefix-report.json`.

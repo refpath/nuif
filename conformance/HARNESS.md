@@ -320,6 +320,15 @@ while empty, partial and ahead frontiers are checked explicitly. The profile doe
 pruning or causal-context/position-anchor rebasing. This keeps collection
 safe until a versioned checkpoint-as-causal-base protocol is specified.
 
+The bounded prefix extension writes
+`target/collaboration-gc-prefix-report.json`. It collects a causally closed
+register prefix, records the retained suffix and replays it through
+`ResumedOperationSetEngine` over a `CausalCheckpointBase`. The resumed hash,
+document and conflicts must equal complete replay; canonical output contains no
+history metadata. Non-closed prefixes and concurrent retained changes are
+typed failures. Structural anchor rebasing, frontier inference and unseen
+remote history remain excluded.
+
 The capture/reconstruction contract experiment writes
 `target/capture-reconstruction-report.json`. `cargo xtask capture-baselines`
 uses fixed browser-provider and strict PNG inputs to exercise repeatability,

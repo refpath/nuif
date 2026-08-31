@@ -51,7 +51,7 @@ native UI and arbitrary authored scripts remain outside the profile.
 
 Gate G: bounded mechanically independent reproduction. The standard-library-only Python implementation has no Rust/NUIF package dependency and exactly reproduces v0 canonical text, opaque preservation, 24 boxes, three decoded RGBA buffers and five fidelity records. External authorship and a general-purpose second implementation remain standards-publication work.
 
-Gate H: bounded metadata-free collaboration checkpoint. Two algorithmically distinct in-repository materializers converge for every delivery of a conflict-bearing property-register history; conflicts remain explicit and canonical NUIF contains no replica state.
+Gate H: bounded metadata-free collaboration checkpoint. Two algorithmically distinct in-repository materializers converge for every delivery of a conflict-bearing property-register history; conflicts remain explicit and canonical NUIF contains no replica state. The gate now also covers bounded concurrent creation, nested and arbitrary created anchors, mixed property/structure materialization, complete-history compaction and register-only causal prefix collection with a resumable checkpoint base.
 
 Publication infrastructure: `docs/catalog.json` selects canonical Markdown
 documents without copying their bodies. The bounded `xtask` compiler validates
@@ -82,11 +82,14 @@ Structural move/reorder/delete/rescue preserves one-parent/acyclic invariants
 and stable sibling origins across all 5,040 deliveries, while Automerge
 reproduces operation transport. The creation profile preserves base sibling
 order and reports duplicate IDs explicitly across all 24 deliveries. The
-compaction falsifier now covers exact-frontier complete-history collection and
-the nested-creation falsifier covers causal parent chains; its separately
+compaction falsifier now covers exact-frontier complete-history collection,
+and the register-only causal-prefix falsifier covers a causally closed dropped
+prefix, retained suffix replay and typed refusal of unsafe concurrent pruning.
+The nested-creation falsifier covers causal parent chains; its separately
 versioned arbitrary-anchor extension is complete under a 24-delivery causal
-sibling-chain acceptance. The next collaboration falsifiers are partial causal
-garbage collection and a foreign materializer of the tree algorithm itself.
+sibling-chain acceptance. The next collaboration falsifiers are structural
+partial garbage collection and a foreign materializer of the tree algorithm
+itself.
 The separately versioned mixed property/structure profile is complete under
 its 24-delivery causal operation-set acceptance; creation, deletion and
 multi-operation-dot boundaries remain explicit.
@@ -141,9 +144,11 @@ from that loop rather than a standing implementation commitment.
 
 1. Keep Gates B through H green with `cargo xtask all` and the separate nightly `cargo xtask fuzz-smoke`; reduce fuzz failures before committing them as named fixtures and retain all machine reports as CI artifacts.
 2. Implement the full Cap'n Proto candidate mapping only behind the codec admission preflight; compare it after canonical-writer, old-reader retention and hostile traversal tests pass. Keep the optimized typed CBOR decoder behind identical canonical-byte and hostile-input checks; investigate a streaming canonical validator only if profiling still justifies its added parser surface.
-3. Extend the bounded collaboration profiles to checkpoint-aware partial
-causal-stability garbage collection; obtain a foreign tree materializer rather
-than treating the completed Automerge transport oracle as one.
+3. Extend the bounded collaboration profiles only where a versioned causal
+base can be proven: the register-only prefix profile is complete, while
+structural anchor rebasing, concurrent stable-versus-retained conflicts and
+frontier inference require new falsifiers. Obtain a foreign tree materializer
+rather than treating the completed Automerge transport oracle as one.
 4. Keep the implemented fixed/`fr`, sparse-flow, explicit-placement Grid subset
    exact; intrinsic, percentage, named, repeated, implicit, subgrid and masonry
    tracks require a separately versioned schema and foreign-oracle matrix.

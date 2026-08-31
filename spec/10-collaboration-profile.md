@@ -198,3 +198,30 @@ compaction. It checks exact checkpoint equivalence, complete dropped-history
 receipts, empty-history behavior, metadata absence and typed refusal of partial
 and ahead frontiers. The release report is
 `target/collaboration-gc-report.json`.
+
+## Executable causal register prefix profile 0
+
+`nuif-collab-gc-prefix-0` defines a deliberately narrow checkpoint-as-causal-
+base handoff for register histories. A supplied `StabilityFrontier` partitions
+the complete, validated history into a stable prefix (every local dot at or
+below its replica counter) and a retained suffix. The prefix MUST be causally
+closed: no stable change may depend on a retained dot. Every retained change
+MUST include every non-zero frontier entry in its context, so the suffix
+causally dominates the collected checkpoint. These conditions exclude
+concurrent retained-versus-stable register conflicts without pretending to
+rebase them.
+
+The stable prefix is materialized with the register profile and carried in a
+`CausalCheckpointBase` whose profile, source profile, source-base hash,
+frontier and checkpoint are synchronization metadata, not canonical NUIF
+fields. `ResumedOperationSetEngine` accepts only contiguous retained counters,
+checks the frontier on ingestion and materializes the suffix over that base.
+The resumed checkpoint MUST have the same canonical hash, semantic document and
+conflict set as complete replay. `CompactionReceipt` records source and
+compacted hashes plus both dropped and retained change IDs.
+
+Structural changes, arbitrary position anchors, frontier inference, unseen
+remote changes and stable/retained concurrent registers are outside this
+profile. Implementations MUST return typed failures rather than silently
+rebasing context or deleting a position. Gate H exhausts the executable fixture
+and archives `target/collaboration-gc-prefix-report.json`.

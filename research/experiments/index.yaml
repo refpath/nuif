@@ -244,6 +244,21 @@ experiments:
       - exercise empty history and metadata absence
       - reject partial and ahead frontiers with typed errors
       - write and archive target/collaboration-gc-report.json
+  - id: nuif:experiment:crdt-causal-prefix-compaction
+    status: automated
+    evidence: [nuif:research:automerge-yjs, nuif:research:crdt-tree-move-operation, nuif:research:content-addressed-versioning]
+    implementation: [crates/nuif-collab/src/gc.rs, crates/nuif-collab/src/lib.rs, conformance/src/bin/collaboration-gc-prefix.rs, crates/nuif-collab/README.md, spec/10-collaboration-profile.md, xtask/src/main.rs]
+    oracle: deterministic-checkpoint-as-causal-base
+    acceptance:
+      - a caller-attested frontier partitions a complete register history into a causally closed stable prefix and retained suffix
+      - every retained change includes the complete frontier and resumes from the collected checkpoint without semantic drift
+      - receipts record both dropped and retained change IDs while canonical documents remain metadata-free
+      - structural anchors, concurrent stable-versus-retained registers and inferred frontiers fail closed
+    tests:
+      - collect a stable register prefix and compare resumed hash, document and conflicts with complete replay
+      - verify the causal base contains only the stable checkpoint and the receipt identifies both partitions
+      - reject non-closed stable prefixes and concurrent retained changes with typed errors
+      - write and archive target/collaboration-gc-prefix-report.json
   - id: nuif:experiment:crdt-nested-creation
     status: automated
     evidence: [nuif:research:crdt-tree-move-operation, nuif:research:automerge-yjs, nuif:research:list-ordering-fractional-indexing-vs-list-crdts]
