@@ -192,6 +192,9 @@ fn main() {
     let figma_document = nuif_figma::profile_fixture();
     let figma_plan = nuif_figma::plan_import(&figma_document, "performance-fixture").unwrap();
     let figma_snapshot = serde_json::to_vec(&figma_plan.snapshot).unwrap();
+    let canva_document = nuif_canva::profile_fixture();
+    let canva_page = nuif_canva::export_page(&canva_document, "performance-fixture").unwrap();
+    let canva_snapshot = serde_json::to_vec(&canva_page.page).unwrap();
     let accessibility_document = nuif_html::accessibility::web_accessibility_fixture();
     let accessibility_projection =
         nuif_html::accessibility::project_web_accessibility(&accessibility_document).unwrap();
@@ -788,6 +791,35 @@ fn main() {
             },
         ),
         measure_adapter(
+            "nuif-canva-design-editing-0",
+            "export",
+            "adapter_canva_export_page",
+            canva_document.entities.len(),
+            20,
+            500_000_000,
+            || {
+                let exported = nuif_canva::export_page(
+                    black_box(&canva_document),
+                    black_box("performance-fixture"),
+                )
+                .unwrap();
+                exported.page.elements.len() as u64 ^ exported.report.fidelity.len() as u64
+            },
+        ),
+        measure_adapter(
+            "nuif-canva-design-editing-0",
+            "import",
+            "adapter_canva_import_page",
+            canva_document.entities.len(),
+            20,
+            500_000_000,
+            || {
+                let imported = nuif_canva::import_current_page(black_box(&canva_snapshot)).unwrap();
+                imported.document.entities.len() as u64
+                    ^ imported.report.correspondences.len() as u64
+            },
+        ),
+        measure_adapter(
             "nuif-web-accessibility-0",
             "export",
             "adapter_web_accessibility_export",
@@ -862,6 +894,7 @@ fn main() {
             "penpot_bytes": penpot_exported.bytes.len(),
             "foreign_penpot_bytes": FOREIGN_PENPOT.len(),
             "figma_snapshot_bytes": figma_snapshot.len(),
+            "canva_snapshot_bytes": canva_snapshot.len(),
             "web_accessibility_bytes": accessibility_projection.html.len(),
             "web_behavior_bytes": behavior_projection.html.len()
         },

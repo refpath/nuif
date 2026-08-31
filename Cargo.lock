@@ -2814,6 +2814,7 @@ dependencies = [
  "font-test-data",
  "nuif-api",
  "nuif-behavior",
+ "nuif-canva",
  "nuif-capture",
  "nuif-codec",
  "nuif-core",
