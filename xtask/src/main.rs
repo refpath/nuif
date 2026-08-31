@@ -1138,6 +1138,7 @@ fn generate_wasm_fixtures(fixture: &Path, package_fixture: &Path) -> Result<(), 
 
 fn gate_ffi() -> Result<(), String> {
     cargo(&["test", "--locked", "-p", "nuif-ffi"])?;
+    cargo(&["build", "--release", "--locked", "-p", "nuif-ffi"])?;
     command(
         "cc",
         &[
@@ -1150,13 +1151,44 @@ fn gate_ffi() -> Result<(), String> {
             "tools/ffi/header-smoke.c",
         ],
     )?;
+    let runtime_smoke = Path::new("target/ffi-runtime-smoke");
+    let runtime_status = if cfg!(windows) {
+        "not-run-on-windows"
+    } else {
+        let rpath = if cfg!(target_os = "macos") {
+            "-Wl,-rpath,@loader_path/../release"
+        } else {
+            "-Wl,-rpath,$ORIGIN/release"
+        };
+        command(
+            "cc",
+            &[
+                "-std=c11",
+                "-Wall",
+                "-Wextra",
+                "-Werror",
+                "-I.",
+                "tools/ffi/runtime-smoke.c",
+                "-Ltarget/release",
+                "-lnuif_ffi",
+                rpath,
+                "-o",
+                "target/ffi-runtime-smoke",
+            ],
+        )?;
+        command(path(runtime_smoke)?, &[])?;
+        "passed"
+    };
+    fs::create_dir_all("target").map_err(|error| error.to_string())?;
     let report = serde_json::json!({
         "schema_version": 1,
         "status": "passed",
         "profile": "nuif-ffi-0",
         "header": "bindings/nuif_ffi.h",
         "consumer": "tools/ffi/header-smoke.c",
-        "mode": "header syntax only; no stable ABI claim",
+        "runtime_consumer": "tools/ffi/runtime-smoke.c",
+        "runtime_status": runtime_status,
+        "mode": "header syntax and POSIX release-library smoke; no stable ABI claim",
         "source": {
             "revision": command_text("git", &["rev-parse", "HEAD"]),
             "dirty": command_text("git", &["status", "--porcelain"]).map(|value| !value.is_empty()),

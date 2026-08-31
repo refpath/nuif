@@ -3,7 +3,9 @@
 `nuif_ffi.h` describes the experimental `nuif-ffi-0` byte-oriented C ABI. The
 ABI owns opaque document handles and returned byte buffers; callers release
 them with the matching library functions. It exposes no Rust model structs and
-grants no filesystem, network or host-product authority.
+grants no filesystem, network or host-product authority. Gate FFI compiles the
+header and links/runs a tiny C consumer against the release library on POSIX
+targets.
 
 The profile is deliberately not stable. Before promotion it needs a pinned
 header/symbol compatibility check, panic and allocator tests under sanitizers,

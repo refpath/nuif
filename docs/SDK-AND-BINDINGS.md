@@ -107,8 +107,8 @@ experimental `nuif-ffi-0` crate now exposes a byte-oriented C ABI over
 buffers, allocator-matched returned buffers, stable numeric error classes and
 panic containment. It exposes no internal model structs and grants no
 filesystem, network or host-product authority. The checked draft header is
-`bindings/nuif_ffi.h`; `cargo xtask gate-ffi` runs the Rust ABI tests and a C
-header-consumer syntax check.
+`bindings/nuif_ffi.h`; `cargo xtask gate-ffi` runs the Rust ABI tests, a C
+header-consumer syntax check and a release-library runtime smoke on POSIX.
 
 Rust's native ABI has no stability guarantee. A C-compatible ABI adds an unsafe
 ownership boundary whose handle lifetime, buffer allocation and release, panic

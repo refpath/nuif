@@ -121,8 +121,9 @@ shared CI timing noise as a regression threshold.
 The experimental `nuif-ffi-0` crate now provides opaque handles, bounded
 byte-oriented load/export/validation/patch calls, allocator-matched buffers,
 stable numeric error classes and panic containment. `bindings/nuif_ffi.h` is
-checked by `cargo xtask gate-ffi` with Rust ABI tests and a C consumer syntax
-compile. No stable C ABI is claimed while the semantic API remains `0.0.x`.
+checked by `cargo xtask gate-ffi` with Rust ABI tests, a C consumer syntax
+compile and a release-library runtime smoke on POSIX. No stable C ABI is
+claimed while the semantic API remains `0.0.x`.
 ADR 0011 still requires a separately reviewed `nuif-ffi-1` contract, pinned
 header/symbol compatibility checks, sanitizer-backed C consumers, pinned
 UniFFI Swift/Kotlin consumers and real XCFramework/AAR packages before that
