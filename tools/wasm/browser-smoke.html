@@ -7,7 +7,7 @@
   <body>
     <pre id="result">pending</pre>
     <script type="module">
-      import init, { apiVersion, capabilities } from "./nuif.js";
+      import init, { NuifDocument, apiVersion, capabilities } from "./nuif.js";
 
       const result = document.querySelector("#result");
       try {
@@ -19,6 +19,8 @@
           apiVersion() !==
             `${contract.api_profile}/${contract.binding_version}` ||
           contract.api_profile !== "nuif-wasm-api-0" ||
+          !contract.containers.includes("nuif-package-0") ||
+          typeof NuifDocument.fromPackage !== "function" ||
           contract.authorities.length !== 0
         ) {
           throw new Error("generated browser contract does not match its profile");

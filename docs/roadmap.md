@@ -69,10 +69,12 @@ The native shell exposes the semantic driver through identity-backed canvas sele
 
 ## Phase 5c — browser and plug-in binding (complete for `nuif-wasm-api-0`)
 
-The byte-oriented WebAssembly module wraps `nuif-api`, canonical text/CBOR and
-semantic patches without copying the model into JavaScript. A Node/native
-differential checks exact edited bytes, and the direct-browser target
-initializes in pinned headless Chrome. Its JavaScript, TypeScript and WASM are
+The byte-oriented WebAssembly module wraps `nuif-api`, canonical text/CBOR,
+deterministic packages, explicit package-capability negotiation and semantic
+patches without copying the model into JavaScript. A Node/native differential
+checks exact edited bare and package bytes, packaged-resource preservation and
+typed missing-capability failures; the direct-browser target initializes its
+package API in pinned headless Chrome. Its JavaScript, TypeScript and WASM are
 packaged as a CI and tagged-release developer artifact. The module declares no
 filesystem, network or host-document authority. The Figma review shell now
 compiles against pinned official typings and crosses a mock snapshot into the

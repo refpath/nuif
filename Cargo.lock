@@ -2835,6 +2835,7 @@ dependencies = [
  "nuif-api",
  "nuif-codec",
  "nuif-core",
+ "nuif-package",
  "nuif-protocol",
  "serde",
  "serde_json",

@@ -2,9 +2,14 @@
 
 use nuif_api::{DocumentEncoding, NuifDocument};
 use nuif_codec::MAX_INPUT_BYTES;
-use nuif_core::{Diagnostic, Severity};
+use nuif_core::{Diagnostic, Severity, is_identifier};
+use nuif_package::{
+    MAX_CAPABILITY_BYTES, MAX_PACKAGE_BYTES, MAX_REQUIRED_CAPABILITIES, PackageCapabilityReport,
+    PackageMode,
+};
 use nuif_protocol::{Patch, PatchLimits, enforce_patch_limits};
 use serde::Serialize;
+use std::collections::BTreeSet;
 use thiserror::Error;
 use wasm_bindgen::prelude::*;
 
@@ -12,10 +17,22 @@ pub const API_PROFILE: &str = "nuif-wasm-api-0";
 pub const MAX_PATCH_BYTES: usize = 4 * 1024 * 1024;
 pub const MAX_PATCH_TRANSACTIONS: usize = 1_024;
 pub const MAX_PATCH_OPERATIONS: usize = 16_384;
+pub const MAX_CAPABILITY_SET_BYTES: usize = 64 * 1024;
 
 fn document_encoding(value: &str) -> Result<DocumentEncoding, BindingError> {
     DocumentEncoding::from_profile(value)
         .map_err(|error| BindingError::new("NUIF_ENCODING_UNSUPPORTED", error.to_string()))
+}
+
+fn package_mode(value: &str) -> Result<PackageMode, BindingError> {
+    match value {
+        "portable" => Ok(PackageMode::Portable),
+        "authoring" => Ok(PackageMode::Authoring),
+        _ => Err(BindingError::new(
+            "NUIF_PACKAGE_MODE_UNSUPPORTED",
+            format!("unsupported package mode {value:?}"),
+        )),
+    }
 }
 
 #[derive(Debug, Error)]
@@ -53,6 +70,30 @@ impl CoreDocument {
         Ok(Self { document })
     }
 
+    fn load_package(bytes: &[u8]) -> Result<Self, BindingError> {
+        if bytes.len() > MAX_PACKAGE_BYTES {
+            return Err(BindingError::new(
+                "NUIF_PACKAGE_LIMIT_EXCEEDED",
+                format!(
+                    "package input exceeds {MAX_PACKAGE_BYTES} bytes (observed {})",
+                    bytes.len()
+                ),
+            ));
+        }
+        let document = NuifDocument::load_package(bytes)
+            .map_err(|error| BindingError::new("NUIF_PACKAGE_DECODE_FAILED", error.to_string()))?;
+        Ok(Self { document })
+    }
+
+    fn load_package_with_capabilities(
+        bytes: &[u8],
+        supported: &BTreeSet<String>,
+    ) -> Result<Self, BindingError> {
+        let document = Self::load_package(bytes)?;
+        document.require_package_capabilities(supported)?;
+        Ok(document)
+    }
+
     fn validation_report(&self) -> Result<ValidationReport, BindingError> {
         let diagnostics = self
             .document
@@ -75,6 +116,30 @@ impl CoreDocument {
         self.document
             .export(document_encoding(encoding)?)
             .map_err(|error| BindingError::new("NUIF_DOCUMENT_ENCODE_FAILED", error.to_string()))
+    }
+
+    fn export_package(&self, mode: &str) -> Result<Vec<u8>, BindingError> {
+        self.document
+            .export_package(package_mode(mode)?)
+            .map_err(|error| BindingError::new("NUIF_PACKAGE_ENCODE_FAILED", error.to_string()))
+    }
+
+    fn package_capability_report(
+        &self,
+        supported: &BTreeSet<String>,
+    ) -> Option<PackageCapabilityReport> {
+        self.document.package_capability_report(supported)
+    }
+
+    fn require_package_capabilities(
+        &self,
+        supported: &BTreeSet<String>,
+    ) -> Result<(), BindingError> {
+        self.document
+            .require_package_capabilities(supported)
+            .map_err(|error| {
+                BindingError::new("NUIF_PACKAGE_CAPABILITIES_UNAVAILABLE", error.to_string())
+            })
     }
 
     fn canonical_hash(&self) -> Result<String, BindingError> {
@@ -146,6 +211,42 @@ impl WasmDocument {
             .map_err(Into::into)
     }
 
+    /// Structurally loads a bounded, deterministic `.nuif` package while
+    /// retaining its verified resources and manifest requirements.
+    ///
+    /// Structural loading is appropriate for inert inspection and migration.
+    /// A host that evaluates the package must additionally call
+    /// `requirePackageCapabilities` or use `fromPackageWithCapabilities`.
+    ///
+    /// # Errors
+    ///
+    /// Throws for malformed, excessive, non-canonical or policy-invalid
+    /// packages. It does not fetch linked resources or execute capabilities.
+    #[wasm_bindgen(js_name = fromPackage)]
+    pub fn from_package(bytes: &[u8]) -> Result<WasmDocument, JsError> {
+        CoreDocument::load_package(bytes)
+            .map(|inner| Self { inner })
+            .map_err(Into::into)
+    }
+
+    /// Loads a package only when every manifest requirement is present in the
+    /// supplied bounded JSON string array.
+    ///
+    /// # Errors
+    ///
+    /// Throws for an invalid capability-set transport, a structurally invalid
+    /// package, or the exact set of unavailable required capabilities.
+    #[wasm_bindgen(js_name = fromPackageWithCapabilities)]
+    pub fn from_package_with_capabilities(
+        bytes: &[u8],
+        supported: &[u8],
+    ) -> Result<WasmDocument, JsError> {
+        let supported = decode_capability_set(supported).map_err(JsError::from)?;
+        CoreDocument::load_package_with_capabilities(bytes, &supported)
+            .map(|inner| Self { inner })
+            .map_err(Into::into)
+    }
+
     /// Serializes structural diagnostics without mutating the document.
     ///
     /// # Errors
@@ -175,6 +276,46 @@ impl WasmDocument {
     #[wasm_bindgen(js_name = exportBytes)]
     pub fn export_bytes(&self, encoding: &str) -> Result<Vec<u8>, JsError> {
         self.inner.export(encoding).map_err(Into::into)
+    }
+
+    /// Encodes a deterministic package while preserving loaded descriptors,
+    /// embedded bytes and required capabilities.
+    ///
+    /// # Errors
+    ///
+    /// Throws for an unsupported mode or any package-policy violation.
+    #[wasm_bindgen(js_name = exportPackage)]
+    pub fn export_package(&self, mode: &str) -> Result<Vec<u8>, JsError> {
+        self.inner.export_package(mode).map_err(Into::into)
+    }
+
+    /// Reports exact required, supported-required and missing-required sets as
+    /// JSON. A bare document returns JSON `null`.
+    ///
+    /// # Errors
+    ///
+    /// Throws for malformed or excessive capability-set transport, or if the
+    /// report cannot be represented as JSON.
+    #[wasm_bindgen(js_name = packageCapabilityReport)]
+    pub fn package_capability_report(&self, supported: &[u8]) -> Result<Vec<u8>, JsError> {
+        let supported = decode_capability_set(supported).map_err(JsError::from)?;
+        serde_json::to_vec(&self.inner.package_capability_report(&supported))
+            .map_err(|error| JsError::new(&format!("NUIF_REPORT_ENCODE_FAILED: {error}")))
+    }
+
+    /// Fails unless the loaded package's complete required-capability set is
+    /// present in the supplied bounded JSON string array. Bare documents have
+    /// no package requirements.
+    ///
+    /// # Errors
+    ///
+    /// Throws for malformed transport or unavailable requirements.
+    #[wasm_bindgen(js_name = requirePackageCapabilities)]
+    pub fn require_package_capabilities(&self, supported: &[u8]) -> Result<(), JsError> {
+        let supported = decode_capability_set(supported).map_err(JsError::from)?;
+        self.inner
+            .require_package_capabilities(&supported)
+            .map_err(Into::into)
     }
 
     /// Applies a bounded semantic patch atomically and returns the new hash.
@@ -222,6 +363,15 @@ impl WasmDocument {
     pub fn entity_count(&self) -> usize {
         self.inner.document.document().entities.len()
     }
+
+    #[wasm_bindgen(getter, js_name = packageMode)]
+    #[must_use]
+    pub fn package_mode(&self) -> Option<String> {
+        self.inner.document.package_mode().map(|mode| match mode {
+            PackageMode::Portable => "portable".to_owned(),
+            PackageMode::Authoring => "authoring".to_owned(),
+        })
+    }
 }
 
 #[wasm_bindgen(js_name = apiVersion)]
@@ -242,9 +392,15 @@ pub fn capabilities() -> Result<Vec<u8>, JsError> {
         "api_profile": API_PROFILE,
         "binding_version": env!("CARGO_PKG_VERSION"),
         "encodings": ["nuif-text-0", "nuif-cbor-0"],
-        "operations": ["load", "validate", "canonical_hash", "export", "apply_patch", "undo", "redo"],
+        "containers": ["nuif-text-0", "nuif-cbor-0", "nuif-package-0"],
+        "package_modes": ["portable", "authoring"],
+        "operations": ["load", "load_package", "validate", "canonical_hash", "export", "export_package", "package_capability_report", "require_package_capabilities", "apply_patch", "undo", "redo"],
         "limits": {
             "document_bytes": MAX_INPUT_BYTES,
+            "package_bytes": MAX_PACKAGE_BYTES,
+            "capability_set_bytes": MAX_CAPABILITY_SET_BYTES,
+            "required_capabilities": MAX_REQUIRED_CAPABILITIES,
+            "capability_bytes": MAX_CAPABILITY_BYTES,
             "patch_bytes": MAX_PATCH_BYTES,
             "patch_transactions": MAX_PATCH_TRANSACTIONS,
             "patch_operations": MAX_PATCH_OPERATIONS,
@@ -252,6 +408,40 @@ pub fn capabilities() -> Result<Vec<u8>, JsError> {
         "authorities": [],
     }))
     .map_err(|error| JsError::new(&format!("NUIF_REPORT_ENCODE_FAILED: {error}")))
+}
+
+fn decode_capability_set(bytes: &[u8]) -> Result<BTreeSet<String>, BindingError> {
+    if bytes.len() > MAX_CAPABILITY_SET_BYTES {
+        return Err(BindingError::new(
+            "NUIF_CAPABILITY_SET_LIMIT_EXCEEDED",
+            format!(
+                "capability-set input exceeds {MAX_CAPABILITY_SET_BYTES} bytes (observed {})",
+                bytes.len()
+            ),
+        ));
+    }
+    let capabilities: BTreeSet<String> = serde_json::from_slice(bytes).map_err(|error| {
+        BindingError::new("NUIF_CAPABILITY_SET_DECODE_FAILED", error.to_string())
+    })?;
+    if capabilities.len() > MAX_REQUIRED_CAPABILITIES {
+        return Err(BindingError::new(
+            "NUIF_CAPABILITY_SET_LIMIT_EXCEEDED",
+            format!(
+                "capability set exceeds {MAX_REQUIRED_CAPABILITIES} entries (observed {})",
+                capabilities.len()
+            ),
+        ));
+    }
+    if let Some(capability) = capabilities
+        .iter()
+        .find(|capability| capability.len() > MAX_CAPABILITY_BYTES || !is_identifier(capability))
+    {
+        return Err(BindingError::new(
+            "NUIF_CAPABILITY_SET_INVALID",
+            format!("capability {capability:?} is not a bounded identifier"),
+        ));
+    }
+    Ok(capabilities)
 }
 
 fn decode_patch(bytes: &[u8]) -> Result<Patch, BindingError> {
@@ -290,6 +480,7 @@ mod tests {
     use super::*;
     use nuif_codec::{CanonicalText, Encoder};
     use nuif_core::{Document, Entity, EntityId, EntityKind};
+    use nuif_package::NuifPackage;
     use nuif_protocol::{Operation, Transaction};
 
     fn document() -> Document {
@@ -395,6 +586,60 @@ mod tests {
             decode_patch(&bytes),
             Err(BindingError {
                 code: "NUIF_PATCH_LIMIT_EXCEEDED",
+                ..
+            })
+        ));
+    }
+
+    #[test]
+    fn package_surface_preserves_bytes_and_negotiates_capabilities() {
+        let required = BTreeSet::from(["feature.example".to_owned()]);
+        let mut package = NuifPackage::new(document(), PackageMode::Portable);
+        package.required_capabilities.clone_from(&required);
+        let bytes = package.encode().unwrap();
+
+        let structural = CoreDocument::load_package(&bytes).unwrap();
+        assert_eq!(structural.export_package("portable").unwrap(), bytes);
+        let unsupported = structural
+            .package_capability_report(&BTreeSet::new())
+            .unwrap();
+        assert!(!unsupported.fully_supported);
+        assert_eq!(unsupported.missing_required, required);
+        assert!(matches!(
+            structural.require_package_capabilities(&BTreeSet::new()),
+            Err(BindingError {
+                code: "NUIF_PACKAGE_CAPABILITIES_UNAVAILABLE",
+                ..
+            })
+        ));
+        assert!(CoreDocument::load_package_with_capabilities(&bytes, &required).is_ok());
+        assert!(CoreDocument::load_package_with_capabilities(&bytes, &BTreeSet::new()).is_err());
+    }
+
+    #[test]
+    fn capability_transport_and_package_limits_are_typed() {
+        assert_eq!(
+            decode_capability_set(br#"["feature.z","feature.a"]"#).unwrap(),
+            BTreeSet::from(["feature.a".to_owned(), "feature.z".to_owned()])
+        );
+        assert!(matches!(
+            decode_capability_set(br#"["not valid"]"#),
+            Err(BindingError {
+                code: "NUIF_CAPABILITY_SET_INVALID",
+                ..
+            })
+        ));
+        assert!(matches!(
+            decode_capability_set(&vec![b' '; MAX_CAPABILITY_SET_BYTES + 1]),
+            Err(BindingError {
+                code: "NUIF_CAPABILITY_SET_LIMIT_EXCEEDED",
+                ..
+            })
+        ));
+        assert!(matches!(
+            CoreDocument::load_package(&vec![0; MAX_PACKAGE_BYTES + 1]),
+            Err(BindingError {
+                code: "NUIF_PACKAGE_LIMIT_EXCEEDED",
                 ..
             })
         ));

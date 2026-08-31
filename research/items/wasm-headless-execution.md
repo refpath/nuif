@@ -90,13 +90,17 @@ Reproducibility: pin browser versions (Playwright pins browser builds per releas
 
 The implemented first layer is `nuif-wasm-api-0`: a
 `wasm32-unknown-unknown` module generated with wasm-bindgen 0.2.127. It accepts
-only explicit canonical-text/CBOR and patch byte arrays, exposes validation,
-hashing, encoding, bounded atomic application and exact undo/redo, and declares
-no host authority. `cargo xtask gate-wasm` generates Node and direct-browser
-packages, initializes the web target in pinned headless Chrome, drives the Node
-package, and requires the edited canonical bytes to equal the native CLI
-result. This closes binding and browser-package initialization only; it does
-not close browser-layout, WASI CLI or host-adapter behavior described above.
+explicit canonical-text/CBOR, deterministic packages, capability-set and patch
+byte arrays; exposes validation, hashing, encoding, bounded atomic application
+and exact undo/redo; and declares no host authority. Structural package load
+retains inert verified resources. Evaluation requires a separate exact
+manifest-capability check. `cargo xtask gate-wasm` generates Node and
+direct-browser packages, initializes the web target in pinned headless Chrome,
+drives the Node package, and requires edited bare and package bytes to equal the
+native CLI. A behavior-bearing package proves exact resource preservation plus
+typed missing/exact capability outcomes without executing behavior. This closes
+binding and browser-package initialization only; it does not close
+browser-layout, WASI CLI or host-adapter behavior described above.
 
 ## NUIF relevance
 

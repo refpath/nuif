@@ -37,18 +37,21 @@ façade. A stable C/Swift/Kotlin ABI is deliberately not claimed during the
 
 ## Browser binding boundary
 
-`nuif-wasm-api-0` packages parsing, validation, canonical text/CBOR and bounded
-semantic patch/history operations for browser and JavaScript consumers. It
-accepts byte arrays and returns byte arrays or hashes; it deliberately does not
-expose a second mutable JavaScript model. The generated module has no
-filesystem, network, Figma or Adobe authority.
+`nuif-wasm-api-0` packages parsing, validation, canonical text/CBOR,
+deterministic `.nuif` load/export, explicit manifest-capability negotiation and
+bounded semantic patch/history operations for browser and JavaScript consumers.
+It retains verified embedded resources without exposing a second mutable
+JavaScript model. The generated module has no filesystem, network, Figma or
+Adobe authority.
 
 For Figma, the module belongs in the UI iframe, where Figma documents normal
 browser APIs including WebAssembly. The plug-in main thread still owns
 `SceneNode` access and exchanges bounded messages with that iframe. For Adobe,
 the UXP shell owns file tokens and host mutation. In both cases the WASM module
-can validate and encode NUIF locally, but it is not the host adapter and cannot
-justify a vendor fidelity claim by itself.
+can validate, edit and re-encode complete NUIF packages locally. The shell must
+still declare and require the exact package capability set before evaluation;
+WASM is not the host adapter and cannot justify a vendor fidelity claim by
+itself.
 
 ## Local package evaluation
 

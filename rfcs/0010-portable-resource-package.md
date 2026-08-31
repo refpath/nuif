@@ -314,6 +314,13 @@ encodings, while the package implementation owns manifest/resource/ZIP rules.
 The core owns asset/resource semantics. CLI, editor, WASM, FFI and process
 adapters call the same package API and MUST NOT carry independent ZIP policy.
 
+The reference `nuif-wasm-api-0` binding exposes structural package load,
+explicit manifest-capability negotiation and deterministic package export over
+byte arrays. Its cross-surface gate requires both no-op and edited package bytes
+to match the native SDK exactly and preserves an embedded capability resource
+without interpreting it. This is the browser/plugin package transport; host
+object access and capability execution remain separate adapters.
+
 ## Security
 
 The package is untrusted. Before acceptance, the profile requires calibrated

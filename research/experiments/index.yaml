@@ -142,16 +142,18 @@ experiments:
   - id: nuif:experiment:wasm-cross-surface
     status: automated
     evidence: [nuif:research:wasm-headless-execution, nuif:research:wasm-component-model]
-    implementation: [crates/nuif-wasm/src/lib.rs, crates/nuif-wasm/package.json, tools/wasm/smoke.cjs, xtask/src/main.rs, .github/workflows/ci.yml, .github/workflows/release.yml]
+    implementation: [crates/nuif-wasm/src/lib.rs, crates/nuif-wasm/package.json, crates/nuif-testing/src/bin/behavior-package.rs, tools/wasm/smoke.cjs, xtask/src/main.rs, .github/workflows/ci.yml, .github/workflows/release.yml]
     oracle: cross-surface-differential
     acceptance:
       - the generated Node binding and native CLI produce byte-identical canonical text after the same semantic patch
       - the direct-browser target initializes and exposes its declared contract in pinned headless Chrome
       - canonical text and deterministic CBOR reach the same canonical document hash
+      - deterministic package no-op and edited outputs are byte-identical to the native SDK and retain embedded resources
+      - structural package load reports exact missing requirements and capability-aware load fails before use
       - stale malformed and one-over-byte patches fail atomically with stable error classes
       - the generated direct-browser package declares no filesystem network or host-document authority
     tests:
-      - load validate hash export apply undo and redo through the generated JavaScript binding
+      - load validate hash export apply undo and redo bare documents and deterministic packages through the generated JavaScript binding
       - initialize the generated ES module and WebAssembly binary in pinned Chrome for Testing
       - enforce document patch transaction and operation limits
       - generate TypeScript declarations and a direct-browser ES module package

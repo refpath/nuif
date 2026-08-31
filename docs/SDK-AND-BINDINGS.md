@@ -69,9 +69,9 @@ package support additionally requires explicit capability negotiation.
 
 Wrappers contain transport and ownership conversion only:
 
-- WebAssembly accepts byte arrays, bounds JSON patch transport and delegates
-  document loading, validation, hashing, canonical export and history to
-  `NuifDocument`.
+- WebAssembly accepts byte arrays, bounds JSON patch and capability-set
+  transport, and delegates bare/package loading, validation, hashing,
+  capability negotiation, canonical export and history to `NuifDocument`.
 - MCP bounds newline-delimited protocol messages and maps stateless tool calls
   to the same API.
 - The CLI owns files and stdout; the editor owns window and interaction state.
@@ -79,10 +79,11 @@ Wrappers contain transport and ownership conversion only:
   not become the Figma or Adobe adapter merely because it runs in a plug-in.
 
 The cross-surface rule is exact: the same input and patch must produce the same
-canonical hash, canonical bytes and diagnostics. `cargo xtask gate-wasm` and
-`cargo xtask gate-mcp` compare the wrappers with native output; the Criterion
-`sdk/direct_document` group measures direct text, CBOR and package loading plus
-canonical export.
+canonical hash, canonical bytes and diagnostics. For package-aware surfaces it
+also requires the same deterministic archive bytes, retained resources and
+missing-capability set. `cargo xtask gate-wasm` and `cargo xtask gate-mcp`
+compare wrappers with native output; the Criterion `sdk/direct_document` group
+measures direct text, CBOR and package loading plus canonical export.
 
 ## C, C++, Swift and Kotlin decision
 

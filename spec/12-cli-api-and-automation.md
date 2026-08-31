@@ -29,6 +29,14 @@ implement validation, canonicalization, hashing, package policy or operation
 application. Equivalent wrapper calls over the declared common subset MUST
 produce the same canonical bytes, hash and diagnostics as the direct SDK.
 
+A package-aware wrapper MUST distinguish structural load from full-support
+negotiation. Structural load MAY preserve or inspect unknown required
+capabilities, but MUST NOT execute them or claim support. Before evaluation it
+MUST compare the manifest requirements with an explicit bounded host set and
+fail with the exact unavailable identifiers. A package-preserving wrapper MUST
+produce the same deterministic archive bytes as the direct SDK for the same
+document, resources, capabilities and target mode.
+
 A future C ABI is a separate versioned profile. It MUST define opaque-handle
 lifetime, byte-buffer ownership and release, panic containment, stable error
 classes, threading, calling convention and exported-symbol compatibility. C,

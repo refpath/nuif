@@ -812,19 +812,23 @@ fn gate_wasm() -> Result<(), String> {
     let smoke_output = Path::new("target/wasm-smoke-output.nuif.json");
     let native_output = Path::new("target/wasm-native-output.nuif.json");
     let fixture = Path::new("target/wasm-smoke-input.nuif.json");
+    let package_fixture = Path::new("target/wasm-smoke-input.nuif");
+    let package_output = Path::new("target/wasm-smoke-output.nuif");
+    let native_package_output = Path::new("target/wasm-native-output.nuif");
+    let capability_package = Path::new("target/behavior-package-fixture.nuif");
     let patch = Path::new("target/wasm-smoke-patch.json");
     let report = Path::new("target/wasm-conformance-report.json");
     build_wasm_bindings(node_output, web_output)?;
+    generate_wasm_fixtures(fixture, package_fixture)?;
     cargo(&[
         "run",
         "--quiet",
+        "--release",
         "--locked",
         "-p",
-        "nuif-cli",
-        "--",
-        "fixture",
-        "v0-responsive-card",
-        path(fixture)?,
+        "nuif-testing",
+        "--bin",
+        "behavior-package",
     ])?;
     command(
         "node",
@@ -835,25 +839,25 @@ fn gate_wasm() -> Result<(), String> {
             path(smoke_output)?,
             path(patch)?,
             path(report)?,
+            path(package_fixture)?,
+            path(package_output)?,
+            path(capability_package)?,
         ],
     )?;
-    cargo(&[
-        "run",
-        "--quiet",
-        "--locked",
-        "-p",
-        "nuif-cli",
-        "--",
-        "patch",
-        path(fixture)?,
-        path(patch)?,
-        path(native_output)?,
-    ])?;
-    if fs::read(smoke_output).map_err(|error| error.to_string())?
-        != fs::read(native_output).map_err(|error| error.to_string())?
-    {
-        return Err("WebAssembly and native APIs produced different canonical bytes".to_owned());
-    }
+    compare_wasm_patch(
+        fixture,
+        patch,
+        smoke_output,
+        native_output,
+        "canonical bytes",
+    )?;
+    compare_wasm_patch(
+        package_fixture,
+        patch,
+        package_output,
+        native_package_output,
+        "deterministic package bytes",
+    )?;
     let browser_version = run_wasm_browser_smoke(web_output)?;
     let mut report_json = read_json(report)?;
     report_json["checks"]["browser_web_target_initializes"] = serde_json::Value::Bool(true);
@@ -874,6 +878,61 @@ fn gate_wasm() -> Result<(), String> {
             .is_none_or(|checks| checks.values().any(|value| value != true))
     {
         return Err("WebAssembly conformance report failed its assertions".to_owned());
+    }
+    Ok(())
+}
+
+fn generate_wasm_fixtures(fixture: &Path, package_fixture: &Path) -> Result<(), String> {
+    cargo(&[
+        "run",
+        "--quiet",
+        "--locked",
+        "-p",
+        "nuif-cli",
+        "--",
+        "fixture",
+        "v0-responsive-card",
+        path(fixture)?,
+    ])?;
+    cargo(&[
+        "run",
+        "--quiet",
+        "--locked",
+        "-p",
+        "nuif-cli",
+        "--",
+        "pack",
+        path(fixture)?,
+        path(package_fixture)?,
+        "--portable",
+    ])
+}
+
+fn compare_wasm_patch(
+    input: &Path,
+    patch: &Path,
+    wasm_output: &Path,
+    native_output: &Path,
+    output_kind: &str,
+) -> Result<(), String> {
+    cargo(&[
+        "run",
+        "--quiet",
+        "--locked",
+        "-p",
+        "nuif-cli",
+        "--",
+        "patch",
+        path(input)?,
+        path(patch)?,
+        path(native_output)?,
+    ])?;
+    if fs::read(wasm_output).map_err(|error| error.to_string())?
+        != fs::read(native_output).map_err(|error| error.to_string())?
+    {
+        return Err(format!(
+            "WebAssembly and native APIs produced different {output_kind}"
+        ));
     }
     Ok(())
 }

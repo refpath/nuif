@@ -34,10 +34,19 @@ function rejectedCode(action, code) {
 }
 
 function main() {
-  if (process.argv.length !== 7) {
-    fail("usage: smoke.cjs binding.js input.nuif.json output.nuif.json patch.json report.json");
+  if (process.argv.length !== 10) {
+    fail("usage: smoke.cjs binding.js input.nuif.json output.nuif.json patch.json report.json input.nuif output.nuif capability-input.nuif");
   }
-  const [bindingPath, inputPath, outputPath, patchPath, reportPath] = process.argv.slice(2);
+  const [
+    bindingPath,
+    inputPath,
+    outputPath,
+    patchPath,
+    reportPath,
+    packageInputPath,
+    packageOutputPath,
+    capabilityPackagePath,
+  ] = process.argv.slice(2);
   const nuif = require(path.resolve(bindingPath));
   const input = fs.readFileSync(inputPath);
   const capabilities = parseBytes(nuif.capabilities());
@@ -105,7 +114,62 @@ function main() {
     "NUIF_ENCODING_UNSUPPORTED",
   );
 
+  const emptyCapabilities = jsonBytes([]);
+  const packageInput = fs.readFileSync(packageInputPath);
+  const packageDocument = nuif.NuifDocument.fromPackage(packageInput);
+  expect(packageDocument.packageMode === "portable", "package mode was not retained");
+  expect(packageDocument.canonicalHash() === before, "package document hash differs from bare input");
+  const emptyPackageReport = parseBytes(
+    packageDocument.packageCapabilityReport(emptyCapabilities),
+  );
+  const packageNoopExact = Buffer.compare(
+    Buffer.from(packageDocument.exportPackage("portable")),
+    packageInput,
+  ) === 0;
+  expect(packageNoopExact, "no-op package export changed bytes");
+  const packageAfter = packageDocument.applyPatch(patchBytes);
+  expect(packageAfter === after, "package patch produced a different canonical hash");
+  const packageOutput = Buffer.from(packageDocument.exportPackage("portable"));
+  fs.writeFileSync(packageOutputPath, packageOutput);
+
+  const capabilityPackage = fs.readFileSync(capabilityPackagePath);
+  const structuralCapabilityDocument = nuif.NuifDocument.fromPackage(capabilityPackage);
+  const missingReport = parseBytes(
+    structuralCapabilityDocument.packageCapabilityReport(emptyCapabilities),
+  );
+  const capabilityPackageNoopExact = Buffer.compare(
+    Buffer.from(structuralCapabilityDocument.exportPackage("portable")),
+    capabilityPackage,
+  ) === 0;
+  const missingCapabilityRejected = rejectedCode(
+    () => structuralCapabilityDocument.requirePackageCapabilities(emptyCapabilities),
+    "NUIF_PACKAGE_CAPABILITIES_UNAVAILABLE",
+  );
+  const requiredCapabilities = jsonBytes(missingReport.required);
+  const supportedCapabilityDocument = nuif.NuifDocument.fromPackageWithCapabilities(
+    capabilityPackage,
+    requiredCapabilities,
+  );
+  const supportedReport = parseBytes(
+    supportedCapabilityDocument.packageCapabilityReport(requiredCapabilities),
+  );
+  supportedCapabilityDocument.requirePackageCapabilities(requiredCapabilities);
+  const atomicCapabilityLoadRejected = rejectedCode(
+    () => nuif.NuifDocument.fromPackageWithCapabilities(capabilityPackage, emptyCapabilities),
+    "NUIF_PACKAGE_CAPABILITIES_UNAVAILABLE",
+  );
+  const malformedCapabilitySetRejected = rejectedCode(
+    () => structuralCapabilityDocument.packageCapabilityReport(Buffer.from("{", "utf8")),
+    "NUIF_CAPABILITY_SET_DECODE_FAILED",
+  );
+
   const checks = {
+    package_contract_declared:
+      capabilities.containers.includes("nuif-package-0") &&
+      capabilities.operations.includes("load_package") &&
+      capabilities.operations.includes("require_package_capabilities") &&
+      capabilities.limits.package_bytes === 80 * 1024 * 1024 &&
+      capabilities.limits.required_capabilities === 256,
     validation_passed: validation.status === "passed" && validation.errors === 0,
     text_noop_exact: textNoopExact,
     patch_changed_hash: after !== before,
@@ -115,6 +179,22 @@ function main() {
     undo_redo_exact: undo.canonical_hash === before && redo.canonical_hash === after,
     cbor_hash_exact: cborDocument.canonicalHash() === after,
     unsupported_encoding_typed: encodingRejected,
+    package_noop_exact: packageNoopExact,
+    package_patch_hash_exact: packageAfter === after,
+    package_empty_requirements_supported:
+      emptyPackageReport.fully_supported === true &&
+      emptyPackageReport.required.length === 0,
+    package_capability_missing_exact:
+      missingReport.fully_supported === false &&
+      JSON.stringify(missingReport.missing_required) ===
+        JSON.stringify(["nuif-behavior-state-machine-0"]),
+    package_capability_required_before_use:
+      missingCapabilityRejected && atomicCapabilityLoadRejected,
+    package_capability_resource_preservation: capabilityPackageNoopExact,
+    package_capability_exact_support:
+      supportedReport.fully_supported === true &&
+      supportedReport.missing_required.length === 0,
+    malformed_capability_transport_typed: malformedCapabilitySetRejected,
     no_host_authority: capabilities.authorities.length === 0,
   };
   const passed = Object.values(checks).every(Boolean);
@@ -130,10 +210,17 @@ function main() {
     input_bytes: input.length,
     output_bytes: output.length,
     cbor_bytes: cbor.length,
+    package_input_bytes: packageInput.length,
+    package_output_bytes: packageOutput.length,
+    package_output_sha256: sha256(packageOutput),
+    capability_package_bytes: capabilityPackage.length,
     wasm_bytes: fs.statSync(path.join(path.dirname(path.resolve(bindingPath)), "nuif_bg.wasm")).size,
     output_sha256: sha256(output),
     checks,
   }, null, 2) + "\n");
+  supportedCapabilityDocument.free();
+  structuralCapabilityDocument.free();
+  packageDocument.free();
   cborDocument.free();
   document.free();
   if (!passed) fail("WebAssembly smoke report failed");
