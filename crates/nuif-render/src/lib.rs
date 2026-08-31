@@ -127,7 +127,7 @@ enum TextFontLowering<'a> {
 
 enum ResolvedTextFace<'a> {
     Pinned,
-    Resource(ResourceFont<'a>),
+    Resource(Box<ResourceFont<'a>>),
     Skip(Fidelity),
 }
 
@@ -693,7 +693,8 @@ fn resolve_text_face<'a>(
             reason: "font asset has no reviewed license expression",
         },
     )?;
-    ResourceFont::new(bytes, sha256, family, license)
+    ResourceFont::new_with_features(bytes, sha256, family, license, &metadata.features)
+        .map(Box::new)
         .map(ResolvedTextFace::Resource)
         .map_err(|source| RenderError::Text { entity, source })
 }

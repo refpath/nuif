@@ -1,7 +1,7 @@
 #![doc = "Pinned profile-0 font resources and deterministic resolved text shaping."]
 
 use harfrust::{
-    Direction, FontRef as HarfFontRef, Language, SerializeFlags, ShapeOptions, ShaperData,
+    Direction, Feature, FontRef as HarfFontRef, Language, SerializeFlags, ShapeOptions, ShaperData,
     UnicodeBuffer,
 };
 use serde::{Deserialize, Serialize};
@@ -14,6 +14,7 @@ use skrifa::{
         pen::{PathElement, PathStyle},
     },
 };
+use std::collections::BTreeMap;
 use std::fmt::Write as _;
 use std::str::FromStr;
 use thiserror::Error;
@@ -85,6 +86,8 @@ pub struct ShapedRun {
     pub units_per_em: u16,
     #[serde(default = "default_ascender_font_units")]
     pub ascender_font_units: i32,
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub features: BTreeMap<String, u32>,
     pub direction: TextDirection,
     pub language: String,
     pub shaper: String,
@@ -255,6 +258,8 @@ pub struct ResourceFont<'a> {
     skrifa: SkrifaFontRef<'a>,
     identity: FontIdentity,
     ascender_font_units: i32,
+    features: Vec<Feature>,
+    feature_settings: BTreeMap<String, u32>,
 }
 
 impl<'a> ResourceFont<'a> {
@@ -269,6 +274,23 @@ impl<'a> ResourceFont<'a> {
         expected_sha256: &str,
         family: &str,
         license: &str,
+    ) -> Result<Self, TextError> {
+        Self::new_with_features(bytes, expected_sha256, family, license, &BTreeMap::new())
+    }
+
+    /// Validates and opens an exact packaged static TrueType font with global
+    /// OpenType feature values applied to every shaped run.
+    ///
+    /// # Errors
+    ///
+    /// Returns the same failures as [`Self::new`] and rejects feature tags
+    /// that the pinned shaper cannot represent exactly.
+    pub fn new_with_features(
+        bytes: &'a [u8],
+        expected_sha256: &str,
+        family: &str,
+        license: &str,
+        feature_settings: &BTreeMap<String, u32>,
     ) -> Result<Self, TextError> {
         let observed = format!("{:x}", Sha256::digest(bytes));
         if observed != expected_sha256 {
@@ -297,6 +319,13 @@ impl<'a> ResourceFont<'a> {
             .metrics(Size::unscaled(), LocationRef::default())
             .ascent;
         let ascender_font_units = integral_font_metric(ascent, "font ascent")?;
+        let features = feature_settings
+            .iter()
+            .map(|(tag, value)| {
+                Feature::from_str(&format!("{tag}={value}"))
+                    .map_err(|_| TextError::InvalidResourceFont("invalid feature tag".to_owned()))
+            })
+            .collect::<Result<Vec<_>, _>>()?;
         Ok(Self {
             harf,
             skrifa,
@@ -308,6 +337,8 @@ impl<'a> ResourceFont<'a> {
                 license: license.to_owned(),
             },
             ascender_font_units,
+            features,
+            feature_settings: feature_settings.clone(),
         })
     }
 
@@ -328,6 +359,8 @@ impl<'a> ResourceFont<'a> {
             &self.harf,
             self.identity.clone(),
             self.ascender_font_units,
+            &self.features,
+            &self.feature_settings,
         )
     }
 
@@ -400,7 +433,14 @@ pub fn shape(request: &ShapeRequest<'_>) -> Result<ShapedRun, TextError> {
     }
     let font = HarfFontRef::new(pinned_font_bytes())
         .map_err(|error| TextError::InvalidPinnedFont(error.to_string()))?;
-    shape_with_font(request, &font, pinned_font_identity(), PINNED_FONT_ASCENDER)
+    shape_with_font(
+        request,
+        &font,
+        pinned_font_identity(),
+        PINNED_FONT_ASCENDER,
+        &[],
+        &BTreeMap::new(),
+    )
 }
 
 /// Shapes one logical run with an exact, profile-validated packaged static
@@ -440,6 +480,8 @@ fn shape_with_font(
     font: &HarfFontRef<'_>,
     identity: FontIdentity,
     ascender_font_units: i32,
+    features: &[Feature],
+    feature_settings: &BTreeMap<String, u32>,
 ) -> Result<ShapedRun, TextError> {
     if !request.font_size.is_finite() || request.font_size <= 0.0 {
         return Err(TextError::InvalidFontSize);
@@ -471,7 +513,7 @@ fn shape_with_font(
     });
     buffer.set_language(language);
     buffer.guess_segment_properties();
-    let output = shaper.shape(buffer, ShapeOptions::new());
+    let output = shaper.shape(buffer, ShapeOptions::new().features(features));
     let serialized_glyphs = output.serialize(&shaper, SerializeFlags::NO_GLYPH_NAMES);
     let glyphs = output
         .glyph_infos()
@@ -494,6 +536,7 @@ fn shape_with_font(
         font_size: request.font_size,
         units_per_em: u16::try_from(shaper.units_per_em()).unwrap_or(u16::MAX),
         ascender_font_units,
+        features: feature_settings.clone(),
         direction: request.direction,
         language: request.language.to_owned(),
         shaper: SHAPER_NAME.to_owned(),
@@ -786,5 +829,32 @@ mod tests {
             ),
             Err(TextError::FontDigestMismatch { .. })
         ));
+    }
+
+    #[test]
+    fn exact_static_resource_applies_and_records_global_features() {
+        let bytes = font_test_data::TINOS_SUBSET;
+        let sha256 = format!("{:x}", Sha256::digest(bytes));
+        let inspection = nuif_font::inspect_opentype_static(bytes, 0).unwrap();
+        let family = inspection.names.first().unwrap();
+        let request = ShapeRequest {
+            text: "A B",
+            font_sha256: &sha256,
+            font_size: 18.0,
+            direction: TextDirection::LeftToRight,
+            language: "en",
+        };
+        let defaults = ResourceFont::new(bytes, &sha256, family, "Apache-2.0")
+            .unwrap()
+            .shape(&request)
+            .unwrap();
+        let features = BTreeMap::from([("kern".to_owned(), 0)]);
+        let disabled =
+            ResourceFont::new_with_features(bytes, &sha256, family, "Apache-2.0", &features)
+                .unwrap()
+                .shape(&request)
+                .unwrap();
+        assert_ne!(defaults.serialized_glyphs, disabled.serialized_glyphs);
+        assert_eq!(disabled.features, features);
     }
 }

@@ -222,6 +222,16 @@ fn runtime_trials() -> Result<Vec<Value>, String> {
         AssetPortability::Portable,
         false,
     )?;
+    let AssetKind::Font(runtime_font) = &mut package
+        .document
+        .assets
+        .get_mut(&AssetId::new(0xf0))
+        .ok_or_else(|| "runtime package lost its font asset".to_owned())?
+        .kind
+    else {
+        return Err("runtime package asset changed kind".to_owned());
+    };
+    runtime_font.features.insert("kern".to_owned(), 0);
     let digest = sha256(bytes);
     add_font_text(&mut package, &digest);
     package
@@ -274,6 +284,10 @@ fn runtime_trials() -> Result<Vec<Value>, String> {
         trial(
             "exact_resource_metrics_drive_intrinsic_layout",
             run.ascender_font_units > 0 && (layout_width - expected_width).abs() < 0.001,
+        ),
+        trial(
+            "exact_resource_features_reach_the_shaper",
+            run.features == BTreeMap::from([("kern".to_owned(), 0)]),
         ),
         trial(
             "exact_resource_outlines_drive_cpu_raster",

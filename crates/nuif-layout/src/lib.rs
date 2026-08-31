@@ -6,8 +6,8 @@ use nuif_core::{
     resolve_grid_placements, resolve_text_font_binding, validate,
 };
 use nuif_text::{
-    PINNED_FONT_SHA256, ShapeRequest, ShapedRun, TextDirection, hard_lines, shape_hard_lines,
-    shape_hard_lines_resource,
+    PINNED_FONT_SHA256, ResourceFont, ShapeRequest, ShapedRun, TextDirection, hard_lines,
+    shape_hard_lines,
 };
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet};
@@ -458,12 +458,17 @@ fn shape_text(
         | TextFontBinding::Unavailable { .. }
         | TextFontBinding::Invalid { .. } => return None,
     };
-    let (family, license) = font_asset_metadata(document, asset_id)?;
+    let (family, license, features) = font_asset_metadata(document, asset_id)?;
     let bytes = context.font_resources.get(sha256)?;
-    shape_hard_lines_resource(&request, bytes, family, license).ok()
+    ResourceFont::new_with_features(bytes, sha256, family, license, features)
+        .and_then(|font| font.shape_hard_lines(&request))
+        .ok()
 }
 
-fn font_asset_metadata(document: &Document, asset_id: AssetId) -> Option<(&str, &str)> {
+fn font_asset_metadata(
+    document: &Document,
+    asset_id: AssetId,
+) -> Option<(&str, &str, &BTreeMap<String, u32>)> {
     let asset = document.assets.get(&asset_id)?;
     let AssetKind::Font(font) = &asset.kind else {
         return None;
@@ -471,6 +476,7 @@ fn font_asset_metadata(document: &Document, asset_id: AssetId) -> Option<(&str, 
     Some((
         font.names.first()?.as_str(),
         font.policy_evidence.get("license.expression")?.as_str(),
+        &font.features,
     ))
 }
 
