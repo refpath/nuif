@@ -6,7 +6,8 @@ use nuif_collab::gc::StabilityFrontier;
 use nuif_collab::mixed::{MixedChange, MixedOperation, MixedOperationSetEngine};
 use nuif_collab::nested_creation::ArbitraryAnchorCreationOperationSetEngine;
 use nuif_collab::structural::{
-    StructuralAnchor, StructuralOperation, StructuralOperationSetEngine,
+    PositionId, StructuralAnchor, StructuralChange, StructuralOperation,
+    StructuralOperationSetEngine,
 };
 use nuif_collab::{Change, ChangeId, OperationSetEngine, ReplicaLogEngine};
 use nuif_core::{Document, Entity, EntityId, EntityKind, PropertyValue, SizeIntent};
@@ -159,26 +160,29 @@ fn benchmark_collaboration(criterion: &mut Criterion) {
     group.finish();
 }
 
-fn benchmark_advanced_collaboration(criterion: &mut Criterion) {
-    const ROOT: EntityId = EntityId::new(10);
-    const LEFT: EntityId = EntityId::new(11);
-    const RIGHT: EntityId = EntityId::new(12);
+fn advanced_structure_base() -> Document {
+    let root_id = EntityId::new(10);
+    let left_id = EntityId::new(11);
+    let right_id = EntityId::new(12);
     let mut base = Document::empty(EntityId::new(1));
-    let mut root = Entity::new(ROOT, EntityKind::Container);
-    root.children.extend([LEFT, RIGHT]);
-    base.roots.push(ROOT);
-    base.entities.insert(ROOT, root);
+    let mut root = Entity::new(root_id, EntityKind::Container);
+    root.children.extend([left_id, right_id]);
+    base.roots.push(root_id);
+    base.entities.insert(root_id, root);
     base.entities
-        .insert(LEFT, Entity::new(LEFT, EntityKind::Container));
+        .insert(left_id, Entity::new(left_id, EntityKind::Container));
     base.entities
-        .insert(RIGHT, Entity::new(RIGHT, EntityKind::Container));
+        .insert(right_id, Entity::new(right_id, EntityKind::Container));
+    base
+}
 
+fn advanced_nested_fixture(base: &Document) -> ArbitraryAnchorCreationOperationSetEngine {
     let creation_changes = vec![
         CreationChange {
             id: ChangeId::new("alice", 1),
             context: BTreeMap::new(),
             operation: CreationOperation::Insert {
-                parent: Some(ROOT),
+                parent: Some(EntityId::new(10)),
                 anchor: CreationAnchor::Start,
                 entity: Box::new(Entity::new(EntityId::new(20), EntityKind::Container)),
             },
@@ -197,14 +201,17 @@ fn benchmark_advanced_collaboration(criterion: &mut Criterion) {
     for change in creation_changes {
         nested.ingest(change).unwrap();
     }
+    nested
+}
 
+fn advanced_mixed_fixture(base: &Document) -> MixedOperationSetEngine {
     let mixed_changes = vec![
         MixedChange {
             id: ChangeId::new("alice", 1),
             context: BTreeMap::new(),
             operation: MixedOperation::Structure(StructuralOperation::Move {
-                entity: RIGHT,
-                new_parent: Some(LEFT),
+                entity: EntityId::new(12),
+                new_parent: Some(EntityId::new(11)),
                 anchor: StructuralAnchor::Start,
             }),
         },
@@ -212,7 +219,7 @@ fn benchmark_advanced_collaboration(criterion: &mut Criterion) {
             id: ChangeId::new("bob", 1),
             context: BTreeMap::new(),
             operation: MixedOperation::Property(Operation::Rename {
-                entity: RIGHT,
+                entity: EntityId::new(12),
                 name: Some("benchmark".to_owned()),
             }),
         },
@@ -221,7 +228,10 @@ fn benchmark_advanced_collaboration(criterion: &mut Criterion) {
     for change in mixed_changes {
         mixed.ingest(change).unwrap();
     }
+    mixed
+}
 
+fn causal_prefix_fixture() -> (OperationSetEngine, Document, StabilityFrontier) {
     let prefix_base = responsive_card_fixture();
     let mut prefix = OperationSetEngine::default();
     prefix
@@ -246,35 +256,43 @@ fn benchmark_advanced_collaboration(criterion: &mut Criterion) {
         .unwrap();
     let prefix_frontier =
         StabilityFrontier::new(BTreeMap::from([("alice".to_owned(), 1)])).unwrap();
+    (prefix, prefix_base, prefix_frontier)
+}
 
+fn structural_prefix_fixture(base: &Document) -> (StructuralOperationSetEngine, StabilityFrontier) {
     let mut structural_prefix = StructuralOperationSetEngine::new(base.clone()).unwrap();
     structural_prefix
-        .ingest(nuif_collab::structural::StructuralChange {
+        .ingest(StructuralChange {
             id: ChangeId::new("prefix", 1),
             context: BTreeMap::new(),
             operation: StructuralOperation::Move {
-                entity: LEFT,
+                entity: EntityId::new(11),
                 new_parent: None,
                 anchor: StructuralAnchor::Start,
             },
         })
         .unwrap();
     structural_prefix
-        .ingest(nuif_collab::structural::StructuralChange {
+        .ingest(StructuralChange {
             id: ChangeId::new("prefix", 2),
             context: BTreeMap::from([("prefix".to_owned(), 1)]),
             operation: StructuralOperation::Move {
-                entity: RIGHT,
+                entity: EntityId::new(12),
                 new_parent: None,
-                anchor: StructuralAnchor::After(nuif_collab::structural::PositionId::Change(
-                    ChangeId::new("prefix", 1),
-                )),
+                anchor: StructuralAnchor::After(PositionId::Change(ChangeId::new("prefix", 1))),
             },
         })
         .unwrap();
-    let structural_prefix_frontier =
-        StabilityFrontier::new(BTreeMap::from([("prefix".to_owned(), 1)])).unwrap();
+    let frontier = StabilityFrontier::new(BTreeMap::from([("prefix".to_owned(), 1)])).unwrap();
+    (structural_prefix, frontier)
+}
 
+fn benchmark_advanced_collaboration(criterion: &mut Criterion) {
+    let base = advanced_structure_base();
+    let nested = advanced_nested_fixture(&base);
+    let mixed = advanced_mixed_fixture(&base);
+    let (prefix, prefix_base, prefix_frontier) = causal_prefix_fixture();
+    let (structural_prefix, structural_prefix_frontier) = structural_prefix_fixture(&base);
     let mut group = criterion.benchmark_group("collaboration/advanced_profiles");
     group.throughput(Throughput::Elements(2));
     group.bench_function("nested_creation_v1", |bencher| {
