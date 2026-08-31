@@ -351,6 +351,7 @@ jobs:
             target/collaboration-report.json
             target/collaboration-structure-report.json
             target/collaboration-creation-report.json
+            target/collaboration-gc-report.json
             target/collaboration-automerge-input.json
             target/collaboration-automerge-report.json
       - name: Upload verification artifact index
