@@ -1,5 +1,5 @@
 use criterion::{BatchSize, BenchmarkId, Criterion, Throughput, criterion_group, criterion_main};
-use nuif_api::{DocumentEncoding, NuifDocument};
+use nuif_api::{DocumentEncoding, NuifDocument, profile_zero_context};
 use nuif_codec::{CanonicalText, DeterministicCbor, Encoder};
 use nuif_collab::creation::{CreationAnchor, CreationChange, CreationOperation};
 use nuif_collab::gc::StabilityFrontier;
@@ -11,9 +11,13 @@ use nuif_collab::structural::{
 };
 use nuif_collab::{Change, ChangeId, OperationSetEngine, ReplicaLogEngine};
 use nuif_core::{Document, Entity, EntityId, EntityKind, PropertyValue, SizeIntent};
+use nuif_font::OPENTYPE_VARIABLE_TRUETYPE_PROFILE;
 use nuif_package::{NuifPackage, PackageMode};
 use nuif_protocol::Operation;
-use nuif_testing::{performance_fixture, responsive_card_fixture};
+use nuif_testing::{
+    VariableFontFixtureLocation, performance_fixture, responsive_card_fixture,
+    variable_font_package_fixture,
+};
 use std::collections::{BTreeMap, BTreeSet};
 use std::hint::black_box;
 use std::time::Duration;
@@ -357,6 +361,17 @@ fn benchmark_resource_profiles(criterion: &mut Criterion) {
         .expect("embedded font benchmark resource")
         .to_vec();
     let font_package_bytes = font_package.encode().unwrap();
+    let variable_font_package =
+        variable_font_package_fixture(VariableFontFixtureLocation::Interior);
+    let variable_font_package_bytes = variable_font_package.encode().unwrap();
+    let variable_font_capabilities =
+        BTreeSet::from([OPENTYPE_VARIABLE_TRUETYPE_PROFILE.to_owned()]);
+    let variable_font_document = NuifDocument::load_package_with_capabilities(
+        &variable_font_package_bytes,
+        &variable_font_capabilities,
+    )
+    .unwrap();
+    let variable_font_context = profile_zero_context(640.0, 96.0);
 
     let mut group = criterion.benchmark_group("resource/profile_baselines");
     group.bench_function("png_inspect", |bencher| {
@@ -380,6 +395,36 @@ fn benchmark_resource_profiles(criterion: &mut Criterion) {
     group.bench_function("font_package_decode", |bencher| {
         bencher.iter(|| NuifPackage::decode(black_box(&font_package_bytes)).unwrap());
     });
+    group.bench_function("variable_font_package_load_and_authorize", |bencher| {
+        bencher.iter(|| {
+            NuifDocument::load_package_with_capabilities(
+                black_box(&variable_font_package_bytes),
+                black_box(&variable_font_capabilities),
+            )
+            .unwrap()
+        });
+    });
+    group.bench_function("variable_font_snapshot_authorized", |bencher| {
+        bencher.iter(|| {
+            black_box(&variable_font_document)
+                .snapshot(black_box(&variable_font_context))
+                .unwrap()
+        });
+    });
+    group.bench_function(
+        "variable_font_package_load_authorize_and_snapshot",
+        |bencher| {
+            bencher.iter(|| {
+                NuifDocument::load_package_with_capabilities(
+                    black_box(&variable_font_package_bytes),
+                    black_box(&variable_font_capabilities),
+                )
+                .unwrap()
+                .snapshot(black_box(&variable_font_context))
+                .unwrap()
+            });
+        },
+    );
     group.finish();
 }
 

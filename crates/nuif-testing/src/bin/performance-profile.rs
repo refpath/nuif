@@ -1,7 +1,7 @@
-use nuif_api::{Session, profile_zero_context};
+use nuif_api::{NuifDocument, Session, profile_zero_context};
 use nuif_codec::{CanonicalText, Decoder, DeterministicCbor, Encoder};
 use nuif_core::{EntityId, PropertyValue, SizeIntent, validate};
-use nuif_font::inspect_opentype_static;
+use nuif_font::{OPENTYPE_VARIABLE_TRUETYPE_PROFILE, inspect_opentype_static};
 use nuif_layout::evaluate;
 use nuif_media::{decode_png_rgba8, inspect_png_rgba8};
 use nuif_package::{NuifPackage, PackageMode};
@@ -10,6 +10,7 @@ use nuif_render::{RenderTarget, build_scene, build_scene_with_resources, render_
 use serde::Serialize;
 use stats_alloc::{INSTRUMENTED_SYSTEM, Region, Stats, StatsAlloc};
 use std::alloc::System;
+use std::collections::BTreeSet;
 use std::env;
 use std::fs;
 use std::hint::black_box;
@@ -246,6 +247,18 @@ fn main() {
         .embedded(&font_digest)
         .expect("embedded font performance fixture");
     let font_package_bytes = font_package.encode().unwrap();
+    let variable_font_package = nuif_testing::variable_font_package_fixture(
+        nuif_testing::VariableFontFixtureLocation::Interior,
+    );
+    let variable_font_package_bytes = variable_font_package.encode().unwrap();
+    let variable_font_capabilities =
+        BTreeSet::from([OPENTYPE_VARIABLE_TRUETYPE_PROFILE.to_owned()]);
+    let variable_font_document = NuifDocument::load_package_with_capabilities(
+        &variable_font_package_bytes,
+        &variable_font_capabilities,
+    )
+    .unwrap();
+    let variable_font_context = profile_zero_context(640.0, 96.0);
 
     let mut cases = vec![
         measure("validate", 1_024, 3, 500_000_000, || {
@@ -394,6 +407,49 @@ fn main() {
             || {
                 let decoded = NuifPackage::decode(black_box(&font_package_bytes)).unwrap();
                 decoded.resources.len() as u64 ^ decoded.document.assets.len() as u64
+            },
+        ),
+        measure(
+            "variable_font_package_load_and_authorize",
+            variable_font_package_bytes.len(),
+            2,
+            1_000_000_000,
+            || {
+                let loaded = NuifDocument::load_package_with_capabilities(
+                    black_box(&variable_font_package_bytes),
+                    black_box(&variable_font_capabilities),
+                )
+                .unwrap();
+                loaded.document().assets.len() as u64 ^ loaded.document().entities.len() as u64
+            },
+        ),
+        measure(
+            "variable_font_snapshot_authorized",
+            640 * 96,
+            1,
+            2_000_000_000,
+            || {
+                let snapshot = black_box(
+                    variable_font_document
+                        .snapshot(black_box(&variable_font_context))
+                        .unwrap(),
+                );
+                snapshot.raster.rgba.len() as u64 ^ snapshot.canonical_hash.len() as u64
+            },
+        ),
+        measure(
+            "variable_font_package_load_authorize_and_snapshot",
+            variable_font_package_bytes.len(),
+            1,
+            2_000_000_000,
+            || {
+                let loaded = NuifDocument::load_package_with_capabilities(
+                    black_box(&variable_font_package_bytes),
+                    black_box(&variable_font_capabilities),
+                )
+                .unwrap();
+                let snapshot = loaded.snapshot(black_box(&variable_font_context)).unwrap();
+                snapshot.raster.rgba.len() as u64 ^ snapshot.scene.commands.len() as u64
             },
         ),
         measure(
@@ -904,6 +960,7 @@ fn main() {
             "image_package_bytes": image_package_bytes.len(),
             "font_resource_bytes": font_resource.len(),
             "font_package_bytes": font_package_bytes.len(),
+            "variable_font_package_bytes": variable_font_package_bytes.len(),
             "resource_scene_commands": image_scene.commands.len()
         },
         "limits": {
