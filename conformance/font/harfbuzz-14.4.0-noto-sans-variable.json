@@ -1,0 +1,149 @@
+{
+  "axes": [
+    {
+      "default": 400.0,
+      "hidden": false,
+      "maximum": 900.0,
+      "minimum": 100.0,
+      "name_id": 256,
+      "tag": "wght"
+    },
+    {
+      "default": 100.0,
+      "hidden": false,
+      "maximum": 100.0,
+      "minimum": 62.5,
+      "name_id": 257,
+      "tag": "wdth"
+    }
+  ],
+  "capture_command": "python3 tools/font/capture_harfbuzz_corpus.py --fixture noto-sans conformance/font/fixtures/noto-sans-variable-subset/NotoSans-variable-subset.ttf",
+  "cases": [
+    {
+      "global_metrics_font_units": {
+        "cpht": 714,
+        "hasc": 1069,
+        "hdsc": -293,
+        "hlgp": 0,
+        "xhgt": 536
+      },
+      "glyph_advances_font_units": [
+        639,
+        741,
+        602,
+        529,
+        639,
+        564
+      ],
+      "label": "default",
+      "normalized_2_14": [
+        0,
+        0
+      ],
+      "outline_glyph_id": 1,
+      "outline_serialized_path": "M34880,0L29376,14144L11264,14144L5824,0L0,0L17856,45888L23040,45888L40832,0ZM22528,33088Q22336,33600 21888,34944Q21440,36288 21024,37728Q20608,39168 20352,39936Q20032,38656 19680,37344Q19328,36032 18976,34944Q18624,33856 18368,33088L13184,19264L27648,19264Z",
+      "serialized_glyphs": "[1=0+639|2=1+741|13=2+602|6=4+529|9=5+639|10=6+564]",
+      "text": "AHfix\u00c5\u00e9",
+      "user": {
+        "wdth": 100.0,
+        "wght": 400.0
+      }
+    },
+    {
+      "global_metrics_font_units": {
+        "cpht": 714,
+        "hasc": 1069,
+        "hdsc": -293,
+        "hlgp": 0,
+        "xhgt": 527
+      },
+      "glyph_advances_font_units": [
+        377,
+        486,
+        379,
+        314,
+        377,
+        380
+      ],
+      "label": "minimum",
+      "normalized_2_14": [
+        -16384,
+        -16384
+      ],
+      "outline_glyph_id": 1,
+      "outline_serialized_path": "M22464,0L18176,17984L6016,17984L1664,0L0,0L10880,45696L13312,45696L24128,0ZM13312,39168Q13056,40256 12864,41088Q12672,41920 12480,42752Q12288,43584 12096,44480Q11904,43584 11712,42784Q11520,41984 11328,41120Q11136,40256 10880,39168L6400,19584L17792,19584Z",
+      "serialized_glyphs": "[1=0+377|2=1+486|13=2+379|6=4+314|9=5+377|10=6+380]",
+      "text": "AHfix\u00c5\u00e9",
+      "user": {
+        "wdth": 62.5,
+        "wght": 100.0
+      }
+    },
+    {
+      "global_metrics_font_units": {
+        "cpht": 714,
+        "hasc": 1069,
+        "hdsc": -293,
+        "hlgp": 0,
+        "xhgt": 553
+      },
+      "glyph_advances_font_units": [
+        726,
+        766,
+        738,
+        630,
+        726,
+        618
+      ],
+      "label": "maximum",
+      "normalized_2_14": [
+        16384,
+        0
+      ],
+      "outline_glyph_id": 1,
+      "outline_serialized_path": "M32960,0L30720,8576L15872,8576L13568,0L0,0L14912,45888L31360,45888L46464,0ZM26176,26176Q25856,27392 25280,29664Q24704,31936 24128,34368Q23552,36800 23232,38336Q22976,36800 22432,34496Q21888,32192 21344,29952Q20800,27712 20416,26176L18432,18688L28160,18688Z",
+      "serialized_glyphs": "[1=0+726|2=1+766|13=2+738|6=4+630|9=5+726|10=6+618]",
+      "text": "AHfix\u00c5\u00e9",
+      "user": {
+        "wdth": 100.0,
+        "wght": 900.0
+      }
+    },
+    {
+      "global_metrics_font_units": {
+        "cpht": 714,
+        "hasc": 1069,
+        "hdsc": -293,
+        "hlgp": 0,
+        "xhgt": 539
+      },
+      "glyph_advances_font_units": [
+        557,
+        642,
+        552,
+        460,
+        557,
+        497
+      ],
+      "label": "interior",
+      "normalized_2_14": [
+        2949,
+        -8738
+      ],
+      "outline_glyph_id": 1,
+      "outline_serialized_path": "M28629,0L24713,13228L10914,13228L7018,0L0,0L13997,45786L21565,45786L35650,0ZM19442,32569Q19227,33565 18884,34913Q18542,36262 18246,37637Q17950,39013 17751,39978Q17566,38823 17298,37510Q17029,36198 16723,34950Q16417,33702 16144,32609L12382,19117L23229,19117Z",
+      "serialized_glyphs": "[1=0+557|2=1+642|13=2+552|6=4+460|9=5+557|10=6+497]",
+      "text": "AHfix\u00c5\u00e9",
+      "user": {
+        "wdth": 81.25,
+        "wght": 500.0
+      }
+    }
+  ],
+  "fixture": "OFL-1.1 Noto Sans variable conformance subset",
+  "font_sha256": "0afd77effc877ff84fa7995a58c396c124514855f8084056846b54b8cb76f3ce",
+  "named_instance_count": 9,
+  "schema_version": 1,
+  "tool": "HarfBuzz public C API and hb-shape",
+  "version": "14.4.0"
+}
