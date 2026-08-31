@@ -2153,34 +2153,49 @@ fn ffi_package() -> Result<(), String> {
     }
     let include = package_root.join("include");
     let libraries = package_root.join("lib");
+    let abi = package_root.join("abi");
+    let evidence = package_root.join("evidence");
     fs::create_dir_all(&include).map_err(|error| error.to_string())?;
     fs::create_dir_all(&libraries).map_err(|error| error.to_string())?;
+    fs::create_dir_all(&abi).map_err(|error| error.to_string())?;
+    fs::create_dir_all(&evidence).map_err(|error| error.to_string())?;
     fs::copy("bindings/nuif_ffi.h", include.join("nuif_ffi.h"))
+        .map_err(|error| error.to_string())?;
+    fs::copy("bindings/nuif_ffi.symbols", abi.join("nuif_ffi.symbols"))
         .map_err(|error| error.to_string())?;
     fs::copy("bindings/README.md", package_root.join("README.md"))
         .map_err(|error| error.to_string())?;
     fs::copy(
         "target/ffi-header-report.json",
-        package_root.join("conformance-report.json"),
+        evidence.join("conformance-report.json"),
     )
     .map_err(|error| error.to_string())?;
+    fs::copy(
+        "target/ffi-symbol-report.json",
+        evidence.join("symbol-report.json"),
+    )
+    .map_err(|error| error.to_string())?;
+    for (source, destination) in [
+        (
+            "target/ffi-variable-font-report.json",
+            "variable-font-report.json",
+        ),
+        (
+            "target/ffi-variable-font-sanitized-report.json",
+            "variable-font-sanitized-report.json",
+        ),
+    ] {
+        if Path::new(source).is_file() {
+            fs::copy(source, evidence.join(destination)).map_err(|error| error.to_string())?;
+        }
+    }
     for license in ["LICENSE-APACHE", "LICENSE-MIT"] {
         fs::copy(license, package_root.join(license)).map_err(|error| error.to_string())?;
     }
 
     let release = target_root.join("release");
-    let copied = copy_ffi_libraries(&release, &libraries)?;
-    let files = copied
-        .iter()
-        .map(|path| {
-            let bytes = fs::read(path).map_err(|error| error.to_string())?;
-            Ok(serde_json::json!({
-                "name": path.strip_prefix(&package_root).unwrap_or(path),
-                "bytes": bytes.len(),
-                "sha256": format!("{:x}", Sha256::digest(&bytes))
-            }))
-        })
-        .collect::<Result<Vec<_>, String>>()?;
+    copy_ffi_libraries(&release, &libraries)?;
+    let files = kit_file_manifest(&package_root)?;
     let manifest = serde_json::json!({
         "schema_version": 1,
         "status": "passed",
@@ -2193,6 +2208,8 @@ fn ffi_package() -> Result<(), String> {
         "source_dirty": command_text("git", &["status", "--porcelain"])
             .map(|value| !value.is_empty()),
         "header": {"path": "include/nuif_ffi.h"},
+        "symbol_baseline": {"path": "abi/nuif_ffi.symbols", "status": "experimental"},
+        "evidence": {"directory": "evidence"},
         "files": files,
         "stability": "experimental; not ABI-stable"
     });

@@ -111,6 +111,9 @@ jobs:
             target/canva-app-benchmark-report.json
             target/nuif-canva-review-app
             target/ffi-header-report.json
+            target/ffi-symbol-report.json
+            target/ffi-variable-font-report.json
+            target/ffi-variable-font-sanitized-report.json
             target/wasm-conformance-report.json
             target/mcp-conformance-report.json
             target/editor-gui-trial/report.json
@@ -681,6 +684,10 @@ jobs:
               .source_revision == $revision and
               .source_dirty == false and
               .stability == "experimental; not ABI-stable" and
+              .header.path == "include/nuif_ffi.h" and
+              .symbol_baseline.path == "abi/nuif_ffi.symbols" and
+              .symbol_baseline.status == "experimental" and
+              .evidence.directory == "evidence" and
               (.files | length > 0) and
               all(.files[]; (.bytes > 0) and (.sha256 | test("^[0-9a-f]{64}$"))) and
               (.archive.sha256 | test("^[0-9a-f]{64}$"))
