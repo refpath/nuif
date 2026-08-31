@@ -127,6 +127,14 @@ pub struct VariableFontAssetInspection {
     pub coordinates: Vec<VariableCoordinate>,
 }
 
+/// The exact bounded decoder profile selected by packaged font metadata.
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case", tag = "profile", content = "inspection")]
+pub enum PackagedFontInspection {
+    Static(FontInspection),
+    VariableTrueType(Box<VariableFontAssetInspection>),
+}
+
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct VariableCoordinate {
@@ -1528,12 +1536,57 @@ pub fn validate_packaged_font(asset: &Asset, bytes: &[u8]) -> Result<FontInspect
     Ok(inspection)
 }
 
-/// Validates the proposed variable-font asset metadata and policy against exact
-/// bytes without admitting the asset to the package or reference runtime.
+/// Returns the package capability required by the font asset's declared
+/// decoder profile. The baseline static profile requires no extra capability.
 ///
-/// This research boundary exists so package-policy evidence can be collected
-/// before the package dispatcher and evaluator implement the complete variable
-/// profile. Callers must not interpret a successful result as render support.
+/// # Errors
+///
+/// Rejects non-font assets, absent profile evidence, and profiles outside the
+/// two bounded decoders implemented by this crate.
+pub fn packaged_font_required_capability(asset: &Asset) -> Result<Option<&'static str>, FontError> {
+    let AssetKind::Font(font) = &asset.kind else {
+        return Err(FontError::AssetMismatch("asset kind is not font"));
+    };
+    match font
+        .policy_evidence
+        .get("font.decoder_profile")
+        .map(String::as_str)
+    {
+        Some(OPENTYPE_STATIC_PROFILE) => Ok(None),
+        Some(OPENTYPE_VARIABLE_TRUETYPE_PROFILE) => Ok(Some(OPENTYPE_VARIABLE_TRUETYPE_PROFILE)),
+        Some(_) => Err(FontError::Unsupported(
+            "declared font decoder profile is unsupported",
+        )),
+        None => Err(FontError::Policy("font.decoder_profile")),
+    }
+}
+
+/// Validates exact packaged font bytes through the decoder profile explicitly
+/// declared by the asset. Package capability negotiation remains the caller's
+/// responsibility.
+///
+/// # Errors
+///
+/// Returns parser, coordinate, model mismatch, conservative policy, or
+/// unsupported-profile errors without falling back between decoders.
+pub fn validate_packaged_font_resource(
+    asset: &Asset,
+    bytes: &[u8],
+) -> Result<PackagedFontInspection, FontError> {
+    match packaged_font_required_capability(asset)? {
+        None => validate_packaged_font(asset, bytes).map(PackagedFontInspection::Static),
+        Some(OPENTYPE_VARIABLE_TRUETYPE_PROFILE) => {
+            validate_variable_font_asset_candidate(asset, bytes)
+                .map(Box::new)
+                .map(PackagedFontInspection::VariableTrueType)
+        }
+        Some(_) => unreachable!("font capability resolver returns only implemented profiles"),
+    }
+}
+
+/// Validates variable-font asset metadata, selected coordinates, and policy
+/// against exact bytes. Callers must still negotiate the variable decoder
+/// profile before evaluating a package that binds the asset.
 ///
 /// # Errors
 ///

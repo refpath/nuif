@@ -8,7 +8,7 @@ use nuif_core::{
     Asset, AssetId, AssetKind, AssetPortability, Document, ResourceDerivation, ResourceDescriptor,
     ResourceDigest, ResourceLocator, ResourceRole, Severity, is_identifier, validate,
 };
-use nuif_font::{FontError, validate_packaged_font};
+use nuif_font::{FontError, packaged_font_required_capability, validate_packaged_font_resource};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::borrow::Cow;
@@ -271,7 +271,7 @@ impl NuifPackage {
             .values()
             .filter(|asset| asset.resource.as_ref() == Some(digest))
         {
-            validate_asset_resource(asset, descriptor, &bytes)?;
+            validate_asset_resource(asset, descriptor, &bytes, &self.required_capabilities)?;
         }
         Ok(bytes)
     }
@@ -677,11 +677,12 @@ fn validate_resources(
                 reason: format!("asset {id} is not portable with embedded exact bytes"),
             });
         }
+        validate_asset_capability(asset, &manifest.required_capabilities)?;
         if let ResourceLocator::Embedded { path } = &descriptor.locator {
             let bytes = embedded
                 .get(digest)
                 .ok_or_else(|| PackageError::MissingMember { name: path.clone() })?;
-            validate_asset_resource(asset, descriptor, bytes)?;
+            validate_asset_resource(asset, descriptor, bytes, &manifest.required_capabilities)?;
         }
     }
     Ok(())
@@ -691,8 +692,10 @@ fn validate_asset_resource(
     asset: &Asset,
     descriptor: &ResourceDescriptor,
     bytes: &[u8],
+    required_capabilities: &BTreeSet<String>,
 ) -> Result<(), PackageError> {
     if matches!(asset.kind, AssetKind::Font(_)) {
+        validate_asset_capability(asset, required_capabilities)?;
         if descriptor.media_type != "font/ttf" {
             return Err(PackageError::InvalidManifest {
                 reason: format!(
@@ -701,7 +704,27 @@ fn validate_asset_resource(
                 ),
             });
         }
-        validate_packaged_font(asset, bytes)?;
+        validate_packaged_font_resource(asset, bytes)?;
+    }
+    Ok(())
+}
+
+fn validate_asset_capability(
+    asset: &Asset,
+    required_capabilities: &BTreeSet<String>,
+) -> Result<(), PackageError> {
+    if !matches!(asset.kind, AssetKind::Font(_)) {
+        return Ok(());
+    }
+    if let Some(capability) = packaged_font_required_capability(asset)?
+        && !required_capabilities.contains(capability)
+    {
+        return Err(PackageError::InvalidManifest {
+            reason: format!(
+                "font asset {} requires package capability {capability:?}",
+                asset.id
+            ),
+        });
     }
     Ok(())
 }

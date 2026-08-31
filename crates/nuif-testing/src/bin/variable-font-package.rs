@@ -85,8 +85,12 @@ fn package_trials(
         .add_embedded(FONT.to_vec(), "font/ttf", ResourceRole::Authoring, None)
         .map_err(|error| error.to_string())?;
     bound.document.assets.insert(ASSET_ID, candidate);
-    let bound_error = bound.encode().err().map_or_else(
-        || "candidate package was accepted".to_owned(),
+    let bound_bytes = bound.encode().map_err(|error| error.to_string())?;
+    let bound_decoded = NuifPackage::decode(&bound_bytes).map_err(|error| error.to_string())?;
+    let mut missing_capability = bound.clone();
+    missing_capability.required_capabilities.clear();
+    let missing_capability_error = missing_capability.encode().err().map_or_else(
+        || "variable package without its required capability was accepted".to_owned(),
         |error| error.to_string(),
     );
 
@@ -120,10 +124,22 @@ fn package_trials(
             &json!({"capability": OPENTYPE_VARIABLE_TRUETYPE_PROFILE}),
         ),
         trial(
-            "typed_package_binding_remains_fail_closed",
+            "typed_package_binding_is_admitted",
             bound_digest == digest
-                && bound_error.contains("variable, CFF, color, bitmap or SVG table"),
-            &json!({"package_dispatch_enabled": false, "error": bound_error}),
+                && bound_decoded.document.assets.contains_key(&ASSET_ID)
+                && bound_decoded.embedded(&bound_digest) == Some(FONT),
+            &json!({"package_dispatch_enabled": true, "package_bytes": bound_bytes.len()}),
+        ),
+        trial(
+            "typed_package_reaches_byte_fixpoint",
+            bound_decoded.encode().map_err(|error| error.to_string())? == bound_bytes,
+            &json!({"package_bytes": bound_bytes.len()}),
+        ),
+        trial(
+            "typed_package_requires_decoder_capability",
+            missing_capability_error.contains("requires package capability")
+                && missing_capability_error.contains(OPENTYPE_VARIABLE_TRUETYPE_PROFILE),
+            &json!({"error": missing_capability_error}),
         ),
     ];
     trials.extend(linked);
@@ -317,13 +333,12 @@ fn report(
             "blocking_failures": package_trials.iter().chain(policy_trials).filter(|trial| !passed_trial(trial)).count(),
         },
         "boundary": {
-            "asset_binding_deferred": true,
+            "asset_binding_deferred": false,
             "reference_runtime_enabled": false,
-            "reason": "the package dispatcher still rejects typed variable-font assets until layout and rendering consume the same normalized coordinates",
+            "reason": "typed assets are admitted only behind explicit capability negotiation; layout and rendering integration remains a separate gate",
         },
         "non_claims": [
-            "resource-only package retention does not admit typed variable-font assets",
-            "candidate asset validation does not establish layout rendering or cross-surface parity",
+            "typed package admission does not establish layout rendering or cross-surface parity",
             "one OFL fixture does not establish a broad rights-reviewed corpus",
         ],
     })
