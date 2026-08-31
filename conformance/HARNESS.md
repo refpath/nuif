@@ -281,6 +281,16 @@ exported symbols with `bindings/nuif_ffi.symbols`, and repeats the package
 consumer under ASan/UBSan. Those checks harden an experimental profile; they do
 not declare source or ABI stability.
 
+The `resource-profiles` CI matrix executes the direct variable-font runtime on
+Linux x86-64, Windows x86-64 and macOS arm64. Its dependent
+`cargo xtask gate-i-font-host-matrix <source-revision> <artifact-root>` gate
+requires exactly those three immutable workflow artifacts, a full commit SHA,
+passing runtime contracts and exact fixture, case and complete decoded-report
+agreement. It writes `target/variable-font-host-matrix-report.json`; this is
+the only report that can close the candidate's portable CPU cross-host
+requirement. The aggregation code passing against copied local inputs proves
+the comparator, not the hosted result.
+
 The performance gate follows the same distinction. `cargo xtask performance`
 records portable release-mode latency/allocation budgets for catastrophic
 regressions and executes both Criterion suites once in test mode. The

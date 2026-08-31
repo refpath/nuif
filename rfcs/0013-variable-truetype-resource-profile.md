@@ -255,6 +255,16 @@ authorization fails closed. The aggregate report is
 cross-surface requirement; its raster digest remains platform-scoped until
 retained hosted reports are compared across operating systems.
 
+The CI resource matrix runs the direct runtime gate on Linux x86-64, Windows
+x86-64 and macOS arm64. A dependent `cargo xtask gate-i-font-host-matrix`
+job downloads the immutable artifacts from that workflow run, binds the
+aggregate to the full source revision and requires the complete runtime JSON
+payload—including fixture, trials, canonical hashes, coordinates, layout and
+RGBA digests—to agree exactly. It writes
+`target/variable-font-host-matrix-report.json`. The comparator and workflow are
+implemented; profile promotion still requires a retained passing hosted
+artifact rather than a locally copied simulation of the three inputs.
+
 Promotion from proposed to experimental requires all of the following:
 
 1. **Two independent metadata/normalization paths.** Compare axis definitions,
@@ -286,6 +296,10 @@ Promotion from proposed to experimental requires all of the following:
    ABI must produce the same canonical document hash, coordinate record,
    diagnostics and fidelity on a platform where their runtime gates execute.
    Native raster hashes remain platform-scoped until a retained matrix passes.
+10. **Cross-host parity.** Retained Linux x86-64, Windows x86-64 and macOS
+    arm64 reports from one full source revision must pass the runtime contract
+    and have byte-equivalent decoded JSON payloads. Native system rasterizers
+    remain outside this portable CPU claim.
 
 The gate report must distinguish exact external comparisons, internal
 metamorphic checks and implementation-specific allocation measurements.

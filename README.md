@@ -164,12 +164,14 @@ metric/outline location and matching HarfBuzz advances/paths. The later
 packages and matches default/interior shaping, HVAR-driven intrinsic layout,
 `gvar` outlines and deterministic CPU pixels while retaining normalized
 coordinates in resolved runs. `cargo xtask gate-i-font-surfaces` additionally
-requires exact direct API, CLI, generated Node/browser WASM and live stdio MCP
-snapshot parity for the interior package. Gate I still lacks the broader PNG and OpenType matrices,
+requires exact direct API, CLI, generated Node/browser WASM, live stdio MCP and
+linked POSIX C snapshot parity for the interior package. Gate I still lacks the broader PNG and OpenType matrices,
 external writer and successful hosted cross-platform package/media evidence.
 The CI workflow now runs the complete narrow resource-gate sequence on
-Linux, Windows and macOS and archives each platform report; that configuration
-does not become reproduction evidence until the hosted jobs pass. RFC
+Linux, Windows and macOS and archives each platform report. A dependent gate
+binds those artifacts to one full source revision and rejects any decoded
+variable-font runtime-report drift; that configuration does not become
+reproduction evidence until a hosted aggregate artifact passes. RFC
 0011/specification 14 have executable
 provider-neutral observation with canonical artifact-manifest registries,
 browser/screenshot baseline, typed-proposal,
