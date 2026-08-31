@@ -262,7 +262,7 @@ fn run() -> Result<(), String> {
     let reconstruction_trials = vec![
         trial(
             "correction_improves_and_stops",
-            correction.status == LoopStatus::RepeatedState
+            correction.status == LoopStatus::Success
                 && correction.accepted == 1
                 && correction.final_score.objective == 0.0,
         ),
@@ -564,6 +564,7 @@ fn correction_trial(
         &mut ImprovingProvider { entity },
         &mut ObjectiveEvaluator { entity },
         &LoopBudget {
+            stop_objective: Some(0.0),
             protected_metrics: vec![ProtectedMetric {
                 name: "validity".to_owned(),
                 max_regression: 0.0,

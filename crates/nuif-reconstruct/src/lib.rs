@@ -920,6 +920,9 @@ pub struct LoopBudget {
     pub max_provider_calls: usize,
     pub max_millis: u64,
     pub max_estimated_bytes: usize,
+    /// Optional objective threshold at or below which the candidate is a
+    /// successful reconstruction and the loop terminates.
+    pub stop_objective: Option<f64>,
     pub proposal_policy: ProposalPolicy,
     pub protected_metrics: Vec<ProtectedMetric>,
 }
@@ -931,6 +934,7 @@ impl Default for LoopBudget {
             max_provider_calls: 8,
             max_millis: 30_000,
             max_estimated_bytes: 32 * 1024 * 1024,
+            stop_objective: None,
             proposal_policy: ProposalPolicy::default(),
             protected_metrics: Vec::new(),
         }
@@ -940,6 +944,8 @@ impl Default for LoopBudget {
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum LoopStatus {
+    Success,
+    NoImprovement,
     NoProposal,
     RepeatedState,
     IterationBudget,
@@ -989,11 +995,23 @@ pub fn run_loop(
         .evaluate(document)
         .map_err(ReconstructionError::Evaluator)?;
     validate_score(&initial_score, &budget.protected_metrics)?;
+    validate_stop_objective(budget.stop_objective)?;
     let mut score = initial_score.clone();
     let mut seen = BTreeSet::from([canonical_hash(document)?]);
     let mut attempts = Vec::new();
     let mut provider_calls = 0_usize;
     let mut accepted = 0_usize;
+    if objective_reached(&score, budget.stop_objective) {
+        return Ok(ReconstructionReport {
+            status: LoopStatus::Success,
+            provider_calls,
+            accepted,
+            initial_score,
+            final_score: score,
+            attempts,
+            final_hash: canonical_hash(document)?,
+        });
+    }
     let mut status = LoopStatus::IterationBudget;
     for iteration in 0..budget.max_iterations {
         if provider_calls >= budget.max_provider_calls {
@@ -1044,6 +1062,13 @@ pub fn run_loop(
             *document = candidate;
             score = candidate_score;
             accepted += 1;
+            if objective_reached(&score, budget.stop_objective) {
+                status = LoopStatus::Success;
+                break;
+            }
+        } else {
+            status = LoopStatus::NoImprovement;
+            break;
         }
     }
     Ok(ReconstructionReport {
@@ -1055,6 +1080,18 @@ pub fn run_loop(
         attempts,
         final_hash: canonical_hash(document)?,
     })
+}
+
+fn validate_stop_objective(stop_objective: Option<f64>) -> Result<(), ReconstructionError> {
+    if stop_objective.is_some_and(|value| !value.is_finite()) {
+        Err(ReconstructionError::InvalidScore)
+    } else {
+        Ok(())
+    }
+}
+
+fn objective_reached(score: &CandidateScore, stop_objective: Option<f64>) -> bool {
+    stop_objective.is_some_and(|threshold| score.objective <= threshold)
 }
 
 fn estimated_bytes(
@@ -1527,5 +1564,68 @@ mod tests {
             document.entities[&EntityId::new(2)].name.as_deref(),
             Some("improved")
         );
+    }
+
+    #[test]
+    fn correction_loop_reports_no_improvement_without_mutating_state() {
+        struct Provider;
+        impl CorrectionProvider for Provider {
+            fn propose(
+                &mut self,
+                document: &Document,
+                _: &ObservationBundle,
+                _: usize,
+            ) -> Result<Option<Proposal>, String> {
+                Ok(Some(Proposal {
+                    schema_version: 1,
+                    provenance: InferenceProvenance {
+                        method: "test-provider".to_owned(),
+                        provider: provider("correction"),
+                        observations: BTreeSet::from([ObservationId("root-geometry".to_owned())]),
+                        confidence: Confidence::raw(0.5),
+                    },
+                    patch: Patch {
+                        base_revision: Some(canonical_hash(document).unwrap()),
+                        transactions: vec![Transaction {
+                            id: 1,
+                            operations: vec![Operation::Rename {
+                                entity: EntityId::new(2),
+                                name: Some("not-improved".to_owned()),
+                            }],
+                        }],
+                    },
+                }))
+            }
+        }
+        struct Evaluator;
+        impl CandidateEvaluator for Evaluator {
+            fn evaluate(&mut self, _: &Document) -> Result<CandidateScore, String> {
+                Ok(CandidateScore {
+                    objective: 1.0,
+                    metrics: BTreeMap::new(),
+                })
+            }
+        }
+
+        let mut document = Document::empty(EntityId::new(1));
+        let entity = Entity::new(EntityId::new(2), EntityKind::Surface);
+        document.roots.push(entity.id);
+        document.entities.insert(entity.id, entity);
+        let report = run_loop(
+            &mut document,
+            &observations(),
+            &mut Provider,
+            &mut Evaluator,
+            &LoopBudget {
+                stop_objective: Some(0.0),
+                ..LoopBudget::default()
+            },
+        )
+        .unwrap();
+        assert_eq!(report.status, LoopStatus::NoImprovement);
+        assert_eq!(report.accepted, 0);
+        assert_eq!(report.attempts.len(), 1);
+        assert!(!report.attempts[0].accepted);
+        assert_eq!(document.entities[&EntityId::new(2)].name, None);
     }
 }
