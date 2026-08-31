@@ -25,7 +25,7 @@ links:
   adr: []
   rfc: []
   code: [crates/nuif-mcp, crates/nuif-api, crates/nuif-protocol]
-  experiments: [nuif:experiment:mcp-cross-surface]
+  experiments: [nuif:experiment:mcp-cross-surface, nuif:experiment:variable-font-surface-parity]
 ---
 
 # Summary
@@ -41,11 +41,12 @@ messages.
 That architecture matches NUIF only when MCP remains a process adapter. The
 canonical model, validation, hashing and semantic patch behavior stay in the
 Rust core. `nuif-mcp-tools-0` therefore exposes four pure tools over inline
-canonical text: validate, inspect, canonicalize and apply-patch. Applying a
-patch transforms a supplied value and returns a new canonical value; it does
-not mutate a host file or keep a hidden document session. The first profile has
-no resources, prompts, tasks, sampling, roots, HTTP, OAuth, filesystem,
-network, host-document or credential authority.
+canonical text—validate, inspect, canonicalize and apply-patch—plus one bounded
+base64 package-snapshot tool. Applying a patch transforms a supplied value and
+returns a new canonical value; it does not mutate a host file or keep a hidden
+document session. Package snapshot resolves only verified embedded resources
+under an explicit capability set. The profile has no prompts, tasks, sampling,
+roots, HTTP, OAuth, filesystem, network, host-document or credential authority.
 
 The implementation uses the official `rmcp` 3.1.4 server and its generated
 schemas rather than reproducing a newly changed protocol by hand. It pins the
@@ -136,8 +137,9 @@ before code is enabled.
 
 **Reject file-path tools in profile zero.** They make a model-selected string
 an ambient filesystem capability and prevent deterministic cross-surface
-tests. Large documents and `.nuif` packages remain available through the CLI,
-WASM or direct API where the host explicitly owns bytes and resources.
+tests. One small package may be supplied as bounded base64 to the pure snapshot
+tool; larger documents and packages remain available through the CLI, WASM or
+direct API where the host explicitly owns bytes and resources.
 
 ## Open questions
 

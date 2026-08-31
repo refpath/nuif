@@ -89,8 +89,10 @@ boundary cases, including repeated points, shared/private precedence and the
 Sans coordinates through authorized package loading, shaping, HVAR intrinsic
 layout, `gvar` outlines and deterministic CPU pixels while retaining the
 normalized record in every resolved run. Direct Rust API delivery is now
-executable; cross-surface parity, VVAR and byte-exhaustive malformed enumeration
-remain non-claims rather than hidden promotion assumptions.
+executable. A follow-on gate requires the same complete snapshot through the
+CLI, generated Node/browser WASM and stdio MCP surfaces. Hosted cross-platform
+raster comparison, VVAR and byte-exhaustive malformed enumeration remain
+non-claims rather than hidden promotion assumptions.
 
 ## Phase 5 — editor (complete for the headless profile-0 instrument)
 The entire v0 fixture is authored from an empty document through identity-addressed semantic actions. Direct generation, editor output and operation replay are byte-identical, and the editor writes canonical document, context, layout, scene, CPU raster and fidelity report artifacts. The Rust-native Masonry shell from ADR 0006 and the later Svelte/WASM demonstration are non-normative interface work and cannot redefine this headless result.
@@ -98,11 +100,12 @@ The entire v0 fixture is authored from an empty document through identity-addres
 ## Phase 5b — native editor research preview (complete through alpha.3)
 The native shell exposes the semantic driver through identity-backed canvas selection, a file menu with canonical and declared adapter import/export routes, document-aligned background grid and pixel rulers, layer and component browsing, insertion tools, evaluation widths, zoom, inspector transactions, bounded explicit Grid authoring and source-built developer installation. Captured pointer movement for freeform children previews locally and commits one semantic position operation on release; it snaps to whole pixels by default and supports Control-suspended snapping. Stack/Flex drags infer the effective responsive axis from resolved siblings and commit one same-parent `Move`; unchanged order creates no history, while Grid, Constraint, cross-parent and instance-child cases fail closed. Freeform selections expose eight handles; managed-layout children expose the three trailing handles. Resize previews resolved geometry and atomically commits the changed fixed axes plus an anchored freeform position when required; Shift preserves corner aspect ratio and invalid, root or semantically ineffective paths fail closed. Grid track, flow, atomic item position and span edits use the same validated operations as the headless and accessibility surfaces. Open packages pass their digest-verified embedded resources through the same bounded session used by CLI render/snapshot, so the narrow RGBA8 image segment renders without implicit fetching. `cargo xtask editor-gui-trial`, `cargo xtask editor-hostile-inputs` and `cargo xtask editor-install-trial` exercise the semantic, visual, adversarial and lifecycle boundaries. The broader `apps/editor/UI-SPEC.md` remains a draft; multi-selection, persisted aspect-ratio constraints, object smart guides, cross-parent/tree drag, Grid/Constraint reorder and managed leading-edge resize, token authoring and expanded paint are not claimed by this phase.
 
-Packages declaring capabilities outside the editor's explicit empty support
-set open structurally but read-only. The driver, accessibility surface and
-changed-package save boundary return the exact missing set, while an unmodified
-copy stays byte-identical. This conservative boundary is included in the editor
-hostile-interaction gate.
+The editor explicitly supports the tested variable TrueType decoder capability;
+its packaged coordinates reach the same resource-aware snapshot and exact-save
+paths. Packages declaring any other capability open structurally but read-only.
+The driver, accessibility surface and changed-package save boundary return the
+exact missing set, while an unmodified copy stays byte-identical. This boundary
+is included in the editor hostile-interaction gate.
 
 ## Phase 5c — browser and plug-in binding (complete for `nuif-wasm-api-0`)
 
@@ -177,11 +180,12 @@ the packages under `tools` and includes a separate CycloneDX SBOM. Local
 macOS/AArch64 packaging passes. Successful hosted jobs and attestations remain
 release-time evidence, not a claim made from workflow configuration.
 
-The CLI declares an empty extension-capability support set. Capability-bearing
-packages remain available for structural inspection, bare extraction and exact
-copying, while evaluation, external-format conversion, semantic package
-rewrites and package-mode changes fail with the exact requirement set. Native
-package import/export preserves resources and manifest requirements.
+The CLI declares only the tested variable TrueType decoder capability.
+Packages requiring anything else remain available for structural inspection,
+bare extraction and exact copying, while evaluation, external-format
+conversion, semantic package rewrites and package-mode changes fail with the
+exact requirement set. Native package import/export preserves resources and
+manifest requirements.
 
 ## Phase 6a — first adapters/sync falsifier (complete for bounded HTML/CSS profile 0)
 `nuif-html-css-0` maps a declared container/text/finite-token subset through real DOM/CSS syntax with byte-span correspondence. Text, token and four-edge padding edits change only their six spans; comments and unmapped markup survive exactly; unsupported semantics have target/property fidelity. HTML/CSS was intentionally tested before SVG because Gate F and the architecture stop condition concern minimal source patches. This narrow profile remains independently automated even after the full-v0 follow-on; arbitrary HTML/CSS and SVG remain broader adapter work.

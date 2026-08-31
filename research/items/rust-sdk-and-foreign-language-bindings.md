@@ -28,7 +28,7 @@ links:
   adr: [adrs/0001-rust-reference-core.md, adrs/0011-sdk-and-foreign-bindings.md]
   rfc: [rfcs/0010-portable-resource-package.md]
   code: [crates/nuif-api, crates/nuif-wasm, crates/nuif-mcp, conformance/benches/system_surfaces.rs]
-  experiments: [nuif:experiment:wasm-cross-surface, nuif:experiment:mcp-cross-surface]
+  experiments: [nuif:experiment:wasm-cross-surface, nuif:experiment:mcp-cross-surface, nuif:experiment:variable-font-surface-parity]
 ---
 
 # Summary

@@ -837,6 +837,24 @@ experiments:
       - execute three metamorphic trials requiring coordinate changes to alter shaping layout outlines and raster identity
       - retain an empty serialized coordinate record for static runs and an explicit record for variable runs
       - archive target/variable-font-runtime-report.json from cargo xtask gate-i-font-runtime
+  - id: nuif:experiment:variable-font-surface-parity
+    status: automated
+    evidence: [nuif:research:opentype-font-embedding-and-portability, nuif:research:text-rendering-reproducibility, nuif:research:wasm-headless-execution, nuif:research:mcp-stateless-agent-adapter, nuif:research:rust-sdk-and-foreign-language-bindings]
+    implementation: [crates/nuif-api/src/lib.rs, crates/nuif-cli/src/main.rs, crates/nuif-wasm/src/lib.rs, crates/nuif-mcp/src/lib.rs, apps/editor/src/lib.rs, crates/nuif-testing/src/bin/variable-font-runtime.rs, tools/wasm/smoke.cjs, tools/wasm/browser-smoke.html, tools/mcp/smoke.py, xtask/src/main.rs]
+    oracle: exact-shared-snapshot-through-compiled-process-and-language-surfaces
+    acceptance:
+      - one transport-neutral snapshot report owns canonical hash layout diagnostics scene fidelity and exact RGBA digest
+      - direct Rust CLI generated Node WASM generated browser WASM and live stdio MCP retain the same ordered variable coordinate record
+      - the complete WASM and MCP reports equal the independently invoked CLI report rather than comparing selected summary fields only
+      - capability use before authorization fails closed at the WASM and MCP process boundaries
+      - editor package negotiation admits exactly the tested variable decoder while retaining unrelated capabilities as read-only
+      - CPU raster equality remains platform-scoped until retained hosted reports are compared
+    tests:
+      - execute the interior Noto Sans package at 640 by 96 through every declared surface
+      - compare canonical document hash coordinate objects layout diagnostics scene outlines item fidelity and raster digest
+      - run the generated web target in pinned headless Chrome rather than treating Node initialization as browser evidence
+      - run MCP over its newline-delimited stdio wire rather than calling the Rust handler directly
+      - archive target/variable-font-surface-report.json from cargo xtask gate-i-font-surfaces
   - id: nuif:experiment:font-resource-profile
     status: planned
     evidence: [nuif:research:opentype-font-embedding-and-portability, nuif:research:text-rendering-reproducibility]
@@ -844,10 +862,10 @@ experiments:
     continuation:
       class: profile-design
       blocked_by:
-        - RFC 0013 now has bounded metadata normalization shaping outlines nonzero HVAR MVAR independently authored OFL corpus graph generated packed-data package policy and direct package-to-raster evidence but cross-surface and cross-platform reproduction remain before promotion
+        - RFC 0013 now has bounded metadata normalization shaping outlines nonzero HVAR MVAR independently authored OFL corpus graph generated packed-data package policy direct package-to-raster delivery and local compiled-surface parity but retained hosted cross-platform comparison remains before promotion
         - collection CFF/CFF2 COLR bitmap SVG-glyph and WOFF2 support remain separate capabilities with format-specific bounds and oracles
         - redistribution subsetting and derived-instance policy cannot be inferred from fsType and requires publisher-supplied license evidence plus rights-reviewed fixtures
-      next_action: Reproduce the same coordinate record and canonical result through applicable process and binding surfaces before proposing profile promotion.
+      next_action: Compare retained Linux Windows and macOS reports for the same package context before proposing profile promotion.
     acceptance:
       - font bytes face index axes features coverage and shaping inputs are content-addressed and independently decoded
       - portable private-authoring linked substituted and unavailable policies produce distinct validated outcomes

@@ -15,22 +15,26 @@ Point an MCP host's local stdio configuration at the resulting `nuif-mcp`
 executable. The exact host configuration shape belongs to that host; the server
 itself accepts MCP `2026-07-28` only and writes no non-protocol data to stdout.
 
-The profile exposes four pure tools:
+The profile exposes five pure tools:
 
 - `nuif_validate`
 - `nuif_inspect`
 - `nuif_canonicalize`
 - `nuif_apply_patch`
+- `nuif_snapshot_package`
 
-Every call supplies canonical NUIF text inline and returns a value. Even
+Document calls supply canonical NUIF text inline and return a value. Even
 `nuif_apply_patch` mutates only a temporary in-memory session and returns a new
-canonical document. The process has no filesystem, network, package-resource,
-host-document, credential, roots, sampling, task or hidden document-session
-authority.
+canonical document. `nuif_snapshot_package` accepts a bounded canonical-base64
+package, an explicit capability list and viewport, then returns the common
+layout/scene/raster-digest report. It resolves verified embedded bytes only;
+the process has no filesystem, network, host-document, credential, roots,
+sampling, task or hidden document-session authority.
 
 Limits are 4 MiB per newline-delimited MCP message, 1 MiB per inline document,
-1 MiB per patch, 1,024 transactions and 16,384 operations. Larger documents and
-`.nuif` packages should use the direct library, CLI or WASM surfaces under
+1 MiB per patch, 1 MiB decoded per snapshot package, 3 MiB per snapshot report,
+256 capability identifiers, 1,024 transactions and 16,384 operations. Larger
+documents and packages use the direct library, CLI or WASM surfaces under
 explicit host control.
 
 Run the independent subprocess and native-core oracle:
@@ -44,7 +48,8 @@ The gate opens with `server/discover` and no legacy initialization handshake,
 requires complete metadata on every request, checks generated schemas and
 annotations, compares canonicalization and patch bytes with the native CLI,
 classifies malformed and stale inputs, sends one frame above the transport
-limit, and records a small wire-latency sample in
+limit, and requires a capability-gated variable-font package snapshot to equal
+the native CLI report before recording a small wire-latency sample in
 `target/mcp-conformance-report.json`.
 
 `mcp-package` repeats the live gate against an optimized binary, then creates a

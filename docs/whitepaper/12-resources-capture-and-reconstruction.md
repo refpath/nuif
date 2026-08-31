@@ -233,10 +233,12 @@ reusing that vector for Skrifa metrics/outlines that exactly match HarfBuzz
 advance and draw captures. The later direct runtime gate requires explicit
 package capability authorization, records the same normalized vector in shaped
 runs, and matches default/interior HarfBuzz advances and paths through layout
-and CPU rasterization.
+and CPU rasterization. The cross-surface follow-on requires the interior
+package's complete snapshot report to agree through direct Rust, CLI, generated
+Node/browser WASM and live stdio MCP.
 
-This is intentionally not general OpenType support. TTC, CFF/CFF2, variable
-cross-surface parity, color, bitmap, SVG and WOFF/WOFF2 sources, historic ambiguous permission
+This is intentionally not general OpenType support. TTC, CFF/CFF2, color,
+bitmap, SVG and WOFF/WOFF2 sources, historic ambiguous permission
 combinations, subsetting, cluster-level fallback and cross-platform raster
 behavior remain separate fixtures and profiles. Collections,
 variable-TrueType, CFF/CFF2, COLR-vector, bitmap/SVG-glyph and WOFF2 transport

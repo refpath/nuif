@@ -205,6 +205,7 @@ jobs:
             target/variable-font-corpus-report.json
             target/variable-font-gvar-generated-report.json
             target/variable-font-runtime-report.json
+            target/variable-font-surface-report.json
       - name: Upload live browser capture evidence
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1

@@ -27,8 +27,8 @@ links:
   spec: [spec/05-geometry-paint-text.md, spec/08-serialization.md, spec/11-security.md]
   adr: [adrs/0003-reference-renderer.md]
   rfc: [rfcs/0010-portable-resource-package.md, rfcs/0013-variable-truetype-resource-profile.md]
-  code: [crates/nuif-text, crates/nuif-font, crates/nuif-package, crates/nuif-layout, crates/nuif-render, crates/nuif-api, crates/nuif-testing/src/bin/font-resources.rs, crates/nuif-testing/src/bin/variable-font-metadata.rs, crates/nuif-testing/src/bin/variable-font-shaping.rs, crates/nuif-testing/src/bin/variable-font-metrics.rs, crates/nuif-testing/src/bin/variable-font-global-metrics.rs, crates/nuif-testing/src/bin/variable-font-security.rs, crates/nuif-testing/src/bin/variable-font-package.rs, crates/nuif-testing/src/bin/variable-font-corpus.rs, crates/nuif-testing/src/bin/variable-font-gvar-generated.rs, crates/nuif-testing/src/bin/variable-font-runtime.rs, conformance/font/harfbuzz-14.4.0-material-symbols-variable.json, conformance/font/harfbuzz-14.4.0-hvar-truncated-map.json, conformance/font/harfbuzz-14.4.0-roboto-flex-mvar.json, conformance/font/harfbuzz-14.4.0-noto-sans-variable.json, conformance/font/harfbuzz-14.4.0-recursive-variable.json, conformance/font/fixtures/roboto-flex-mvar-subset/PROVENANCE.md, conformance/font/fixtures/noto-sans-variable-subset/PROVENANCE.md, conformance/font/fixtures/recursive-variable-subset/PROVENANCE.md]
-  experiments: [nuif:experiment:font-resource-static-baseline, nuif:experiment:variable-font-metadata-baseline, nuif:experiment:variable-font-shaping-baseline, nuif:experiment:variable-font-hvar-baseline, nuif:experiment:variable-font-mvar-baseline, nuif:experiment:variable-font-graph-security-baseline, nuif:experiment:variable-font-package-candidate, nuif:experiment:variable-font-corpus-baseline, nuif:experiment:variable-font-gvar-generated, nuif:experiment:variable-font-runtime, nuif:experiment:font-resource-profile]
+  code: [crates/nuif-text, crates/nuif-font, crates/nuif-package, crates/nuif-layout, crates/nuif-render, crates/nuif-api, crates/nuif-cli, crates/nuif-wasm, crates/nuif-mcp, apps/editor, tools/wasm/smoke.cjs, tools/wasm/browser-smoke.html, tools/mcp/smoke.py, crates/nuif-testing/src/bin/font-resources.rs, crates/nuif-testing/src/bin/variable-font-metadata.rs, crates/nuif-testing/src/bin/variable-font-shaping.rs, crates/nuif-testing/src/bin/variable-font-metrics.rs, crates/nuif-testing/src/bin/variable-font-global-metrics.rs, crates/nuif-testing/src/bin/variable-font-security.rs, crates/nuif-testing/src/bin/variable-font-package.rs, crates/nuif-testing/src/bin/variable-font-corpus.rs, crates/nuif-testing/src/bin/variable-font-gvar-generated.rs, crates/nuif-testing/src/bin/variable-font-runtime.rs, conformance/font/harfbuzz-14.4.0-material-symbols-variable.json, conformance/font/harfbuzz-14.4.0-hvar-truncated-map.json, conformance/font/harfbuzz-14.4.0-roboto-flex-mvar.json, conformance/font/harfbuzz-14.4.0-noto-sans-variable.json, conformance/font/harfbuzz-14.4.0-recursive-variable.json, conformance/font/fixtures/roboto-flex-mvar-subset/PROVENANCE.md, conformance/font/fixtures/noto-sans-variable-subset/PROVENANCE.md, conformance/font/fixtures/recursive-variable-subset/PROVENANCE.md]
+  experiments: [nuif:experiment:font-resource-static-baseline, nuif:experiment:variable-font-metadata-baseline, nuif:experiment:variable-font-shaping-baseline, nuif:experiment:variable-font-hvar-baseline, nuif:experiment:variable-font-mvar-baseline, nuif:experiment:variable-font-graph-security-baseline, nuif:experiment:variable-font-package-candidate, nuif:experiment:variable-font-corpus-baseline, nuif:experiment:variable-font-gvar-generated, nuif:experiment:variable-font-runtime, nuif:experiment:variable-font-surface-parity, nuif:experiment:font-resource-profile]
 ---
 
 # Summary
@@ -152,7 +152,7 @@ seven named instances and default/minimum/maximum plus two interior vectors;
 the interior `wght` values prove that an `avar` map is actually applied.
 
 The metadata gate alone does not accept a package or runtime resource. VVAR and
-cross-surface parity remain separate. A
+surface delivery remain separate. A
 second gate does reproduce
 seven HarfBuzz shapes including a GSUB FeatureVariations threshold and proves
 one coordinate vector is reused by HarfRust and Skrifa metrics/outlines. Every
@@ -202,8 +202,11 @@ resolved run. Default and interior locations match the committed HarfBuzz
 glyph/advance and outline oracles, HVAR advances determine intrinsic width,
 and coordinate changes alter canonical identity, outlines and deterministic
 CPU pixels. Repeated snapshots are identical and report lossless item fidelity.
-This is direct Rust API evidence, not yet a claim for process adapters, language
-bindings, system rasters, VVAR or other OpenType outline profiles.
+The follow-on surface gate runs the same interior package through the CLI,
+generated Node and browser WASM, and live stdio MCP. Their full reports match
+the direct API on canonical hash, ordered coordinates, diagnostics, outlines,
+fidelity and CPU raster digest. This is local compiled-surface evidence, not a
+claim for cross-platform system rasters, VVAR or other OpenType profiles.
 The fixture's crate-level `MIT OR Apache-2.0` distribution metadata is retained,
 while its embedded copyright string prevents the experiment from presenting
 that fact as an automated publisher-rights determination.

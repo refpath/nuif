@@ -135,7 +135,9 @@ coordinates in each resolved run, and uses that vector for shaping, horizontal
 metrics, global metrics and unhinted outlines. It never falls back to the
 static decoder or a host default instance. RFC 0013 and
 `crates/nuif-font/VARIABLE-PROFILE.md` record the limits, evidence, and
-remaining cross-surface non-claims.
+remaining cross-platform and format non-claims. The local cross-surface gate
+requires exact direct API, CLI, generated Node/browser WASM and stdio MCP
+snapshot reports for the same capability-authorized package.
 
 A conformance profile that compares resolved text MUST declare the exact font bytes and hash, shaper and Unicode-data versions, direction, language, script-selection rule, feature set, cluster level, cluster coordinate unit, positioning unit and resource limits. Resolved runs contain source text plus ordered glyph identifiers, clusters, advances and offsets; they MUST NOT depend on system font discovery. Profile 0 uses Unicode-scalar indices for cluster coordinates and unscaled font units for advances and offsets.
 

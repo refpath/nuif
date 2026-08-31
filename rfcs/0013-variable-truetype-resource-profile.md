@@ -8,9 +8,11 @@ status: proposed
 
 Status: proposed research contract. Metadata, coordinate normalization, typed
 package admission and direct package-to-raster delivery have executable
-evidence. Cross-surface parity and hosted cross-platform reproduction remain
-open, so no published conformance-profile claim is made. The static profile
-remains the required baseline; this variable profile is separately negotiated.
+evidence. Direct API, CLI, generated Node/browser WASM and live stdio MCP now
+share exact snapshot evidence. Hosted cross-platform comparison and the other
+format/policy exclusions remain open, so no published conformance-profile claim
+is made. The static profile remains the required baseline; this variable
+profile is separately negotiated.
 
 ## Motivation
 
@@ -239,7 +241,17 @@ record reach the shaped run; glyphs, HVAR advances and unhinted `gvar` paths
 match the committed HarfBuzz oracle, intrinsic layout uses those advances, and
 the deterministic CPU raster changes with the coordinates. Repeated snapshots
 are identical and exact item fidelity is lossless. This closes direct runtime
-delivery, not promotion requirement 9 for other bindings and processes.
+delivery in the direct Rust surface.
+
+`cargo xtask gate-i-font-surfaces` then executes that direct gate plus the real
+CLI process, generated Node and browser WebAssembly packages, and the stdio MCP
+server. Each surface consumes the same interior-location package and returns
+the exact canonical hash, ordered coordinate record, layout diagnostics, scene
+fidelity and CPU raster digest. Both process transports also prove that use
+before capability authorization fails closed. The aggregate report is
+`target/variable-font-surface-report.json`. This satisfies the local
+cross-surface requirement; its raster digest remains platform-scoped until
+retained hosted reports are compared across operating systems.
 
 Promotion from proposed to experimental requires all of the following:
 

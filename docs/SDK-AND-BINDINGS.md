@@ -78,12 +78,14 @@ Wrappers contain transport and ownership conversion only:
   transport, and delegates bare/package loading, validation, hashing,
   capability negotiation, canonical export and history to `NuifDocument`.
 - MCP bounds newline-delimited protocol messages and maps stateless tool calls
-  to the same API.
+  to the same API; its package snapshot tool accepts bounded base64 rather than
+  ambient filesystem authority.
 - The CLI owns files and stdout; the editor owns window and interaction state.
-- The CLI declares an empty package-capability support set. It may inspect,
-  validate, hash, extract or copy a capability-bearing package, but rejects
-  layout, render, snapshot, external-format export, changed package saves and
-  package-mode conversion with `PACKAGE_CAPABILITIES_REQUIRED`.
+- The CLI and editor declare only
+  `nuif-opentype-variable-truetype-single-0` as an optional package capability.
+  They evaluate and preserve that tested resource profile; any other required
+  capability remains structurally inspectable and fails closed before
+  evaluation or semantic rewrite.
 - The reference editor opens unsupported capability-bearing packages only for
   structural read-only inspection and exact copying; it rejects semantic edits
   at both the session and package-save boundaries.
@@ -96,8 +98,12 @@ The cross-surface rule is exact: the same input and patch must produce the same
 canonical hash, canonical bytes and diagnostics. For package-aware surfaces it
 also requires the same deterministic archive bytes, retained resources and
 missing-capability set. `cargo xtask gate-wasm` and `cargo xtask gate-mcp`
-compare wrappers with native output; the Criterion `sdk/direct_document` group
-measures direct text, CBOR and package loading plus canonical export.
+compare wrappers with native output. `cargo xtask gate-i-font-surfaces`
+additionally requires a complete variable-font snapshot report—hash,
+coordinates, diagnostics, fidelity, outlines and raster digest—to agree across
+direct Rust, CLI, generated Node/browser WASM and live stdio MCP. The Criterion
+`sdk/direct_document` group measures direct text, CBOR and package loading plus
+canonical export.
 
 ## C, C++, Swift and Kotlin decision
 

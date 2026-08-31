@@ -55,6 +55,9 @@ const document = NuifDocument.fromPackageWithCapabilities(
   packageBytes,
   text.encode(JSON.stringify(hostCapabilities)),
 );
+const snapshot = JSON.parse(
+  new TextDecoder().decode(document.snapshotReport(640, 96)),
+);
 const output = document.exportPackage("portable");
 document.free();
 ```
@@ -80,5 +83,7 @@ The command pins `wasm-bindgen` 0.2.127, initializes the web target in pinned
 headless Chrome, and runs the generated Node binding. It requires byte-identical
 bare and package output from the native CLI, exact preservation of a packaged
 behavior resource, read-only structural mutation rejection and typed
-missing-capability negotiation failure. The browser package is left under
+missing-capability negotiation failure. Both generated targets also authorize
+the declared variable TrueType profile and require their complete snapshot
+report to equal the CLI report. The browser package is left under
 `target/nuif-wasm-web/`.

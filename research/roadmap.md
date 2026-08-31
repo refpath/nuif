@@ -164,8 +164,9 @@ until its checkpoint/position contract is versioned and independently tested.
    metadata/normalization, HarfBuzz shaping, malformed graph/allocation,
    package-policy, independently authored Noto Sans/Recursive corpus, generated
    packing-boundary, and capability-gated package-to-raster coordinate-delivery
-   evidence. Reproduce the same typed coordinate record through each applicable
-   process or language-binding surface before proposing profile promotion.
+   evidence. Keep the now-passing direct API, CLI, generated Node/browser WASM
+   and stdio MCP report parity gate required; compare the retained hosted
+   platform reports before proposing profile promotion.
    Extend the narrow PNG and static TrueType baselines only through new declared
    fixtures, add cross-platform media reproduction, and complete the broader
    OpenType format/policy matrix with calibrated allocation/time budgets; do

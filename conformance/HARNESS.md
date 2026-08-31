@@ -63,7 +63,7 @@ One directory per case. Files:
 | `expected.layout.json` | resolved boxes and diagnostics keyed by entity identifier |
 | `expected.scene.json` | render scene serialization (render suite) |
 | `expected.png` | reference rasterization from the CPU path (render suite only) |
-| `expected.report.json` | fidelity and validation report (adapter, provenance, security suites) |
+| `expected.report.json` | transport-neutral snapshot report containing canonical hash, layout diagnostics, scene fidelity and exact RGBA digest |
 | `ops.nuif-log` | operation log for operations, merge and replay cases |
 | `meta.toml` | unique title, issue reference, tags, `disabled = true|false` with reason, tolerance overrides |
 
@@ -252,21 +252,30 @@ The WebAssembly cross-surface experiment writes
 packages. `cargo xtask gate-wasm` pins wasm-bindgen 0.2.127, initializes the
 direct-browser target in pinned Chrome, runs the generated Node ABI through
 canonical text/CBOR, validation, atomic patch and history paths, and requires
-the output bytes to equal the native CLI after the same patch. It also checks
-stale, malformed and one-over-byte failure atomicity and an empty authority
-declaration. Browser layout, WASI and vendor plug-in behavior remain separate
-trials.
+the output bytes to equal the native CLI after the same patch. Both compiled
+targets also snapshot the same capability-authorized variable-font package and
+require the complete report to equal the CLI report. It checks stale, malformed
+and one-over-byte failure atomicity and an empty authority declaration. WASI
+and vendor plug-in behavior remain separate trials.
 
 The MCP cross-surface experiment writes
 `target/mcp-conformance-report.json`. `cargo xtask gate-mcp` launches the real
 stdio binary, opens the 2026-07-28 stateless lifecycle with `server/discover`,
 and sends complete metadata on every valid request. An independent Python
-driver checks the exact four-tool set, JSON input/output schemas, side-effect
+driver checks the exact five-tool set, JSON input/output schemas, side-effect
 annotations, typed errors, connection survival after a rejected request and a
 one-over 4 MiB frame. Canonicalization and atomic patch output must be
-byte-identical to the native CLI. Twenty-five repeated validation calls record
-wire median, p95 and maximum latency with a catastrophic two-second p95 budget;
-this smoke distribution is not a controlled throughput benchmark.
+byte-identical to the native CLI. The bounded package tool must reject missing
+capabilities and return the exact CLI variable-font snapshot report when
+authorized. Twenty-five repeated validation calls record wire median, p95 and
+maximum latency with a catastrophic two-second p95 budget; this smoke
+distribution is not a controlled throughput benchmark.
+
+`cargo xtask gate-i-font-surfaces` aggregates the direct runtime, CLI, both
+compiled WASM targets and live MCP results into
+`target/variable-font-surface-report.json`. It compares exact hash, coordinate
+objects, diagnostics, fidelity and raster identity while preserving
+cross-platform raster comparison as a separate hosted-evidence requirement.
 
 The performance gate follows the same distinction. `cargo xtask performance`
 records portable release-mode latency/allocation budgets for catastrophic

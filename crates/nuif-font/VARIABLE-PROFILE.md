@@ -150,6 +150,7 @@ capability rejects the package before evaluation.
 the declared capability, retains the exact normalized coordinates in resolved
 runs, matches default/interior HarfBuzz shaping and `gvar` paths, and drives
 HVAR intrinsic layout plus deterministic CPU pixels with lossless item
-fidelity. Cross-surface parity remains off until each applicable binding or
-process adapter proves the same canonical hash, coordinate record, diagnostics
-and fidelity; VVAR and other font profiles remain separate.
+fidelity. `cargo xtask gate-i-font-surfaces` now proves the same canonical hash,
+coordinate record, diagnostics and fidelity through the local direct API, CLI,
+generated Node/browser WASM and stdio MCP surfaces. Cross-platform raster
+comparison, VVAR and other font profiles remain separate.

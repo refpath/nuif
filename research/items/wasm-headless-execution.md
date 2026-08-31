@@ -33,7 +33,7 @@ links:
   adr: [adrs/0001-rust-reference-core.md]
   rfc: []
   code: [apps/editor/ARCHITECTURE.md, conformance/PLAN.md, .github/workflows/ci.yml, crates/nuif-layout, crates/nuif-api, crates/nuif-wasm, tools/wasm/smoke.cjs, xtask/src/main.rs]
-  experiments: [nuif:experiment:wasm-cross-surface]
+  experiments: [nuif:experiment:wasm-cross-surface, nuif:experiment:variable-font-surface-parity]
 ---
 
 # Summary
