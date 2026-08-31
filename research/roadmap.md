@@ -90,7 +90,7 @@ from that loop rather than a standing implementation commitment.
 ## Queue
 
 1. Keep Gates B through H green with `cargo xtask all` and the separate nightly `cargo xtask fuzz-smoke`; reduce fuzz failures before committing them as named fixtures and retain all machine reports as CI artifacts.
-2. Implement the full Cap'n Proto candidate mapping only behind the codec admission preflight; compare it after canonical-writer, old-reader retention and hostile traversal tests pass. Optimize the current CBOR generic-value decode path independently and require identical canonical bytes before and after.
+2. Implement the full Cap'n Proto candidate mapping only behind the codec admission preflight; compare it after canonical-writer, old-reader retention and hostile traversal tests pass. Keep the optimized typed CBOR decoder behind identical canonical-byte and hostile-input checks; investigate a streaming canonical validator only if profiling still justifies its added parser surface.
 3. Extend the executable existing-tree collaboration profile to concurrent creation, causal-stability garbage collection and combined property/structure transactions; obtain a foreign tree materializer rather than treating the completed Automerge transport oracle as one.
 4. Keep the implemented fixed/`fr`, sparse-flow, explicit-placement Grid subset
    exact; intrinsic, percentage, named, repeated, implicit, subgrid and masonry

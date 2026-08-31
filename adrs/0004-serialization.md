@@ -17,7 +17,7 @@ Opaque extensions are explicit NUIF values/bytes so preservation does not depend
 `nuif-text-0` and `nuif-cbor-0` are executable profile-0 encodings. The codec
 decision gate measures both only after semantic, canonical and opaque-data
 fixpoints pass. Deterministic CBOR materially reduces file size, but its current
-generic-value decoder is not faster than canonical text, so performance alone
+typed decoder is not faster than canonical text, so performance alone
 does not ratify it as the only future binary profile.
 
 Schema codecs must present a complete NUIF mapping before benchmark admission.

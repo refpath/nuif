@@ -14,7 +14,7 @@ only through explicit versioning.
 Deterministic CBOR is the profile-0 binary form because the NUIF profile closes
 the choices left by RFC 8949 without coupling the logical model to generated
 code. The executable codec gate finds it near 41% of canonical-text size at
-4,096 entities on the first Apple M5 Pro run, while its generic-value decode
+4,096 entities on an Apple M5 Pro run, while its typed decode
 path is slower than text. That result supports CBOR as a compact canonical form,
 not as a universal latency winner.
 

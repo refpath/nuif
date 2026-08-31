@@ -146,11 +146,15 @@ revision, dirty state, Rust toolchain, OS, architecture, CPU, warmups, samples,
 latency distribution, allocation counts and exact encoded hashes. The first
 local release run on an Apple M5 Pro with Rust 1.98.0 found deterministic CBOR
 at 40.83% of canonical-text size for 4,096 entities. At that scale, canonical
-text encoded in about 18.8 ms and decoded in 11.5 ms median; deterministic CBOR
-encoded in about 19.5 ms and decoded in 28.9 ms. These are one-machine
+text encoded in about 17.9 ms and decoded in 11.1 ms median; deterministic CBOR
+encoded in about 18.9 ms and decoded in 24.2 ms. These are one-machine
 measurements, not universal rankings. The important current conclusion is that
-CBOR materially reduces bytes but the generic `ciborium::Value` decode path is
-not a latency optimization.
+CBOR materially reduces bytes but is not presently a decode-latency
+optimization. The decoder now materializes the typed document directly and
+checks canonicality by re-encoding it; the generic value tree is retained only
+as an invalid-input fallback needed to classify an over-depth value before a
+root-type mismatch. This preserves strictness while avoiding two generic trees
+on the accepted path.
 
 The generated `target/codec-benchmark-report.json` is the evidence source. CI
 archives each run; transient measurements are intentionally not committed as
@@ -162,8 +166,9 @@ before/after runs, not cross-host absolute values, decide optimizations.
 - Retain canonical text as the review, fixture and Git form.
 - Retain deterministic CBOR as the canonical hash and compact package record
   profile; its size win is real and its current decode cost is visible.
-- Optimize the existing CBOR path only behind identical conformance fixtures;
-  a direct typed decoder is the first plausible target.
+- Continue optimizing CBOR only behind identical conformance fixtures; the
+  direct typed decoder is implemented, while a streaming canonical validator
+  would require a separate hostile-input proof before replacing re-encoding.
 - Prototype Cap'n Proto next only as a complete experimental mapping with a
   retentive edit bridge and bounded reader.
 - Do not add Protobuf or FlatBuffers dependencies merely to publish flattering

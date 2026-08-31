@@ -260,7 +260,7 @@ The active codec decision gate adds a separate four-scale release benchmark for
 size, encode, decode, canonicalize, allocation and decode-then-select behavior.
 Both implemented codecs must first pass semantic, canonical and opaque-data
 preservation through a neighboring edit. The first Apple M5 Pro run places CBOR
-near 41% of text size at 4,096 entities but shows the current generic CBOR
+near 41% of text size at 4,096 entities but shows the current typed CBOR
 decoder slower than canonical text. Protobuf and FlatBuffers remain outside the
 timing table because no complete NUIF mapping satisfies canonical and retentive
 editing requirements; Cap'n Proto is the next conditional candidate.

@@ -271,12 +271,7 @@ impl Encoder for DeterministicCbor {
 
     fn encode(&self, document: &Document) -> Result<Vec<u8>, Self::Error> {
         validate_for_encoding(document)?;
-        let value = Value::serialized(document)
-            .map_err(|error| CodecError::Malformed(error.to_string()))?;
-        let value = canonical_value(value)?;
-        let output = encode_cbor_value(&value)?;
-        check_input_budget(&output)?;
-        Ok(output)
+        encode_cbor_document(document)
     }
 }
 
@@ -289,13 +284,10 @@ impl Decoder for DeterministicCbor {
 
     fn decode(&self, bytes: &[u8]) -> Result<Document, Self::Error> {
         check_input_budget(bytes)?;
-        let value = canonical_value(decode_cbor_value(bytes)?)?;
-        if encode_cbor_value(&value)? != bytes {
+        let document = decode_cbor_document(bytes)?;
+        if encode_cbor_document(&document)? != bytes {
             return Err(CodecError::NonCanonical);
         }
-        let document = value
-            .deserialized()
-            .map_err(|error| CodecError::Malformed(error.to_string()))?;
         validate_for_encoding(&document)?;
         Ok(document)
     }
@@ -306,10 +298,7 @@ impl Canonicalizer for DeterministicCbor {
 
     fn canonicalize(&self, bytes: &[u8]) -> Result<Vec<u8>, Self::Error> {
         check_input_budget(bytes)?;
-        let value = canonical_value(decode_cbor_value(bytes)?)?;
-        let document = value
-            .deserialized()
-            .map_err(|error| CodecError::Malformed(error.to_string()))?;
+        let document = decode_cbor_document(bytes)?;
         self.encode(&document)
     }
 }
@@ -324,35 +313,78 @@ impl DeterministicCbor {
     /// CBOR and for data that cannot be deserialized as a NUIF document.
     pub fn decode_for_validation(self, bytes: &[u8]) -> Result<Document, CodecError> {
         check_input_budget(bytes)?;
-        let value = canonical_value(decode_cbor_value(bytes)?)?;
-        if encode_cbor_value(&value)? != bytes {
+        let document = decode_cbor_document(bytes)?;
+        if encode_cbor_document(&document)? != bytes {
             return Err(CodecError::NonCanonical);
         }
-        let document = value
-            .deserialized()
-            .map_err(|error| CodecError::Malformed(error.to_string()))?;
         resource_usage(&document).map_err(resource_limit)?;
         Ok(document)
     }
 }
 
+fn encode_cbor_document(document: &Document) -> Result<Vec<u8>, CodecError> {
+    let value =
+        Value::serialized(document).map_err(|error| CodecError::Malformed(error.to_string()))?;
+    let output = encode_cbor_value(&canonical_value(value)?)?;
+    check_input_budget(&output)?;
+    Ok(output)
+}
+
+fn decode_cbor_document(bytes: &[u8]) -> Result<Document, CodecError> {
+    let mut cursor = Cursor::new(bytes);
+    let document =
+        match ciborium::de::from_reader_with_recursion_limit(&mut cursor, MAX_SYNTAX_DEPTH) {
+            Ok(document) => document,
+            Err(error) => {
+                let error = cbor_decode_error(error);
+                if matches!(error, CodecError::Malformed(_))
+                    && matches!(
+                        decode_cbor_value(bytes),
+                        Err(CodecError::ResourceLimit {
+                            resource: "syntax depth",
+                            ..
+                        })
+                    )
+                {
+                    return Err(CodecError::ResourceLimit {
+                        resource: "syntax depth",
+                        limit: MAX_SYNTAX_DEPTH,
+                        observed: MAX_SYNTAX_DEPTH.saturating_add(1),
+                    });
+                }
+                return Err(error);
+            }
+        };
+    reject_trailing_bytes(bytes, &cursor)?;
+    Ok(document)
+}
+
 fn decode_cbor_value(bytes: &[u8]) -> Result<Value, CodecError> {
     let mut cursor = Cursor::new(bytes);
     let value = ciborium::de::from_reader_with_recursion_limit(&mut cursor, MAX_SYNTAX_DEPTH)
-        .map_err(|error| match error {
-            ciborium::de::Error::RecursionLimitExceeded => CodecError::ResourceLimit {
-                resource: "syntax depth",
-                limit: MAX_SYNTAX_DEPTH,
-                observed: MAX_SYNTAX_DEPTH.saturating_add(1),
-            },
-            error => CodecError::Malformed(error.to_string()),
-        })?;
+        .map_err(cbor_decode_error)?;
+    reject_trailing_bytes(bytes, &cursor)?;
+    Ok(value)
+}
+
+fn cbor_decode_error(error: ciborium::de::Error<std::io::Error>) -> CodecError {
+    match error {
+        ciborium::de::Error::RecursionLimitExceeded => CodecError::ResourceLimit {
+            resource: "syntax depth",
+            limit: MAX_SYNTAX_DEPTH,
+            observed: MAX_SYNTAX_DEPTH.saturating_add(1),
+        },
+        error => CodecError::Malformed(error.to_string()),
+    }
+}
+
+fn reject_trailing_bytes(bytes: &[u8], cursor: &Cursor<&[u8]>) -> Result<(), CodecError> {
     if cursor.position() != u64::try_from(bytes.len()).unwrap_or(u64::MAX) {
         return Err(CodecError::Malformed(
             "trailing bytes after the CBOR document".to_owned(),
         ));
     }
-    Ok(value)
+    Ok(())
 }
 
 fn canonical_value(value: Value) -> Result<Value, CodecError> {
@@ -896,6 +928,20 @@ mod tests {
     }
 
     #[test]
+    fn typed_cbor_decode_rejects_noncanonical_root_key_order() {
+        let value = Value::serialized(&document()).unwrap();
+        let Value::Map(mut entries) = canonical_value(value).unwrap() else {
+            panic!("document must serialize as a map");
+        };
+        entries.swap(0, 1);
+        let reordered = encode_cbor_value(&Value::Map(entries)).unwrap();
+        assert_eq!(
+            DeterministicCbor.decode(&reordered),
+            Err(CodecError::NonCanonical)
+        );
+    }
+
+    #[test]
     fn validation_parser_exposes_structurally_invalid_documents() {
         let mut invalid = document();
         let detached = Entity::new(EntityId::new(3), EntityKind::Container);
@@ -908,6 +954,16 @@ mod tests {
         );
         assert!(matches!(
             CanonicalText.decode(&bytes),
+            Err(CodecError::InvalidDocument(_))
+        ));
+
+        let cbor = encode_cbor_document(&invalid).unwrap();
+        assert_eq!(
+            DeterministicCbor.decode_for_validation(&cbor).unwrap(),
+            invalid
+        );
+        assert!(matches!(
+            DeterministicCbor.decode(&cbor),
             Err(CodecError::InvalidDocument(_))
         ));
     }
