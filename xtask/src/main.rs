@@ -20,8 +20,6 @@ const ALL_STEPS: &[Step] = &[
     ("diagnostic-audit", diagnostics::audit),
     ("docs-check", documentation::check),
     ("verify", verify),
-    ("gate-wasm", gate_wasm),
-    ("gate-mcp", gate_mcp),
     ("gate-ffi", gate_ffi),
     ("gate-b", gate_b),
     ("hostile-inputs", hostile_inputs),
@@ -58,7 +56,7 @@ const ALL_STEPS: &[Step] = &[
     ("gate-i-font-package", gate_i_font_package),
     ("gate-i-font-corpus", gate_i_font_corpus),
     ("gate-i-font-gvar-generated", gate_i_font_gvar_generated),
-    ("gate-i-font-runtime", gate_i_font_runtime),
+    ("gate-i-font-surfaces", gate_i_font_surfaces),
     ("capture-baselines", capture_baselines),
     (
         "reconstruction-provider-manifest",
@@ -183,6 +181,7 @@ const VERIFICATION_ARTIFACTS: &[&str] = &[
     "target/variable-font-corpus-report.json",
     "target/variable-font-gvar-generated-report.json",
     "target/variable-font-runtime-report.json",
+    "target/variable-font-surface-report.json",
     "target/capture-reconstruction-report.json",
     "target/reconstruction-provider-manifest-report.json",
     "target/reconstruction-corpus-audit-report.json",
@@ -269,6 +268,7 @@ fn run() -> Result<(), String> {
         Some("gate-i-font-corpus") => gate_i_font_corpus(),
         Some("gate-i-font-gvar-generated") => gate_i_font_gvar_generated(),
         Some("gate-i-font-runtime") => gate_i_font_runtime(),
+        Some("gate-i-font-surfaces") => gate_i_font_surfaces(),
         Some("capture-baselines") => capture_baselines(),
         Some("reconstruction-provider-manifest") => reconstruction_provider_manifest(),
         Some("reconstruction-corpus-audit") => reconstruction_corpus_audit(),
@@ -307,7 +307,7 @@ fn run() -> Result<(), String> {
         Some("manifest") => standalone_manifest(),
         Some("all") => all(),
         _ => Err(
-            "usage: cargo xtask <research|workflow-audit|adapter-audit|dependency-audit|diagnostic-audit|docs-check|docs-build|docs-paper|docs-serve|docs-setup|verify|trial [seed iterations snapshot-interval report-path]|gate-b|gate-c|gate-d|gate-d-text|gate-d-render|gate-f|gate-f-v0|gate-svg|gate-dtcg|gate-penpot|gate-react|gate-svelte|gate-figma|gate-canva|gate-behavior|gate-behavior-package|gate-web-behavior|gate-web-hosts|gate-wasm|gate-mcp|gate-ffi|gate-g|gate-h|gate-i-package|gate-i-image|gate-i-font|gate-i-font-metadata|gate-i-font-shaping|gate-i-font-metrics|gate-i-font-global-metrics|gate-i-font-security|gate-i-font-package|gate-i-font-corpus|gate-i-font-gvar-generated|gate-i-font-runtime|gate-j-live|gate-accessibility|capture-baselines|reconstruction-provider-manifest|reconstruction-corpus-audit|reconstruction-evaluation|confidence-calibration|browser-install|wasm-install|wasm-package|mcp-package|cli-package|ffi-package|conformance-kit|hostile-inputs|reduction-profile|editor-hostile-inputs|fuzz-smoke|codec-benchmark|performance|editor-trial|editor-gui-trial|editor-install-trial|editor-package|editor-launch|editor-install|editor-doctor|editor-rollback|editor-uninstall|editor-update|release-check <tag>|manifest|all>"
+            "usage: cargo xtask <research|workflow-audit|adapter-audit|dependency-audit|diagnostic-audit|docs-check|docs-build|docs-paper|docs-serve|docs-setup|verify|trial [seed iterations snapshot-interval report-path]|gate-b|gate-c|gate-d|gate-d-text|gate-d-render|gate-f|gate-f-v0|gate-svg|gate-dtcg|gate-penpot|gate-react|gate-svelte|gate-figma|gate-canva|gate-behavior|gate-behavior-package|gate-web-behavior|gate-web-hosts|gate-wasm|gate-mcp|gate-ffi|gate-g|gate-h|gate-i-package|gate-i-image|gate-i-font|gate-i-font-metadata|gate-i-font-shaping|gate-i-font-metrics|gate-i-font-global-metrics|gate-i-font-security|gate-i-font-package|gate-i-font-corpus|gate-i-font-gvar-generated|gate-i-font-runtime|gate-i-font-surfaces|gate-j-live|gate-accessibility|capture-baselines|reconstruction-provider-manifest|reconstruction-corpus-audit|reconstruction-evaluation|confidence-calibration|browser-install|wasm-install|wasm-package|mcp-package|cli-package|ffi-package|conformance-kit|hostile-inputs|reduction-profile|editor-hostile-inputs|fuzz-smoke|codec-benchmark|performance|editor-trial|editor-gui-trial|editor-install-trial|editor-package|editor-launch|editor-install|editor-doctor|editor-rollback|editor-uninstall|editor-update|release-check <tag>|manifest|all>"
                 .to_owned(),
         ),
     }
@@ -560,6 +560,72 @@ fn gate_i_font_runtime() -> Result<(), String> {
         "--output",
         "target/variable-font-runtime-report.json",
     ])
+}
+
+fn gate_i_font_surfaces() -> Result<(), String> {
+    gate_i_font_runtime()?;
+    gate_wasm()?;
+    gate_mcp()?;
+
+    let runtime = read_json(Path::new("target/variable-font-runtime-report.json"))?;
+    let wasm = read_json(Path::new("target/wasm-conformance-report.json"))?;
+    let mcp = read_json(Path::new("target/mcp-conformance-report.json"))?;
+    let direct = runtime["cases"]
+        .as_array()
+        .and_then(|cases| cases.iter().find(|case| case["label"] == "interior"))
+        .ok_or("variable font runtime report omitted the interior case")?;
+    let wasm_variable = &wasm["variable_font"];
+    let mcp_variable = &mcp["cross_surface"]["variable_font"];
+    let checks = serde_json::json!({
+        "direct_api_passed": runtime["status"] == "passed",
+        "wasm_node_matches_cli": wasm["checks"]["variable_font_snapshot_matches_cli"] == true,
+        "wasm_browser_matches_cli": wasm["checks"]["browser_web_target_initializes"] == true,
+        "wasm_capability_required": wasm["checks"]["variable_font_snapshot_requires_capability"] == true,
+        "mcp_matches_cli": mcp_variable["matches_cli"] == true,
+        "mcp_capability_required": mcp_variable["unauthorized_rejected"] == true,
+        "canonical_hash_exact": direct["canonical_hash"] == wasm_variable["canonical_hash"]
+            && direct["canonical_hash"] == mcp_variable["canonical_hash"],
+        "coordinate_record_exact": direct["coordinates"] == wasm_variable["coordinates"]
+            && direct["coordinates"] == mcp_variable["coordinates"],
+        "raster_hash_exact": direct["raster_sha256"] == wasm_variable["raster_sha256"]
+            && direct["raster_sha256"] == mcp_variable["raster_sha256"],
+        "full_diagnostics_and_fidelity_exact": wasm["checks"]["variable_font_snapshot_matches_cli"] == true
+            && mcp_variable["matches_cli"] == true,
+    });
+    let passed = checks
+        .as_object()
+        .is_some_and(|checks| checks.values().all(|value| value == true));
+    let report = serde_json::json!({
+        "schema_version": 1,
+        "experiment": "nuif:experiment:variable-font-surface-parity",
+        "status": if passed { "passed" } else { "failed" },
+        "profile": "nuif-opentype-variable-truetype-single-0",
+        "surfaces": ["direct-rust-api", "cli", "node-wasm", "browser-wasm", "stdio-mcp"],
+        "canonical_hash": direct["canonical_hash"],
+        "coordinates": direct["coordinates"],
+        "raster_sha256": direct["raster_sha256"],
+        "checks": checks,
+        "inputs": [
+            "target/variable-font-runtime-report.json",
+            "target/wasm-conformance-report.json",
+            "target/mcp-conformance-report.json"
+        ],
+        "non_claims": [
+            "the CPU raster hash is platform-scoped until the retained hosted matrix is compared",
+            "the FFI remains experimental and is outside RFC 0013 promotion criterion 9",
+            "one Noto Sans location does not broaden the admitted font-format profile"
+        ]
+    });
+    fs::write(
+        "target/variable-font-surface-report.json",
+        serde_json::to_vec_pretty(&report).map_err(|error| error.to_string())?,
+    )
+    .map_err(|error| error.to_string())?;
+    if passed {
+        Ok(())
+    } else {
+        Err("variable font cross-surface parity failed".to_owned())
+    }
 }
 
 fn capture_baselines() -> Result<(), String> {

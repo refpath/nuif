@@ -1,7 +1,6 @@
-use nuif_api::NuifDocument;
+use nuif_api::{NuifDocument, profile_zero_context};
 use nuif_core::Fidelity;
 use nuif_font::OPENTYPE_VARIABLE_TRUETYPE_PROFILE;
-use nuif_layout::EvaluationContext;
 use nuif_package::NuifPackage;
 use nuif_render::DrawCommand;
 use nuif_testing::{
@@ -169,7 +168,7 @@ fn evaluate_case(oracle: &GoldenCase) -> Result<CaseEvidence, String> {
     let encoded = package.encode().map_err(|error| error.to_string())?;
     let decoded = NuifPackage::decode(&encoded).map_err(|error| error.to_string())?;
     let byte_fixpoint = decoded.encode().map_err(|error| error.to_string())? == encoded;
-    let context = EvaluationContext::viewport(640.0, 96.0);
+    let context = profile_zero_context(640.0, 96.0);
     let unauthorized_rejected = NuifDocument::load_package(&encoded)
         .map_err(|error| error.to_string())?
         .snapshot(&context)
@@ -277,6 +276,10 @@ fn evaluate_case(oracle: &GoldenCase) -> Result<CaseEvidence, String> {
         report: json!({
             "label": oracle.label,
             "user_coordinates": oracle.user,
+            "canonical_hash": first.canonical_hash,
+            "coordinates": run.variation_coordinates,
+            "layout_width": layout_width,
+            "raster_sha256": raster_sha256,
             "trials": trials,
         }),
         canonical_hash: first.canonical_hash,
