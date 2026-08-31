@@ -44,9 +44,9 @@ const REJECTED_TABLES: [[u8; 4]; 11] = [
     *b"fvar", *b"sbix",
 ];
 const REQUIRED_VARIABLE_TABLES: [[u8; 4]; 3] = [*b"fvar", *b"gvar", *b"STAT"];
-const REJECTED_VARIABLE_TABLES: [[u8; 4]; 11] = [
+const REJECTED_VARIABLE_TABLES: [[u8; 4]; 12] = [
     *b"CFF ", *b"CFF2", *b"COLR", *b"CPAL", *b"CBDT", *b"CBLC", *b"EBDT", *b"EBLC", *b"SVG ",
-    *b"sbix", *b"VARC",
+    *b"sbix", *b"VARC", *b"VVAR",
 ];
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
@@ -1807,7 +1807,7 @@ fn validate_directory_profile(
                 .any(|tag| tags.contains(tag))
             {
                 return Err(FontError::Unsupported(
-                    "collection, CFF, color, bitmap, SVG or VARC table",
+                    "collection, CFF, color, bitmap, SVG, VARC or VVAR table",
                 ));
             }
         }
@@ -2135,6 +2135,17 @@ mod tests {
                 .unwrap();
             }
         }
+    }
+
+    #[test]
+    fn horizontal_variable_profile_rejects_vvar() {
+        let mut tags = REQUIRED_TABLES.into_iter().collect::<BTreeSet<_>>();
+        tags.extend(REQUIRED_VARIABLE_TABLES);
+        tags.insert(*b"VVAR");
+        assert!(matches!(
+            validate_directory_profile(&tags, DirectoryProfile::VariableMetadata),
+            Err(FontError::Unsupported(message)) if message.contains("VVAR")
+        ));
     }
 
     #[test]
