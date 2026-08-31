@@ -1,13 +1,23 @@
 #![doc = "Bounded deterministic behavior state-machine research profile."]
 
+#[cfg(feature = "package")]
+use nuif_codec::{CodecError, decode_canonical_record, encode_canonical_record};
 use nuif_core::{
     Document, Entity, EntityId, EntityKind, Semantics, Severity, is_identifier, validate,
 };
+#[cfg(feature = "package")]
+use nuif_core::{ResourceDigest, ResourceLocator, ResourceRole};
+#[cfg(feature = "package")]
+use nuif_package::{NuifPackage, PackageError};
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet, VecDeque};
 use thiserror::Error;
 
 pub const BEHAVIOR_PROFILE: &str = "nuif-behavior-state-machine-0";
+#[cfg(feature = "package")]
+pub const BEHAVIOR_ATTACHMENT_PROFILE: &str = "nuif-behavior-package-resource-0";
+#[cfg(feature = "package")]
+pub const BEHAVIOR_MEDIA_TYPE: &str = "application/nuif-behavior+cbor";
 pub const MAX_STATES: usize = 128;
 pub const MAX_TRANSITIONS: usize = 1_024;
 pub const MAX_ACTIONS: usize = 4_096;
@@ -215,6 +225,129 @@ pub enum BehaviorError {
     EventLimit,
     #[error("external event source {entity} is unknown or not activatable")]
     InvalidExternalEvent { entity: EntityId },
+}
+
+/// A decoded, document-validated behavior resource from a NUIF package.
+#[cfg(feature = "package")]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct AttachedBehavior {
+    pub digest: ResourceDigest,
+    pub program: BehaviorProgram,
+}
+
+#[cfg(feature = "package")]
+#[derive(Debug, Error)]
+pub enum BehaviorAttachmentError {
+    #[error(transparent)]
+    Behavior(#[from] BehaviorError),
+    #[error(transparent)]
+    Codec(#[from] CodecError),
+    #[error(transparent)]
+    Package(#[from] PackageError),
+    #[error("behavior package capability is declared without a behavior resource")]
+    MissingResource,
+    #[error("behavior resource is present without its required package capability")]
+    MissingCapability,
+    #[error("a behavior resource is already present in the package")]
+    AlreadyAttached,
+    #[error("behavior package contains {observed} behavior resources; exactly one is allowed")]
+    MultipleResources { observed: usize },
+    #[error("behavior resource {digest} must be an embedded source resource")]
+    InvalidResourceDescriptor { digest: ResourceDigest },
+    #[error("embedded behavior resource {digest} has no available bytes")]
+    MissingResourceBytes { digest: ResourceDigest },
+}
+
+/// Adds one canonical, inert behavior resource to a package.
+///
+/// The package manifest and package hash bind the behavior digest to the
+/// document descriptor. Presence alone never grants execution authority.
+///
+/// # Errors
+///
+/// Rejects an invalid program, a second behavior resource, codec failures, or
+/// package resource-policy and size failures. A failure leaves the package
+/// unchanged.
+#[cfg(feature = "package")]
+pub fn attach_behavior(
+    package: &mut NuifPackage,
+    program: &BehaviorProgram,
+) -> Result<ResourceDigest, BehaviorAttachmentError> {
+    let observed = behavior_resource_count(package);
+    if observed != 0 {
+        return Err(BehaviorAttachmentError::AlreadyAttached);
+    }
+    validate_program(program, &package.document)?;
+    let bytes = encode_canonical_record(program)?;
+    let digest = package.add_embedded(bytes, BEHAVIOR_MEDIA_TYPE, ResourceRole::Source, None)?;
+    package
+        .required_capabilities
+        .insert(BEHAVIOR_PROFILE.to_owned());
+    Ok(digest)
+}
+
+/// Finds and validates the optional behavior attachment in a decoded package.
+///
+/// Generic package decoding remains behavior-agnostic. Callers opt into this
+/// profile explicitly, then separately choose which host capabilities may
+/// execute the returned program.
+///
+/// # Errors
+///
+/// Rejects capability/resource disagreement, ambiguous or linked resources,
+/// non-canonical bytes, and programs that do not validate against the package
+/// document.
+#[cfg(feature = "package")]
+pub fn attached_behavior(
+    package: &NuifPackage,
+) -> Result<Option<AttachedBehavior>, BehaviorAttachmentError> {
+    let resources = package
+        .resources
+        .values()
+        .filter(|descriptor| descriptor.media_type == BEHAVIOR_MEDIA_TYPE)
+        .collect::<Vec<_>>();
+    let required = package.required_capabilities.contains(BEHAVIOR_PROFILE);
+    if resources.len() > 1 {
+        return Err(BehaviorAttachmentError::MultipleResources {
+            observed: resources.len(),
+        });
+    }
+    match (resources.as_slice(), required) {
+        ([], false) => return Ok(None),
+        ([], true) => return Err(BehaviorAttachmentError::MissingResource),
+        ([_], false) => return Err(BehaviorAttachmentError::MissingCapability),
+        ([_], true) => {}
+        _ => unreachable!("resource cardinality was checked before capability matching"),
+    }
+    let descriptor = resources[0];
+    if descriptor.role != ResourceRole::Source
+        || !matches!(descriptor.locator, ResourceLocator::Embedded { .. })
+        || descriptor.derivation.is_some()
+    {
+        return Err(BehaviorAttachmentError::InvalidResourceDescriptor {
+            digest: descriptor.digest.clone(),
+        });
+    }
+    let bytes = package.embedded(&descriptor.digest).ok_or_else(|| {
+        BehaviorAttachmentError::MissingResourceBytes {
+            digest: descriptor.digest.clone(),
+        }
+    })?;
+    let program = decode_canonical_record(bytes)?;
+    validate_program(&program, &package.document)?;
+    Ok(Some(AttachedBehavior {
+        digest: descriptor.digest.clone(),
+        program,
+    }))
+}
+
+#[cfg(feature = "package")]
+fn behavior_resource_count(package: &NuifPackage) -> usize {
+    package
+        .resources
+        .values()
+        .filter(|descriptor| descriptor.media_type == BEHAVIOR_MEDIA_TYPE)
+        .count()
 }
 
 #[derive(Clone)]
@@ -813,12 +946,152 @@ fn semantic_entity(id: u128, role: &str, name: &str) -> Entity {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[cfg(feature = "package")]
+    use nuif_codec::canonical_hash;
+    #[cfg(feature = "package")]
+    use nuif_package::{PackageMode, digest};
 
     fn all_capabilities() -> BTreeSet<String> {
         BTreeSet::from([
             VISIBILITY_CAPABILITY.to_owned(),
             ANNOUNCEMENT_CAPABILITY.to_owned(),
         ])
+    }
+
+    #[cfg(feature = "package")]
+    #[test]
+    fn package_attachment_is_canonical_hash_bound_and_inert_by_default() {
+        let (document, program, _) = behavior_fixture();
+        let mut package = NuifPackage::new(document.clone(), PackageMode::Portable);
+        let document_hash = canonical_hash(&document).unwrap();
+        let plain_package_hash = package.package_hash().unwrap();
+
+        let digest = attach_behavior(&mut package, &program).unwrap();
+        assert_eq!(canonical_hash(&package.document).unwrap(), document_hash);
+        assert_ne!(package.package_hash().unwrap(), plain_package_hash);
+        assert!(package.required_capabilities.contains(BEHAVIOR_PROFILE));
+        assert_eq!(
+            package.resources.get(&digest).unwrap().media_type,
+            BEHAVIOR_MEDIA_TYPE
+        );
+
+        let bytes = package.encode().unwrap();
+        let decoded = NuifPackage::decode(&bytes).unwrap();
+        assert_eq!(decoded.encode().unwrap(), bytes);
+        let attached = attached_behavior(&decoded).unwrap().unwrap();
+        assert_eq!(attached.digest, digest);
+        assert_eq!(attached.program, program);
+    }
+
+    #[cfg(feature = "package")]
+    #[test]
+    fn package_attachment_rejects_ambiguous_or_unbound_resources() {
+        let (document, program, _) = behavior_fixture();
+        let canonical = encode_canonical_record(&program).unwrap();
+
+        let mut resource_only = NuifPackage::new(document.clone(), PackageMode::Portable);
+        resource_only
+            .add_embedded(
+                canonical.clone(),
+                BEHAVIOR_MEDIA_TYPE,
+                ResourceRole::Source,
+                None,
+            )
+            .unwrap();
+        assert!(matches!(
+            attached_behavior(&resource_only),
+            Err(BehaviorAttachmentError::MissingCapability)
+        ));
+
+        let mut capability_only = NuifPackage::new(document.clone(), PackageMode::Portable);
+        capability_only
+            .required_capabilities
+            .insert(BEHAVIOR_PROFILE.to_owned());
+        assert!(matches!(
+            attached_behavior(&capability_only),
+            Err(BehaviorAttachmentError::MissingResource)
+        ));
+
+        let mut linked = NuifPackage::new(document.clone(), PackageMode::Authoring);
+        linked
+            .add_linked(
+                digest(&canonical),
+                canonical.len() as u64,
+                BEHAVIOR_MEDIA_TYPE,
+                ResourceRole::Source,
+                "https://example.invalid/behavior.cbor",
+                None,
+            )
+            .unwrap();
+        linked
+            .required_capabilities
+            .insert(BEHAVIOR_PROFILE.to_owned());
+        assert!(matches!(
+            attached_behavior(&linked),
+            Err(BehaviorAttachmentError::InvalidResourceDescriptor { .. })
+        ));
+
+        let mut ambiguous = resource_only;
+        let mut alternative = program.clone();
+        alternative.initial_state = "open".to_owned();
+        ambiguous
+            .add_embedded(
+                encode_canonical_record(&alternative).unwrap(),
+                BEHAVIOR_MEDIA_TYPE,
+                ResourceRole::Source,
+                None,
+            )
+            .unwrap();
+        ambiguous
+            .required_capabilities
+            .insert(BEHAVIOR_PROFILE.to_owned());
+        assert!(matches!(
+            attached_behavior(&ambiguous),
+            Err(BehaviorAttachmentError::MultipleResources { observed: 2 })
+        ));
+    }
+
+    #[cfg(feature = "package")]
+    #[test]
+    fn package_attachment_failures_do_not_mutate_or_execute() {
+        let (document, program, _) = behavior_fixture();
+        let mut package = NuifPackage::new(document.clone(), PackageMode::Portable);
+        attach_behavior(&mut package, &program).unwrap();
+        let before = package.clone();
+        assert!(matches!(
+            attach_behavior(&mut package, &program),
+            Err(BehaviorAttachmentError::AlreadyAttached)
+        ));
+        assert_eq!(package, before);
+
+        let mut malformed = NuifPackage::new(document.clone(), PackageMode::Portable);
+        malformed
+            .add_embedded(
+                br#"{"profile":"not-cbor"}"#.to_vec(),
+                BEHAVIOR_MEDIA_TYPE,
+                ResourceRole::Source,
+                None,
+            )
+            .unwrap();
+        malformed
+            .required_capabilities
+            .insert(BEHAVIOR_PROFILE.to_owned());
+        assert!(matches!(
+            attached_behavior(&malformed),
+            Err(BehaviorAttachmentError::Codec(_))
+        ));
+
+        let mut rebound = package;
+        rebound.document = Document::empty(EntityId::new(0xff));
+        assert!(matches!(
+            attached_behavior(&rebound),
+            Err(BehaviorAttachmentError::Behavior(
+                BehaviorError::UnknownEntity { .. }
+            ))
+        ));
+
+        let no_behavior = NuifPackage::new(document, PackageMode::Portable);
+        assert_eq!(attached_behavior(&no_behavior).unwrap(), None);
     }
 
     #[test]

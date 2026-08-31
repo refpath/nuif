@@ -236,6 +236,21 @@ experiments:
       - reject missing required visibility capability before execution
       - reject unsupported headers identifiers references value types capabilities unreachable states and resource overflow with typed errors
       - write and archive target/behavior-portability-fixture.json target/behavior-portability-static-report.json and target/behavior-portability-report.json
+  - id: nuif:experiment:behavior-package-resource
+    status: automated
+    evidence: [nuif:research:behavior-package-resource-binding, nuif:research:behavior-portability-state-machines, nuif:research:oci-resource-descriptors, nuif:research:epub-ocf-package-container]
+    implementation: [crates/nuif-behavior/src/lib.rs, crates/nuif-testing/src/bin/behavior-package.rs, tools/behavior-oracle/package_check.py, xtask/src/main.rs, .github/workflows/ci.yml]
+    oracle: metamorphic-and-foreign-container
+    acceptance:
+      - package attachment changes the package hash without changing the canonical document hash
+      - generic package processing preserves inert bytes while explicit behavior loading validates the exact program against the package document
+      - an independent container reader reproduces exact member metadata and content-addressed behavior bytes
+    tests:
+      - encode one valid behavior program as canonical CBOR in one embedded source resource with exact provisional media type and required capability
+      - reach an exact attach encode decode encode byte fixpoint and recover the same behavior program and digest
+      - reject capability-resource disagreement duplicate resources linked resources non-CBOR bytes document rebinding and corrupted package bytes
+      - compare exact package size hash member count ordering metadata CRC reads mimetype resource size and resource digest through Python standard-library ZIP processing
+      - write and archive target/behavior-package-fixture.nuif target/behavior-package-expected.json target/behavior-package-static-report.json and target/behavior-package-report.json
   - id: nuif:experiment:web-behavior-mapping
     status: automated
     evidence: [nuif:research:web-behavior-host-lowering, nuif:research:behavior-portability-state-machines, nuif:research:accessibility-semantics]

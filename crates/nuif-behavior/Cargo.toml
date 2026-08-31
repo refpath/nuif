@@ -5,8 +5,14 @@ edition.workspace = true
 license.workspace = true
 repository.workspace = true
 
+[features]
+default = []
+package = ["dep:nuif-codec", "dep:nuif-package"]
+
 [dependencies]
+nuif-codec = { version = "0.0.0", path = "../nuif-codec", optional = true }
 nuif-core = { version = "0.0.1", path = "../nuif-core" }
+nuif-package = { version = "0.0.1", path = "../nuif-package", optional = true }
 serde.workspace = true
 thiserror.workspace = true
 

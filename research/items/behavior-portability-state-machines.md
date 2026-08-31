@@ -19,12 +19,15 @@ relations:
   - type: related_to
     target: nuif:research:accessibility-semantics
     note: Activation sources use portable semantic entity identity rather than inferred visual affordances.
+  - type: related_to
+    target: nuif:research:behavior-package-resource-binding
+    note: The first wire experiment carries this program as one inert content-addressed package resource without changing the canonical Document.
 links:
   spec: [spec/13-semantics-accessibility-and-behavior.md]
   adr: []
-  rfc: []
-  code: [crates/nuif-behavior/src/lib.rs, crates/nuif-testing/src/bin/behavior-portability.rs, tools/behavior-oracle/check.mjs, xtask/src/main.rs]
-  experiments: [nuif:experiment:behavior-portability]
+  rfc: [rfcs/0012-behavior-package-resource.md]
+  code: [crates/nuif-behavior/src/lib.rs, crates/nuif-testing/src/bin/behavior-portability.rs, crates/nuif-testing/src/bin/behavior-package.rs, tools/behavior-oracle/check.mjs, tools/behavior-oracle/package_check.py, xtask/src/main.rs]
+  experiments: [nuif:experiment:behavior-portability, nuif:experiment:behavior-package-resource]
 ---
 
 # Summary
@@ -109,10 +112,13 @@ workflow.
 Behavior should be a modular layer over stable document identity. It should not
 make the canonical document an event log, grant scripts authority, or force
 every reader to implement timers, networking and host business logic. The
-sidecar experiment establishes semantics and test vectors before any wire
-schema decision. Once multiple target adapters need the same model, a future
-RFC can decide whether behavior becomes a package member, a canonical document
-section or a namespaced extension.
+sidecar experiment established semantics and test vectors before a wire
+decision. RFC 0012 now selects one canonical-CBOR, content-addressed package
+resource as the first experimental transport. This reuses the existing package
+manifest and hash without adding behavior to the canonical semantic document.
+Generic readers preserve inert bytes; explicit behavior loading revalidates
+the program against the package document before any separately authorized
+runtime can be constructed.
 
 The abstract-effect boundary also keeps target fidelity honest. A web adapter
 now maps the bounded subset to native activation, DOM visibility and one status
@@ -122,8 +128,8 @@ trace contract but retain independent capability and host-observation reports.
 
 ## Open questions
 
-- Should the first wire proposal store behavior as a separately hashed package
-  member or in the canonical semantic model?
+- What multi-host evidence would justify moving a later behavior profile from
+  a package resource into the canonical semantic model?
 - Which additional event kinds can be grounded in portable semantics rather
   than vendor input APIs?
 - What numeric type and JSON encoding can preserve exact cross-language values

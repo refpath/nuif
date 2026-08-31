@@ -155,8 +155,13 @@ one flat deterministic state machine. Ordered guarded transitions, sequential
 Boolean/string actions, visibility/announcement effects, required capability
 refusal and explicit optional no-op degradation have complete traces. The Rust
 reference and independently written Node interpreter agree for both capability
-sets over the five-event fixture. The profile is a research sidecar, not yet a
-canonical wire section. Timers, internal events, numeric computation,
+sets over the five-event fixture. RFC 0012 now carries the same program as one
+canonical-CBOR, content-addressed `source` resource under
+`nuif-behavior-package-resource-0` without adding it to the semantic
+`Document`. The package gate proves document/package hash separation, exact
+round trip, hostile refusal and independent Python ZIP inspection; generic
+package decode remains inert and runtime capability authorization stays
+separate. Timers, internal events, numeric computation,
 navigation, animation, networking, scripts, native effects and browser effects
 beyond the following projection remain separate profiles and wire-design work.
 

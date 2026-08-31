@@ -1,9 +1,9 @@
 # NUIF behavior state-machine profile 0
 
-Status: executable research sidecar. `nuif-behavior-state-machine-0` is not yet
-part of the canonical NUIF wire model and does not establish the final behavior
-schema. It exists to test a small portable execution contract before that
-schema is frozen.
+Status: executable research sidecar. `nuif-behavior-state-machine-0` is not
+part of the canonical semantic `Document` and does not establish the final
+behavior schema. Its first experimental transport is the separately profiled
+content-addressed package resource below.
 
 ## Model and execution
 
@@ -63,3 +63,41 @@ The JavaScript oracle is a second implementation of this profile. It is not a
 browser DOM adapter or native UI runtime. Browser host mapping is tested
 separately by `cargo xtask gate-web-behavior`; neither gate is evidence for
 excluded behavior.
+
+## Package attachment
+
+`nuif-behavior-package-resource-0` stores one program as canonical CBOR in one
+embedded `source` resource with provisional media type
+`application/nuif-behavior+cbor`. The normal package manifest records its size,
+SHA-256 digest and digest-derived blob path and declares
+`nuif-behavior-state-machine-0` as required. No new `Document` field or ZIP
+member family is introduced. The API is behind the opt-in Cargo feature
+`package`, keeping state-machine-only consumers independent of the package and
+codec dependency stack.
+
+```rust
+let digest = nuif_behavior::attach_behavior(&mut package, &program)?;
+let bytes = package.encode()?;
+
+let package = nuif_package::NuifPackage::decode(&bytes)?;
+let attachment = nuif_behavior::attached_behavior(&package)?;
+```
+
+Generic package decode verifies and preserves the resource without executing
+it. `attached_behavior` is the explicit opt-in that checks exact cardinality,
+descriptor policy, canonical CBOR and every entity reference against the
+package document. Runtime construction remains a later operation requiring a
+caller-supplied set of effect capabilities. The behavior digest identifies the
+program bytes; the complete package hash binds those bytes to the delivered
+document.
+
+`cargo xtask gate-behavior-package` records the Rust attachment checks and an
+independent Python standard-library ZIP inspection in:
+
+- `target/behavior-package-fixture.nuif`;
+- `target/behavior-package-expected.json`;
+- `target/behavior-package-static-report.json`;
+- `target/behavior-package-report.json`.
+
+`cargo xtask gate-behavior` runs this attachment gate before the independent
+Rust/Node trace gate.

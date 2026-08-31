@@ -115,6 +115,10 @@ const VERIFICATION_ARTIFACTS: &[&str] = &[
     "target/behavior-portability-fixture.json",
     "target/behavior-portability-static-report.json",
     "target/behavior-portability-report.json",
+    "target/behavior-package-fixture.nuif",
+    "target/behavior-package-expected.json",
+    "target/behavior-package-static-report.json",
+    "target/behavior-package-report.json",
     "target/gate-g-report.json",
     "target/gate-g-independent",
     "target/collaboration-report.json",
@@ -175,6 +179,7 @@ fn run() -> Result<(), String> {
         Some("gate-svelte") => gate_svelte(),
         Some("gate-figma") => gate_figma(),
         Some("gate-behavior") => gate_behavior(),
+        Some("gate-behavior-package") => gate_behavior_package(),
         Some("gate-web-behavior") => gate_web_behavior(),
         Some("gate-web-hosts") => gate_web_hosts(),
         Some("gate-wasm") => gate_wasm(),
@@ -221,7 +226,7 @@ fn run() -> Result<(), String> {
         Some("manifest") => standalone_manifest(),
         Some("all") => all(),
         _ => Err(
-            "usage: cargo xtask <research|workflow-audit|adapter-audit|dependency-audit|docs-check|docs-build|docs-paper|docs-serve|docs-setup|verify|trial [seed iterations snapshot-interval report-path]|gate-b|gate-c|gate-d|gate-d-text|gate-d-render|gate-f|gate-f-v0|gate-svg|gate-dtcg|gate-penpot|gate-react|gate-svelte|gate-figma|gate-behavior|gate-web-behavior|gate-web-hosts|gate-wasm|gate-mcp|gate-g|gate-h|gate-i-package|gate-i-image|gate-i-font|gate-j-live|gate-accessibility|capture-baselines|browser-install|wasm-install|wasm-package|mcp-package|cli-package|hostile-inputs|reduction-profile|editor-hostile-inputs|fuzz-smoke|codec-benchmark|performance|editor-trial|editor-gui-trial|editor-install-trial|editor-package|editor-launch|editor-install|editor-doctor|editor-rollback|editor-uninstall|editor-update|release-check <tag>|manifest|all>"
+            "usage: cargo xtask <research|workflow-audit|adapter-audit|dependency-audit|docs-check|docs-build|docs-paper|docs-serve|docs-setup|verify|trial [seed iterations snapshot-interval report-path]|gate-b|gate-c|gate-d|gate-d-text|gate-d-render|gate-f|gate-f-v0|gate-svg|gate-dtcg|gate-penpot|gate-react|gate-svelte|gate-figma|gate-behavior|gate-behavior-package|gate-web-behavior|gate-web-hosts|gate-wasm|gate-mcp|gate-g|gate-h|gate-i-package|gate-i-image|gate-i-font|gate-j-live|gate-accessibility|capture-baselines|browser-install|wasm-install|wasm-package|mcp-package|cli-package|hostile-inputs|reduction-profile|editor-hostile-inputs|fuzz-smoke|codec-benchmark|performance|editor-trial|editor-gui-trial|editor-install-trial|editor-package|editor-launch|editor-install|editor-doctor|editor-rollback|editor-uninstall|editor-update|release-check <tag>|manifest|all>"
                 .to_owned(),
         ),
     }
@@ -436,6 +441,7 @@ fn run_web_host_oracle(name: &str, oracle_arguments: &[&str]) -> Result<(), Stri
 }
 
 fn gate_behavior() -> Result<(), String> {
+    gate_behavior_package()?;
     cargo(&[
         "run",
         "--release",
@@ -452,6 +458,28 @@ fn gate_behavior() -> Result<(), String> {
             "target/behavior-portability-fixture.json",
             "target/behavior-portability-static-report.json",
             "target/behavior-portability-report.json",
+        ],
+    )
+}
+
+fn gate_behavior_package() -> Result<(), String> {
+    cargo(&[
+        "run",
+        "--release",
+        "--locked",
+        "-p",
+        "nuif-testing",
+        "--bin",
+        "behavior-package",
+    ])?;
+    command(
+        "python3",
+        &[
+            "tools/behavior-oracle/package_check.py",
+            "target/behavior-package-fixture.nuif",
+            "target/behavior-package-expected.json",
+            "target/behavior-package-static-report.json",
+            "target/behavior-package-report.json",
         ],
     )
 }

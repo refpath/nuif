@@ -34,8 +34,11 @@ Behavior portability sidecar: `nuif-behavior-state-machine-0` runs one bounded
 stable-identity program through independent Rust and Node interpreters. Full
 and required-only capability traces agree over five events; required capability
 absence rejects before execution and optional effects follow a recorded no-op.
-The sidecar is not yet canonical NUIF wire data and excludes timers, internal
-events, numeric computation and host UI execution.
+`nuif-behavior-package-resource-0` now binds the same canonical-CBOR program to
+the delivered document through one inert content-addressed package resource and
+an independently inspected deterministic ZIP. It remains outside the canonical
+semantic `Document` and excludes timers, internal events, numeric computation
+and host UI execution.
 
 Web behavior projection: `nuif-web-behavior-0` composes the bounded sidecar and
 accessibility projection into enabled native-button activation, HTML `hidden`
@@ -50,7 +53,7 @@ Gate G: bounded mechanically independent reproduction. The standard-library-only
 
 Gate H: bounded metadata-free collaboration checkpoint. Two algorithmically distinct in-repository materializers converge for every delivery of a conflict-bearing property-register history; conflicts remain explicit and canonical NUIF contains no replica state.
 
-Publication infrastructure: `docs/catalog.json` currently selects 252 canonical Markdown documents without copying their bodies. The bounded `xtask` compiler validates metadata and repository links, generates navigation and status indexes, builds a searchable mdBook site and composes a 13-module working manuscript. The Pages workflow retains pull-request artifacts and restricts deployment permission to its deployment job. This infrastructure publishes evidence; it does not promote evidence status.
+Publication infrastructure: `docs/catalog.json` currently selects 254 canonical Markdown documents without copying their bodies. The bounded `xtask` compiler validates metadata and repository links, generates navigation and status indexes, builds a searchable mdBook site and composes a 13-module working manuscript. The Pages workflow retains pull-request artifacts and restricts deployment permission to its deployment job. This infrastructure publishes evidence; it does not promote evidence status.
 
 ## Current falsifiers
 

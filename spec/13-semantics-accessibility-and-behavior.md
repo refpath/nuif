@@ -55,7 +55,7 @@ Behavior capabilities are negotiated like extensions. Missing optional capabilit
 ### Behavior state-machine profile 0
 
 `nuif-behavior-state-machine-0` is an experimental sidecar and is not part of
-the canonical wire model. It defines a flat deterministic state machine with a
+the canonical semantic `Document` model. It defines a flat deterministic state machine with a
 single active state. Its only external event is `activate`, addressed to a
 stable entity carrying role `button`, `checkbox`, `radio` or `switch`.
 Transitions in the active state are evaluated in authored order; the first
@@ -83,6 +83,35 @@ navigation, animation, filesystem/network effects and scripts are excluded.
 Conformance compares complete event, selected-transition, state, variable,
 effect and skipped-capability traces. Final-state agreement alone is
 insufficient.
+
+### Behavior package resource profile 0
+
+`nuif-behavior-package-resource-0` is the experimental transport defined by
+RFC 0012. It does not change `nuif-package-0` or the canonical `Document`.
+Exactly one embedded resource MAY carry a behavior program. Its descriptor
+MUST use role `source`, no derivation and provisional media type
+`application/nuif-behavior+cbor`; its bytes MUST be canonical `nuif-cbor-0`
+for one `nuif-behavior-state-machine-0` program. The package manifest MUST also
+declare `nuif-behavior-state-machine-0` as a required capability.
+
+A behavior capability without its resource, a behavior resource without its
+capability, multiple behavior resources, a linked resource, non-canonical
+bytes or a program invalid for the package document MUST fail the attachment
+profile. The program MUST validate against the actual package document both
+before attachment and after decode.
+
+The resource digest identifies exact behavior bytes; it does not include the
+document hash. The deterministic package manifest and complete package hash
+bind the behavior descriptor and document descriptor together. Attachment
+therefore changes the package hash without changing the semantic document
+hash. A transplanted resource MUST be revalidated against its new package
+document.
+
+Generic package decoding MAY verify, preserve and re-encode the inert resource
+without interpreting it. Full behavioral conformance requires explicit
+attachment decoding and a separately authorized runtime capability set.
+Opening, inspecting or preserving a package MUST NOT execute behavior or grant
+filesystem, network, script or host-mutation authority.
 
 ### Web behavior projection profile 0
 

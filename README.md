@@ -129,7 +129,7 @@ Testing is designed for automated trial loops: generate or load a document, appl
 | Direct Rust SDK | Experimental `nuif-api` façade | Package-aware load/validate/apply/export over one core; no stable C ABI or crates.io publication claim |
 | Package/resources | Experimental implementation; Gate I incomplete | Deterministic package plus narrow independently parsed RGBA8 PNG and static TrueType resource paths are executable; a three-OS CI matrix is configured, while broad media/font matrices, external reproduction and successful hosted matrix evidence remain open |
 | Capture/reconstruction | Experimental contracts and deterministic baselines | Browser/screenshot normalization plus one pinned local live-CDP segment, typed proposals, calibration primitives and a finite loop exist; no portable capture, broad accuracy or model claim |
-| Behavior runtime | Experimental `nuif-behavior-state-machine-0` sidecar plus `nuif-web-behavior-0` lowering | Rust/Node traces agree and native browser effects pass three pinned engines; not yet canonical wire data, native UI or assistive-technology evidence |
+| Behavior runtime | Experimental `nuif-behavior-state-machine-0`, content-addressed `nuif-behavior-package-resource-0` transport and `nuif-web-behavior-0` lowering | Package/CBOR binding, Rust/Node traces and three-engine browser effects pass; behavior remains outside the canonical semantic `Document`, native UI and assistive-technology evidence |
 | Project | Open research project; not a standard | Standards status requires neutral governance and independent implementations |
 
 Gates B through H are complete under the bounded, quantified criteria in `research/AUDIT.md`. The workspace executes structural validation, anchored atomic operations, replay/inversion, canonical text and deterministic CBOR, measured hostile-input limits, responsive profile-0 layout, bounded explicit fixed/`fr` Grid tracks and placement, exact CPU rasterization, pinned NUIF/Taffy/Chrome layout trials, seeded reports and headless and native-shell editor drivers. Gate C covers sparse row/column flow, explicit placement and spans without a schema-loss exemption. Gate D pins shaping, outlines, hard-line layout, encoded-sRGB paint and integer composition; scene and raw-RGBA hashes reproduce on macOS/aarch64, Linux/aarch64 and Linux/x86_64, while PNG encoding is non-normative and paths, images, instances and extension paint remain property-attributed fidelity records. Seven retentive source/package adapter profiles are integrated across HTML/CSS, SVG 2, DTCG 2025.10, Penpot v3 packages, static React JSX and static Svelte, with import, export, synchronization, hostile-input checks and CLI conformance; Svelte additionally passes a pinned official-compiler oracle. An eighth executable profile covers normalized Figma Plugin API snapshot and mutation-plan mapping plus a compiled no-network review shell, without claiming live host execution. The ninth is a one-way bounded HTML/ARIA accessibility projection whose computed role/name/state surface agrees across pinned Chromium, Firefox and WebKit test engines. The tenth maps the bounded behavior sidecar to native button activation, `hidden` visibility and an ARIA status region through one CSP-hash-restricted finite runtime, with event-by-event agreement in the same three engines. A machine-audited inventory separates these executable profiles from four researched or externally bounded targets. Complete fixture authoring, AccessKit-driven deterministic GUI trials, standard-library-only Python v0 reproduction, metadata-free register and existing-tree collaboration checkpoints, a pinned Automerge operation-transport oracle, hostile editor interaction trials, a scaling benchmark suite, native host packaging and cross-checked WebAssembly and MCP developer surfaces are automated. The native shell exposes the complete model-backed profile-zero editing surface while leaving future-profile sections of the draft UI specification explicit; concurrent entity creation and collaboration garbage collection, a foreign tree materializer, a general-purpose second implementation, signed native distribution and external interoperability review remain incomplete.
@@ -163,8 +163,9 @@ The separate bounded web-accessibility gate projects portable semantics to inert
 HTML/ARIA and compares computed role, name and state across exact Playwright
 Chromium, Firefox and WebKit engines; it does not claim native platform or
 application-behavior equivalence.
-The bounded behavior gate executes one stable-identity state-machine sidecar
-through independent Rust and Node runtimes. The separate web-behavior gate
+The bounded behavior gate first binds one canonical program to a deterministic
+package resource and independently inspects its ZIP bytes, then executes the
+same stable-identity state machine through Rust and Node runtimes. The separate web-behavior gate
 lowers that trace contract to native button clicks, `hidden` visibility and an
 ARIA status region through one exact CSP-hash-authorized runtime and compares
 every event in pinned Chromium, Firefox and WebKit. Timers, internal events,
@@ -181,6 +182,7 @@ cargo xtask wasm-package # downloadable direct-browser developer archive
 cargo xtask gate-mcp # current stateless stdio protocol and native byte parity
 cargo xtask mcp-package # live-tested host developer archive
 cargo xtask gate-web-behavior # three-engine native web behavior lowering
+cargo xtask gate-behavior-package # inert package attachment and independent ZIP checks
 cargo xtask cli-package # exercised standalone developer-tool archive
 cargo xtask trial 24301 100
 cargo xtask gate-b # 10,000 patches; raster sample every 100 patches
@@ -211,7 +213,7 @@ cargo xtask gate-i-package # deterministic package/resource evidence
 cargo xtask gate-i-image # independent RGBA8 PNG/resource/render evidence
 cargo xtask gate-i-font # independent static TrueType/resource/policy evidence
 cargo xtask gate-figma # pure Plugin API snapshot/plan mapping (not a live host)
-cargo xtask gate-behavior # deterministic Rust/Node behavior traces
+cargo xtask gate-behavior # package binding plus deterministic Rust/Node behavior traces
 cargo xtask capture-baselines # bounded capture/reconstruction contract evidence
 cargo xtask gate-j-live # pinned live Chromium/resource/secret/held-out evidence
 cargo xtask gate-accessibility # three-engine computed accessibility evidence

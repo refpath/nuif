@@ -302,6 +302,17 @@ variable, effect and skipped operation for two capability runs over five
 events. This is profile trace evidence, not browser DOM, native UI, animation,
 network or arbitrary-script behavior evidence.
 
+RFC 0012 now gives that sidecar one experimental wire transport without
+freezing it into the semantic `Document`: canonical behavior CBOR is one
+embedded, content-addressed `source` resource whose required capability and
+descriptor are carried by the existing package manifest. The attachment gate
+passes canonical/fixpoint, document-versus-package hash, disagreement,
+duplicate, linked, malformed, rebinding and corruption probes. A separately
+written Python standard-library reader checks exact ZIP bytes, ordering,
+metadata, CRC and the behavior blob digest. Generic package decode remains
+inert; explicit attachment decode and runtime capability authorization are
+separate steps. This is not a second CBOR or behavior implementation.
+
 The one-way `nuif-web-behavior-0` adapter closes the bounded browser-DOM part
 of that non-claim without widening the source profile. It admits enabled native
 buttons and button-backed switches, maps visibility to `hidden`, maps one
@@ -318,7 +329,7 @@ Gate G is complete for the bounded v0 profile. The Python implementation indepen
 
 Gate H is complete for property registers and the bounded existing-tree structural profile. The property operation-set and replica-log materializers converge to hash `nuif-cbor-0:sha256:29f24d0cb9613b7a6adaf1f57760031d12271c0eb06084e3807115ef869941ab` across all 5,040 deliveries and tested merge orders. Concurrent values remain explicit, causal overwrites select only maximal values and the opaque entity stays exact. The structural operation-set and replica-log materializers separately converge over every delivery of move/reorder/delete/rescue conflicts while preserving one parent, acyclicity and stable sibling origins; a 4,096-change scale trial is bounded, and Automerge reproduces immutable operation transport. Checkpoints contain no collaboration metadata. Concurrent creation, causal garbage collection, combined property/structure transactions and a foreign tree materializer remain required before a general collaboration-profile claim.
 
-RFCs 0010 and 0011 plus specification 14 remain research-aligned proposals.
+RFCs 0010, 0011 and 0012 plus specifications 13 and 14 remain research-aligned proposals.
 The executable baseline now includes the deterministic package writer,
 asset/resource model, bounded provider-input browser/screenshot contracts and
 the pinned local live-browser segment described above. It still has no general

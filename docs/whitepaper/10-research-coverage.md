@@ -28,7 +28,12 @@ This distinction is important: marking an open research problem as finished woul
   capability-aware behavior graphs rather than arbitrary scripts embedded in
   visual nodes. The smaller `nuif-behavior-state-machine-0` sidecar now has
   exact Rust/Node traces for ordered guards, state, effects and explicit
-  required/optional capability handling without claiming a final wire schema.
+  required/optional capability handling without claiming a final semantic
+  schema. Its first wire experiment is one inert canonical-CBOR,
+  content-addressed package resource: a Rust gate validates document binding
+  and hostile cases while an independent Python ZIP reader checks exact
+  container bytes. The attachment remains outside the canonical `Document` and
+  never grants execution authority.
   A separate one-way web lowering maps the bounded effects through native
   activation, `hidden` and an ARIA status region; five events agree across
   pinned Chromium, Firefox and WebKit under one exact CSP-hash-authorized

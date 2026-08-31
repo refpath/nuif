@@ -2426,7 +2426,9 @@ dependencies = [
 name = "nuif-behavior"
 version = "0.0.1"
 dependencies = [
+ "nuif-codec",
  "nuif-core",
+ "nuif-package",
  "serde",
  "serde_json",
  "thiserror 2.0.20",
