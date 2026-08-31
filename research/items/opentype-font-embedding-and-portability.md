@@ -27,8 +27,8 @@ links:
   spec: [spec/05-geometry-paint-text.md, spec/08-serialization.md, spec/11-security.md]
   adr: [adrs/0003-reference-renderer.md]
   rfc: [rfcs/0010-portable-resource-package.md, rfcs/0013-variable-truetype-resource-profile.md]
-  code: [crates/nuif-text, crates/nuif-font, crates/nuif-package, crates/nuif-testing/src/bin/font-resources.rs]
-  experiments: [nuif:experiment:font-resource-static-baseline, nuif:experiment:font-resource-profile]
+  code: [crates/nuif-text, crates/nuif-font, crates/nuif-package, crates/nuif-testing/src/bin/font-resources.rs, crates/nuif-testing/src/bin/variable-font-metadata.rs, conformance/font/harfbuzz-14.4.0-material-symbols-variable.json]
+  experiments: [nuif:experiment:font-resource-static-baseline, nuif:experiment:variable-font-metadata-baseline, nuif:experiment:font-resource-profile]
 ---
 
 # Summary
@@ -140,6 +140,23 @@ The OpenType font-file organization and variation-table inventory are defined
 by the OpenType 1.9.1 file and variation specifications. The decomposition is a
 NUIF design decision inferred from those structures, not a requirement imposed
 by OpenType itself.
+
+## Implemented variable metadata milestone
+
+`cargo xtask gate-i-font-metadata` now gives RFC 0013 one deliberately narrower
+executable result. NUIF directly checks a TrueType sfnt, `fvar` 1.0 and optional
+`avar` 1.0 under explicit axis, instance and segment ceilings, then requires its
+ordered metadata and final 2.14 coordinate vectors to agree with Skrifa. A
+committed HarfBuzz 14.4.0 public-C-API capture independently checks four axes,
+seven named instances and default/minimum/maximum plus two interior vectors;
+the interior `wght` values prove that an `avar` map is actually applied.
+
+This does not accept the resource in a package or runtime. `gvar`, HVAR, VVAR,
+MVAR, STAT internals, FeatureVariations, shaping, metrics, outlines, rendering,
+allocation ceilings and cross-surface parity remain blocking. The fixture's
+crate-level `MIT OR Apache-2.0` distribution metadata is retained, while its
+embedded copyright string prevents the experiment from presenting that fact as
+an automated publisher-rights determination.
 
 ## Open questions
 

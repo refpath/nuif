@@ -127,6 +127,7 @@
         "tools/refpath/README.md",
         "crates/nuif-media/PROFILE.md",
         "crates/nuif-font/PROFILE.md",
+        "crates/nuif-font/VARIABLE-PROFILE.md",
         "crates/nuif-collab/README.md",
         "crates/nuif-behavior/README.md",
         "bindings/README.md"

@@ -693,6 +693,20 @@ experiments:
       - round-trip one exact font resource through deterministic package encoding and decoding
       - load a Tinos package through the shared API and require automatic digest registration feature delivery font-derived layout outline-backed pixels lossless fidelity and repeated snapshot equality
       - archive target/font-resources-report.json from cargo xtask gate-i-font
+  - id: nuif:experiment:variable-font-metadata-baseline
+    status: automated
+    evidence: [nuif:research:opentype-font-embedding-and-portability, nuif:research:fontations, nuif:research:harfbuzz-unicode]
+    implementation: [crates/nuif-font/src/lib.rs, crates/nuif-font/VARIABLE-PROFILE.md, crates/nuif-testing/src/bin/variable-font-metadata.rs, conformance/font/harfbuzz-14.4.0-material-symbols-variable.json, tools/font/capture_harfbuzz_variable.py, xtask/src/main.rs]
+    oracle: cross-implementation-metadata-and-normalization
+    acceptance:
+      - the bounded NUIF parser Skrifa and pinned HarfBuzz 14.4.0 capture agree on ordered axes ranges flags names and named-instance count
+      - NUIF Skrifa and HarfBuzz agree exactly on final 2.14 vectors at default minimum maximum and two interior locations including non-identity avar remapping
+      - metadata evidence remains explicitly separate from package shaping outline metric rendering and redistribution claims
+    tests:
+      - preflight a single-face TrueType variable sfnt and bound fvar 1.0 axes instances plus avar 1.0 segment maps
+      - require a finite in-range complete axis tuple and reject missing unknown or non-finite coordinates
+      - reject static CFF2 color-variable and nonzero-face inputs rather than broadening the candidate profile
+      - archive target/variable-font-metadata-report.json from cargo xtask gate-i-font-metadata
   - id: nuif:experiment:font-resource-profile
     status: planned
     evidence: [nuif:research:opentype-font-embedding-and-portability, nuif:research:text-rendering-reproducibility]
@@ -700,10 +714,10 @@ experiments:
     continuation:
       class: profile-design
       blocked_by:
-        - RFC 0013 fixes the variable-TrueType boundary but parser shaping outline and metric limits still require executable two-oracle evidence before promotion
+        - RFC 0013 metadata and coordinate normalization now have a bounded HarfBuzz/Skrifa gate but shaping outline metric variation-table and allocation limits still require executable two-oracle evidence before promotion
         - collection CFF/CFF2 COLR bitmap SVG-glyph and WOFF2 support remain separate capabilities with format-specific bounds and oracles
         - redistribution subsetting and derived-instance policy cannot be inferred from fsType and requires publisher-supplied license evidence plus rights-reviewed fixtures
-      next_action: Implement RFC 0013 metadata and coordinate-normalization trials against rights-cleared variable fixtures and pinned HarfBuzz output before adding shaping outlines or package acceptance.
+      next_action: Add a rights-reviewed multi-fixture RFC 0013 shaping oracle at default boundary named and interior coordinates including FeatureVariations before changing package acceptance or runtime outlines.
     acceptance:
       - font bytes face index axes features coverage and shaping inputs are content-addressed and independently decoded
       - portable private-authoring linked substituted and unavailable policies produce distinct validated outcomes

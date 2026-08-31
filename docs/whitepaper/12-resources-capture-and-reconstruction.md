@@ -32,7 +32,8 @@ The recommended direction is:
 RFC 0010, RFC 0011 and the variable-TrueType proposal in RFC 0013 remain
 proposed contracts. Their bounded package, narrow PNG/static-font and
 capture/reconstruction experiments are implementation evidence only for the
-named subsets; RFC 0013 has no executable profile yet. None is a published
+named subsets; RFC 0013 has a metadata/normalization gate but no executable
+package or runtime profile yet. None is a published
 conformance or standards claim.
 
 ## One core, two import lanes
@@ -225,8 +226,12 @@ extracts unhinted Skrifa outlines and produces deterministic CPU pixels. Six
 blocking runtime trials cover those facts plus lossless fidelity and repeated
 snapshot equality.
 
-This is intentionally not general OpenType support. TTC, CFF/CFF2, variable,
-color, bitmap, SVG and WOFF/WOFF2 sources, historic ambiguous permission
+The first RFC 0013 milestone separately checks variable TrueType `fvar`/`avar`
+metadata and five final coordinate vectors against a pinned HarfBuzz capture.
+It does not alter package or runtime acceptance.
+
+This is intentionally not general OpenType support. TTC, CFF/CFF2, variable
+package/runtime, color, bitmap, SVG and WOFF/WOFF2 sources, historic ambiguous permission
 combinations, subsetting, cluster-level fallback and cross-platform raster
 behavior remain separate fixtures and profiles. Collections,
 variable-TrueType, CFF/CFF2, COLR-vector, bitmap/SVG-glyph and WOFF2 transport

@@ -164,6 +164,12 @@ required. Six item-level trials separate requested, substituted and unavailable
 text/font identities through layout and rendering. Six static runtime trials
 add non-Ahem exact-resource shaping, global feature delivery, layout, outlines,
 CPU pixels and deterministic repetition without implying broader font support.
+The separate `cargo xtask gate-i-font-metadata` milestone now compares four
+ordered variable axes, seven named instances and five final normalized vectors
+across NUIF/Skrifa and a pinned HarfBuzz 14.4.0 public-C-API capture. It bounds
+`fvar` 1.0 and `avar` 1.0 metadata and rejects incomplete, unknown, non-finite
+and out-of-range coordinate tuples. It does not enable variable package,
+shaping, metric, outline or rendering behavior.
 Four accepted-font
 inspections and packaged validation now carry warmed 4 MiB allocated/2 MiB
 retained regression ceilings. Package-to-session handoff shares an 8 MiB buffer

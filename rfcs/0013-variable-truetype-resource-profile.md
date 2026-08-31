@@ -6,9 +6,10 @@ status: proposed
 
 # RFC 0013 — Variable TrueType resource profile
 
-Status: proposed research contract. No implementation or conformance claim is
-made by this RFC. `nuif-opentype-static-single-0` remains the only executable
-font-resource profile.
+Status: proposed research contract. Its metadata and coordinate-normalization
+stage has executable evidence, but no package, shaping, outline, metric,
+rendering, or conformance-profile claim is made. `nuif-opentype-static-single-0`
+remains the only executable font-resource profile.
 
 ## Motivation
 
@@ -169,6 +170,13 @@ outside this profile. Parser budgets do not replace process cancellation,
 sandboxing or host quotas.
 
 ## Conformance experiment
+
+The first promotion prerequisite is now automated by
+`cargo xtask gate-i-font-metadata`: one bounded four-axis TrueType fixture is
+decoded by the NUIF path and Skrifa, while a committed HarfBuzz 14.4.0 C-API
+capture independently checks axis metadata, named-instance count, and five
+final normalized vectors including non-identity `avar` results. This is a
+single-fixture metadata milestone, not completion of the experiment below.
 
 Promotion from proposed to experimental requires all of the following:
 

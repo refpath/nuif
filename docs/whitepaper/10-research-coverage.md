@@ -49,7 +49,10 @@ This distinction is important: marking an open research problem as finished woul
 - OpenType and Fontations evidence now supports one executable static TrueType
   package baseline with a pinned HarfBuzz metadata oracle. The retired
   `ttf-parser` decision remains documented; broad font formats, portability
-  outcomes and shaping/raster integration remain experiment-required. Warmed
+  outcomes and shaping/raster integration remain experiment-required. A
+  separate metadata-only RFC 0013 gate bounds four variable axes and agrees
+  with a HarfBuzz capture at five normalized locations without admitting the
+  font into packages or rendering. Warmed
   parser and packaged-validation allocation ceilings cover every accepted
   fixture.
 - Browser source capture and screenshot reconstruction are different evidence

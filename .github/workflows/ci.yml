@@ -196,6 +196,7 @@ jobs:
             target/package-foreign-oracle-report.json
             target/image-resources-report.json
             target/font-resources-report.json
+            target/variable-font-metadata-report.json
       - name: Upload live browser capture evidence
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
@@ -444,6 +445,7 @@ jobs:
           cargo xtask gate-i-package
           cargo xtask gate-i-image
           cargo xtask gate-i-font
+          cargo xtask gate-i-font-metadata
       - name: Upload platform resource evidence
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
@@ -454,6 +456,7 @@ jobs:
             target/package-resources-report.json
             target/image-resources-report.json
             target/font-resources-report.json
+            target/variable-font-metadata-report.json
 
   accessibility:
     name: web host browser oracles

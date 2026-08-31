@@ -39,6 +39,10 @@ through `cargo xtask gate-i-font`. This is not full Gate I: broader PNG and
 OpenType interpretation plus cross-platform/external package and media evidence
 remain incomplete.
 
+`cargo xtask gate-i-font-metadata` is research evidence for RFC 0013 axis
+decoding and coordinate normalization only. It does not make variable fonts a
+package resource profile.
+
 ## Numeric and string rules (RFC 0005)
 
 - Numeric kinds are `integer` (signed 64-bit) and `real` (binary64). Authored reals MUST be finite. Negative zero is not distinct from zero.

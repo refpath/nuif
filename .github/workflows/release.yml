@@ -74,6 +74,7 @@ jobs:
             target/package-resources-report.json
             target/image-resources-report.json
             target/font-resources-report.json
+            target/variable-font-metadata-report.json
             target/capture-reconstruction-report.json
             target/reconstruction-provider-manifest-report.json
             target/reconstruction-corpus-audit-report.json

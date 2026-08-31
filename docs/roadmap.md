@@ -66,7 +66,9 @@ requested, replacement and unavailable identities with six blocking fidelity
 trials; six more trials cover the exact static runtime path.
 Proposed RFC 0013 decomposes the next variable-TrueType profile around one
 complete coordinate tuple and shared normalization for shaping, metrics and
-outlines; it is research text, not implemented capability.
+outlines. Its first metadata-only gate now bounds `fvar`/`avar` and matches five
+coordinate vectors with pinned HarfBuzz 14.4.0 output. Variable package,
+shaping, metrics, outlines and rendering remain unimplemented capabilities.
 
 ## Phase 5 — editor (complete for the headless profile-0 instrument)
 The entire v0 fixture is authored from an empty document through identity-addressed semantic actions. Direct generation, editor output and operation replay are byte-identical, and the editor writes canonical document, context, layout, scene, CPU raster and fidelity report artifacts. The Rust-native Masonry shell from ADR 0006 and the later Svelte/WASM demonstration are non-normative interface work and cannot redefine this headless result.

@@ -160,7 +160,13 @@ until its checkpoint/position contract is versioned and independently tested.
 5. Keep the tested Masonry shell attached only through the editor driver boundary; extend the implemented one-transaction freeform move, eight-handle freeform resize, trailing managed resize, Shift-proportional corner gesture and resolved-axis Stack/Flex reorder only when a tested semantic operation exists. Cross-parent/tree drag and Grid/Constraint reorder remain separate design work.
 6. Treat soft wrapping, gradients, strokes, paths, images and instance materialization as a separately versioned expanded profile; do not weaken profile-0 exactness to add them.
 7. Keep `cargo xtask gate-i-package` green across CLI/editor/package changes; the Python archive oracle now provides recorded external-container evidence, while a cross-platform semantic writer and second canonical-CBOR implementation remain required before accepting the wire profile.
-8. Extend the narrow PNG and static TrueType baselines only through new declared fixtures, add cross-platform media reproduction, and complete the broader OpenType format/policy matrix with calibrated allocation/time budgets; do not expand profile 0 by fallback.
+8. Keep the variable-font metadata/normalization gate separate from package
+   acceptance; next add a rights-reviewed multi-fixture HarfBuzz shaping oracle
+   with FeatureVariations, then prove location-coherent metrics and outlines.
+   Extend the narrow PNG and static TrueType baselines only through new declared
+   fixtures, add cross-platform media reproduction, and complete the broader
+   OpenType format/policy matrix with calibrated allocation/time budgets; do
+   not expand profile 0 by fallback.
 9. Extend the passing local live-browser segment to cross-OS reproduction, opaque/cross-origin cases, matched-style/source correlation and licensed real pages before defining a portable browser-capture profile; keep WebDriver BiDi as the standards-track transport watch path.
 10. Freeze the reconstruction corpus and evaluator, then compare deterministic OCR/CV, one-shot, observation-assisted, hierarchical and corrective-loop baselines through the existing typed boundary.
 11. Train or distill only if the frozen evaluation demonstrates a learnable gap and rights-cleared validated traces exist.
