@@ -164,12 +164,20 @@
     {
       "id": "canva",
       "surface": "Canva Apps SDK Design Editing API; Connect APIs as a separate OAuth workflow",
-      "status": "external_runtime",
+      "status": "integrated",
       "research": "canva-apps-and-connect-adoption",
-      "directions": [],
-      "profiles": [],
-      "next_profile": "the stable current-page snapshot and one-sync mutation mapping in adapters/canva/PROFILE-DRAFT.md",
-      "boundary": "Only documented stable supported element types on one fixed page are candidates; preview APIs, Canva Docs, native NUIF Connect import/export and marketplace approval are not claimed."
+      "directions": ["import", "export"],
+      "profiles": [
+        {
+          "name": "nuif-canva-design-editing-0",
+          "directions": ["import", "export"],
+          "crate": "crates/nuif-canva",
+          "profile": "adapters/canva/PROFILE-DRAFT.md",
+          "gate": "gate-canva"
+        }
+      ],
+      "next_profile": "a reviewed Apps SDK current-page sync shell with one-sync/one-undo evidence in a named Canva runtime",
+      "boundary": "The executable claim covers pure normalized mapping only; live host mutation, undo, session expiry, marketplace approval, Connect API workflows and native NUIF file support remain unclaimed."
     },
     {
       "id": "swiftui",

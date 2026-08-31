@@ -165,11 +165,11 @@ until its checkpoint/position contract is versioned and independently tested.
 10. Freeze the reconstruction corpus and evaluator, then compare deterministic OCR/CV, one-shot, observation-assisted, hierarchical and corrective-loop baselines through the existing typed boundary.
 11. Train or distill only if the frozen evaluation demonstrates a learnable gap and rights-cleared validated traces exist.
 12. Maintain the credential-free Penpot package profile under its shared ZIP resource-limit, foreign-producer and unknown-member-retention gate; defer the compact representation until upstream stability and a second fixture.
-13. Run the bounded Figma profile in a named live host; run the Affinity SVG
-    bridge as a retained user-mediated foreign-runtime trial; and implement the
-    pure stable-API Canva current-page mapper before building its review shell.
-    Retain host reports and never infer live behavior, marketplace approval or
-    native NUIF support from API documentation.
+13. Run the bounded Figma and Canva profiles in named live hosts; run the
+    Affinity SVG bridge as a retained user-mediated foreign-runtime trial; and
+    build the smallest reviewed Canva Apps SDK sync shell only after the pure
+    mapper remains green. Retain host reports and never infer live behavior,
+    marketplace approval or native NUIF support from API documentation.
 14. Keep `nuif-api::NuifDocument` as the single direct SDK façade. The
     experimental `nuif-ffi-0` header/handle boundary is now locally checked;
     require semantic-API promotion, stable errors/ownership, sanitizer-backed

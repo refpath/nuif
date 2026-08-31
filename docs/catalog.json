@@ -121,6 +121,7 @@
         "crates/nuif-cli/README.md",
         "crates/nuif-mcp/README.md",
         "crates/nuif-wasm/README.md",
+        "crates/nuif-canva/README.md",
         "fuzz/README.md",
         "implementations/python/README.md",
         "tools/refpath/README.md",

@@ -4,7 +4,7 @@ The adapter program separates an ecosystem's public interchange or source
 surface from the subset for which NUIF can provide executable round-trip laws.
 Research coverage does not imply an implemented conformance profile.
 
-The inventory contains twelve targets and ten executable profiles across
+The inventory contains twelve targets and eleven executable profiles across
 seven target families. The remaining targets have no executable direction in
 `adapters/index.json`.
 
@@ -22,7 +22,7 @@ gate references and writes `target/adapter-coverage-report.json`.
 | Penpot | `.penpot` v3 ZIP and JSON package | `nuif-penpot-v3-0` | Add compact pages only after the opt-in representation stabilizes | Components, libraries, interactions, media, paths, layout and compact pages are excluded |
 | Figma | Normalized Plugin API snapshot/plan plus writable host | `nuif-figma-plugin-snapshot-0` mapping and compiled no-network review shell; no live host run | Assigned-ID reviewer run and live fixtures in `adapters/figma/PROFILE-DRAFT.md` | `.fig` is not a public contract; static evidence does not prove host writes, undo or persistence |
 | Affinity | User-mediated SVG import/export in the desktop application | Research and existing `nuif-svg-0` bridge only; no live Affinity trial | Retained two-way SVG trial in `adapters/affinity/PROFILE-DRAFT.md` | No public document API or native `.af*` schema is claimed; native files are opaque and UI automation is non-conformant |
-| Canva | Apps SDK Design Editing API; Connect APIs are a separate OAuth workflow | Research and host report contract only; no reviewed app or live host run | Stable one-page snapshot and one-sync mutation mapping in `adapters/canva/PROFILE-DRAFT.md` | Current-page fixed documents and documented supported elements only; preview APIs, Docs, native NUIF Connect I/O and marketplace approval are excluded |
+| Canva | Apps SDK Design Editing API; Connect APIs are a separate OAuth workflow | `nuif-canva-design-editing-0` pure normalized mapper and CLI/gate evidence; no reviewed app or live host run | Reviewed Apps SDK current-page sync shell with one-sync/one-undo evidence in `adapters/canva/PROFILE-DRAFT.md` | Current-page fixed documents and documented supported elements only; live mutation, preview APIs, Docs, native NUIF Connect I/O and marketplace approval are excluded |
 | SwiftUI | Swift source and proposal–response layout runtime | Research complete; no implementation | Generated stack/text/shape subset with a pinned Apple toolchain | Arbitrary Swift and custom layouts are executable programs |
 | Jetpack Compose | Kotlin source and constraint layout runtime | Research complete; no implementation | Generated row/column/text/shape subset with a pinned Android toolchain | Arbitrary Kotlin, state, modifier chains and subcomposition are executable programs |
 | Flutter | Dart source and box-constraint runtime | Research complete; no implementation | Generated row/column/text/shape subset with a pinned Flutter toolchain | Arbitrary Dart, state, inherited widgets and custom render objects are executable programs |
@@ -39,8 +39,11 @@ uncertified. Affinity has a bounded interchange draft over the existing SVG
 profile; Canva has a bounded API-host draft and the shared `HostAdapterReport`
 envelope. Neither has live-host evidence yet.
 
-React and Svelte now use the common byte-span correspondence contract for one
-marked static subtree. Svelte additionally compiles direct and CLI output with
+Canva now has a pure normalized current-page mapper with deterministic
+round-trip IDs, typed unsupported-property fidelity and strict resource limits;
+the gate deliberately records live host execution as not run. React and Svelte
+now use the common byte-span correspondence contract for one marked static
+subtree. Svelte additionally compiles direct and CLI output with
 the exact official compiler. Native declarative UI targets begin as one-way lowerings with
 foreign-runtime layout and screenshot comparisons. Bidirectional claims remain
 out of scope until a static, profile-owned source subset has exact import and

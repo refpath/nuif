@@ -62,12 +62,15 @@ It covers a deliberately narrow visible/opaque fixed-size subset, repairs
 portable identity deterministically and reports every declared Figma-only
 property. The shell is static evidence, not a live Figma claim.
 
-The remaining researched or externally bounded targets are Affinity, Canva,
+Canva now has the credential-free [`nuif-canva-design-editing-0`](canva/PROFILE-DRAFT.md)
+normalized current-page mapper and CLI/gate evidence. Its pure mapping is
+executable, while live Apps SDK mutation, undo and marketplace evidence remain
+external. The remaining researched or externally bounded targets are Affinity,
 Flutter, SwiftUI and Jetpack Compose. Figma and Canva retain bounded API-host
-draft profiles and a serializable host-object correspondence report; Affinity
-has a separate user-mediated SVG bridge draft. None has a corresponding live
-host claim. Broader HTML/CSS, SVG and DTCG profiles remain
-separate future work beyond the ten executable profiles. Each adapter must
+adapters and serializable host-object correspondence reports; Affinity has a
+separate user-mediated SVG bridge draft. None has a corresponding live host
+claim. Broader HTML/CSS, SVG and DTCG profiles remain
+separate future work beyond the eleven executable profiles. Each adapter must
 emit structured fidelity diagnostics and record provenance/correspondence
 sufficient for later synchronization and minimal source patches where feasible.
 

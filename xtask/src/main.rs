@@ -43,6 +43,7 @@ const ALL_STEPS: &[Step] = &[
     ("gate-react", gate_react),
     ("gate-svelte", gate_svelte),
     ("gate-figma", gate_figma),
+    ("gate-canva", gate_canva),
     ("gate-behavior", gate_behavior),
     ("gate-g", gate_g),
     ("gate-h", gate_h),
@@ -119,6 +120,7 @@ const VERIFICATION_ARTIFACTS: &[&str] = &[
     "target/svelte-sync-cli-output.svelte",
     "target/svelte-compiler-oracle-report.json",
     "target/figma-snapshot-report.json",
+    "target/canva-current-page-report.json",
     "target/figma-plugin-shell-report.json",
     "target/figma-plugin-fixture-snapshot.json",
     "target/figma-plugin-fixture.nuif.json",
@@ -206,6 +208,7 @@ fn run() -> Result<(), String> {
         Some("gate-react") => gate_react(),
         Some("gate-svelte") => gate_svelte(),
         Some("gate-figma") => gate_figma(),
+        Some("gate-canva") => gate_canva(),
         Some("gate-behavior") => gate_behavior(),
         Some("gate-behavior-package") => gate_behavior_package(),
         Some("gate-web-behavior") => gate_web_behavior(),
@@ -260,7 +263,7 @@ fn run() -> Result<(), String> {
         Some("manifest") => standalone_manifest(),
         Some("all") => all(),
         _ => Err(
-            "usage: cargo xtask <research|workflow-audit|adapter-audit|dependency-audit|diagnostic-audit|docs-check|docs-build|docs-paper|docs-serve|docs-setup|verify|trial [seed iterations snapshot-interval report-path]|gate-b|gate-c|gate-d|gate-d-text|gate-d-render|gate-f|gate-f-v0|gate-svg|gate-dtcg|gate-penpot|gate-react|gate-svelte|gate-figma|gate-behavior|gate-behavior-package|gate-web-behavior|gate-web-hosts|gate-wasm|gate-mcp|gate-ffi|gate-g|gate-h|gate-i-package|gate-i-image|gate-i-font|gate-j-live|gate-accessibility|capture-baselines|reconstruction-provider-manifest|reconstruction-corpus-audit|reconstruction-evaluation|confidence-calibration|browser-install|wasm-install|wasm-package|mcp-package|cli-package|hostile-inputs|reduction-profile|editor-hostile-inputs|fuzz-smoke|codec-benchmark|performance|editor-trial|editor-gui-trial|editor-install-trial|editor-package|editor-launch|editor-install|editor-doctor|editor-rollback|editor-uninstall|editor-update|release-check <tag>|manifest|all>"
+            "usage: cargo xtask <research|workflow-audit|adapter-audit|dependency-audit|diagnostic-audit|docs-check|docs-build|docs-paper|docs-serve|docs-setup|verify|trial [seed iterations snapshot-interval report-path]|gate-b|gate-c|gate-d|gate-d-text|gate-d-render|gate-f|gate-f-v0|gate-svg|gate-dtcg|gate-penpot|gate-react|gate-svelte|gate-figma|gate-canva|gate-behavior|gate-behavior-package|gate-web-behavior|gate-web-hosts|gate-wasm|gate-mcp|gate-ffi|gate-g|gate-h|gate-i-package|gate-i-image|gate-i-font|gate-j-live|gate-accessibility|capture-baselines|reconstruction-provider-manifest|reconstruction-corpus-audit|reconstruction-evaluation|confidence-calibration|browser-install|wasm-install|wasm-package|mcp-package|cli-package|hostile-inputs|reduction-profile|editor-hostile-inputs|fuzz-smoke|codec-benchmark|performance|editor-trial|editor-gui-trial|editor-install-trial|editor-package|editor-launch|editor-install|editor-doctor|editor-rollback|editor-uninstall|editor-update|release-check <tag>|manifest|all>"
                 .to_owned(),
         ),
     }
@@ -2214,6 +2217,28 @@ fn gate_figma() -> Result<(), String> {
             directory.display()
         )
     })
+}
+
+fn gate_canva() -> Result<(), String> {
+    cargo(&[
+        "run",
+        "--release",
+        "--locked",
+        "-p",
+        "nuif-canva",
+        "--bin",
+        "canva-current-page-profile",
+        "--",
+        "target/canva-current-page-report.json",
+    ])?;
+    let report = read_json(Path::new("target/canva-current-page-report.json"))?;
+    if report["status"] != "passed"
+        || report["profile"] != "nuif-canva-design-editing-0"
+        || report["live_host"]["required_before_vendor_integration_claim"] != true
+    {
+        return Err("Canva current-page profile report failed its assertions".to_owned());
+    }
+    Ok(())
 }
 
 fn gate_figma_plugin_shell(rust_plan: &Path) -> Result<(), String> {

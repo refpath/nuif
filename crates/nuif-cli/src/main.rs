@@ -1,4 +1,8 @@
 use nuif_api::{Engine, ReferenceEngine, Session, profile_zero_context};
+use nuif_canva::{
+    AdapterError as CanvaAdapterError, export_page as export_canva_page,
+    import_current_page as import_canva_page,
+};
 use nuif_capture::{
     BrowserCapture, OcrSpan, SCREENSHOT_CAPTURE_PROFILE, ScreenshotCapture, Viewport,
     analyze_screenshot, normalize_browser_capture, screenshot_baseline_provider_manifest,
@@ -435,6 +439,14 @@ fn import(args: &[String]) -> Result<(), CliError> {
     {
         return import_dtcg(args);
     }
+    if args.first().is_some_and(|argument| {
+        matches!(
+            argument.as_str(),
+            "canva-design-editing-0" | "nuif-canva-design-editing-0"
+        )
+    }) {
+        return import_canva(args);
+    }
     if args
         .first()
         .is_some_and(|argument| matches!(argument.as_str(), "penpot-v3-0" | "nuif-penpot-v3-0"))
@@ -527,6 +539,9 @@ fn export(args: &[String]) -> Result<(), CliError> {
             };
             write_output(output, exported.source.as_bytes())?;
             emit_adapter_report(&exported.report, report_path)
+        }
+        "canva-design-editing-0" | "nuif-canva-design-editing-0" => {
+            export_canva(&document, output, report_path)
         }
         "penpot-v3-0" | "nuif-penpot-v3-0" => {
             let exported = match export_penpot_document(&document) {
@@ -675,6 +690,35 @@ fn import_figma(args: &[String]) -> Result<(), CliError> {
     };
     write_document(output, &imported.document)?;
     emit_adapter_report(&imported.report, report_path)
+}
+
+fn import_canva(args: &[String]) -> Result<(), CliError> {
+    let input = required(args, 1, "normalized Canva current-page snapshot")?;
+    let output = args.get(2).map_or("-", String::as_str);
+    let report_path = args.get(3).map(String::as_str);
+    let imported = match import_canva_page(&read_input(input)?) {
+        Ok(imported) => imported,
+        Err(error) => return canva_adapter_failure(&error, report_path),
+    };
+    write_document(output, &imported.document)?;
+    emit_adapter_report(&imported.report, report_path)
+}
+
+fn export_canva(
+    document: &Document,
+    output: &str,
+    report_path: Option<&str>,
+) -> Result<(), CliError> {
+    let exported = match export_canva_page(document, "cli-review-plan") {
+        Ok(exported) => exported,
+        Err(error) => return canva_adapter_failure(&error, report_path),
+    };
+    write_output(
+        output,
+        &serde_json::to_vec_pretty(&exported.page)
+            .map_err(|error| CliError::new(1, "JSON_FAILED", error.to_string()))?,
+    )?;
+    emit_adapter_report(&exported.report, report_path)
 }
 
 fn sync(args: &[String]) -> Result<(), CliError> {
@@ -897,6 +941,16 @@ fn figma_adapter_failure<T>(
     report_path: Option<&str>,
 ) -> Result<T, CliError> {
     if let FigmaAdapterError::UnsupportedProfile { report, .. } = error {
+        emit_adapter_report(report.as_ref(), report_path)?;
+    }
+    Err(CliError::new(1, "ADAPTER_FAILED", error.to_string()))
+}
+
+fn canva_adapter_failure<T>(
+    error: &CanvaAdapterError,
+    report_path: Option<&str>,
+) -> Result<T, CliError> {
+    if let CanvaAdapterError::UnsupportedProfile { report, .. } = error {
         emit_adapter_report(report.as_ref(), report_path)?;
     }
     Err(CliError::new(1, "ADAPTER_FAILED", error.to_string()))
@@ -1177,6 +1231,7 @@ fn fixture(args: &[String]) -> Result<(), CliError> {
         "html-css-profile" => nuif_html::profile_fixture(),
         "svg-profile" => nuif_svg::profile_fixture(),
         "dtcg-profile" => nuif_dtcg::profile_fixture(),
+        "canva-profile" => nuif_canva::profile_fixture(),
         "penpot-profile" => nuif_penpot::profile_fixture(),
         "react-profile" => nuif_react::profile_fixture(),
         "svelte-profile" => nuif_svelte::profile_fixture(),
@@ -1198,7 +1253,7 @@ fn print_capabilities() -> Result<(), CliError> {
         "protocol": "0.0.1",
         "status": "executable",
         "commands": COMMANDS,
-        "adapters": ["html-css-0", "html-css-v0", "svg-0", "dtcg-scalar-0", "penpot-v3-0", "react-jsx-0", "svelte-static-0", "figma-plugin-snapshot-0"],
+        "adapters": ["html-css-0", "html-css-v0", "svg-0", "dtcg-scalar-0", "canva-design-editing-0", "penpot-v3-0", "react-jsx-0", "svelte-static-0", "figma-plugin-snapshot-0"],
         "containers": ["nuif-package-0", "nuif-cbor-0", "nuif-text-0"],
         "image_profiles": ["nuif-png-rgba8-0", "nuif-png-basic-rgba8-1"],
         "capture_profiles": ["nuif-browser-capture-0", "nuif-screenshot-baseline-0"],

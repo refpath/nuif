@@ -1,11 +1,13 @@
 # Draft Canva Design Editing profile 0
 
-Status: researched Apps SDK mapping specification; no reviewed Canva app or
+Status: executable pure normalized mapping profile; no reviewed Canva app or
 live-host conformance claim.
 
 Profile identifier: `nuif-canva-design-editing-0`.
 
 Primary evidence: `nuif:research:canva-apps-and-connect-adoption` and ADR 0012.
+Executable implementation: `crates/nuif-canva`; conformance gate:
+`cargo xtask gate-canva`.
 
 ## Host and scope
 
@@ -51,10 +53,10 @@ separate authenticated feature with explicit data disclosure.
 ## Correspondence and fidelity
 
 Stable Canva page identifiers and session object references are recorded in a
-`HostAdapterReport`. No persistence of a custom NUIF entity identifier is
-claimed until a generally available Canva metadata surface survives duplicate,
-reorder, close/reopen and copy trials. Missing or duplicate portable identity
-is repaired in the NUIF mapping and reported, never silently reused.
+  `HostAdapterReport`. The pure profile uses explicit `nuif-doc:`, `nuif-page:`
+  and `nuif:` round-trip markers for generated fixtures; real host IDs are
+  deterministically repaired and reported, never silently reused. Persistence
+  across duplicate, reorder, close/reopen and copy still requires live trials.
 
 Every supported property has a correspondence entry. Every unsupported Canva
 element or property produces item-level fidelity. Images represented as rect
