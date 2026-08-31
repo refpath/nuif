@@ -77,7 +77,9 @@ const VERIFICATION_ARTIFACTS: &[&str] = &[
     "target/documentation-report.json",
     "target/wasm-conformance-report.json",
     "target/ffi-header-report.json",
+    "target/ffi-symbol-report.json",
     "target/ffi-variable-font-report.json",
+    "target/ffi-variable-font-sanitized-report.json",
     "target/nuif-wasm-web",
     "target/mcp-conformance-report.json",
     "target/gate-b-report.json",
@@ -1446,9 +1448,11 @@ fn gate_ffi() -> Result<(), String> {
     let variable_font_snapshot = Path::new("target/ffi-variable-font-snapshot");
     let expected_report = variable_font_snapshot.join("expected.report.json");
     let ffi_report = Path::new("target/ffi-variable-font-report.json");
+    let sanitized_report = Path::new("target/ffi-variable-font-sanitized-report.json");
     generate_variable_font_snapshot(variable_font_package, variable_font_snapshot)?;
     cargo(&["test", "--locked", "-p", "nuif-ffi"])?;
     cargo(&["build", "--release", "--locked", "-p", "nuif-ffi"])?;
+    let symbols = ffi_symbol_audit()?;
     command(
         "cc",
         &[
@@ -1461,41 +1465,31 @@ fn gate_ffi() -> Result<(), String> {
             "tools/ffi/header-smoke.c",
         ],
     )?;
-    let runtime_smoke = Path::new("target/ffi-runtime-smoke");
-    let runtime_status = if cfg!(windows) {
-        "not-run-on-windows"
-    } else {
-        let rpath = if cfg!(target_os = "macos") {
-            "-Wl,-rpath,@loader_path/../release"
-        } else {
-            "-Wl,-rpath,$ORIGIN/release"
-        };
-        command(
-            "cc",
-            &[
-                "-std=c11",
-                "-Wall",
-                "-Wextra",
-                "-Werror",
-                "-I.",
-                "tools/ffi/runtime-smoke.c",
-                "-Ltarget/release",
-                "-lnuif_ffi",
-                rpath,
-                "-o",
-                "target/ffi-runtime-smoke",
-            ],
-        )?;
-        command(
-            path(runtime_smoke)?,
-            &[path(variable_font_package)?, path(ffi_report)?],
-        )?;
-        "passed"
-    };
-    let variable_font =
-        ffi_variable_font_evidence(variable_font_package, &expected_report, ffi_report)?;
-    let passed =
-        runtime_status != "failed" && (cfg!(windows) || variable_font["status"] == "passed");
+    command(
+        "c++",
+        &[
+            "-std=c++17",
+            "-Wall",
+            "-Wextra",
+            "-Werror",
+            "-pedantic",
+            "-fsyntax-only",
+            "-I.",
+            "tools/ffi/header-smoke.cpp",
+        ],
+    )?;
+    let (runtime_status, sanitizer_status) =
+        run_ffi_runtime_consumers(variable_font_package, ffi_report, sanitized_report)?;
+    let variable_font = ffi_variable_font_evidence(
+        variable_font_package,
+        &expected_report,
+        ffi_report,
+        sanitized_report,
+    )?;
+    let passed = symbols["status"] == "passed"
+        && runtime_status != "failed"
+        && sanitizer_status != "failed"
+        && (cfg!(windows) || variable_font["status"] == "passed");
     fs::create_dir_all("target").map_err(|error| error.to_string())?;
     let report = serde_json::json!({
         "schema_version": 1,
@@ -1503,9 +1497,12 @@ fn gate_ffi() -> Result<(), String> {
         "profile": "nuif-ffi-0",
         "header": "bindings/nuif_ffi.h",
         "consumer": "tools/ffi/header-smoke.c",
+        "cplusplus_consumer": "tools/ffi/header-smoke.cpp",
         "runtime_consumer": "tools/ffi/runtime-smoke.c",
         "runtime_status": runtime_status,
-        "mode": "header syntax and POSIX release-library package/snapshot parity; no stable ABI claim",
+        "sanitizer_status": sanitizer_status,
+        "symbols": symbols,
+        "mode": "C/C++ header syntax, exported-symbol baseline and POSIX release-library package/snapshot parity with an ASan/UBSan C consumer; no stable ABI claim",
         "variable_font": variable_font,
         "source": {
             "revision": command_text("git", &["rev-parse", "HEAD"]),
@@ -1529,6 +1526,7 @@ fn ffi_variable_font_evidence(
     package: &Path,
     expected_report: &Path,
     ffi_report: &Path,
+    sanitized_report: &Path,
 ) -> Result<serde_json::Value, String> {
     if cfg!(windows) {
         return Ok(serde_json::json!({
@@ -1538,6 +1536,7 @@ fn ffi_variable_font_evidence(
     }
     let expected = read_json(expected_report)?;
     let observed = read_json(ffi_report)?;
+    let sanitized = read_json(sanitized_report)?;
     let coordinates = observed["scene"]["commands"]
         .as_array()
         .and_then(|commands| {
@@ -1549,13 +1548,135 @@ fn ffi_variable_font_evidence(
         })
         .ok_or("FFI snapshot omitted variable-font coordinates")?;
     Ok(serde_json::json!({
-        "status": if observed == expected { "passed" } else { "failed" },
-        "matches_cli": observed == expected,
+        "status": if observed == expected && sanitized == expected { "passed" } else { "failed" },
+        "matches_cli": observed == expected && sanitized == expected,
+        "release_matches_cli": observed == expected,
+        "sanitized_matches_cli": sanitized == expected,
         "package_bytes": fs::metadata(package).map_err(|error| error.to_string())?.len(),
         "canonical_hash": observed["canonical_hash"],
         "coordinates": coordinates,
         "raster_sha256": observed["raster"]["rgba_sha256"],
         "report": ffi_report,
+        "sanitized_report": sanitized_report,
+    }))
+}
+
+fn run_ffi_runtime_consumers(
+    package: &Path,
+    report: &Path,
+    sanitized_report: &Path,
+) -> Result<(&'static str, &'static str), String> {
+    if cfg!(windows) {
+        return Ok(("not-run-on-windows", "not-run-on-windows"));
+    }
+    let rpath = if cfg!(target_os = "macos") {
+        "-Wl,-rpath,@loader_path/../release"
+    } else {
+        "-Wl,-rpath,$ORIGIN/release"
+    };
+    let common = [
+        "-std=c11",
+        "-Wall",
+        "-Wextra",
+        "-Werror",
+        "-I.",
+        "tools/ffi/runtime-smoke.c",
+        "-Ltarget/release",
+        "-lnuif_ffi",
+        rpath,
+    ];
+    let mut release_arguments = common.to_vec();
+    release_arguments.extend(["-o", "target/ffi-runtime-smoke"]);
+    command("cc", &release_arguments)?;
+    command(
+        path(Path::new("target/ffi-runtime-smoke"))?,
+        &[path(package)?, path(report)?],
+    )?;
+
+    let mut sanitized_arguments = common.to_vec();
+    sanitized_arguments.extend([
+        "-fsanitize=address,undefined",
+        "-fno-omit-frame-pointer",
+        "-o",
+        "target/ffi-runtime-smoke-sanitized",
+    ]);
+    command("cc", &sanitized_arguments)?;
+    let status = Command::new("target/ffi-runtime-smoke-sanitized")
+        .args([package, sanitized_report])
+        .env("ASAN_OPTIONS", "halt_on_error=1")
+        .env("UBSAN_OPTIONS", "halt_on_error=1")
+        .status()
+        .map_err(|error| format!("could not execute sanitized C consumer: {error}"))?;
+    if !status.success() {
+        return Err(format!("sanitized C consumer failed with {status}"));
+    }
+    Ok(("passed", "passed"))
+}
+
+fn ffi_symbol_audit() -> Result<serde_json::Value, String> {
+    let expected = fs::read_to_string("bindings/nuif_ffi.symbols")
+        .map_err(|error| error.to_string())?
+        .lines()
+        .filter(|line| !line.is_empty())
+        .map(str::to_owned)
+        .collect::<BTreeSet<_>>();
+    let report = if cfg!(windows) {
+        serde_json::json!({
+            "schema_version": 1,
+            "status": "passed",
+            "runtime_status": "not-run-on-windows",
+            "baseline": "bindings/nuif_ffi.symbols",
+            "expected": expected,
+        })
+    } else {
+        ffi_posix_symbol_report(&expected)?
+    };
+    fs::write(
+        "target/ffi-symbol-report.json",
+        serde_json::to_vec_pretty(&report).map_err(|error| error.to_string())?,
+    )
+    .map_err(|error| error.to_string())?;
+    Ok(report)
+}
+
+fn ffi_posix_symbol_report(expected: &BTreeSet<String>) -> Result<serde_json::Value, String> {
+    let library = if cfg!(target_os = "macos") {
+        "target/release/libnuif_ffi.dylib"
+    } else {
+        "target/release/libnuif_ffi.so"
+    };
+    let arguments = if cfg!(target_os = "macos") {
+        vec!["-gU", library]
+    } else {
+        vec!["-D", "--defined-only", library]
+    };
+    let output = Command::new("nm")
+        .args(arguments)
+        .output()
+        .map_err(|error| format!("could not inspect FFI symbols: {error}"))?;
+    if !output.status.success() {
+        return Err(format!("nm failed with {}", output.status));
+    }
+    let observed = String::from_utf8(output.stdout)
+        .map_err(|error| error.to_string())?
+        .lines()
+        .filter_map(|line| line.split_whitespace().last())
+        .map(|symbol| symbol.strip_prefix('_').unwrap_or(symbol))
+        .filter(|symbol| symbol.starts_with("nuif_ffi_"))
+        .map(str::to_owned)
+        .collect::<BTreeSet<_>>();
+    let missing = expected.difference(&observed).cloned().collect::<Vec<_>>();
+    let unexpected = observed.difference(expected).cloned().collect::<Vec<_>>();
+    Ok(serde_json::json!({
+        "schema_version": 1,
+        "status": if missing.is_empty() && unexpected.is_empty() { "passed" } else { "failed" },
+        "runtime_status": "compared",
+        "baseline": "bindings/nuif_ffi.symbols",
+        "library": library,
+        "expected": expected,
+        "observed": observed,
+        "missing": missing,
+        "unexpected": unexpected,
     }))
 }
 
