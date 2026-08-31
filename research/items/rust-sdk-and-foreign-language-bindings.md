@@ -155,6 +155,10 @@ declarations from Rust; exact regeneration is a prerequisite of the same gate.
 Profile 0 permits breaking declarations only when implementation, header,
 symbol baseline, consumers and evidence change together. This is pre-stability
 evidence and an explicit review policy, not an ABI promise.
+On macOS the same gate imports that generated C header into Swift, calls the
+linked capability endpoint, checks the exact profile and releases the returned
+Rust buffer. This proves the low-level importer and ownership path only; it is
+not a UniFFI-generated semantic SDK or an XCFramework.
 
 ## NUIF relevance
 

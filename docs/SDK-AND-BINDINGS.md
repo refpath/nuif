@@ -124,9 +124,10 @@ UndefinedBehaviorSanitizer execution on POSIX.
 Release workflows additionally run `cargo xtask ffi-package` on each native
 matrix target. The resulting versioned archive contains the header,
 experimental symbol baseline, available static/shared library artifacts,
-normal/sanitized conformance reports, licenses and a manifest covering every
-payload file by SHA-256. It is a developer package for experiments, not a
-promise of ABI stability or a platform store distribution.
+normal/sanitized conformance reports, the cbindgen configuration, C/C++/Swift
+examples, licenses and a manifest covering every payload file by SHA-256. It is
+a developer package for experiments, not a promise of ABI stability or a
+platform store distribution.
 
 The committed header is generated from the Rust ABI declarations by pinned
 cbindgen 0.29.4 and `bindings/cbindgen.toml`. `cargo xtask ffi-header` performs
@@ -174,8 +175,10 @@ The promotion path is:
 The draft now declares single-thread-at-a-time access per handle while allowing
 independent handles and returned buffers on other threads. Promotion still
 requires a reviewed error-code registry, an API compatibility baseline,
-semantic consumer fixtures in C++/Swift/Kotlin, complete sanitizer evidence and
-release packages for their actual target triples. Until then,
+semantic generated consumer fixtures in Swift/Kotlin, broader C++ semantics,
+complete sanitizer evidence and release packages for their actual target
+triples. The current macOS Swift smoke proves C-header import, linking,
+capability JSON and allocator-matched release only. Until then,
 Swift or Kotlin desktop/mobile experiments should use the WASM package where
 their host embeds an appropriate runtime, or call a local CLI/process adapter;
 neither path is described as a native production binding.

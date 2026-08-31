@@ -170,9 +170,11 @@ POSIX. The versioned native archive includes this evidence and hashes every
 payload. No stable C ABI is claimed while the semantic API remains `0.0.x`.
 Pinned cbindgen 0.29.4 now regenerates the committed header, and the gate rejects
 declaration drift under the reviewed experimental compatibility policy. ADR
-0011 still requires a separately reviewed `nuif-ffi-1` contract, linked C++ and
-semantic C++ plus pinned UniFFI Swift/Kotlin consumers, full target-matrix sanitizer evidence and
-real XCFramework/AAR packages before that surface becomes stable. This is a
+0011 still requires a separately reviewed `nuif-ffi-1` contract, broader C++
+semantics plus pinned UniFFI Swift/Kotlin consumers, full target-matrix
+sanitizer evidence and real XCFramework/AAR packages before that surface
+becomes stable. The current macOS Swift importer checks the C profile and
+allocator boundary but is not a generated native SDK. This is a
 promotion gate, not missing logic that should be guessed into the core.
 
 ## Phase 5f — standalone developer CLI package (complete locally)

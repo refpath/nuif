@@ -279,8 +279,10 @@ cross-platform raster comparison as a separate hosted-evidence requirement.
 The C boundary additionally compiles as C11 and C++17, links and executes the
 C++17 consumer, compares its optimized exported symbols with
 `bindings/nuif_ffi.symbols`, and repeats the C package consumer under
-ASan/UBSan. Those checks harden an experimental profile; they do not declare
-source or ABI stability.
+ASan/UBSan. The macOS gate also imports the C header from Swift, checks the
+capability profile through the linked library and releases the Rust-owned
+buffer. Those checks harden an experimental profile; they do not declare source
+or ABI stability or provide a generated Swift SDK.
 
 The `resource-profiles` CI matrix executes twelve package, image, static-font
 and variable-font reports on Linux x86-64, Windows x86-64 and macOS arm64. Its

@@ -94,6 +94,8 @@ The native jobs also attach five `nuif-ffi-<version>-<os>-<architecture>` archiv
 and sibling manifests. Each contains `include/nuif_ffi.h`, the platform's
 static/shared library artifacts, `abi/nuif_ffi.symbols`, licenses and normal,
 symbol and sanitized ABI evidence when that host runs the POSIX consumer. The
+archive also carries the pinned cbindgen configuration and C/C++/Swift source
+examples; the macOS gate compiles, links and executes the Swift importer. The
 manifest hashes every payload file. These are experimental developer bundles
 only; the `nuif-ffi-0` header is not a stable ABI and no package-store or
 language-binding compatibility promise follows from its presence in a release.
