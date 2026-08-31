@@ -80,3 +80,29 @@ delivery and a 4,096-change scaling case. Pinned Automerge 3.4.1 must reproduce
 the exact immutable operation set through different merge orders and
 save/load. That foreign check covers convergent transport only; it is not an
 independent implementation of these tree semantics.
+
+## Executable concurrent-creation profile 0
+
+`nuif-collab-tree-create-0` is a separate bounded profile for concurrent
+creation of leaf entities under a parent already present in one canonical
+base. A creation change carries a dot, transitive version-vector context, a
+base parent (or the root), a `Start` or `After(base-entity)` anchor and one
+entity with an empty `children` list. The entity ID MUST not already exist in
+the base. The parent and anchor MUST resolve against the base; creation below
+a concurrently created parent is outside this profile.
+
+The materializer groups changes by entity ID. A group with more than one
+candidate produces `EntityIdCollision` containing every dot and selects the
+greatest dot provisionally. For selected, valid creations, positions sharing
+an anchor are ordered by descending dot and are placed around the unchanged
+base sibling list. The canonical checkpoint contains ordinary entities and
+child arrays only; dots, contexts and collision candidates remain profile
+metadata. The checkpoint MUST validate and hash as canonical NUIF.
+
+`cargo xtask gate-h` exhausts all 24 deliveries of the four-change fixture,
+checks merge convergence, same-anchor ordering, explicit ID-collision
+diagnostics, canonical metadata absence and typed failures for nested entities,
+unknown parents/anchors and incomplete causal history. This profile does not
+claim nested creation, deletion/resurrection, mixed property/structure
+transactions, causal garbage collection or an independently authored tree
+materializer.

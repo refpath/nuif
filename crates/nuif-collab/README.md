@@ -80,3 +80,22 @@ transport oracle only: it does not implement NUIF's tree move, cycle, trash or
 semantic-conflict rules. Concurrent creation, causally stable garbage
 collection, combined property/structure transactions and an independently
 authored tree materializer remain outside this profile.
+
+## Concurrent creation profile 0
+
+`nuif-collab-tree-create-0` is a deliberately smaller profile for creating
+leaf entities concurrently under a parent that already exists in one
+canonical base. It supports `Start` and `After(base-entity)` anchors. New
+positions sharing an anchor are ordered by descending `(counter, replica)`;
+the base sibling order is retained. Every accepted entity is inserted only
+after the resulting document validates, and creation metadata is removed from
+the canonical checkpoint.
+
+An entity ID collision is not silently discarded: the checkpoint reports every
+candidate and selects the greatest dot provisionally. Nested entities,
+creation below a concurrently created parent, deletion/resurrection and mixed
+property/structural transactions are rejected by the profile boundary. The
+four-change conformance fixture exhausts all 24 delivery orders, checks merge
+convergence and metadata absence, and exercises typed negative cases. This is
+an executable bounded profile, not a claim that general tree creation or
+causally stable garbage collection is solved.

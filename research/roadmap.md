@@ -73,12 +73,14 @@ mapping, bounded cross-version edit trial and two canonical writers; no
 schema-codec timing claim exists yet.
 
 `nuif:experiment:v0-responsive-card`, the bounded collaboration
-property-register checkpoint and the existing-tree structural checkpoint are
-complete under their declared acceptance. Structural move/reorder/delete/rescue
-preserves one-parent/acyclic invariants and stable sibling origins across all
-5,040 deliveries, while Automerge reproduces operation transport. The next
-collaboration falsifier is concurrent entity creation, followed by causally
-stable garbage collection, combined property/structure transactions and a
+property-register checkpoint, existing-tree structural checkpoint and
+concurrent-creation checkpoint are complete under their declared acceptance.
+Structural move/reorder/delete/rescue preserves one-parent/acyclic invariants
+and stable sibling origins across all 5,040 deliveries, while Automerge
+reproduces operation transport. The creation profile preserves base sibling
+order and reports duplicate IDs explicitly across all 24 deliveries. The next
+collaboration falsifiers are causally stable garbage collection, nested or
+concurrently-created parents, combined property/structure transactions and a
 foreign materializer of the tree algorithm itself.
 
 The package segment of `nuif:experiment:portable-package-resources` is active:
@@ -131,7 +133,7 @@ from that loop rather than a standing implementation commitment.
 
 1. Keep Gates B through H green with `cargo xtask all` and the separate nightly `cargo xtask fuzz-smoke`; reduce fuzz failures before committing them as named fixtures and retain all machine reports as CI artifacts.
 2. Implement the full Cap'n Proto candidate mapping only behind the codec admission preflight; compare it after canonical-writer, old-reader retention and hostile traversal tests pass. Keep the optimized typed CBOR decoder behind identical canonical-byte and hostile-input checks; investigate a streaming canonical validator only if profiling still justifies its added parser surface.
-3. Extend the executable existing-tree collaboration profile to concurrent creation, causal-stability garbage collection and combined property/structure transactions; obtain a foreign tree materializer rather than treating the completed Automerge transport oracle as one.
+3. Extend the bounded collaboration profiles to causal-stability garbage collection, nested or concurrently-created parents and combined property/structure transactions; obtain a foreign tree materializer rather than treating the completed Automerge transport oracle as one.
 4. Keep the implemented fixed/`fr`, sparse-flow, explicit-placement Grid subset
    exact; intrinsic, percentage, named, repeated, implicit, subgrid and masonry
    tracks require a separately versioned schema and foreign-oracle matrix.

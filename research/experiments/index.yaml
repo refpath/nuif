@@ -211,6 +211,21 @@ experiments:
       - prove clocks positions trash and tombstones are absent from canonical NUIF text
       - reject missing history duplicate identifiers unknown parents missing or noncausal change anchors and different-base merges
       - write and archive target/collaboration-structure-report.json and target/collaboration-automerge-report.json
+  - id: nuif:experiment:crdt-concurrent-creation
+    status: automated
+    evidence: [nuif:research:crdt-tree-move-operation, nuif:research:automerge-yjs, nuif:research:list-ordering-fractional-indexing-vs-list-crdts]
+    implementation: [crates/nuif-collab/src/creation.rs, conformance/src/bin/collaboration-creation.rs, crates/nuif-collab/README.md, spec/10-collaboration-profile.md, xtask/src/main.rs]
+    oracle: deterministic-operation-set
+    acceptance:
+      - concurrent leaf creations under one existing base parent converge for every delivery order
+      - same-anchor positions have a documented total order and base sibling order is preserved
+      - duplicate entity IDs remain explicit collision conflicts with a deterministic provisional winner
+      - canonical checkpoints validate and contain no replica, clock or profile metadata
+    tests:
+      - exhaust all 24 deliveries of the four-change creation fixture
+      - compare a partitioned operation-set merge with the complete checkpoint
+      - reject nested entities, unknown parents/anchors and incomplete causal history before mutation
+      - write and archive target/collaboration-creation-report.json
   - id: nuif:experiment:accessibility-mapping
     status: automated
     evidence: [nuif:research:accessibility-semantics]

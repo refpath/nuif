@@ -63,7 +63,7 @@ areas:
   collaboration_version_control:
     status: experiment-required
     evidence: [nuif:research:automerge-yjs, nuif:research:structured-merge, nuif:research:crdt-tree-move-operation, nuif:research:operational-transformation-vs-crdt, nuif:research:patch-theory-darcs-pijul, nuif:research:unity-prefabs-and-yaml-merge]
-    artifacts: [spec/10-collaboration-profile.md, adrs/0005-collaboration-profile.md, crates/nuif-collab, conformance/src/bin/collaboration-registers.rs]
+    artifacts: [spec/10-collaboration-profile.md, adrs/0005-collaboration-profile.md, crates/nuif-collab, conformance/src/bin/collaboration-registers.rs, conformance/src/bin/collaboration-creation.rs]
   security_trust:
     status: experiment-required
     evidence: [nuif:research:webgpu-security, nuif:research:fuzzing-structured-inputs, nuif:research:resource-bounded-serde-and-ciborium, nuif:research:epub-ocf-package-container, nuif:research:oci-resource-descriptors, nuif:research:png-image-preservation-and-decoding, nuif:research:opentype-font-embedding-and-portability, nuif:research:ttf-parser, nuif:research:fontations]
