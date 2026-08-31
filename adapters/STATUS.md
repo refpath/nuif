@@ -22,7 +22,7 @@ gate references and writes `target/adapter-coverage-report.json`.
 | Penpot | `.penpot` v3 ZIP and JSON package | `nuif-penpot-v3-0` | Add compact pages only after the opt-in representation stabilizes | Components, libraries, interactions, media, paths, layout and compact pages are excluded |
 | Figma | Normalized Plugin API snapshot/plan plus writable host | `nuif-figma-plugin-snapshot-0` mapping and compiled no-network review shell; no live host run | Assigned-ID reviewer run and live fixtures in `adapters/figma/PROFILE-DRAFT.md` | `.fig` is not a public contract; static evidence does not prove host writes, undo or persistence |
 | Affinity | User-mediated SVG import/export in the desktop application | Research and existing `nuif-svg-0` bridge only; no live Affinity trial | Retained two-way SVG trial in `adapters/affinity/PROFILE-DRAFT.md` | No public document API or native `.af*` schema is claimed; native files are opaque and UI automation is non-conformant |
-| Canva | Apps SDK Design Editing API; Connect APIs are a separate OAuth workflow | `nuif-canva-design-editing-0` pure normalized mapper and CLI/gate evidence; no reviewed app or live host run | Reviewed Apps SDK current-page sync shell with one-sync/one-undo evidence in `adapters/canva/PROFILE-DRAFT.md` | Current-page fixed documents and documented supported elements only; live mutation, preview APIs, Docs, native NUIF Connect I/O and marketplace approval are excluded |
+| Canva | Apps SDK Design Editing API; Connect APIs are a separate OAuth workflow | `nuif-canva-design-editing-0` mapper plus deterministic Canva-only review shell, cross-language plan validation, mock one-sync tests and maximum-profile measurements; no live host run | Reviewer-run current-page transaction with one-sync/one-undo evidence in `adapters/canva/PROFILE-DRAFT.md` | Live import is narrowed to empty-page unnamed opaque rectangles/ellipses; live mutation, preview APIs, Docs, native NUIF Connect I/O and marketplace approval are excluded |
 | SwiftUI | Swift source and proposal–response layout runtime | Research complete; no implementation | Generated stack/text/shape subset with a pinned Apple toolchain | Arbitrary Swift and custom layouts are executable programs |
 | Jetpack Compose | Kotlin source and constraint layout runtime | Research complete; no implementation | Generated row/column/text/shape subset with a pinned Android toolchain | Arbitrary Kotlin, state, modifier chains and subcomposition are executable programs |
 | Flutter | Dart source and box-constraint runtime | Research complete; no implementation | Generated row/column/text/shape subset with a pinned Flutter toolchain | Arbitrary Dart, state, inherited widgets and custom render objects are executable programs |
@@ -34,14 +34,17 @@ because their bounded subsets map directly to the current model and run without
 credentials or platform SDKs. Full DTCG coverage requires a token-model RFC.
 Penpot's package path enforces ZIP resource limits and unknown-member retention
 through one shared test contract. Figma's normalized snapshot and mutation-plan
-mapping now has exact Rust/CLI trials, while its host execution remains
+mapping has exact Rust/CLI trials, while its host execution remains
 uncertified. Affinity has a bounded interchange draft over the existing SVG
-profile; Canva has a bounded API-host draft and the shared `HostAdapterReport`
-envelope. Neither has live-host evidence yet.
+profile. Canva has the shared `HostAdapterReport` envelope and a compiled shell
+that consumes Rust plans, validates an exact transport, rejects unsupported
+host mutations before insertion and packages the Canva SDK license. None of
+these vendor paths has live-host evidence yet.
 
 Canva now has a pure normalized current-page mapper with deterministic
-round-trip IDs, typed unsupported-property fidelity and strict resource limits;
-the gate deliberately records live host execution as not run. React and Svelte
+round-trip IDs, typed unsupported-property fidelity, strict resource limits,
+maximum-profile timing and a deterministic no-network review artifact; the
+gate deliberately records live host execution as not run. React and Svelte
 now use the common byte-span correspondence contract for one marked static
 subtree. Svelte additionally compiles direct and CLI output with
 the exact official compiler. Native declarative UI targets begin as one-way lowerings with

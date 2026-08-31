@@ -29,7 +29,7 @@ links:
   spec: [spec/07-extensions-and-dialects.md, spec/12-cli-api-and-automation.md]
   adr: [adrs/0012-affinity-canva-host-adoption.md]
   rfc: []
-  code: [adapters/canva/PROFILE-DRAFT.md, docs/HOST-INTEGRATION.md, crates/nuif-wasm/src/lib.rs]
+  code: [adapters/canva/PROFILE-DRAFT.md, adapters/canva/app/src/host.ts, adapters/canva/app/src/protocol.ts, docs/HOST-INTEGRATION.md, crates/nuif-canva/src/lib.rs, crates/nuif-wasm/src/lib.rs, xtask/src/main.rs]
   experiments: [nuif:experiment:canva-design-editing-adapter]
 ---
 
@@ -42,11 +42,14 @@ workflows such as import, export and return navigation. The Apps SDK is the
 primary semantic NUIF adoption path; Connect is a secondary workflow bridge and
 cannot currently import or export NUIF natively.
 
-The first app profile should use only generally available `current_page`
-Design Editing APIs on one fixed-dimension page, normalize groups/rects/shapes/
-text through a bounded schema, validate the complete plan and call `sync` once.
-Canva's documented preview restriction, product-specific element model and app
-review process make a broader “Canva adapter” claim unsound.
+The first profile uses only generally available `current_page` Design Editing
+APIs on one fixed-dimension page. The pure mapper normalizes the wider declared
+schema; the compiled review shell imports only unnamed opaque rectangles and
+canonical ellipses on an empty same-size page, validates the complete plan,
+asks for confirmation and calls `sync` once. Canva's documented preview
+restriction, product-specific element model, SDK license and app review process
+make a broader “Canva adapter” claim unsound. Static CI is now executable; a
+named live Canva trial remains unperformed.
 
 ## Evidence
 
@@ -116,6 +119,23 @@ review process make a broader “Canva adapter” claim unsound.
   https://www.canva.dev/docs/apps/app-review-process/,
   https://www.canva.dev/docs/apps/developer-verification/ and
   https://www.canva.dev/docs/apps/versioning-apps/.
+- The stable `@canva/design` 2.12.0 declaration exposes a page ID but no element
+  ID or writable element/page name. Its create-text options expose width and
+  rich-text regions but no explicit text-box height or portable font-file hash.
+  These omissions prevent an exact live mapping of NUIF names, persistent
+  element identity and pinned text metrics. Locator: the exact registry package
+  locked by `adapters/canva/app/package-lock.json`, `index.d.ts`, namespaces
+  `DesignEditing.AbsolutePage`, `Element`, `CreateTextElementOpts` and
+  `TextRegion`, integrity
+  `sha512-oR6b8avm6krC2VO/MPzVNvh7BfUSNhddyDFBhW9U3/kKCxWXV0Cnckd+FuB1JtpXc7F9lsfJQXYog3qapVmYSA==`.
+- That same package contains one syntactically invalid empty statement after
+  `DesignEditing.PageRefList`, and its license restricts components and
+  derivatives to permitted apps on the Canva Platform while requiring the
+  license in every copy. The review build therefore verifies and removes only
+  that statement in a generated type-check copy, records both hashes, bundles
+  the untouched runtime module, includes the license and labels the artifact
+  Canva-only. Locator: locked package `index.d.ts`, `LICENSE.md`,
+  `adapters/canva/app/scripts/prepare-types.mjs` and generated build report.
 
 ## Options considered
 
@@ -145,19 +165,34 @@ Rejected for the public profile. Preview behavior can change without versioning
 and blocks public review. Preview experiments may be kept in a separate branch
 and evidence class, never in a release bundle.
 
+### Rust-generated plan versus direct WASM document loading
+
+The first review shell accepts a Rust-generated, lossless mutation plan. This
+keeps canonical document semantics in `nuif-core`; TypeScript validates only an
+untrusted transport and translates the admitted subset into host states. It is
+smaller and easier to audit than adding a second document model. Direct `.nuif`
+loading through `nuif-wasm-api-0` remains a compatible later entry path, but it
+does not remove the host preflight or prove Canva fidelity. It should be added
+only when the live transaction trial establishes that direct in-app authoring
+is worth the extra package surface.
+
 ## Adoption and release path
 
-1. Implement pure Canva snapshot and mutation-plan types with fixtures, bounds
-   and `HostAdapterReport` output; do not call live APIs until that mapping is
-   exact for the declared subset.
-2. Build a no-network, single-file Apps SDK review shell that bundles
-   `nuif-wasm`, verifies its CSP and official TypeScript types, and uses only
-   stable APIs.
-3. Run named live-host trials for read, import, one-sync undo, cancellation,
+1. Completed: pure Canva snapshot and mutation-plan types have fixtures,
+   bounds, canonical round trips and `HostAdapterReport` output.
+2. Completed for static review: the no-network single-file shell compiles the
+   stable API surface through an audited declaration normalization, validates
+   Rust plans, enforces explicit confirmation and empty-page preflight, tests a
+   one-sync mock transaction, records maximum-profile measurements, includes
+   the SDK license and packages credential-free CI evidence. It deliberately
+   consumes plans rather than embedding WASM in this first boundary.
+3. Next: run named live-host trials for read, import, one-sync undo, cancellation,
    locked content, conflicts, session expiry and unsupported ingredients.
-4. Publish a source review bundle through GitHub release artifacts with digest,
-   SBOM and fixture report. Submission remains a manual authenticated action;
-   a Git tag must never publish the app automatically.
+4. CI publishes the Canva-only review artifact with digests, exact package
+   identities, normalized-declaration evidence and fixture reports. A tagged
+   general NUIF release may retain this as verification evidence, but must not
+   redistribute it as a general browser SDK. Submission remains a manual
+   authenticated action; a Git tag must never publish the app automatically.
 5. After human developer verification and Canva approval, create versions in
    the Developer Portal for reviewed updates. Keep the app version independent
    from editor, WASM and format versions.
@@ -172,9 +207,11 @@ and evidence class, never in a release bundle.
 distribution boundaries. They are a useful model for a host adapter that makes
 mutation authority and user-visible undo explicit.
 
-**Adapt** `HostAdapterReport`, canonical NUIF operations and the WASM binding to
-the Apps SDK edge. Keep Connect API OAuth, rate limits, temporary URLs and
-privacy policy outside the deterministic core.
+**Adapt** `HostAdapterReport`, canonical NUIF operations and a bounded plan
+envelope to the Apps SDK edge. WASM is optional for direct in-app `.nuif`
+loading, not a prerequisite for a thin host plan consumer. Keep Connect API
+OAuth, rate limits, temporary URLs and privacy policy outside the deterministic
+core.
 
 **Reject** preview APIs in a public profile, opaque app-element flattening,
 remote executable code and any native NUIF interoperability claim until Canva
@@ -184,8 +221,8 @@ publishes the corresponding MIME and semantic contract.
 
 - Which element IDs, metadata fields or app-owned data survive duplicate,
   reorder, close/reopen and cross-design copy under generally available APIs?
-- Does the review production bundle execute `nuif-wasm` identically under the
-  documented CSP on every supported Canva browser/desktop host?
+- Does the review bundle execute its single-sync transaction identically under
+  the documented CSP on every supported Canva browser/desktop host?
 - Which rich-text, custom-path, image-fill crop and font semantics can be mapped
   exactly without undocumented assumptions?
 - When the all-pages documentation and GA package surface agree, what page-

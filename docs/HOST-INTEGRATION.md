@@ -49,17 +49,18 @@ It retains verified embedded resources without exposing a second mutable
 JavaScript model. The generated module has no filesystem, network, Figma,
 Canva or Affinity authority.
 
-For Figma, the module belongs in the UI iframe, where Figma documents normal
-browser APIs including WebAssembly. The plug-in main thread still owns
-`SceneNode` access and exchanges bounded messages with that iframe. Canva apps
-also run in an iframe; Canva's current content-security policy admits packaged
-WebAssembly while blocking third-party scripts, nested frames and workers. A
-Canva build must therefore bundle the NUIF module with the reviewed app and let
-the Apps SDK own every design mutation. Affinity has no equivalent documented
-embedding boundary, so its first profile invokes the existing SVG adapter
-outside the product and uses user-mediated import/export. The WASM module can
-validate, edit and re-encode complete NUIF packages locally, but it is not a
-host adapter and cannot justify a vendor fidelity claim by itself.
+When a Figma or Canva integration accepts complete `.nuif` bytes directly, the
+module belongs in the host's UI iframe. Figma documents normal browser APIs;
+Canva's current content-security policy admits packaged WebAssembly while
+blocking third-party scripts, nested frames and workers. The host API still
+owns every document mutation. The smaller first review shells instead consume
+precomputed, lossless plans and keep canonical processing outside the iframe;
+this avoids shipping an unused document runtime while preserving the same host
+preflight. Affinity has no equivalent documented embedding boundary, so its
+first profile invokes the existing SVG adapter outside the product and uses
+user-mediated import/export. WASM can validate, edit and re-encode complete
+NUIF packages locally, but it is optional for a plan consumer, is not a host
+adapter and cannot justify a vendor fidelity claim by itself.
 
 ## Local package evaluation
 
@@ -187,18 +188,37 @@ not.
 ## Canva path
 
 The first programmable profile is `adapters/canva/PROFILE-DRAFT.md` and uses
-the stable Apps SDK Design Editing API. It is deliberately limited to one
-unlocked, fixed-dimension `current_page` session and the supported group, rect,
-shape and rich-text element kinds. Images are media fills on rectangles in the
-Canva model. Canva Docs, unbounded pages, tables, embeds, video, unsupported
-elements, unavailable fonts and preview-only APIs are outside profile 0.
+the stable Apps SDK Design Editing API. The pure normalized mapping covers one
+unlocked, fixed-dimension `current_page`, optional opaque background, groups,
+rectangles, canonical ellipses and pinned literal text. Images are media fills
+on rectangles in the Canva model. Canva Docs, unbounded pages, tables, embeds,
+video, unsupported elements, unavailable fonts and preview-only APIs are
+outside profile 0.
 
-The app reads the page snapshot, translates it through a bounded normalized
-schema, validates the complete candidate and then calls `sync` once. This makes
-one confirmed NUIF import one host undo action and avoids partial mutation.
-Sessions expire after one minute, locked pages and elements remain untouched,
-and every unsupported property appears in the host report. The app never
-replaces the entire design with an opaque app element or raster screenshot.
+`adapters/canva/app` is now a deterministic no-network review shell pinned to
+`@canva/design` 2.12.0. It downloads a bounded current-page snapshot and accepts
+a Rust-generated lossless mutation plan. The transport validator admits the
+full pure schema, but host preflight permits only a nullable page name, an
+optional opaque solid background and unnamed opaque rectangles/canonical
+ellipses on an empty page of exactly the same size. The public API does not
+expose the stable element IDs, writable names, portable font-file identity or
+exact text-box height needed to call groups/text exact, so those plans fail
+before insertion.
+
+After explicit confirmation, the shell builds all supported states and calls
+`sync` once. Static tests prove one sync in a mock session and prove named,
+text, group, alpha, nonempty, locked and unbounded cases insert nothing; only a
+live trial can establish the resulting Canva undo action, expiry and conflict
+behavior. The app never replaces the complete design with an opaque app element
+or raster screenshot.
+
+The current stable package contains one invalid empty statement in its
+generated declaration. The build recognizes exactly that fragment, writes a
+type-check-only normalized copy and records original/result hashes; runtime
+bundling still resolves the untouched official module. Canva's package license
+limits derivatives to permitted apps on the Canva Platform and requires the
+license in every copy, so the review artifact includes it and is not a general
+browser distribution.
 
 Canva Connect APIs are a secondary off-platform workflow. They support OAuth
 imports of listed foreign formats and asynchronous exports to formats such as
@@ -209,7 +229,7 @@ future native `application/nuif+zip` support from Canva. Connect download URLs
 are temporary and API scopes, rate limits, user authorization and server-side
 privacy obligations remain outside the core.
 
-The first public app uses only generally available APIs. Canva documents that
+The review shell uses only generally available APIs. Canva documents that
 preview APIs may change without versioning and prevent public review. CI can
 build and test a source bundle, but a public release still requires developer
 verification, source upload, listing and testing material, Canva review, and an
@@ -232,15 +252,20 @@ these pass:
   unchanged;
 - one native-host trial recording product version and package version.
 
-Credential-free CI tests mapping functions, the compiled shell and snapshots.
+Credential-free CI tests mapping functions, the compiled shell, Rust-to-
+TypeScript plan validation, exact canonical round trips, deterministic rebuilds,
+the SDK license and snapshots. It also records informational parse, preflight,
+mock-apply and hostile-rejection scaling through the 16,384-element maximum.
 Live-host CI or manual certification supplies the final product/version
 evidence. Passing static shell tests does not justify a live integration claim.
 
 ## Release operation
 
 The native editor, `nuif-wasm` developer binding, Figma review shell, Affinity
-interchange kit and Canva app are versioned independently. CI should build
-review bundles, checksums, provenance, an SBOM where applicable and fixture
-reports. Publication to a vendor marketplace is never inferred from a Git tag:
+interchange kit and Canva app are versioned independently. CI builds review
+bundles, checksums and fixture reports; provenance and an SBOM are added where
+the distribution form supports them. The Canva artifact is review evidence
+under its platform-only SDK license, not a general release SDK. Publication to
+a vendor marketplace is never inferred from a Git tag:
 it requires the vendor account, assigned app identifier, identity and legal
 disclosures, review forms, and an explicit authenticated release operation.

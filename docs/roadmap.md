@@ -87,10 +87,13 @@ pinned headless Chrome. Its JavaScript, TypeScript and WASM are
 packaged as a CI and tagged-release developer artifact. The module declares no
 filesystem, network or host-document authority. The Figma review shell now
 compiles against pinned official typings and crosses a mock snapshot into the
-Rust core, but its assigned-ID live-host run remains separate. Browser-layout
-execution, a WASI CLI, npm publication and live Figma, Affinity and Canva
-adapters remain
-separate profiles and version streams.
+Rust core, but its assigned-ID live-host run remains separate. The Canva review
+shell now compiles its pinned stable API after one hash-audited declaration
+normalization, consumes Rust-generated plans, rejects unsupported live states
+before insertion, packages its platform-only SDK license and records mock
+single-sync/max-profile evidence. Browser-layout execution, a WASI CLI, npm
+publication and live Figma, Affinity and Canva trials remain separate profiles
+and version streams.
 
 ## Phase 5d — external agent binding (complete for `nuif-mcp-tools-0`)
 
@@ -163,7 +166,7 @@ package import/export preserves resources and manifest requirements.
 `nuif-dtcg-scalar-0` maps flat boolean, string and number tokens to the Design Tokens Format Module 2025.10. Namespaced metadata retains NUIF document and token identity and distinguishes integer from real values; the trial applies eight edits through 21 correspondences while preserving unknown extension bytes. Groups, aliases, composite types and token-local extensions require a token-model RFC and a separate profile.
 
 ## Phase 6e — adapter inventory (complete for advertised targets)
-`adapters/index.json` enumerates twelve advertised targets. The blocking adapter audit requires a primary research record, integration surface, next bounded profile and exclusion boundary for every target; executable entries additionally require a crate, profile document and routed conformance gate. Eleven profiles are integrated: the seven retentive HTML/CSS, SVG, DTCG, Penpot, static React JSX and static Svelte profiles; `nuif-figma-plugin-snapshot-0`; `nuif-canva-design-editing-0`; the one-way `nuif-web-accessibility-0` projection; and the one-way `nuif-web-behavior-0` host lowering. The Figma and Canva profiles prove normalized mapping, CLI parity and static evidence, not plug-in execution in either host. Affinity, SwiftUI, Jetpack Compose and Flutter remain explicitly researched or externally bounded rather than carrying unsupported implementation claims. Affinity is a user-mediated SVG bridge until a public API exists; Canva's Apps SDK current-page mapper keeps live mutation, Connect and marketplace claims separate. Svelte uses Tree-sitter only for retained spans and exact official `svelte/compiler` 5.57.0 as its foreign parse/compile oracle.
+`adapters/index.json` enumerates twelve advertised targets. The blocking adapter audit requires a primary research record, integration surface, next bounded profile and exclusion boundary for every target; executable entries additionally require a crate, profile document and routed conformance gate. Eleven profiles are integrated: the seven retentive HTML/CSS, SVG, DTCG, Penpot, static React JSX and static Svelte profiles; `nuif-figma-plugin-snapshot-0`; `nuif-canva-design-editing-0`; the one-way `nuif-web-accessibility-0` projection; and the one-way `nuif-web-behavior-0` host lowering. The Figma and Canva profiles prove normalized mapping, CLI parity and deterministic static shells, not plug-in execution in either host. Affinity, SwiftUI, Jetpack Compose and Flutter remain explicitly researched or externally bounded rather than carrying unsupported implementation claims. Affinity is a user-mediated SVG bridge until a public API exists; Canva's compiled current-page plan consumer keeps live mutation, its platform-only SDK license, Connect and marketplace claims separate. Svelte uses Tree-sitter only for retained spans and exact official `svelte/compiler` 5.57.0 as its foreign parse/compile oracle.
 
 ## Phase 6f — bounded web accessibility projection (automated)
 

@@ -119,9 +119,11 @@ The headless CLI and WASM binding remain the semantic test surfaces. Vendor-
 private state is either represented, preserved as declared opaque data or
 reported through structured fidelity diagnostics.
 
-The current Figma mapping and static shell, the Affinity SVG bridge draft and
-the Canva Apps SDK draft describe feasible boundaries but do not include their
-required live vendor-runtime trials. A vendor adoption claim therefore requires
+The current Figma mapping/static shell, the Affinity SVG bridge draft and the
+Canva mapping/static shell describe feasible boundaries but do not include
+their required live vendor-runtime trials. The Canva artifact is additionally
+restricted to permitted Canva Platform apps by its SDK license. A vendor
+adoption claim therefore requires
 a signed test fixture, host-version matrix, import/export or transaction report
 and maintainer outside the reference-core implementation. Canva marketplace
 approval and native NUIF Connect support are separate upstream outcomes. The

@@ -1,13 +1,13 @@
 # Draft Canva Design Editing profile 0
 
-Status: executable pure normalized mapping profile; no reviewed Canva app or
-live-host conformance claim.
+Status: executable pure normalized mapping and compiled credential-free review
+shell; no live-host conformance claim.
 
 Profile identifier: `nuif-canva-design-editing-0`.
 
 Primary evidence: `nuif:research:canva-apps-and-connect-adoption` and ADR 0012.
-Executable implementation: `crates/nuif-canva`; conformance gate:
-`cargo xtask gate-canva`.
+Executable implementation: `crates/nuif-canva` and `adapters/canva/app`;
+conformance gate: `cargo xtask gate-canva`.
 
 ## Host and scope
 
@@ -103,4 +103,11 @@ associated semantic contract.
   readiness without credentials in the repository.
 
 Marketplace submission and publication remain owner-authenticated operations.
-CI may produce the review bundle but does not submit or release it.
+CI may publish the license-scoped review evidence artifact but does not submit
+or release an app through Canva.
+
+The static gate currently produces `target/canva-app-shell-report.json`, the
+Rust plan/TypeScript validation and exact round-trip fixtures, an informational
+maximum-profile benchmark and `target/nuif-canva-review-app`. It repeats the
+bundle and requires byte/hash-identical reports. All live-host fields remain
+`not_run`.

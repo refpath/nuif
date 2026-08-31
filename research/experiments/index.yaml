@@ -786,21 +786,38 @@ experiments:
       - repeat the trial on every operating system advertised by the profile
       - retain both SVG files environment metadata renders and reports as one content-addressed fixture
   - id: nuif:experiment:canva-design-editing-adapter
-    status: planned
-    evidence: [nuif:research:canva-apps-and-connect-adoption, nuif:research:wasm-headless-execution]
-    implementation: [adapters/canva/PROFILE-DRAFT.md, crates/nuif-wasm/src/lib.rs, crates/nuif-adapter/src/lib.rs]
-    oracle: official-types-and-live-host-transaction
+    status: automated
+    evidence: [nuif:research:canva-apps-and-connect-adoption]
+    implementation: [adapters/canva/PROFILE-DRAFT.md, adapters/canva/app/src/protocol.ts, adapters/canva/app/src/host.ts, adapters/canva/app/scripts/build.mjs, adapters/canva/app/test/host.test.ts, crates/nuif-canva/src/lib.rs, crates/nuif-adapter/src/lib.rs, xtask/src/main.rs, .github/workflows/ci.yml]
+    oracle: normalized-roundtrip-audited-official-types-and-mock-transaction
     acceptance:
       - pure current-page snapshot and mutation-plan mappings are exact for the declared fixed-page subset
-      - the official stable Apps SDK types compile a deterministic CSP-compliant no-remote-code review bundle
-      - one confirmed import produces one sync and one undo action in a named Canva host version
-      - locked unsupported conflicting expired and limit-plus-one cases fail before host mutation
+      - the pinned stable Apps SDK declarations compile after exactly one hash-recorded syntax normalization and the untouched runtime module builds a deterministic no-network review bundle
+      - a preflighted mock import produces exactly one sync while names text groups alpha nonempty locked and unbounded cases fail before insertion
+      - the SDK license is included and the artifact is labeled for permitted Canva Platform apps only
       - no preview API marketplace approval or native Connect NUIF support is inferred
     tests:
-      - map groups rects shapes rich text ordering geometry transparency and solid fills with property-level fidelity
-      - compare direct TypeScript and bundled-WASM canonical bytes and host reports
-      - exercise cancellation session expiry locked page locked elements unsupported page and conflict paths
-      - archive the review bundle live-host report and exact official SDK package identities
+      - map groups rects canonical ellipses rich text ordering geometry transparency page backgrounds and opaque solid fills with property-level fidelity
+      - validate a Rust-generated plan through the TypeScript protocol and reproduce canonical NUIF through the CLI
+      - typecheck and run eight protocol and host tests including limit-plus-one and pre-mutation rejection
+      - benchmark parse validation preflight mock apply and hostile rejection through the 16384-element maximum without treating local timing as live-host latency
+      - archive target/canva-app-shell-report.json target/canva-app-benchmark-report.json and target/nuif-canva-review-app
+  - id: nuif:experiment:canva-design-editing-live-host
+    status: planned
+    evidence: [nuif:research:canva-apps-and-connect-adoption]
+    implementation: [adapters/canva/PROFILE-DRAFT.md, adapters/canva/app/README.md]
+    oracle: named-live-host-transaction-and-retained-undo-evidence
+    acceptance:
+      - the retained report names Canva editor environment app version and exact Apps SDK package
+      - one confirmed import produces one sync and one user-visible undo action
+      - cancellation insertion failure conflict session expiry locked content and unsupported content leave the live design unchanged
+      - exported rectangle ellipse background layering and geometry re-enter the Rust adapter with the declared fidelity
+      - a second reviewer verifies the retained design screenshots plan snapshot and report
+    tests:
+      - exercise empty and nonempty pages fixed and unbounded pages locked pages and locked elements
+      - apply unchanged one-element and maximum-time-calibration plans then undo each successful transaction
+      - allow the session to expire and create a concurrent conflicting edit before sync
+      - retain the pre-state post-state and undo-state evidence without credentials or private design content
   - id: nuif:experiment:screenshot-reconstruction-baseline
     status: active
     evidence: [nuif:research:design2code-real-world-benchmark, nuif:research:pix2struct-screenshot-parsing-pretraining, nuif:research:screenai-ui-annotation, nuif:research:omniparser-ui-grounding, nuif:research:ocr-text-detection-and-recognition, nuif:research:model-agnostic-screenshot-reconstruction-and-training]
