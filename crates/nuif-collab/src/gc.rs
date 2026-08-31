@@ -193,8 +193,29 @@ impl CompactionReceipt {
         dropped: Vec<ChangeId>,
         retained: Vec<ChangeId>,
     ) -> Self {
+        Self::partial_history_for_profile(
+            PARTIAL_PROFILE_NAME,
+            source_profile,
+            source_base_hash,
+            compacted_base_hash,
+            frontier,
+            dropped,
+            retained,
+        )
+    }
+
+    #[must_use]
+    pub fn partial_history_for_profile(
+        profile: &str,
+        source_profile: &str,
+        source_base_hash: String,
+        compacted_base_hash: String,
+        frontier: &StabilityFrontier,
+        dropped: Vec<ChangeId>,
+        retained: Vec<ChangeId>,
+    ) -> Self {
         Self {
-            profile: PARTIAL_PROFILE_NAME.to_owned(),
+            profile: profile.to_owned(),
             source_profile: source_profile.to_owned(),
             source_base_hash,
             compacted_base_hash,

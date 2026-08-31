@@ -10,6 +10,8 @@ use std::collections::{BTreeMap, BTreeSet};
 use thiserror::Error;
 
 pub const PROFILE_NAME: &str = "nuif-collab-tree-0";
+pub const PARTIAL_PROFILE_NAME: &str = "nuif-collab-tree-prefix-0";
+pub const BASE_PROFILE_NAME: &str = "nuif-collab-tree-causal-base-0";
 
 #[derive(Clone, Debug, Eq, Ord, PartialEq, PartialOrd, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case", tag = "kind", content = "value")]
@@ -116,6 +118,25 @@ pub struct StructuralCompaction {
     pub checkpoint: StructuralCheckpoint,
 }
 
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct StructuralCausalCheckpointBase {
+    pub profile: String,
+    pub source_profile: String,
+    pub source_base_hash: String,
+    pub checkpoint: StructuralCheckpoint,
+    pub frontier: StabilityFrontier,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct StructuralPrefixCompaction {
+    pub receipt: CompactionReceipt,
+    pub base: StructuralCausalCheckpointBase,
+    pub retained: Vec<StructuralChange>,
+    pub checkpoint: StructuralCheckpoint,
+}
+
 impl StructuralCheckpoint {
     /// Resolves a canonical entity anchor to the stable profile position seen
     /// in this checkpoint.
@@ -177,6 +198,15 @@ pub enum StructuralError {
     InvalidCheckpoint { codes: Vec<String> },
     #[error("structural base hashes differ: {left} != {right}")]
     BaseMismatch { left: String, right: String },
+    #[error(
+        "change {change:?} references a stable structural anchor that cannot be represented after compaction: {anchor:?}"
+    )]
+    StableAnchorNotRepresentable {
+        change: ChangeId,
+        anchor: PositionId,
+    },
+    #[error("unsupported structural causal checkpoint base profile: {0}")]
+    UnsupportedCheckpointBase(String),
     #[error("canonical hashing failed: {0}")]
     Canonical(String),
 }
@@ -292,6 +322,212 @@ impl StructuralOperationSetEngine {
             receipt,
             checkpoint,
         })
+    }
+
+    /// Collects a causally closed structural prefix when every retained
+    /// position anchor can be represented by the canonical checkpoint.
+    ///
+    /// Stable active positions are rebound to `Base(entity)` positions in the
+    /// checkpoint. Retained anchors to inactive or moved stable positions are
+    /// refused because dropping their tombstone would change list semantics.
+    /// Retained anchors remain ordinary change positions and are replayed after
+    /// the checkpoint. This is a deliberately conservative profile 0 boundary.
+    ///
+    /// # Errors
+    ///
+    /// Rejects incomplete causal histories, unsafe frontiers, unrepresentable
+    /// stable anchors and any resumed checkpoint that differs from full replay.
+    pub fn compact_stable_prefix(
+        &self,
+        frontier: &StabilityFrontier,
+    ) -> Result<StructuralPrefixCompaction, StructuralError> {
+        let full = self.checkpoint()?;
+        let changes = self.changes.values().cloned().collect::<Vec<_>>();
+        validate_structural_prefix(&changes, frontier)?;
+        let stable = changes
+            .iter()
+            .filter(|change| {
+                frontier
+                    .counters
+                    .get(&change.id.replica)
+                    .copied()
+                    .unwrap_or(0)
+                    >= change.id.counter
+            })
+            .cloned()
+            .collect::<Vec<_>>();
+        let retained = changes
+            .iter()
+            .filter(|change| {
+                frontier
+                    .counters
+                    .get(&change.id.replica)
+                    .copied()
+                    .unwrap_or(0)
+                    < change.id.counter
+            })
+            .cloned()
+            .collect::<Vec<_>>();
+        let mut stable_engine = StructuralOperationSetEngine::new(self.base.clone())?;
+        for change in &stable {
+            stable_engine.ingest(change.clone())?;
+        }
+        let stable_checkpoint = stable_engine.checkpoint()?;
+        let source_base_hash = self.base_hash.clone();
+        let base = StructuralCausalCheckpointBase {
+            profile: BASE_PROFILE_NAME.to_owned(),
+            source_profile: PROFILE_NAME.to_owned(),
+            source_base_hash: source_base_hash.clone(),
+            checkpoint: stable_checkpoint.clone(),
+            frontier: frontier.clone(),
+        };
+        let mut resumed = ResumedStructuralOperationSetEngine::new(base.clone())?;
+        for change in &retained {
+            resumed.ingest(change.clone())?;
+        }
+        let checkpoint = resumed.checkpoint()?;
+        if checkpoint.canonical_hash != full.canonical_hash
+            || checkpoint.document != full.document
+            || checkpoint.conflicts != full.conflicts
+        {
+            return Err(StructuralError::Canonical(
+                "structural partial compaction changed the full checkpoint".to_owned(),
+            ));
+        }
+        let receipt = CompactionReceipt::partial_history_for_profile(
+            PARTIAL_PROFILE_NAME,
+            PROFILE_NAME,
+            source_base_hash,
+            stable_checkpoint.canonical_hash.clone(),
+            frontier,
+            stable.iter().map(|change| change.id.clone()).collect(),
+            retained.iter().map(|change| change.id.clone()).collect(),
+        );
+        Ok(StructuralPrefixCompaction {
+            receipt,
+            base,
+            retained,
+            checkpoint,
+        })
+    }
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct ResumedStructuralOperationSetEngine {
+    base: StructuralCausalCheckpointBase,
+    changes: BTreeMap<ChangeId, StructuralChange>,
+}
+
+impl ResumedStructuralOperationSetEngine {
+    /// Creates a resumed structural suffix over a collected checkpoint.
+    ///
+    /// # Errors
+    ///
+    /// Rejects an unsupported checkpoint-base profile or checkpoint profile.
+    pub fn new(base: StructuralCausalCheckpointBase) -> Result<Self, StructuralError> {
+        if base.profile != BASE_PROFILE_NAME {
+            return Err(StructuralError::UnsupportedCheckpointBase(base.profile));
+        }
+        if base.checkpoint.profile != PROFILE_NAME {
+            return Err(StructuralError::UnsupportedCheckpointBase(
+                base.checkpoint.profile,
+            ));
+        }
+        Ok(Self {
+            base,
+            changes: BTreeMap::new(),
+        })
+    }
+
+    /// Adds a retained change, translating only stable active position anchors.
+    ///
+    /// # Errors
+    ///
+    /// Rejects malformed changes, unknown identities, non-contiguous suffix
+    /// counters, unsafe causal contexts and unrepresentable stable anchors.
+    pub fn ingest(&mut self, mut change: StructuralChange) -> Result<bool, StructuralError> {
+        validate_change_shape(&change)?;
+        validate_operation_identities(&self.base.checkpoint.document, &change.operation)?;
+        if let Some(existing) = self.changes.get(&change.id) {
+            return if existing == &change {
+                Ok(false)
+            } else {
+                Err(StructuralError::DuplicateChange { change: change.id })
+            };
+        }
+        if self.changes.len() == super::MAX_CHANGES {
+            return Err(CollaborationError::TooManyChanges.into());
+        }
+        let frontier = self
+            .base
+            .frontier
+            .counters
+            .get(&change.id.replica)
+            .copied()
+            .unwrap_or(0);
+        let previous = self
+            .changes
+            .keys()
+            .filter(|id| id.replica == change.id.replica)
+            .map(|id| id.counter)
+            .max()
+            .unwrap_or(frontier);
+        if change.id.counter != previous + 1 {
+            return Err(CollaborationError::InvalidLocalContext {
+                change: change.id,
+                observed: previous,
+            }
+            .into());
+        }
+        for (replica, counter) in &self.base.frontier.counters {
+            if change.context.get(replica).copied().unwrap_or(0) < *counter {
+                return Err(CollaborationError::RetainedChangeNotAfterFrontier {
+                    change: change.id,
+                    replica: replica.clone(),
+                    frontier: *counter,
+                }
+                .into());
+            }
+        }
+        translate_stable_anchor(&self.base, &mut change)?;
+        self.changes.insert(change.id.clone(), change);
+        Ok(true)
+    }
+
+    /// Joins suffixes that use exactly the same causal checkpoint base.
+    ///
+    /// # Errors
+    ///
+    /// Rejects different checkpoint bases or any invalid change in the other
+    /// suffix.
+    pub fn merge(&mut self, other: &Self) -> Result<(), StructuralError> {
+        if self.base != other.base {
+            return Err(StructuralError::BaseMismatch {
+                left: self.base.source_base_hash.clone(),
+                right: other.base.source_base_hash.clone(),
+            });
+        }
+        let mut candidate = self.clone();
+        for change in other.changes.values() {
+            candidate.ingest(change.clone())?;
+        }
+        *self = candidate;
+        Ok(())
+    }
+
+    /// Materializes the retained suffix over the stable canonical checkpoint.
+    ///
+    /// # Errors
+    ///
+    /// Rejects incomplete retained history and structural operations that fail
+    /// to materialize over the checkpoint.
+    pub fn checkpoint(&self) -> Result<StructuralCheckpoint, StructuralError> {
+        validate_resumed_structural_collection(&self.base.frontier, self.changes.values())?;
+        let mut state = TreeState::new(&self.base.checkpoint.document)?;
+        for change in self.changes.values() {
+            state.apply(change)?;
+        }
+        finish_checkpoint(&self.base.checkpoint.document, self.changes.values(), state)
     }
 }
 
@@ -735,6 +971,188 @@ fn validate_collection<'a>(
     validate_contiguous(&received, &replicas)?;
     validate_dependencies(&changes, &received)?;
     validate_anchor_dependencies(&changes, &received)?;
+    Ok(())
+}
+
+fn validate_structural_prefix(
+    changes: &[StructuralChange],
+    frontier: &StabilityFrontier,
+) -> Result<(), StructuralError> {
+    validate_collection(changes.iter())?;
+    let mut observed = BTreeMap::<&str, u64>::new();
+    for change in changes {
+        observed
+            .entry(change.id.replica.as_str())
+            .and_modify(|counter| *counter = (*counter).max(change.id.counter))
+            .or_insert(change.id.counter);
+    }
+    for (replica, counter) in &frontier.counters {
+        let max = observed.get(replica.as_str()).copied().unwrap_or(0);
+        if *counter > max {
+            return Err(CollaborationError::UnsafeCompaction {
+                replica: replica.clone(),
+                observed: max,
+                frontier: *counter,
+            }
+            .into());
+        }
+    }
+    for change in changes.iter().filter(|change| {
+        frontier
+            .counters
+            .get(&change.id.replica)
+            .copied()
+            .unwrap_or(0)
+            >= change.id.counter
+    }) {
+        for (replica, counter) in &change.context {
+            if *counter > 0 && frontier.counters.get(replica).copied().unwrap_or(0) < *counter {
+                return Err(CollaborationError::StablePrefixNotClosed {
+                    change: change.id.clone(),
+                    dependency: ChangeId::new(replica.clone(), *counter),
+                }
+                .into());
+            }
+        }
+    }
+    for change in changes.iter().filter(|change| {
+        frontier
+            .counters
+            .get(&change.id.replica)
+            .copied()
+            .unwrap_or(0)
+            < change.id.counter
+    }) {
+        for (replica, counter) in &frontier.counters {
+            if *counter > 0 && change.context.get(replica).copied().unwrap_or(0) < *counter {
+                return Err(CollaborationError::RetainedChangeNotAfterFrontier {
+                    change: change.id.clone(),
+                    replica: replica.clone(),
+                    frontier: *counter,
+                }
+                .into());
+            }
+        }
+    }
+    Ok(())
+}
+
+fn translate_stable_anchor(
+    base: &StructuralCausalCheckpointBase,
+    change: &mut StructuralChange,
+) -> Result<(), StructuralError> {
+    let StructuralOperation::Move { anchor, .. } = &mut change.operation else {
+        return Ok(());
+    };
+    let StructuralAnchor::After(position) = anchor else {
+        return Ok(());
+    };
+    let stable = match position {
+        PositionId::Base(entity) => {
+            base.frontier.counters.values().any(|counter| *counter > 0)
+                && base.checkpoint.active_positions.get(entity) == Some(position)
+        }
+        PositionId::Change(anchor) => {
+            base.frontier
+                .counters
+                .get(&anchor.replica)
+                .copied()
+                .unwrap_or(0)
+                >= anchor.counter
+        }
+    };
+    if !stable {
+        return Ok(());
+    }
+    let entity = match position {
+        PositionId::Base(entity) => *entity,
+        PositionId::Change(_anchor) => base
+            .checkpoint
+            .active_positions
+            .iter()
+            .find_map(|(entity, active)| (active == position).then_some(*entity))
+            .ok_or_else(|| StructuralError::StableAnchorNotRepresentable {
+                change: change.id.clone(),
+                anchor: position.clone(),
+            })?,
+    };
+    if !base
+        .checkpoint
+        .active_positions
+        .get(&entity)
+        .is_some_and(|active| active == position || matches!(position, PositionId::Change(_)))
+    {
+        return Err(StructuralError::StableAnchorNotRepresentable {
+            change: change.id.clone(),
+            anchor: position.clone(),
+        });
+    }
+    *position = PositionId::Base(entity);
+    Ok(())
+}
+
+fn validate_resumed_structural_collection<'a>(
+    frontier: &StabilityFrontier,
+    changes: impl Iterator<Item = &'a StructuralChange> + Clone,
+) -> Result<(), StructuralError> {
+    let changes = changes.collect::<Vec<_>>();
+    if changes.len() > super::MAX_CHANGES {
+        return Err(CollaborationError::TooManyChanges.into());
+    }
+    let replicas = changes
+        .iter()
+        .map(|change| change.id.replica.as_str())
+        .collect::<BTreeSet<_>>();
+    if replicas.len() > super::MAX_REPLICAS {
+        return Err(CollaborationError::TooManyReplicas.into());
+    }
+    let received = changes
+        .iter()
+        .map(|change| ((change.id.replica.as_str(), change.id.counter), *change))
+        .collect::<BTreeMap<_, _>>();
+    for replica in replicas {
+        let start = frontier.counters.get(replica).copied().unwrap_or(0) + 1;
+        for (expected, counter) in (start..).zip(
+            received
+                .keys()
+                .filter_map(|(candidate, counter)| (*candidate == replica).then_some(*counter)),
+        ) {
+            if counter != expected {
+                return Err(CollaborationError::MissingReplicaChange {
+                    replica: replica.to_owned(),
+                    counter: expected,
+                }
+                .into());
+            }
+        }
+    }
+    for change in &changes {
+        for (replica, counter) in &change.context {
+            if *counter == 0 || *counter <= frontier.counters.get(replica).copied().unwrap_or(0) {
+                continue;
+            }
+            let dependency = received.get(&(replica.as_str(), *counter)).ok_or_else(|| {
+                CollaborationError::MissingDependency {
+                    change: change.id.clone(),
+                    replica: replica.clone(),
+                    counter: *counter,
+                }
+            })?;
+            if dependency
+                .context
+                .iter()
+                .any(|(causal_replica, causal_counter)| {
+                    change.context.get(causal_replica).copied().unwrap_or(0) < *causal_counter
+                })
+            {
+                return Err(CollaborationError::IncompleteCausalContext {
+                    change: change.id.clone(),
+                    dependency: dependency.id.clone(),
+                }
+                .into());
+            }
+        }
+    }
     Ok(())
 }
 
@@ -1237,6 +1655,90 @@ mod tests {
                     frontier: 0,
                 }
             )) if replica == "alice"
+        ));
+    }
+
+    #[test]
+    fn structural_prefix_compaction_rebinds_active_anchor() {
+        let mut engine = StructuralOperationSetEngine::new(base()).unwrap();
+        engine
+            .ingest(change(
+                "alice",
+                1,
+                &[],
+                StructuralOperation::Move {
+                    entity: EntityId::new(11),
+                    new_parent: None,
+                    anchor: StructuralAnchor::Start,
+                },
+            ))
+            .unwrap();
+        engine
+            .ingest(change(
+                "alice",
+                2,
+                &[("alice", 1)],
+                StructuralOperation::Move {
+                    entity: EntityId::new(13),
+                    new_parent: None,
+                    anchor: StructuralAnchor::After(PositionId::Change(ChangeId::new("alice", 1))),
+                },
+            ))
+            .unwrap();
+        let frontier = StabilityFrontier::new(BTreeMap::from([("alice".to_owned(), 1)])).unwrap();
+        let full = engine.checkpoint().unwrap();
+        let compacted = engine.compact_stable_prefix(&frontier).unwrap();
+        assert_eq!(compacted.checkpoint.document, full.document);
+        assert_eq!(compacted.checkpoint.canonical_hash, full.canonical_hash);
+        assert_eq!(compacted.checkpoint.conflicts, full.conflicts);
+        assert_eq!(compacted.receipt.profile, PARTIAL_PROFILE_NAME);
+        assert_eq!(compacted.receipt.dropped.len(), 1);
+        assert_eq!(compacted.receipt.retained.len(), 1);
+    }
+
+    #[test]
+    fn structural_prefix_compaction_rejects_inactive_anchor() {
+        let mut engine = StructuralOperationSetEngine::new(base()).unwrap();
+        engine
+            .ingest(change(
+                "alice",
+                1,
+                &[],
+                StructuralOperation::Move {
+                    entity: EntityId::new(11),
+                    new_parent: None,
+                    anchor: StructuralAnchor::Start,
+                },
+            ))
+            .unwrap();
+        engine
+            .ingest(change(
+                "alice",
+                2,
+                &[("alice", 1)],
+                StructuralOperation::Move {
+                    entity: EntityId::new(11),
+                    new_parent: Some(EntityId::new(12)),
+                    anchor: StructuralAnchor::Start,
+                },
+            ))
+            .unwrap();
+        engine
+            .ingest(change(
+                "alice",
+                3,
+                &[("alice", 2)],
+                StructuralOperation::Move {
+                    entity: EntityId::new(13),
+                    new_parent: None,
+                    anchor: StructuralAnchor::After(PositionId::Change(ChangeId::new("alice", 1))),
+                },
+            ))
+            .unwrap();
+        let frontier = StabilityFrontier::new(BTreeMap::from([("alice".to_owned(), 2)])).unwrap();
+        assert!(matches!(
+            engine.compact_stable_prefix(&frontier),
+            Err(StructuralError::StableAnchorNotRepresentable { .. })
         ));
     }
 

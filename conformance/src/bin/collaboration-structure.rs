@@ -1,7 +1,8 @@
 use nuif_codec::{CanonicalText, Encoder, canonical_hash};
 use nuif_collab::structural::{
-    PositionId, StructuralAnchor, StructuralChange, StructuralCheckpoint, StructuralConflict,
-    StructuralError, StructuralOperation, StructuralOperationSetEngine, StructuralUndoRedoEngine,
+    PositionId, ResumedStructuralOperationSetEngine, StructuralAnchor, StructuralChange,
+    StructuralCheckpoint, StructuralConflict, StructuralError, StructuralOperation,
+    StructuralOperationSetEngine, StructuralUndoRedoEngine,
 };
 use nuif_collab::{ChangeId, CollaborationError};
 use nuif_core::{Document, Entity, EntityId, EntityKind, Severity, validate};
@@ -33,6 +34,7 @@ fn run() -> Result<(), String> {
     let expected = checkpoints_for_order(&base, &changes)?;
     let (permutations, all_orders_converge) = exhaustive_deliveries(&base, &changes, &expected)?;
     let scale = scaling_trial()?;
+    let prefix = structural_prefix_trial()?;
     let checks = json!({
         "two_materializers_exact": expected.0 == expected.1,
         "all_delivery_orders_converge": all_orders_converge,
@@ -57,6 +59,7 @@ fn run() -> Result<(), String> {
         "different_base_merge_typed": different_base_merge_typed(&base),
         "scale_materializers_exact": scale["exact"] == Value::Bool(true),
         "scale_catastrophic_budget": scale["elapsed_millis"].as_u64().is_some_and(|millis| millis < 10_000),
+        "structural_prefix_compaction": prefix["status"] == Value::String("passed".to_owned()),
     });
     let passed = checks
         .as_object()
@@ -74,7 +77,8 @@ fn run() -> Result<(), String> {
             "tree_algorithm": "unique Lamport order with cycle-rejected move replay",
             "sibling_algorithm": "RGA-style stable origins, descending same-origin identifiers, retained tombstones",
             "supported": ["move existing entity", "reorder existing entity", "delete as move to profile trash", "resurrection by later move"],
-            "unsupported": ["concurrent entity creation", "garbage collection before causal stability", "combined property and structural transactions"],
+            "partial_profile": "nuif-collab-tree-prefix-0",
+            "unsupported": ["concurrent entity creation", "structural collection with inactive anchors", "combined property and structural transactions"],
             "limits": {
                 "changes": nuif_collab::MAX_CHANGES,
                 "replicas": nuif_collab::MAX_REPLICAS,
@@ -91,6 +95,7 @@ fn run() -> Result<(), String> {
         },
         "checks": checks,
         "scaling": scale,
+        "structural_prefix": prefix,
         "conflicts": expected.0.conflicts,
         "applied": expected.0.applied,
         "foreign_oracle": {
@@ -322,6 +327,128 @@ fn duplicate_delivery_is_idempotent(
     }
     Ok(set.checkpoint().as_ref() == Ok(expected)
         && incremental.checkpoint().as_ref() == Ok(expected))
+}
+
+fn structural_prefix_trial() -> Result<Value, String> {
+    let base = fixture();
+    let stable = change(
+        "prefix",
+        1,
+        BTreeMap::new(),
+        StructuralOperation::Move {
+            entity: LEFT,
+            new_parent: None,
+            anchor: StructuralAnchor::Start,
+        },
+    );
+    let retained = change(
+        "prefix",
+        2,
+        BTreeMap::from([("prefix".to_owned(), 1)]),
+        StructuralOperation::Move {
+            entity: LEAF,
+            new_parent: None,
+            anchor: StructuralAnchor::After(PositionId::Change(ChangeId::new("prefix", 1))),
+        },
+    );
+    let mut engine =
+        StructuralOperationSetEngine::new(base.clone()).map_err(|error| error.to_string())?;
+    engine
+        .ingest(stable.clone())
+        .map_err(|error| error.to_string())?;
+    engine
+        .ingest(retained.clone())
+        .map_err(|error| error.to_string())?;
+    let full = engine.checkpoint().map_err(|error| error.to_string())?;
+    let frontier =
+        nuif_collab::gc::StabilityFrontier::new(BTreeMap::from([("prefix".to_owned(), 1)]))
+            .map_err(|error| error.to_string())?;
+    let compacted = engine
+        .compact_stable_prefix(&frontier)
+        .map_err(|error| error.to_string())?;
+    let mut resumed = ResumedStructuralOperationSetEngine::new(compacted.base.clone())
+        .map_err(|error| error.to_string())?;
+    resumed
+        .ingest(retained.clone())
+        .map_err(|error| error.to_string())?;
+    let resumed_checkpoint = resumed.checkpoint().map_err(|error| error.to_string())?;
+
+    let inactive_anchor_typed = inactive_anchor_trial()?;
+    let checks = json!({
+        "canonical_document_exact": compacted.checkpoint.document == full.document,
+        "canonical_hash_exact": compacted.checkpoint.canonical_hash == full.canonical_hash,
+        "conflicts_exact": compacted.checkpoint.conflicts == full.conflicts
+            && resumed_checkpoint.conflicts == full.conflicts,
+        "receipt_profile_exact": compacted.receipt.profile == nuif_collab::structural::PARTIAL_PROFILE_NAME,
+        "dropped_retained_exact": compacted.receipt.dropped == vec![ChangeId::new("prefix", 1)]
+            && compacted.receipt.retained == vec![ChangeId::new("prefix", 2)],
+        "active_anchor_rebound": compacted.base.checkpoint.active_positions.get(&LEFT)
+            == Some(&PositionId::Change(ChangeId::new("prefix", 1))),
+        "resumed_exact": resumed_checkpoint.document == full.document
+            && resumed_checkpoint.canonical_hash == full.canonical_hash,
+        "inactive_anchor_typed": inactive_anchor_typed,
+    });
+    let passed = checks
+        .as_object()
+        .expect("checks object")
+        .values()
+        .all(|value| value == &Value::Bool(true));
+    Ok(json!({
+        "schema_version": 1,
+        "profile": nuif_collab::structural::PARTIAL_PROFILE_NAME,
+        "status": if passed { "passed" } else { "failed" },
+        "checks": checks,
+        "summary": { "dropped": compacted.receipt.dropped.len(), "retained": compacted.receipt.retained.len() },
+    }))
+}
+
+fn inactive_anchor_trial() -> Result<bool, String> {
+    let base = fixture();
+    let mut engine = StructuralOperationSetEngine::new(base).map_err(|error| error.to_string())?;
+    let changes = vec![
+        change(
+            "prefix",
+            1,
+            BTreeMap::new(),
+            StructuralOperation::Move {
+                entity: LEFT,
+                new_parent: None,
+                anchor: StructuralAnchor::Start,
+            },
+        ),
+        change(
+            "prefix",
+            2,
+            BTreeMap::from([("prefix".to_owned(), 1)]),
+            StructuralOperation::Move {
+                entity: LEFT,
+                new_parent: Some(RIGHT),
+                anchor: StructuralAnchor::Start,
+            },
+        ),
+        change(
+            "prefix",
+            3,
+            BTreeMap::from([("prefix".to_owned(), 2)]),
+            StructuralOperation::Move {
+                entity: LEAF,
+                new_parent: None,
+                anchor: StructuralAnchor::After(PositionId::Change(ChangeId::new("prefix", 1))),
+            },
+        ),
+    ];
+    for operation in changes {
+        engine
+            .ingest(operation)
+            .map_err(|error| error.to_string())?;
+    }
+    let frontier =
+        nuif_collab::gc::StabilityFrontier::new(BTreeMap::from([("prefix".to_owned(), 2)]))
+            .map_err(|error| error.to_string())?;
+    Ok(matches!(
+        engine.compact_stable_prefix(&frontier),
+        Err(StructuralError::StableAnchorNotRepresentable { .. })
+    ))
 }
 
 fn valid_structure(document: &Document) -> bool {
