@@ -9,7 +9,7 @@ Gate B: canonical model, operations and encodings. The executable baseline cover
 Gate C: responsive and bounded-Grid layout falsifier. `cargo xtask gate-c`
 compares the v0 viewport matrix and 24 seeded stack/flex/Grid cases across the
 independent NUIF evaluator, Taffy 0.14.0 and pinned Chrome for Testing
-152.0.7977.64. Per-fixture measured bounds, raw boxes and classifications are
+152.0.7977.82. Per-fixture measured bounds, raw boxes and classifications are
 stored in `target/layout-differential-report.json`. Fixed/`fr` tracks, sparse
 row/column flow, explicit placement and spans pass with no classified, blocking
 or unexplained divergence; broader CSS Grid remains outside profile 0.
@@ -125,7 +125,7 @@ The automated capture/reconstruction contract baseline now produces
 normalization, exact browser resource retention, credential-query redaction,
 honest screenshot omissions, typed proposal application, flat-copy rejection,
 codec fixpoints, calibration interpolation and finite correction-loop stops.
-`cargo xtask gate-j-live` separately drives Chrome for Testing 152.0.7977.64
+`cargo xtask gate-j-live` separately drives Chrome for Testing 152.0.7977.82
 through bounded loopback CDP. Four isolated runs retain the exact declared
 response set, platform-font use, accessibility and PNG evidence; carry the
 pinned runtime context into observations; reproduce the repeated 360 px

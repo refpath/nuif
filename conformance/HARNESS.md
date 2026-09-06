@@ -85,7 +85,7 @@ Persisted expectation regeneration remains a planned extension and will use one 
 | model | assertions | identity uniqueness, containment acyclicity, relation target existence |
 | canonicalization | self-consistency | `E(D(E(d))) = E(d)`; hash stability; idempotent canonicalize |
 | extensions | self-consistency through an ignorant implementation | byte identity of unknown payloads after decode, edit, encode (`opentimelineio`, `godot-tscn-scene-format`) |
-| layout | implemented metamorphic relations plus pinned Taffy 0.14.0 and Chrome for Testing 152.0.7977.64 | responsive v0 at 360/768/1440 px and 12 seeded stack/flex/grid cases; raw three-engine boxes, measured fixture bounds and typed divergences (`differential-testing`, `css-flexbox-grid-algorithm-specs`) |
+| layout | implemented metamorphic relations plus pinned Taffy 0.14.0 and Chrome for Testing 152.0.7977.82 | responsive v0 at 360/768/1440 px and 12 seeded stack/flex/grid cases; raw three-engine boxes, measured fixture bounds and typed divergences (`differential-testing`, `css-flexbox-grid-algorithm-specs`) |
 | text shaping/outlines | pinned HarfRust/Skrifa plus independently captured HarfBuzz 14.4.0 goldens | exact glyph IDs, Unicode-scalar clusters, font-unit advances and direction over eight Ahem cases; five normalized `hb-vector` outline paths; repeated scene runs and typed missing-font failures (`text-rendering-reproducibility`) |
 | render | reference rasterization | profile-0 exact for scaled rectangle inclusion, Zeno ellipse coverage, pinned text masks and integer-composited encoded-sRGB solid color; unsupported path/image/instance/extension semantics remain property-attributed; proposed tier 2 bounded and tier 3 perceptual thresholds remain non-normative (`vello-testing-and-cpu-reference`, `flip-perceptual-difference-metric`, `webrender-reftests`) |
 | operations | self-consistency and reference model | replay to identical hash; `apply(t⁻¹, apply(t, d)) ≡ d`; commutation of independent operations; undo-copy-redo invariance (`command-pattern-undo-and-event-sourcing`) |
@@ -434,7 +434,7 @@ released model, inference run or accuracy result.
 
 The separate live capture experiment writes
 `target/live-browser-capture-report.json`. `cargo xtask gate-j-live` installs or
-reuses exact Chrome for Testing 152.0.7977.64 and accepts isolated 360, 768,
+reuses exact Chrome for Testing 152.0.7977.82 and accepts isolated 360, 768,
 held-out 900 and repeated 360 px captures through bounded loopback CDP. It
 allows at most three recorded fresh-profile attempts per viewport and accepts
 only the exact resource/font fixture. It requires loader-specific load plus

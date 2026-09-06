@@ -296,7 +296,7 @@ video, cross-origin and local-font gaps remain explicit; secret canaries never
 enter exported evidence. `cargo xtask capture-baselines` proves repeatable
 normalization, exact resource retention, query-secret redaction, typed proposal
 application and cycle rejection from fixed provider input. `cargo xtask
-gate-j-live` additionally drives exact Chrome for Testing 152.0.7977.64 with at
+gate-j-live` additionally drives exact Chrome for Testing 152.0.7977.82 with at
 most three recorded fresh-profile attempts per viewport. It records a structured runtime context, retains exactly the
 five declared response bodies, observes actual downloaded-font and
 accessibility results, repeats 360 px bytes exactly, excludes exercised query,

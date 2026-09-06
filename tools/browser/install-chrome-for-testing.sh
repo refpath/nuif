@@ -35,8 +35,7 @@ if [ -x "$destination/$executable" ]; then
     printf '%s\n' "$destination/$executable"
     exit 0
   fi
-  echo "existing browser has version $observed, expected $version" >&2
-  exit 1
+  echo "refreshing browser cache from $observed to $version" >&2
 fi
 
 archive=$(mktemp "${TMPDIR:-/tmp}/nuif-chrome.XXXXXX.zip")
@@ -54,12 +53,12 @@ if [ -z "$url" ]; then
 fi
 curl --fail --location --retry 3 --silent --show-error --output "$archive" "$url"
 unzip -q "$archive" -d "$staging"
-mkdir -p "$destination"
-mv "$staging/chrome-$platform" "$destination/chrome-$platform"
-
-observed=$("$destination/$executable" --version | awk '{print $NF}')
+observed=$("$staging/$executable" --version | awk '{print $NF}')
 if [ "$observed" != "$version" ]; then
   echo "downloaded browser has version $observed, expected $version" >&2
   exit 1
 fi
+mkdir -p "$destination"
+rm -rf "$destination/chrome-$platform"
+mv "$staging/chrome-$platform" "$destination/chrome-$platform"
 printf '%s\n' "$destination/$executable"

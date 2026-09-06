@@ -21,7 +21,7 @@ use taffy::prelude::{
 };
 
 pub const TAFFY_VERSION: &str = "0.14.0";
-pub const PINNED_CHROME_VERSION: &str = "152.0.7977.64";
+pub const PINNED_CHROME_VERSION: &str = "152.0.7977.82";
 pub const MAX_FOREIGN_TOLERANCE_PX: f64 = 0.1;
 const DEFAULT_SEED: u64 = 0x4e55_4946_4c41_594f;
 

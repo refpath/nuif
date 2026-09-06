@@ -283,7 +283,7 @@ Multiple viewports and states are more valuable than one oversized capture:
 they constrain layout hypotheses and permit held-out responsive evaluation.
 
 The automated `nuif-cdp-live-0` segment now implements that boundary for one
-loopback fixture and exact Chrome for Testing 152.0.7977.64. It starts fresh
+loopback fixture and exact Chrome for Testing 152.0.7977.82. It starts fresh
 temporary profiles, retains a structured runtime context, waits for the exact
 navigation loader and declared freeze/readiness point, captures bounded
 DOM/layout/background/font/accessibility/resource/PNG evidence, and replaces
