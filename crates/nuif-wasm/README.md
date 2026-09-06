@@ -79,7 +79,7 @@ Build and test both the Node conformance package and direct-browser package:
 cargo xtask gate-wasm
 ```
 
-The command pins `wasm-bindgen` 0.2.127, initializes the web target in pinned
+The command pins `wasm-bindgen` 0.2.128, initializes the web target in pinned
 headless Chrome, and runs the generated Node binding. It requires byte-identical
 bare and package output from the native CLI, exact preservation of a packaged
 behavior resource, read-only structural mutation rejection and typed
