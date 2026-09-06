@@ -643,6 +643,8 @@ impl Session {
     pub fn apply(&mut self, patch: &Patch) -> Result<(), EngineError> {
         let inverse = apply_patch_with_inverse(&mut self.document, patch)?;
         self.revision.clone_from(&inverse.base_revision);
+        self.selection
+            .retain(|id| self.document.entities.contains_key(id));
         self.undo.push(inverse);
         self.redo.clear();
         Ok(())
@@ -674,6 +676,8 @@ impl Session {
         };
         let inverse = apply_patch_with_inverse(&mut self.document, &patch)?;
         self.revision.clone_from(&inverse.base_revision);
+        self.selection
+            .retain(|id| self.document.entities.contains_key(id));
         self.undo.push(inverse);
         self.redo.clear();
         patch.base_revision = Some(base_revision);
@@ -798,6 +802,8 @@ impl Session {
         patch.base_revision = expected;
         let inverse = result?;
         self.revision.clone_from(&inverse.base_revision);
+        self.selection
+            .retain(|id| self.document.entities.contains_key(id));
         Ok(inverse)
     }
 }
@@ -917,6 +923,61 @@ mod tests {
         document.roots.push(root.id);
         document.entities.insert(root.id, root);
         document
+    }
+
+    #[test]
+    fn selection_tracks_entities_through_patches_and_history() {
+        let root = EntityId::new(2);
+        let child = EntityId::new(3);
+        let survivor = EntityId::new(4);
+        for external_patch in [false, true] {
+            let mut base = document();
+            base.entities.get_mut(&root).unwrap().children.push(child);
+            base.entities
+                .insert(child, Entity::new(child, EntityKind::Container));
+            base.entities
+                .insert(survivor, Entity::new(survivor, EntityKind::Container));
+            base.roots.push(survivor);
+            let mut session = Session::new(base);
+            session.select(vec![child, survivor, root]);
+            let operations = vec![Operation::Remove { entity: root }];
+            if external_patch {
+                session
+                    .apply(&Patch {
+                        base_revision: None,
+                        transactions: vec![Transaction { id: 1, operations }],
+                    })
+                    .unwrap();
+            } else {
+                session.apply_transaction(1, operations).unwrap();
+            }
+            assert_eq!(session.selection(), &[survivor]);
+            session.undo().unwrap();
+            session.select(vec![root, child, survivor]);
+            session.redo().unwrap();
+            assert_eq!(session.selection(), &[survivor]);
+            session.undo().unwrap();
+            let inserted = EntityId::new(5);
+            session
+                .apply_transaction(
+                    2,
+                    vec![Operation::Insert {
+                        parent: None,
+                        anchor: nuif_protocol::Anchor::Start,
+                        entity: Box::new(Entity::new(inserted, EntityKind::Container)),
+                    }],
+                )
+                .unwrap();
+            session.select(vec![inserted, survivor]);
+            session.undo().unwrap();
+            assert_eq!(session.selection(), &[survivor]);
+            assert!(
+                session
+                    .apply_transaction(3, vec![Operation::Remove { entity: inserted }])
+                    .is_err()
+            );
+            assert_eq!(session.selection(), &[survivor]);
+        }
     }
 
     #[test]
