@@ -2175,6 +2175,8 @@ fn run_wasm_browser_smoke(
     let output = Command::new(&chrome)
         .args([
             "--headless=new",
+            "--password-store=basic",
+            "--use-mock-keychain",
             "--disable-gpu",
             "--no-sandbox",
             "--allow-file-access-from-files",

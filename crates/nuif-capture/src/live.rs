@@ -243,6 +243,8 @@ impl BrowserProcess {
         let mut child = Command::new(options.chrome)
             .args([
                 "--headless=new",
+                "--password-store=basic",
+                "--use-mock-keychain",
                 "--disable-background-networking",
                 "--disable-component-update",
                 "--disable-default-apps",

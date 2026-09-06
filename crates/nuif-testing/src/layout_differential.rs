@@ -719,6 +719,8 @@ fn evaluate_browser(
 fn chrome_arguments() -> Vec<String> {
     [
         "--headless=new",
+        "--password-store=basic",
+        "--use-mock-keychain",
         "--disable-gpu",
         "--no-sandbox",
         "--hide-scrollbars",
