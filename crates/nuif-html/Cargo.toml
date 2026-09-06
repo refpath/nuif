@@ -19,6 +19,7 @@ nuif-core = { version = "0.0.1", path = "../nuif-core" }
 serde.workspace = true
 serde_json.workspace = true
 sha2.workspace = true
+base16ct.workspace = true
 thiserror.workspace = true
 tree-sitter.workspace = true
 tree-sitter-css.workspace = true

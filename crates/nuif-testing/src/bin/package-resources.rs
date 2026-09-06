@@ -660,7 +660,7 @@ fn trial(name: &str, passed: bool, details: impl serde::Serialize) -> Value {
 }
 
 fn sha256(bytes: &[u8]) -> String {
-    format!("{:x}", Sha256::digest(bytes))
+    base16ct::lower::encode_string(&Sha256::digest(bytes))
 }
 
 fn source_identity() -> Value {

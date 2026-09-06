@@ -752,7 +752,9 @@ impl EditorDriver {
                 raster: SnapshotRaster {
                     width: snapshot.raster.width,
                     height: snapshot.raster.height,
-                    rgba_sha256: format!("{:x}", Sha256::digest(&snapshot.raster.rgba)),
+                    rgba_sha256: base16ct::lower::encode_string(&Sha256::digest(
+                        &snapshot.raster.rgba,
+                    )),
                     rgba: snapshot.raster.rgba,
                     png,
                 },

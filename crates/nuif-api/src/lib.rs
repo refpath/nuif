@@ -833,7 +833,7 @@ fn validate_session_resources(resources: &SessionResources) -> Result<(), Engine
                 observed: total,
             });
         }
-        let actual = format!("{:x}", Sha256::digest(bytes));
+        let actual = base16ct::lower::encode_string(&Sha256::digest(bytes));
         if expected.sha256_hex() != Some(actual.as_str()) {
             return Err(EngineError::ResourceDigestMismatch {
                 expected: expected.clone(),
@@ -905,7 +905,7 @@ impl Snapshot {
             raster: RasterReport {
                 width: self.raster.width,
                 height: self.raster.height,
-                rgba_sha256: format!("{:x}", Sha256::digest(&self.raster.rgba)),
+                rgba_sha256: base16ct::lower::encode_string(&Sha256::digest(&self.raster.rgba)),
             },
         }
     }

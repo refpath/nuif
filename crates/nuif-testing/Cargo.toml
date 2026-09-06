@@ -35,6 +35,7 @@ png.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 sha2.workspace = true
+base16ct.workspace = true
 stats_alloc.workspace = true
 taffy.workspace = true
 thiserror.workspace = true

@@ -46,7 +46,7 @@ fn run() -> Result<(), String> {
             "relations": document.relations.len(),
         },
         "projection": {
-            "html_sha256": format!("{:x}", Sha256::digest(projection.html.as_bytes())),
+            "html_sha256": base16ct::lower::encode_string(&Sha256::digest(projection.html.as_bytes())),
             "semantic_nodes": projection.nodes.len(),
             "roles": projection.nodes.iter().map(|node| node.role.as_str()).collect::<Vec<_>>(),
             "mapped_relations": ["labelled-by", "described-by", "controls", "owns", "flow-to"],

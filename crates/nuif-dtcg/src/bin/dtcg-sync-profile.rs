@@ -311,7 +311,7 @@ fn write_file(path: &Path, bytes: &[u8]) -> Result<(), String> {
 }
 
 fn sha256(bytes: &[u8]) -> String {
-    format!("{:x}", Sha256::digest(bytes))
+    base16ct::lower::encode_string(&Sha256::digest(bytes))
 }
 
 fn command_text(program: &str, arguments: &[&str]) -> Option<String> {

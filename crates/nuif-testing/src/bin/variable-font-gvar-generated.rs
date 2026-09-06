@@ -931,7 +931,7 @@ fn write_u32_at(bytes: &mut [u8], offset: usize, value: u32) -> Result<(), Strin
 }
 
 fn sha256(bytes: &[u8]) -> String {
-    format!("{:x}", Sha256::digest(bytes))
+    base16ct::lower::encode_string(&Sha256::digest(bytes))
 }
 
 fn passed_trial(value: &Value) -> bool {

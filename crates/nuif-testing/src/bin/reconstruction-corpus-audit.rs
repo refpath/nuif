@@ -385,7 +385,9 @@ fn missing_near_duplicate_group_is_rejected(manifest: &CorpusManifest) -> bool {
 }
 
 fn digest(value: &str) -> ResourceDigest {
-    ResourceDigest::from_sha256_hex(format!("{:x}", Sha256::digest(value.as_bytes())))
+    ResourceDigest::from_sha256_hex(base16ct::lower::encode_string(&Sha256::digest(
+        value.as_bytes(),
+    )))
 }
 
 fn check(name: &str, passed: bool) -> Value {

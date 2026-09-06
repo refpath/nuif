@@ -83,7 +83,7 @@ fn run() -> Result<(), String> {
             "transitions": program.states.values().map(|state| state.transitions.len()).sum::<usize>(),
             "variables": program.variables.len(),
             "capabilities": program.capabilities,
-            "fixture_sha256": format!("{:x}", Sha256::digest(&fixture_bytes)),
+            "fixture_sha256": base16ct::lower::encode_string(&Sha256::digest(&fixture_bytes)),
             "non_claims": [
                 "the behavior sidecar is not yet part of the canonical NUIF wire model",
                 "no timers internal event queue networking navigation animation or arbitrary script",

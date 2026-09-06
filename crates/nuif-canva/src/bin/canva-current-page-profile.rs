@@ -74,7 +74,7 @@ fn run() -> Result<(), String> {
         "canonical_hash": canonical_hash(&document).map_err(|error| error.to_string())?,
         "snapshot": {
             "bytes": snapshot.len(),
-            "sha256": format!("{:x}", Sha256::digest(&snapshot)),
+            "sha256": base16ct::lower::encode_string(&Sha256::digest(&snapshot)),
             "elements": imported.document.entities.len(),
             "correspondences": imported.report.correspondences.len(),
             "fidelity_entries": imported.report.fidelity.len(),

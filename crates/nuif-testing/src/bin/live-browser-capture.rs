@@ -906,7 +906,7 @@ fn contains(haystack: &[u8], needle: &[u8]) -> bool {
 }
 
 fn sha256(bytes: &[u8]) -> String {
-    format!("{:x}", Sha256::digest(bytes))
+    base16ct::lower::encode_string(&Sha256::digest(bytes))
 }
 
 fn sha256_file(path: &Path) -> Result<String, String> {
@@ -920,7 +920,7 @@ fn sha256_file(path: &Path) -> Result<String, String> {
         }
         hasher.update(&buffer[..read]);
     }
-    Ok(format!("{:x}", hasher.finalize()))
+    Ok(base16ct::lower::encode_string(&hasher.finalize()))
 }
 
 fn source_identity() -> Value {

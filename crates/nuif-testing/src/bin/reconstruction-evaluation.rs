@@ -328,7 +328,7 @@ fn opaque_rgb(width: u32, height: u32, rgba: &[u8]) -> Result<Vec<u8>, String> {
 }
 
 fn sha256(bytes: &[u8]) -> String {
-    format!("{:x}", Sha256::digest(bytes))
+    base16ct::lower::encode_string(&Sha256::digest(bytes))
 }
 
 fn check(name: &str, passed: bool) -> Value {

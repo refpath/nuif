@@ -99,14 +99,13 @@ pin and one-process Rust boundary.
   sequential `ws://127.0.0.1` debugger socket. Tokio-tungstenite, chromiumoxide
   or headless_chrome would add async/runtime or browser-object layers without
   changing the evidence contract. TLS is deliberately absent because remote
-  debugger endpoints are rejected. NUIF pins 0.29.0 rather than current 0.30.0:
-  the upstream changelog says 0.30 adds rejection of non-compliant clients on
-  the server side and updates Rand/SHA/MSRV. This adapter is exclusively a
-  client to pinned Chrome; 0.29 preserves the needed API and removes four
-  duplicate Digest-family version lines from the resolved graph. Locators:
-  https://github.com/snapview/tungstenite-rs and
-  https://github.com/snapview/tungstenite-rs/blob/master/CHANGELOG.md,
-  retrieved 2026-08-31.
+  debugger endpoints are rejected. NUIF pins 0.30.0 after a coordinated SHA-2 0.11 migration. The
+  transport and artifact hashes now share Digest 0.11; the earlier reason for
+  holding 0.29 (parallel Digest versions under a transport-only upgrade) no
+  longer applies. The server-side handshake change does not alter this
+  client's evidence contract. Locators:
+  https://github.com/snapview/tungstenite-rs/blob/v0.30.0/CHANGELOG.md and
+  `research/items/rustcrypto-hash-migration.md`, retrieved 2026-09-06.
 
 ## Mechanism
 

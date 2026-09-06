@@ -512,7 +512,7 @@ pub fn variable_font_package_fixture(location: VariableFontFixtureLocation) -> N
         "../../../conformance/font/fixtures/noto-sans-variable-subset/NotoSans-variable-subset.ttf"
     );
     assert_eq!(
-        format!("{:x}", sha2::Sha256::digest(BYTES)),
+        base16ct::lower::encode_string(&sha2::Sha256::digest(BYTES)),
         VARIABLE_FONT_FIXTURE_SHA256,
         "variable font fixture digest"
     );

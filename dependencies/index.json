@@ -2,6 +2,20 @@
   "schema_version": 1,
   "dependencies": [
     {
+      "name": "base16ct",
+      "role": "lowercase hexadecimal digest encoding",
+      "decision": "retain",
+      "alternatives": [
+        "const-hex",
+        "hex",
+        "local byte-formatting loops"
+      ],
+      "rationale": "RustCrypto base16ct 1.0 supplies a dependency-free Rust encoder and formatter for SHA-2 0.11 byte-array outputs. Encoding remains separate from hash selection and does not add GUI or codec dependencies to leaf crates. NUIF uses its allocation feature for exact-size lowercase strings.",
+      "evidence": [
+        "research/items/rustcrypto-hash-migration.md"
+      ]
+    },
+    {
       "name": "base64",
       "role": "bounded decoding of binary Chrome DevTools Protocol response bodies and screenshots",
       "decision": "retain",
@@ -159,7 +173,7 @@
       "decision": "retain",
       "alternatives": ["blake3", "ring digest"],
       "rationale": "SHA-256 is interoperable with release tooling, web standards, and independent implementations; hashing is not a measured bottleneck.",
-      "evidence": ["research/items/content-addressed-versioning.md"]
+      "evidence": ["research/items/content-addressed-versioning.md", "research/items/rustcrypto-hash-migration.md"]
     },
     {
       "name": "skrifa",
@@ -262,8 +276,8 @@
       "role": "bounded synchronous loopback WebSocket transport for the pinned Chromium capture adapter",
       "decision": "retain",
       "alternatives": ["Playwright sidecar", "WebDriver BiDi plus driver", "chromiumoxide", "headless_chrome"],
-      "rationale": "The capture process already owns an exact Chrome for Testing build and needs a sequential loopback CDP message channel, not another browser downloader, asynchronous runtime or automation object model. Exact 0.29 supplies RFC 6455 framing with explicit frame/message ceilings and no TLS feature for the loopback-only debugger socket. The reviewed 0.30 delta is a server-side client-key rejection plus dependency/MSRV updates; NUIF is only a client here, and 0.29 avoids four parallel Digest-family version lines. All CDP semantics and evidence limits remain NUIF-owned.",
-      "evidence": ["research/items/live-chromium-cdp-capture.md", "research/items/chromium-source-backed-ui-capture.md"]
+      "rationale": "The capture process owns an exact Chrome for Testing build and needs a sequential loopback CDP message channel. Tungstenite 0.30 provides RFC 6455 framing with explicit frame/message ceilings and no TLS feature for the loopback-only debugger socket. Its SHA-1 dependency shares Digest 0.11 with the coordinated SHA-2 update. CDP semantics and evidence limits remain NUIF-owned.",
+      "evidence": ["research/items/live-chromium-cdp-capture.md", "research/items/chromium-source-backed-ui-capture.md", "research/items/rustcrypto-hash-migration.md"]
     },
     {
       "name": "wasm-bindgen",

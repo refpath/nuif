@@ -545,7 +545,7 @@ fn unicode_scalar_hash(ranges: &[nuif_core::CodepointRange]) -> String {
             }
         }
     }
-    format!("{:x}", digest.finalize())
+    base16ct::lower::encode_string(&digest.finalize())
 }
 
 fn negative_trials(canonical: &[u8]) -> Vec<Value> {
@@ -911,7 +911,7 @@ fn passed_trial(value: &Value) -> bool {
 }
 
 fn sha256(bytes: &[u8]) -> String {
-    format!("{:x}", Sha256::digest(bytes))
+    base16ct::lower::encode_string(&Sha256::digest(bytes))
 }
 
 fn source_identity() -> Value {

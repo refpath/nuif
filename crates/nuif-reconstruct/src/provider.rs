@@ -249,7 +249,9 @@ impl ProviderManifest {
         let bytes = self.encode()?;
         Ok(ProviderIdentity {
             kind: self.kind.clone(),
-            manifest: ResourceDigest::from_sha256_hex(format!("{:x}", Sha256::digest(bytes))),
+            manifest: ResourceDigest::from_sha256_hex(base16ct::lower::encode_string(
+                &Sha256::digest(bytes),
+            )),
         })
     }
 }

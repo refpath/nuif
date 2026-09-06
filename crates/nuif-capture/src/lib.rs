@@ -101,7 +101,9 @@ fn development_provider_manifest<const N: usize>(
         artifacts: vec![ProviderArtifact {
             id: "implementation".to_owned(),
             role: ProviderArtifactRole::Implementation,
-            digest: ResourceDigest::from_sha256_hex(format!("{:x}", implementation.finalize())),
+            digest: ResourceDigest::from_sha256_hex(base16ct::lower::encode_string(
+                &implementation.finalize(),
+            )),
             format: "rust-source-bundle".to_owned(),
             version: env!("CARGO_PKG_VERSION").to_owned(),
         }],

@@ -59,7 +59,7 @@ fn run() -> Result<(), String> {
     let output = output_path()?;
     let golden: Golden = serde_json::from_str(GOLDEN).map_err(|error| error.to_string())?;
     if golden.font_sha256 != VARIABLE_FONT_FIXTURE_SHA256
-        || format!("{:x}", Sha256::digest(FONT)) != VARIABLE_FONT_FIXTURE_SHA256
+        || base16ct::lower::encode_string(&Sha256::digest(FONT)) != VARIABLE_FONT_FIXTURE_SHA256
     {
         return Err("runtime fixture identity disagrees with its committed oracle".to_owned());
     }
@@ -219,7 +219,7 @@ fn evaluate_case(oracle: &GoldenCase) -> Result<CaseEvidence, String> {
         .iter()
         .map(|coordinate| coordinate.normalized_2_14)
         .collect::<Vec<_>>();
-    let raster_sha256 = format!("{:x}", Sha256::digest(&first.raster.rgba));
+    let raster_sha256 = base16ct::lower::encode_string(&Sha256::digest(&first.raster.rgba));
     let trials = vec![
         trial(
             "package_byte_fixpoint",

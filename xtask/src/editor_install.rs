@@ -1533,7 +1533,7 @@ fn write_bytes_atomic(path: &Path, bytes: &[u8]) -> Result<(), String> {
 
 fn sha256_file(path: &Path) -> Result<String, String> {
     let bytes = fs::read(path).map_err(|error| error.to_string())?;
-    Ok(format!("{:x}", Sha256::digest(bytes)))
+    Ok(base16ct::lower::encode_string(&Sha256::digest(bytes)))
 }
 
 fn source_tree_sha256() -> Result<String, String> {
@@ -1591,7 +1591,7 @@ fn source_tree_sha256() -> Result<String, String> {
             ));
         }
     }
-    Ok(format!("{:x}", digest.finalize()))
+    Ok(base16ct::lower::encode_string(&digest.finalize()))
 }
 
 fn require_update_tools() -> Result<(), String> {

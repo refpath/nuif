@@ -117,7 +117,7 @@ pub fn project_web_behavior(
         profile: WEB_BEHAVIOR_PROFILE.to_owned(),
         source_profile: BEHAVIOR_PROFILE.to_owned(),
         html: projected,
-        script_sha256: format!("{digest:x}"),
+        script_sha256: base16ct::lower::encode_string(&digest),
         csp_script_source,
         event_sources,
         effect_capabilities: vec![

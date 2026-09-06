@@ -330,7 +330,7 @@ fn compile(stage: bool) -> Result<Compilation, String> {
         digest.update([0]);
         documents.push(document);
     }
-    let source_digest = format!("sha256:{:x}", digest.finalize());
+    let source_digest = format!("sha256:{:x}", base16ct::HexDisplay(&digest.finalize()));
     let compilation = Compilation {
         config,
         documents,

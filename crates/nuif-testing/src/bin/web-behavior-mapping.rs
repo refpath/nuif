@@ -63,7 +63,7 @@ fn run() -> Result<(), String> {
         },
         "projection": {
             "source_profile": projection.source_profile,
-            "html_sha256": format!("{:x}", Sha256::digest(projection.html.as_bytes())),
+            "html_sha256": base16ct::lower::encode_string(&Sha256::digest(projection.html.as_bytes())),
             "script_sha256": projection.script_sha256,
             "csp_script_source": projection.csp_script_source,
             "event_sources": projection.event_sources,
@@ -119,7 +119,7 @@ fn evaluate_checks(
         "projection_fixpoint": projection == repeated,
         "source_profile_retained": projection.source_profile == nuif_behavior::BEHAVIOR_PROFILE,
         "all_native_sources_bound": projection.event_sources == vec![EntityId::new(0x21), EntityId::new(0x23), EntityId::new(0x24)],
-        "script_digest_exact": format!("{:x}", Sha256::digest(script.as_bytes())) == projection.script_sha256,
+        "script_digest_exact": base16ct::lower::encode_string(&Sha256::digest(script.as_bytes())) == projection.script_sha256,
         "csp_is_hash_restricted": projection.html.contains(&format!("script-src '{}'", projection.csp_script_source))
             && !projection.html.contains("'unsafe-inline'")
             && !projection.html.contains("'unsafe-eval'"),

@@ -252,7 +252,7 @@ fn passed_trial(value: &Value) -> bool {
 }
 
 fn sha256(bytes: &[u8]) -> String {
-    format!("{:x}", Sha256::digest(bytes))
+    base16ct::lower::encode_string(&Sha256::digest(bytes))
 }
 
 fn output_path() -> Result<PathBuf, String> {

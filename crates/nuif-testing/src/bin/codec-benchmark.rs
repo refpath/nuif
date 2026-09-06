@@ -422,7 +422,7 @@ fn decimal_ratio(numerator: usize, denominator: usize) -> String {
 }
 
 fn sha256(bytes: &[u8]) -> String {
-    format!("{:x}", Sha256::digest(bytes))
+    base16ct::lower::encode_string(&Sha256::digest(bytes))
 }
 
 fn parse_output() -> Result<Option<PathBuf>, String> {

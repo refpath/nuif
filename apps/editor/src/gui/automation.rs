@@ -240,8 +240,10 @@ pub fn run() -> Result<(), String> {
         window: [scenario.window.width, scenario.window.height],
         canonical_hash: observed_hash,
         replay_hash,
-        shell_rgba_sha256: format!("{:x}", Sha256::digest(screenshot.as_raw())),
-        file_menu_rgba_sha256: format!("{:x}", Sha256::digest(file_menu_screenshot.as_raw())),
+        shell_rgba_sha256: base16ct::lower::encode_string(&Sha256::digest(screenshot.as_raw())),
+        file_menu_rgba_sha256: base16ct::lower::encode_string(&Sha256::digest(
+            file_menu_screenshot.as_raw(),
+        )),
         document_rgba_sha256: snapshot.raster.rgba_sha256.clone(),
         selection: driver.editor.selection().to_vec(),
         entities: driver.editor.document().entities.len(),

@@ -676,7 +676,7 @@ fn contains(haystack: &[u8], needle: &[u8]) -> bool {
 }
 
 fn sha256(bytes: &[u8]) -> String {
-    format!("{:x}", Sha256::digest(bytes))
+    base16ct::lower::encode_string(&Sha256::digest(bytes))
 }
 
 fn provider(kind: &str) -> ProviderIdentity {

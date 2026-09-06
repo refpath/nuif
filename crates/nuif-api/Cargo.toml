@@ -17,6 +17,7 @@ nuif-package = { version = "0.0.1", path = "../nuif-package" }
 nuif-query = { version = "0.0.0", path = "../nuif-query" }
 serde.workspace = true
 sha2.workspace = true
+base16ct.workspace = true
 thiserror.workspace = true
 
 [lints]

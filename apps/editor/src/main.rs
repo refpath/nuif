@@ -232,7 +232,7 @@ fn raster_summary(raster: &SnapshotRaster) -> serde_json::Value {
         "width": raster.width,
         "height": raster.height,
         "rgba_sha256": raster.rgba_sha256,
-        "png_sha256": format!("{:x}", Sha256::digest(&raster.png)),
+        "png_sha256": base16ct::lower::encode_string(&Sha256::digest(&raster.png)),
         "png_bytes": raster.png.len()
     })
 }

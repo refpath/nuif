@@ -336,7 +336,7 @@ impl<'a> ResourceFont<'a> {
         license: &str,
         feature_settings: &BTreeMap<String, u32>,
     ) -> Result<Self, TextError> {
-        let observed = format!("{:x}", Sha256::digest(bytes));
+        let observed = base16ct::lower::encode_string(&Sha256::digest(bytes));
         if observed != expected_sha256 {
             return Err(TextError::FontDigestMismatch {
                 expected: expected_sha256.to_owned(),
@@ -465,7 +465,7 @@ impl<'a> VariableResourceFont<'a> {
         axis_settings: &BTreeMap<String, f64>,
         feature_settings: &BTreeMap<String, u32>,
     ) -> Result<Self, TextError> {
-        let observed = format!("{:x}", Sha256::digest(bytes));
+        let observed = base16ct::lower::encode_string(&Sha256::digest(bytes));
         if observed != expected_sha256 {
             return Err(TextError::FontDigestMismatch {
                 expected: expected_sha256.to_owned(),
@@ -955,7 +955,7 @@ pub fn outline_resource_glyph(
     expected_sha256: &str,
     glyph_id: u32,
 ) -> Result<GlyphOutline, TextError> {
-    let observed = format!("{:x}", Sha256::digest(bytes));
+    let observed = base16ct::lower::encode_string(&Sha256::digest(bytes));
     if observed != expected_sha256 {
         return Err(TextError::FontDigestMismatch {
             expected: expected_sha256.to_owned(),
@@ -1209,7 +1209,7 @@ mod tests {
     #[test]
     fn exact_static_resource_is_reused_for_shaping_metrics_and_outlines() {
         let bytes = font_test_data::TINOS_SUBSET;
-        let sha256 = format!("{:x}", Sha256::digest(bytes));
+        let sha256 = base16ct::lower::encode_string(&Sha256::digest(bytes));
         let inspection = nuif_font::inspect_opentype_static(bytes, 0).unwrap();
         let family = inspection.names.first().unwrap();
         let font = ResourceFont::new(bytes, &sha256, family, "Apache-2.0").unwrap();
@@ -1347,7 +1347,7 @@ mod tests {
     #[test]
     fn exact_static_resource_applies_and_records_global_features() {
         let bytes = font_test_data::TINOS_SUBSET;
-        let sha256 = format!("{:x}", Sha256::digest(bytes));
+        let sha256 = base16ct::lower::encode_string(&Sha256::digest(bytes));
         let inspection = nuif_font::inspect_opentype_static(bytes, 0).unwrap();
         let family = inspection.names.first().unwrap();
         let request = ShapeRequest {

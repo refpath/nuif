@@ -727,7 +727,7 @@ fn gate_i_resource_host_matrix(arguments: &[String]) -> Result<(), String> {
                 filename.to_owned(),
                 serde_json::json!({
                     "input": path,
-                    "sha256": format!("{:x}", Sha256::digest(&bytes)),
+                    "sha256": base16ct::lower::encode_string(&Sha256::digest(&bytes)),
                     "report": value,
                 }),
             );
@@ -813,7 +813,7 @@ fn resource_host_matrix_report(
                 "platform": platform,
                 "input": wrapper["input"],
                 "sha256": wrapper["sha256"],
-                "portable_sha256": format!("{:x}", Sha256::digest(&normalized_bytes)),
+                "portable_sha256": base16ct::lower::encode_string(&Sha256::digest(&normalized_bytes)),
             }));
         }
         let semantic_exact = normalized
@@ -2362,7 +2362,7 @@ fn wasm_package() -> Result<(), String> {
     binding["archive"] = serde_json::json!({
         "name": archive_name,
         "bytes": archive_bytes.len(),
-        "sha256": format!("{:x}", Sha256::digest(&archive_bytes)),
+        "sha256": base16ct::lower::encode_string(&Sha256::digest(&archive_bytes)),
     });
     fs::write(
         dist.join(format!("{package_name}.binding.json")),
@@ -2607,7 +2607,7 @@ fn ffi_package() -> Result<(), String> {
     release_manifest["archive"] = serde_json::json!({
         "name": archive.file_name().and_then(|name| name.to_str()),
         "bytes": archive_bytes.len(),
-        "sha256": format!("{:x}", Sha256::digest(&archive_bytes))
+        "sha256": base16ct::lower::encode_string(&Sha256::digest(&archive_bytes))
     });
     fs::write(
         dist.join(format!("{package_name}.manifest.json")),
@@ -2691,7 +2691,7 @@ fn conformance_kit() -> Result<(), String> {
     release_manifest["archive"] = serde_json::json!({
         "name": archive.file_name().and_then(|name| name.to_str()),
         "bytes": archive_bytes.len(),
-        "sha256": format!("{:x}", Sha256::digest(&archive_bytes))
+        "sha256": base16ct::lower::encode_string(&Sha256::digest(&archive_bytes))
     });
     fs::write(
         dist.join(format!("{package_name}.manifest.json")),
@@ -2799,7 +2799,7 @@ fn kit_file_manifest(root: &Path) -> Result<Vec<serde_json::Value>, String> {
             Ok(serde_json::json!({
                 "name": relative,
                 "bytes": bytes.len(),
-                "sha256": format!("{:x}", Sha256::digest(bytes))
+                "sha256": base16ct::lower::encode_string(&Sha256::digest(bytes))
             }))
         })
         .collect()
@@ -2901,11 +2901,11 @@ fn write_cli_package_manifest(
         "binary": {
             "path": binary.strip_prefix(package_root).unwrap_or(binary),
             "bytes": binary_bytes.len(),
-            "sha256": format!("{:x}", Sha256::digest(&binary_bytes))
+            "sha256": base16ct::lower::encode_string(&Sha256::digest(&binary_bytes))
         },
         "smoke": {
             "path": "smoke-report.json",
-            "sha256": format!("{:x}", Sha256::digest(&smoke_bytes)),
+            "sha256": base16ct::lower::encode_string(&Sha256::digest(&smoke_bytes)),
             "status": "passed"
         },
         "commands": command_names,
@@ -2929,7 +2929,7 @@ fn write_cli_package_manifest(
     manifest["archive"] = serde_json::json!({
         "name": archive.file_name().and_then(|name| name.to_str()),
         "bytes": archive_bytes.len(),
-        "sha256": format!("{:x}", Sha256::digest(&archive_bytes))
+        "sha256": base16ct::lower::encode_string(&Sha256::digest(&archive_bytes))
     });
     fs::write(
         dist.join(format!("{package_name}.manifest.json")),
@@ -3047,11 +3047,11 @@ fn write_mcp_package_manifest(
         "binary": {
             "path": binary.strip_prefix(package_root).unwrap_or(binary),
             "bytes": binary_bytes.len(),
-            "sha256": format!("{:x}", Sha256::digest(&binary_bytes))
+            "sha256": base16ct::lower::encode_string(&Sha256::digest(&binary_bytes))
         },
         "conformance": {
             "path": "conformance-report.json",
-            "sha256": format!("{:x}", Sha256::digest(&report_bytes)),
+            "sha256": base16ct::lower::encode_string(&Sha256::digest(&report_bytes)),
             "status": "passed"
         },
         "limits": {
@@ -3078,7 +3078,7 @@ fn write_mcp_package_manifest(
     manifest["archive"] = serde_json::json!({
         "name": archive.file_name().and_then(|name| name.to_str()),
         "bytes": archive_bytes.len(),
-        "sha256": format!("{:x}", Sha256::digest(&archive_bytes))
+        "sha256": base16ct::lower::encode_string(&Sha256::digest(&archive_bytes))
     });
     let external = serde_json::to_vec_pretty(&manifest).map_err(|error| error.to_string())?;
     fs::write(dist.join(format!("{package_name}.manifest.json")), external)
@@ -3114,7 +3114,7 @@ fn copy_wasm_package_files(
         files.push(serde_json::json!({
             "name": name,
             "bytes": bytes.len(),
-            "sha256": format!("{:x}", Sha256::digest(&bytes)),
+            "sha256": base16ct::lower::encode_string(&Sha256::digest(&bytes)),
         }));
     }
     let expected_names = [
@@ -5285,7 +5285,7 @@ fn verify_editor_package(
         "package_root": package_root,
         "binary": binary,
         "binary_bytes": bytes.len(),
-        "binary_sha256": format!("{:x}", Sha256::digest(&bytes)),
+        "binary_sha256": base16ct::lower::encode_string(&Sha256::digest(&bytes)),
         "source_revision": command_text("git", &["rev-parse", "HEAD"]),
         "source_dirty": command_text("git", &["status", "--porcelain"])
             .map(|value| !value.is_empty()),
@@ -5313,7 +5313,7 @@ fn verify_editor_package(
     manifest["archive"] = serde_json::json!({
         "path": archive,
         "bytes": archive_bytes.len(),
-        "sha256": format!("{:x}", Sha256::digest(&archive_bytes))
+        "sha256": base16ct::lower::encode_string(&Sha256::digest(&archive_bytes))
     });
     let manifest_bytes = serde_json::to_vec_pretty(&manifest).map_err(|error| error.to_string())?;
     fs::write(dist.join("editor-package-manifest.json"), &manifest_bytes)
