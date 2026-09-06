@@ -23,7 +23,7 @@ The generated review artifact includes `CANVA-SDK-LICENSE.md`. Canva's SDK
 license limits the bundle to permitted apps on the Canva Platform; it is not a
 general-purpose NUIF browser package and must not be redistributed as one.
 
-The pinned 2.12.0 package contains one invalid empty statement in its generated
+The pinned 2.13.0 package contains one invalid empty statement in its generated
 ambient declaration. `prepare-types` verifies that exact source fragment,
 removes it only in a generated type-check copy under `target/`, and records the
 source and result hashes. The runtime build continues to resolve the untouched

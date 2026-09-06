@@ -56,3 +56,15 @@ test("attributes affine and partial-ellipse semantics that basic geometry cannot
   const snapshot = normalizeSelection(root, { apiVersion: "1.0.0", pageId: "1:0", pageName: "Page" });
   assert.deepEqual(snapshot.root.children[0]?.unsupported_properties, ["arcData", "relativeTransform"]);
 });
+
+test("reports variable font axes and nondefault paragraph wrapping", () => {
+  const text = mockNode("TEXT", {
+    id: "6:2",
+    fontName: { family: "Ahem", style: "Regular", variationSettings: { wght: 550 } },
+    textWrapStyle: "BALANCE",
+    shared: { font_sha256: "f0a92cd0cc45735591c9b5b1fa8aecd5194e8dc518895ca22af94a46c23550dc" }
+  });
+  const root = mockNode("FRAME", { id: "6:1", children: [text] });
+  const snapshot = normalizeSelection(root, { apiVersion: "1.0.0", pageId: "1:0", pageName: "Page" });
+  assert.deepEqual(snapshot.root.children[0]?.unsupported_properties, ["fontName.variationSettings", "textWrapStyle"]);
+});

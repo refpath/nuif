@@ -61,7 +61,7 @@ The module parses and validates NUIF locally. Only the Apps SDK reads or mutates
 Canva objects. The build declares no remote code, and any optional backend is a
 separate authenticated feature with explicit data disclosure.
 
-`adapters/canva/app` pins `@canva/design` 2.12.0. Its published declaration
+`adapters/canva/app` pins `@canva/design` 2.13.0. Its published declaration
 currently contains one invalid empty statement after `PageRefList`. The build
 creates a type-check-only normalized copy, refuses any source shape other than
 the one audited defect, and records source and normalized hashes. Runtime code

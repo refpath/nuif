@@ -15,8 +15,8 @@
     "package": "node scripts/build.mjs --manifest"
   },
   "devDependencies": {
-    "@figma/plugin-typings": "1.136.0",
-    "@types/node": "26.4.0",
+    "@figma/plugin-typings": "1.138.0",
+    "@types/node": "26.4.1",
     "esbuild": "0.28.2",
     "typescript": "7.0.2"
   }

@@ -29,7 +29,7 @@ export function mutationPlan(elements: CanvaElement[] = [rectangle()]): CanvaMut
     profile: "nuif-canva-design-editing-0",
     page: {
       schema_version: 1,
-      host_application_version: "2.12.0",
+      host_application_version: "2.13.0",
       host_api_version: "2",
       host_document_id: "nuif-doc:00000000000000000000000000000001",
       host_document_revision: null,
@@ -44,7 +44,7 @@ export function mutationPlan(elements: CanvaElement[] = [rectangle()]): CanvaMut
       schema_version: 1,
       profile: "nuif-canva-design-editing-0",
       direction: "export",
-      host_application: "Canva Design 2.12.0",
+      host_application: "Canva Design 2.13.0",
       host_api_version: "2",
       host_document_revision: null,
       canonical_hash: `nuif-cbor-0:sha256:${"a".repeat(64)}`,

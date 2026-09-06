@@ -23,7 +23,7 @@ await writeFile(
       schema_version: 1,
       status: "passed",
       package: "@canva/design",
-      version: "2.12.0",
+      version: "2.13.0",
       transformation: "remove one invalid empty statement after DesignEditing.PageRefList",
       source_sha256: createHash("sha256").update(source).digest("hex"),
       normalized_sha256: createHash("sha256").update(normalized).digest("hex")

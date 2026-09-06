@@ -10,7 +10,7 @@ import {
   type SolidColor
 } from "./protocol";
 
-export const CANVA_APPS_SDK_VERSION = "2.12.0";
+export const CANVA_APPS_SDK_VERSION = "2.13.0";
 export const CANONICAL_ELLIPSE_PATH = "M 50 0 A 50 50 0 1 1 50 100 A 50 50 0 1 1 50 0 Z";
 
 export interface ApplyResult {

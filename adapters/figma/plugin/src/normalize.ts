@@ -216,6 +216,10 @@ function inspectCommonProperties(node: SupportedNode, unsupported: Set<string>):
 }
 
 function inspectTextProperties(node: TextNode, unsupported: Set<string>): void {
+  if (typeof node.fontName !== "symbol" && node.fontName.variationSettings !== undefined) {
+    unsupported.add("fontName.variationSettings");
+  }
+  if (node.textWrapStyle !== undefined && node.textWrapStyle !== "AUTO") unsupported.add("textWrapStyle");
   if (node.textAlignHorizontal !== "LEFT") unsupported.add("textAlignHorizontal");
   if (node.textAlignVertical !== "TOP") unsupported.add("textAlignVertical");
   if (node.textAutoResize !== "NONE") unsupported.add("textAutoResize");
