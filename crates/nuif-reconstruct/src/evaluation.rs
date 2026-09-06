@@ -663,8 +663,8 @@ pub enum EvaluationError {
 ///
 /// Rejects inputs beyond the item or edit-cell budgets.
 pub fn character_error(reference: &str, candidate: &str) -> Result<EditMetrics, EvaluationError> {
-    let reference = reference.chars().collect::<Vec<_>>();
-    let candidate = candidate.chars().collect::<Vec<_>>();
+    let reference = collect_edit_units(reference.chars(), "reference edit units")?;
+    let candidate = collect_edit_units(candidate.chars(), "candidate edit units")?;
     let distance = levenshtein(&reference, &candidate)?;
     Ok(EditMetrics::new(
         u64::try_from(distance).unwrap_or(u64::MAX),
@@ -678,8 +678,8 @@ pub fn character_error(reference: &str, candidate: &str) -> Result<EditMetrics, 
 ///
 /// Rejects inputs beyond the item or edit-cell budgets.
 pub fn word_error(reference: &str, candidate: &str) -> Result<EditMetrics, EvaluationError> {
-    let reference = reference.split_whitespace().collect::<Vec<_>>();
-    let candidate = candidate.split_whitespace().collect::<Vec<_>>();
+    let reference = collect_edit_units(reference.split_whitespace(), "reference edit units")?;
+    let candidate = collect_edit_units(candidate.split_whitespace(), "candidate edit units")?;
     let distance = levenshtein(&reference, &candidate)?;
     Ok(EditMetrics::new(
         u64::try_from(distance).unwrap_or(u64::MAX),
@@ -702,14 +702,36 @@ pub fn bounds_iou(reference: Bounds, candidate: Bounds) -> Result<f64, Evaluatio
     {
         return Err(EvaluationError::InvalidBounds);
     }
-    let intersection_width = (reference.x + reference.width).min(candidate.x + candidate.width)
-        - reference.x.max(candidate.x);
-    let intersection_height = (reference.y + reference.height).min(candidate.y + candidate.height)
-        - reference.y.max(candidate.y);
-    let intersection = intersection_width.max(0.0) * intersection_height.max(0.0);
+    // Common scales cancel from the ratio and keep area products bounded.
+    // Relative offsets preserve small extents at large absolute coordinates.
+    let width_scale = reference.width.max(candidate.width);
+    let height_scale = reference.height.max(candidate.height);
+    let reference_width = reference.width / width_scale;
+    let reference_height = reference.height / height_scale;
+    let candidate_width = candidate.width / width_scale;
+    let candidate_height = candidate.height / height_scale;
+    let offset_x = (candidate.x - reference.x) / width_scale;
+    let offset_y = (candidate.y - reference.y) / height_scale;
+    let intersection_width =
+        (reference_width.min(offset_x + candidate_width) - offset_x.max(0.0)).max(0.0);
+    let intersection_height =
+        (reference_height.min(offset_y + candidate_height) - offset_y.max(0.0)).max(0.0);
+    let intersection = intersection_width * intersection_height;
+    if intersection == 0.0 {
+        return Ok(0.0);
+    }
     let union =
-        reference.width * reference.height + candidate.width * candidate.height - intersection;
-    Ok(intersection / union)
+        reference_width * reference_height + candidate_width * candidate_height - intersection;
+    Ok((intersection / union).clamp(0.0, 1.0))
+}
+
+fn collect_edit_units<T>(
+    units: impl Iterator<Item = T>,
+    resource: &'static str,
+) -> Result<Vec<T>, EvaluationError> {
+    let units = units.take(MAX_EVALUATION_ITEMS + 1).collect::<Vec<_>>();
+    check_items(units.len(), resource)?;
+    Ok(units)
 }
 
 fn levenshtein<T: Eq>(reference: &[T], candidate: &[T]) -> Result<usize, EvaluationError> {
@@ -818,6 +840,62 @@ impl From<EvaluationError> for ReconstructionError {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn edit_unit_collection_stops_at_the_admission_limit() {
+        let mut consumed = 0;
+        let units = std::iter::repeat('x').inspect(|_| consumed += 1);
+        assert!(matches!(
+            collect_edit_units(units, "reference edit units"),
+            Err(EvaluationError::ResourceLimit("reference edit units"))
+        ));
+        assert_eq!(consumed, MAX_EVALUATION_ITEMS + 1);
+        let limit = "🦀".repeat(MAX_EVALUATION_ITEMS);
+        assert!(character_error(&limit, "").is_ok());
+        assert!(character_error(&(limit + "x"), "").is_err());
+        assert!(word_error("", &"word ".repeat(MAX_EVALUATION_ITEMS + 1)).is_err());
+    }
+
+    #[test]
+    fn overlap_remains_finite_at_extreme_coordinate_and_area_scales() {
+        for (origin, extent) in [(0.0, 1e200), (0.0, 1e-200), (1e200, 10.0)] {
+            let bounds = Bounds {
+                x: origin,
+                y: origin,
+                width: extent,
+                height: extent,
+            };
+            assert!((bounds_iou(bounds, bounds).unwrap() - 1.0).abs() < f64::EPSILON);
+        }
+        for extent in [1e200, 1e-200] {
+            let left = Bounds {
+                x: 0.0,
+                y: 0.0,
+                width: extent,
+                height: extent,
+            };
+            let right = Bounds {
+                x: extent / 2.0,
+                ..left
+            };
+            assert!((bounds_iou(left, right).unwrap() - 1.0 / 3.0).abs() < 1e-12);
+            assert!(
+                (bounds_iou(left, right).unwrap() - bounds_iou(right, left).unwrap()).abs()
+                    < f64::EPSILON
+            );
+        }
+        let left = Bounds {
+            x: -f64::MAX,
+            y: 0.0,
+            width: 1.0,
+            height: 1.0,
+        };
+        let right = Bounds {
+            x: f64::MAX,
+            ..left
+        };
+        assert!(bounds_iou(left, right).unwrap().abs() < f64::EPSILON);
+    }
 
     fn bounds(x: f64, y: f64, width: f64, height: f64) -> Bounds {
         Bounds {
