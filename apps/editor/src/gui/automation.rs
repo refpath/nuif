@@ -652,10 +652,21 @@ fn collect_semantics(
     harness: &TestHarness<SizedBox>,
     driver: &Driver,
 ) -> Result<Vec<SemanticNode>, String> {
+    // Consumer node IDs are opaque. Resolve widget-local IDs through the public
+    // tree API once, including only the root tree that owns Masonry widgets.
+    let state = harness.access_tree().state();
+    let mut pending = vec![state.root()];
+    let mut access_nodes = std::collections::BTreeMap::new();
+    while let Some(node) = pending.pop() {
+        pending.extend(node.children());
+        if let Some((local_id, TreeId::ROOT)) = state.locate_node(node.id()) {
+            access_nodes.insert(local_id.0, node);
+        }
+    }
     let mut nodes = Vec::new();
     for (author_id, widget_id) in &driver.entity_widgets {
-        let node = harness
-            .access_node(*widget_id)
+        let node = access_nodes
+            .get(&widget_id.to_raw())
             .ok_or_else(|| format!("accessibility node for entity {author_id} is absent"))?;
         nodes.push(SemanticNode {
             author_id: *author_id,
@@ -666,7 +677,7 @@ fn collect_semantics(
         });
     }
     for ((author_id, semantic_label), widget_id) in &driver.control_widgets {
-        let node = harness.access_node(*widget_id).ok_or_else(|| {
+        let node = access_nodes.get(&widget_id.to_raw()).ok_or_else(|| {
             format!("accessibility node for {author_id} {semantic_label} is absent")
         })?;
         nodes.push(SemanticNode {

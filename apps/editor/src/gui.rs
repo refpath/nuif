@@ -3050,11 +3050,22 @@ mod tests {
         assert_eq!((image.width(), image.height()), (1280, 800));
         let surface = driver.editor.document().roots[0].to_string();
         let surface_widget = driver.entity_widgets[&driver.editor.document().roots[0]];
-        assert!(
-            harness
-                .access_node(surface_widget)
-                .is_some_and(|node| node.author_id() == Some(surface.as_str()))
-        );
+        let state = harness.access_tree().state();
+        let mut pending = vec![state.root()];
+        let mut found = false;
+        while let Some(node) = pending.pop() {
+            pending.extend(node.children());
+            if state.locate_node(node.id())
+                == Some((
+                    masonry::accesskit::NodeId(surface_widget.to_raw()),
+                    TreeId::ROOT,
+                ))
+            {
+                assert_eq!(node.author_id(), Some(surface.as_str()));
+                found = true;
+            }
+        }
+        assert!(found, "surface widget must expose its authored identity");
     }
 
     #[test]

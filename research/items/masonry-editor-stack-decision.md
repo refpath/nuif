@@ -140,7 +140,7 @@ Churn model: between v0.4.0 and b81d8d7 the `Widget` trait's paint signature, th
 **Reject**
 - Masonry 0.4.0 for the editor, because it lacks `Canvas`, paints into a `vello::Scene` of Vello 0.6, screenshots only through wgpu and pins AccessKit 0.21; none of the harness requirements in `conformance/HARNESS.md` is met by that release.
 - Xilem for the reference editor at this stage, because its view coverage lags Masonry and the editor's state is NUIF state addressed by entity identity; the option stays open for demonstrations.
-- egui as a Vello host, because `CallbackTrait::paint` is confined to egui's render pass and the text and vector stack would be duplicated, as the earlier record concluded.
+- An immediate editor rewrite to egui without a CPU screenshot migration result. The earlier rejection of egui as a Vello host was too broad: rendering to an intermediate texture in `prepare` and sampling in `paint` is permitted by its callback contract. The current comparison and acceptance criteria are recorded in `nuif:research:editor-fork-exit-review`.
 - Blitz as the editor shell, because the harness crate is unpublished, the custom paint trait could not be verified, and the UI-SPEC panels would be authored in HTML and CSS against a beta document engine.
 - GPUI, because tree queries are absent from its test contexts and its README requires the latest stable toolchain.
 

@@ -37,7 +37,7 @@ Decision delegated to research on 2026-08-29. Evidence: `nuif:research:masonry-e
 ## Rationale
 
 - Masonry main is the only candidate whose harness returns the frame's visual layer plan and AccessKit `TreeUpdate` from one `redraw()`, accepts `ActionRequest`s directly, controls time, hosts a custom-painted canvas, and rasterizes without a GPU.
-- egui: `egui-wgpu` callbacks paint inside egui's own render pass, while Vello requires compute passes; egui would duplicate the text and vector stack; `egui_kittest`'s query API remains the model for NUIF's harness surface.
+- egui remains a migration candidate. A custom renderer can prepare an intermediate texture before the egui render pass and sample it during painting. Its published 0.36.1 snapshot harness uses wgpu; it does not supply the current CPU shell-rendering path. The semantic and screenshot migration criteria are recorded in `nuif:research:editor-fork-exit-review`.
 - Floem: no AccessKit (issues 8 and 973 open). Blitz: custom paint sources exist but the harness is unpublished. GPUI: builds an AccessKit tree per frame but exposes no query in test contexts and requires latest stable. iced: no accessibility tree. Slint: licence and DSL-owned element tree.
 
 ## Widget inventory
@@ -47,7 +47,7 @@ Masonry main ships 37 widgets including `Split` (draggable), `CollapsePanel`, `S
 ## Risks and mitigations
 
 - API churn: paint signature, layout system and renderer changed between 0.4.0 and main without a changelog; 304 days without a release. Mitigation: git pin, single bump commits, harness behind NUIF's session-driver trait, no Masonry types in `crates/`.
-- `Split` pointer defect (xilem issue 1581); `unsafe` NodeId workaround in `access_node` (AccessKit issue 701, fixed in `accesskit_consumer` 0.36 while Masonry pins 0.35). Mitigation: isolated in the app crate; `unsafe_code = "forbid"` stays in `crates/`.
+- `Split` pointer defect (xilem issue 1581). The pinned harness also contains an unsafe NodeId conversion in `access_node`. NUIF automation and tests avoid that helper by traversing the public consumer tree and resolving local IDs with `locate_node`; the dependency still contains the unused helper. `unsafe_code = "forbid"` stays in `crates/`. Evidence: `nuif:research:editor-fork-exit-review`.
 - `vello_cpu` regressions affect shell screenshots only (tier 2 tolerance); the render suite uses NUIF's CPU reference.
 
 ## Consequences
