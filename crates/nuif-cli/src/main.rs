@@ -631,20 +631,8 @@ fn output_identity(path: &str) -> Result<PathBuf, CliError> {
     if path == "-" {
         return Ok(PathBuf::from("-"));
     }
-    let path = Path::new(path);
-    if let Ok(canonical) = fs::canonicalize(path) {
-        return Ok(canonical);
-    }
-    let parent = path
-        .parent()
-        .filter(|parent| !parent.as_os_str().is_empty())
-        .unwrap_or(Path::new("."));
-    let parent = fs::canonicalize(parent)
-        .map_err(|error| CliError::new(2, "ARGUMENT_INVALID", error.to_string()))?;
-    let name = path
-        .file_name()
-        .ok_or_else(|| CliError::new(2, "ARGUMENT_INVALID", "output requires a filename"))?;
-    Ok(parent.join(name))
+    nuif_codec::filesystem::output_path_identity(Path::new(path))
+        .map_err(|error| CliError::new(2, "ARGUMENT_INVALID", error.to_string()))
 }
 
 fn export_arguments(args: &[String]) -> (&str, &str, Option<&str>) {

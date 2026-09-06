@@ -2,7 +2,49 @@
 
 use std::fs::{self, File};
 use std::io::{self, Write as _};
-use std::path::Path;
+use std::path::{Component, Path, PathBuf};
+
+/// Resolves an output path through its nearest existing ancestor.
+///
+/// Missing descendants are normalized lexically so a report path can be checked
+/// before its parent directory is created. This does not lock directory entries.
+///
+/// # Errors
+///
+/// Returns an error when the current directory or an existing ancestor cannot
+/// be resolved.
+pub fn output_path_identity(path: &Path) -> io::Result<PathBuf> {
+    let absolute = std::path::absolute(path)?;
+    let mut ancestor = absolute.as_path();
+    let mut suffix = Vec::new();
+    loop {
+        match fs::canonicalize(ancestor) {
+            Ok(mut resolved) => {
+                for component in suffix.into_iter().rev() {
+                    match component {
+                        Component::ParentDir => {
+                            resolved.pop();
+                        }
+                        Component::CurDir => {}
+                        other => resolved.push(other.as_os_str()),
+                    }
+                }
+                return Ok(resolved);
+            }
+            Err(error) if error.kind() == io::ErrorKind::NotFound => {
+                let component = ancestor
+                    .components()
+                    .next_back()
+                    .ok_or_else(|| io::Error::other("output path has no existing ancestor"))?;
+                suffix.push(component);
+                ancestor = ancestor
+                    .parent()
+                    .ok_or_else(|| io::Error::other("output path has no existing ancestor"))?;
+            }
+            Err(error) => return Err(error),
+        }
+    }
+}
 
 /// Writes bytes to a sibling temporary file, then replaces the destination.
 ///
@@ -63,6 +105,27 @@ fn write_atomic_with(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn output_identity_resolves_missing_parent_aliases_without_creating_them() {
+        let directory = tempfile::tempdir().unwrap();
+        let direct = directory.path().join("document.nuif");
+        let indirect = directory
+            .path()
+            .join("missing")
+            .join("..")
+            .join("document.nuif");
+        assert_eq!(
+            output_path_identity(&direct).unwrap(),
+            output_path_identity(&indirect).unwrap()
+        );
+        assert_eq!(fs::read_dir(directory.path()).unwrap().count(), 0);
+        fs::write(&direct, b"existing").unwrap();
+        assert_eq!(
+            output_path_identity(&direct).unwrap(),
+            output_path_identity(&indirect).unwrap()
+        );
+    }
 
     #[test]
     fn failed_staged_write_preserves_existing_file_and_cleans_temporary_file() {

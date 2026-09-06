@@ -63,7 +63,8 @@ planning, a post-import fixpoint, a second edit, byte locality, structural-edit
 refusal and stale-span refusal. The report records case dimensions, document
 hashes, source size, checks, revision and environment. Separate CLI subprocess
 tests check in-place synchronization, unsupported-edit preservation and
-report-path alias rejection. Results are written to
+report-path alias rejection. Headless editor subprocess tests reject report,
+script and expected-document collisions before reading or writing documents. Results are written to
 `target/source-workflow-report.json` and archived by CI.
 
 This is a generated regression corpus. Its dimensions are selected by the

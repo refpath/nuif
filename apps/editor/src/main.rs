@@ -111,8 +111,44 @@ fn load_initial_document(options: &HeadlessOptions) -> Result<EditorFile, String
     }
 }
 
+fn validate_output_paths(options: &HeadlessOptions) -> Result<(), String> {
+    let identity = |path: &Path| {
+        nuif_codec::filesystem::output_path_identity(path).map_err(|error| error.to_string())
+    };
+    let inputs = [
+        Some(&options.script),
+        options.document.as_ref(),
+        options.expected_document.as_ref(),
+    ];
+    if let Some(report) = &options.report {
+        let report = identity(report)?;
+        for path in inputs.into_iter().flatten().chain(options.output.iter()) {
+            if report == identity(path)? {
+                return Err(
+                    "--report must be separate from document output and input files".to_owned(),
+                );
+            }
+        }
+    }
+    if let Some(output) = &options.output {
+        let output = identity(output)?;
+        for path in [Some(&options.script), options.expected_document.as_ref()]
+            .into_iter()
+            .flatten()
+        {
+            if output == identity(path)? {
+                return Err(
+                    "--output must be separate from the script and expected document".to_owned(),
+                );
+            }
+        }
+    }
+    Ok(())
+}
+
 fn run() -> Result<(), String> {
     let options = parse_options()?;
+    validate_output_paths(&options)?;
     let opened = load_initial_document(&options)?;
     let document = opened.document;
     let mut package = opened.package;
@@ -304,9 +340,9 @@ fn write_json(path: &Path, value: &impl Serialize) -> Result<(), String> {
     if let Some(parent) = path.parent() {
         fs::create_dir_all(parent).map_err(|error| error.to_string())?;
     }
-    fs::write(
+    nuif_codec::filesystem::write_atomic(
         path,
-        serde_json::to_vec_pretty(value).map_err(|error| error.to_string())?,
+        &serde_json::to_vec_pretty(value).map_err(|error| error.to_string())?,
     )
     .map_err(|error| error.to_string())
 }

@@ -39,3 +39,10 @@ File saves and exports use the shared
 [output replacement contract](../../crates/nuif-cli/README.md#output-replacement).
 A failed staged write preserves the existing destination. The document and its
 fidelity report remain separate file replacements.
+
+The headless editor rejects a report path that resolves to a document input,
+output, script or expected document. Document output may replace its document
+input, but cannot replace the script or expected document. Path checks resolve
+existing ancestors and normalize missing descendants before creating report
+directories. Reports use staged single-file replacement. These checks do not
+coordinate concurrent directory changes.
