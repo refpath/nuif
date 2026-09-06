@@ -546,6 +546,11 @@ fn attributes(
         .named_children(&mut cursor)
         .filter(|child| child.kind() == "attribute")
     {
+        let name_node = direct_child(node, "attribute_name")
+            .ok_or_else(|| AdapterError::HtmlSyntax("attribute lacks a name".to_owned()))?;
+        if !source[name_node.byte_range()].starts_with("data-nuif-") {
+            continue;
+        }
         let raw = &source[node.byte_range()];
         let (name, raw_value) = raw.split_once('=').ok_or_else(|| {
             AdapterError::HtmlSyntax(format!("mapped attribute {raw} lacks a value"))
@@ -1710,6 +1715,36 @@ mod tests {
             SizeIntent::FitContent(91.25),
         ] {
             assert_eq!(parse_size(&size_css(&intent), "/size").unwrap(), intent);
+        }
+    }
+
+    #[test]
+    fn foreign_attribute_syntax_is_retained_without_relaxing_reserved_markers() {
+        let document = profile_fixture();
+        let exported = export_v0_document(&document).unwrap();
+        let source = exported
+            .source
+            .replace(
+                "</body>",
+                "<aside hidden title='foreign' lang=en>retained</aside></body>",
+            )
+            .replace("<div ", "<div hidden title='foreign' lang=en ");
+        let imported = import_v0_source(&source).unwrap();
+        assert_eq!(imported.document, document);
+        assert_eq!(
+            synchronize_v0(&imported.retentive, &document)
+                .unwrap()
+                .source,
+            source
+        );
+        for invalid in [
+            source.replace("<div hidden", "<div data-nuif-id hidden"),
+            source.replace("data-nuif-v0-styles=\"\"", "data-nuif-v0-styles=''"),
+        ] {
+            assert!(matches!(
+                import_v0_source(&invalid),
+                Err(AdapterError::HtmlSyntax(_))
+            ));
         }
     }
 

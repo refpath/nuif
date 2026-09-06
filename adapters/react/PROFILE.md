@@ -46,8 +46,7 @@ layout scalar, font scalar and text run. Synchronization:
    original document;
 2. rejects entity insertion, deletion or child reordering;
 3. renders before and after documents through the same exporter;
-4. applies only changed mapped spans from the end of the source toward the
-   beginning;
+4. assembles unchanged slices and mapped replacements in source order;
 5. reparses the result and requires exact canonical NUIF equality.
 
 All bytes outside the returned edits remain byte-identical. A changed comment,

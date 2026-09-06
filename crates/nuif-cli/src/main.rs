@@ -105,6 +105,7 @@ fn run() -> Result<(), CliError> {
     let mut args = env::args().skip(1);
     let command = args.next().ok_or_else(usage)?;
     let rest = args.collect::<Vec<_>>();
+    validate_report_destination(&command, &rest)?;
     match command.as_str() {
         "version" => print_json(&serde_json::json!({
             "name": "nuif",
@@ -583,6 +584,67 @@ fn export(args: &[String]) -> Result<(), CliError> {
             format!("target {target} is unsupported; no data was written"),
         )),
     }
+}
+
+fn validate_report_destination(command: &str, args: &[String]) -> Result<(), CliError> {
+    let (report, output, inputs): (Option<&String>, &str, Vec<&str>) = match command {
+        "import" => (
+            args.get(3),
+            args.get(2).map_or("-", String::as_str),
+            args.get(1).map(String::as_str).into_iter().collect(),
+        ),
+        "export" => (
+            args.get(3),
+            args.get(2).map_or("-", String::as_str),
+            args.first().map(String::as_str).into_iter().collect(),
+        ),
+        "sync" => (
+            args.get(4),
+            args.get(3).map_or("-", String::as_str),
+            args.iter().skip(1).take(2).map(String::as_str).collect(),
+        ),
+        _ => return Ok(()),
+    };
+    let Some(report) = report else {
+        return Ok(());
+    };
+    let destination = output_identity(report)?;
+    if destination == output_identity(output)?
+        || (report != "-"
+            && inputs
+                .into_iter()
+                .filter(|input| *input != "-")
+                .map(output_identity)
+                .collect::<Result<Vec<_>, _>>()?
+                .contains(&destination))
+    {
+        return Err(CliError::new(
+            2,
+            "ARGUMENT_INVALID",
+            "fidelity report must be separate from the document output and inputs",
+        ));
+    }
+    Ok(())
+}
+
+fn output_identity(path: &str) -> Result<PathBuf, CliError> {
+    if path == "-" {
+        return Ok(PathBuf::from("-"));
+    }
+    let path = Path::new(path);
+    if let Ok(canonical) = fs::canonicalize(path) {
+        return Ok(canonical);
+    }
+    let parent = path
+        .parent()
+        .filter(|parent| !parent.as_os_str().is_empty())
+        .unwrap_or(Path::new("."));
+    let parent = fs::canonicalize(parent)
+        .map_err(|error| CliError::new(2, "ARGUMENT_INVALID", error.to_string()))?;
+    let name = path
+        .file_name()
+        .ok_or_else(|| CliError::new(2, "ARGUMENT_INVALID", "output requires a filename"))?;
+    Ok(parent.join(name))
 }
 
 fn export_arguments(args: &[String]) -> (&str, &str, Option<&str>) {

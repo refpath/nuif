@@ -34,6 +34,7 @@ const ALL_STEPS: &[Step] = &[
     ("editor-install-trial", editor_install_trial),
     ("gate-f", gate_f),
     ("gate-f-v0", gate_f_v0),
+    ("source-workflow", source_workflow),
     ("gate-svg", gate_svg),
     ("gate-dtcg", gate_dtcg),
     ("gate-penpot", gate_penpot),
@@ -99,6 +100,7 @@ const VERIFICATION_ARTIFACTS: &[&str] = &[
     "target/editor-install-trial.json",
     "target/html-sync-report.json",
     "target/html-sync-output.html",
+    "target/source-workflow-report.json",
     "target/html-sync-v0-report.json",
     "target/html-sync-v0-output.html",
     "target/html-sync-v0-editor-report.json",
@@ -236,6 +238,7 @@ fn run() -> Result<(), String> {
         Some("gate-d-render") => gate_d_render(),
         Some("gate-f") => gate_f(),
         Some("gate-f-v0") => gate_f_v0(),
+        Some("source-workflow") => source_workflow(),
         Some("gate-svg") => gate_svg(),
         Some("gate-dtcg") => gate_dtcg(),
         Some("gate-penpot") => gate_penpot(),
@@ -313,7 +316,7 @@ fn run() -> Result<(), String> {
         Some("manifest") => standalone_manifest(),
         Some("all") => all(),
         _ => Err(
-            "usage: cargo xtask <research|workflow-audit|adapter-audit|dependency-audit|diagnostic-audit|docs-check|docs-build|docs-paper|docs-serve|docs-setup|verify|trial [seed iterations snapshot-interval report-path]|gate-b|gate-c|gate-d|gate-d-text|gate-d-render|gate-f|gate-f-v0|gate-svg|gate-dtcg|gate-penpot|gate-react|gate-svelte|gate-figma|gate-canva|gate-behavior|gate-behavior-package|gate-web-behavior|gate-web-hosts|gate-wasm|gate-mcp|gate-ffi|gate-g|gate-h|gate-i-package|gate-i-image|gate-i-font|gate-i-font-metadata|gate-i-font-shaping|gate-i-font-metrics|gate-i-font-global-metrics|gate-i-font-security|gate-i-font-package|gate-i-font-corpus|gate-i-font-gvar-generated|gate-i-font-runtime|gate-i-font-surfaces|gate-i-resource-host-matrix <source-revision> <artifact-root>|gate-j-live|gate-accessibility|capture-baselines|reconstruction-provider-manifest|reconstruction-corpus-audit|reconstruction-evaluation|confidence-calibration|browser-install|wasm-install|wasm-package|mcp-package|cli-package|ffi-header [--check]|ffi-package|conformance-kit|hostile-inputs|reduction-profile|editor-hostile-inputs|fuzz-smoke|codec-benchmark|performance|editor-trial|editor-gui-trial|editor-install-trial|editor-package|editor-launch|editor-install|editor-doctor|editor-rollback|editor-uninstall|editor-update|release-check <tag>|manifest|all>"
+            "usage: cargo xtask <research|workflow-audit|adapter-audit|dependency-audit|diagnostic-audit|docs-check|docs-build|docs-paper|docs-serve|docs-setup|verify|trial [seed iterations snapshot-interval report-path]|gate-b|gate-c|gate-d|gate-d-text|gate-d-render|gate-f|gate-f-v0|source-workflow|gate-svg|gate-dtcg|gate-penpot|gate-react|gate-svelte|gate-figma|gate-canva|gate-behavior|gate-behavior-package|gate-web-behavior|gate-web-hosts|gate-wasm|gate-mcp|gate-ffi|gate-g|gate-h|gate-i-package|gate-i-image|gate-i-font|gate-i-font-metadata|gate-i-font-shaping|gate-i-font-metrics|gate-i-font-global-metrics|gate-i-font-security|gate-i-font-package|gate-i-font-corpus|gate-i-font-gvar-generated|gate-i-font-runtime|gate-i-font-surfaces|gate-i-resource-host-matrix <source-revision> <artifact-root>|gate-j-live|gate-accessibility|capture-baselines|reconstruction-provider-manifest|reconstruction-corpus-audit|reconstruction-evaluation|confidence-calibration|browser-install|wasm-install|wasm-package|mcp-package|cli-package|ffi-header [--check]|ffi-package|conformance-kit|hostile-inputs|reduction-profile|editor-hostile-inputs|fuzz-smoke|codec-benchmark|performance|editor-trial|editor-gui-trial|editor-install-trial|editor-package|editor-launch|editor-install|editor-doctor|editor-rollback|editor-uninstall|editor-update|release-check <tag>|manifest|all>"
                 .to_owned(),
         ),
     }
@@ -3199,6 +3202,25 @@ fn gate_f() -> Result<(), String> {
         "target/html-sync-report.json",
         "--source-output",
         "target/html-sync-output.html",
+    ])
+}
+
+fn source_workflow() -> Result<(), String> {
+    cargo(&[
+        "run",
+        "--locked",
+        "-p",
+        "nuif-testing",
+        "--bin",
+        "source-workflow",
+    ])?;
+    cargo(&[
+        "test",
+        "--locked",
+        "-p",
+        "nuif-cli",
+        "--test",
+        "source_output",
     ])
 }
 

@@ -2604,6 +2604,7 @@ dependencies = [
  "nuif-testing",
  "serde",
  "serde_json",
+ "tempfile",
 ]
 
 [[package]]

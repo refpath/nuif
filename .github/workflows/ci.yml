@@ -306,6 +306,7 @@ jobs:
           path: |
             target/html-sync-report.json
             target/html-sync-output.html
+            target/source-workflow-report.json
             target/html-sync-v0-report.json
             target/html-sync-v0-output.html
             target/html-sync-v0-editor-report.json

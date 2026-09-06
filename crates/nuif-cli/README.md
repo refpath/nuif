@@ -51,6 +51,11 @@ file identity, so other hard links continue to refer to the previous contents.
 Extended attributes and ownership are not copied. The containing directory must
 permit temporary-file creation and replacement.
 
+Fidelity-report destinations that alias a document input or output are rejected
+before writing, including two outputs directed to standard output. Path comparison
+resolves existing parent directories and symlinks. It does not lock the directory
+against concurrent path changes.
+
 This contract covers one file. Document and fidelity-report output are separate
 replacements. It does not provide concurrent-writer coordination or directory
 entry durability after power loss. The implementation uses the existing

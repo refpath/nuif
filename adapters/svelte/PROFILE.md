@@ -49,7 +49,7 @@ layout scalar, font scalar and text run. Synchronization:
 3. renders before and after documents through the same exporter;
 4. compares all three correspondence inventories through the shared
    `nuif-adapter` scalar planner;
-5. applies only changed mapped spans from the end of the source;
+5. assembles unchanged slices and mapped replacements in source order;
 6. reparses the result and requires exact canonical NUIF equality.
 
 All bytes outside the returned edits remain byte-identical. A caller-modified

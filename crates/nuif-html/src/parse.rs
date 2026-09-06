@@ -232,6 +232,11 @@ fn attributes(
         .named_children(&mut cursor)
         .filter(|child| child.kind() == "attribute")
     {
+        let name_node = direct_child(node, "attribute_name")
+            .ok_or_else(|| AdapterError::HtmlSyntax("attribute lacks a name".to_owned()))?;
+        if !source[name_node.byte_range()].starts_with("data-nuif-") {
+            continue;
+        }
         let raw = &source[node.byte_range()];
         let (name, value) = raw
             .split_once('=')

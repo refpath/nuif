@@ -28,12 +28,16 @@ For documents inside the profile:
 
 1. `import_v0_source(export_v0_document(document).source).document == document`.
 2. Every editable scalar has a unique half-open UTF-8 byte span. Before synchronization, its retained bytes must equal the imported value's profile encoding.
-3. Changed spans are replaced from the end of the source toward the beginning. No formatter or whole-file generator touches the retained source.
+3. The output is assembled in source order from unchanged slices and replacements. No formatter or whole-file generator touches the retained source.
 4. The result is reparsed as HTML and CSS and must import to the requested edited document exactly.
 5. A repeated synchronization from the same retained source and edited document produces the same source and edit list.
 6. Root/entity insertion, removal or reorder; mapped-property set changes; stale values; unsupported profile values; inconsistent derived CSS; malformed syntax; and oversized input return typed errors without partial output.
 
-Unmarked comments, elements, rules and declarations are retained byte-for-byte and remain outside the NUIF semantic projection. Such CSS can still affect a browser through the cascade; therefore exact NUIF round-trip does not imply browser-render equivalence after arbitrary unmapped CSS is inserted.
+Unmarked attributes, comments, elements, rules and declarations are retained byte-for-byte and remain outside the NUIF semantic projection. Such CSS can still affect a browser through the cascade; therefore exact NUIF round-trip does not imply browser-render equivalence after arbitrary unmapped CSS is inserted.
+
+Only reserved `data-nuif-` attributes are interpreted by the model projection.
+Their values require double quotes. Unmapped Boolean, unquoted and single-quoted
+attributes retain their original syntax.
 
 ## Automated evidence
 
