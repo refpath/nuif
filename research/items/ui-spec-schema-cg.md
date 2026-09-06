@@ -8,7 +8,7 @@ source:
   authors: [W3C UI Specification Schema Community Group]
   published_at: 2025-08-13
   license: W3C Community Group terms
-retrieved_at: 2026-08-29
+retrieved_at: 2026-09-06
 tags: [prior-art, ui-schema, layout, behavior, qa, accessibility]
 confidence: 0.99
 claims: []
@@ -24,4 +24,9 @@ links:
 The group proposed a common implementation-agnostic meta-model for UI design, layout, behavior, constraints, accessibility and QA with a JSON/JSON-Schema deliverable and coordination with Open UI and DTCG. W3C records show the group closed on 21 May 2026.
 
 ## NUIF relevance
-This is direct prior art and evidence that the problem is recognized. NUIF should study why a schema-only standards effort failed to sustain momentum and differentiate through executable semantics, renderer/layout reference implementations, conformance fixtures, bidirectional synchronization and neutral editor proof rather than a field catalog alone.
+The published remit overlaps NUIF's proposed document semantics. The group
+page records closure but gives no causal account; closure does not establish
+that a schema-centered approach is technically inadequate. NUIF's use of
+executable semantics, conformance fixtures and source synchronization is a
+repository design choice. Its usefulness requires separate implementation and
+external workflow evidence.

@@ -1287,7 +1287,7 @@ fn summary_title(title: &str) -> String {
 
 fn build_book_config(compilation: &Compilation) -> String {
     format!(
-        "[book]\ntitle = {:?}\ndescription = {:?}\nauthors = [\"NUIF contributors\"]\nlanguage = \"en\"\nsrc = \"src\"\n\n[build]\nbuild-dir = \"../docs-site\"\ncreate-missing = false\n\n[output.html]\nsite-url = \"/nuif/\"\ngit-repository-url = {:?}\nadditional-css = [\"theme/nuif.css\"]\nno-section-label = true\ndefault-theme = \"light\"\npreferred-dark-theme = \"ayu\"\n\n[output.html.search]\nenable = true\nlimit-results = 30\nuse-boolean-and = true\n",
+        "[book]\ntitle = {:?}\ndescription = {:?}\nauthors = [\"NUIF contributors\"]\nlanguage = \"en\"\nsrc = \"src\"\n\n[build]\nbuild-dir = \"../docs-site\"\ncreate-missing = false\n\n[output.html]\nsite-url = \"/nuif/\"\ngit-repository-url = {:?}\nadditional-css = [\"theme/nuif.css\"]\nno-section-label = true\ndefault-theme = \"light\"\npreferred-dark-theme = \"ayu\"\n\n[output.html.search]\nenable = true\nlimit-results = 30\nuse-boolean-and = true\n\n[output.html.search.chapter]\n\"generated/research-manuscript.md\" = {{ enable = false }}\n",
         compilation.config.site.title,
         compilation.config.site.description,
         compilation.config.site.repository_url

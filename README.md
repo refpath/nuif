@@ -189,10 +189,10 @@ promote adjacent profiles or prove the overall thesis. The
 [`standards roadmap`](docs/STANDARDS-ROADMAP.md) records what must happen before
 any standards claim.
 
-The release number is therefore intentionally modest: `0.1.0-alpha.3` says
-that the editor is an alpha development tool. It is not evidence that the
-format, adapters, resource system, reconstruction work, or governance are
-alpha-standardized.
+The [developer beta contract](docs/BETA.md) defines the initial source-edit
+workflow, automated acceptance evidence and remaining external evaluation.
+The editor application remains `0.1.0-alpha.3`; no beta or specification
+promotion follows from a passing local verification run.
 
 ## Verification
 

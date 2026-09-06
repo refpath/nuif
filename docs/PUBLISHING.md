@@ -107,3 +107,13 @@ versioned record. A later citable research release can add `CITATION.cff`, a
 Zenodo concept DOI and a version DOI without changing the canonical Markdown
 source. Publication prerequisites and venue constraints are recorded in
 `research/items/scholarly-publication-and-citation-workflow.md`.
+
+## Search indexing
+
+The compiled manuscript repeats the individual whitepaper chapters. Its body is
+excluded from search indexing so results point to the canonical chapter pages.
+The manuscript remains available through navigation and printing. The generator
+uses mdBook's supported
+[per-chapter search configuration](https://rust-lang.github.io/mdBook/format/configuration/renderers.html#outputhtmlsearchchapter);
+individual source chapters remain indexed. The full research index can still
+be large, and this exclusion does not impose a search-download budget.

@@ -3,17 +3,17 @@ id: nuif:whitepaper:resources-capture-reconstruction
 kind: whitepaper
 status: draft
 version: 0.0.1
-updated: 2026-08-31
+updated: 2026-09-06
 ---
 
 # Resources, capture and model-neutral reconstruction
 
-NUIF's next research front is not “add an AI converter.” It is a coordinated
-resource, capture and reconstruction architecture with explicit truth
-boundaries. Images and fonts must survive as verified resources. Source-backed
-browser imports must retain authored/resolved evidence. Screenshot-only imports
-must remain honest probabilistic hypotheses. Every path converges through one
-core operation, validation, rendering and fidelity contract.
+NUIF separates portable resource bytes, source-backed observations and inferred
+reconstruction. Images and fonts retain resource identities; browser capture
+records observations under an evaluation context; screenshot reconstruction
+proposes editable hypotheses. Their mutation boundary is the shared operation,
+validation and fidelity contract. This chapter distinguishes the implemented
+profiles from the proposed evaluation and training work.
 
 ## Decision summary
 
@@ -33,10 +33,11 @@ RFC 0010, RFC 0011 and the variable-TrueType proposal in RFC 0013 remain
 proposed contracts. Their bounded package, narrow PNG/font and
 capture/reconstruction experiments are implementation evidence only for the
 named subsets; RFC 0013 now has capability-gated direct package-to-raster
-evidence, but not the required binding/process parity or a published
-conformance and standards claim.
+evidence and local binding/process snapshot agreement through Rust, CLI,
+Node/browser WASM, MCP and C. Broader hosted reproduction and external
+implementation remain required before profile acceptance.
 
-## One core, two import lanes
+## Source-backed and screenshot-only inputs
 
 ```text
 Source-backed lane
@@ -61,8 +62,8 @@ pixels + context              |
       -> typed operations -> render/diff/correct
 ```
 
-The lanes differ in evidence, not in their mutation authority. Both use the same
-typed operations. Neither provider can write core structs directly. A browser
+Both input classes use the same typed operations and retain their distinct
+evidence classes. Neither provider can write core structs directly. A browser
 observation may support an exact resolved value under one pinned context, but it
 does not automatically reveal authored intent. A screenshot cannot establish
 source equivalence regardless of visual score.
@@ -142,7 +143,7 @@ resource digest and intrinsic interpretation; each image paint records fit,
 crop, transform, sampling, opacity and color conversion. Derived decoded pixels
 and GPU textures are caches.
 
-PNG is the correct first format because its current W3C specification covers
+PNG is the selected initial format. Its W3C specification covers
 lossless encoded pixels, alpha and explicit colour metadata. The executable
 `nuif-png-rgba8-0` baseline chooses an intentionally smaller contract:
 non-interlaced RGBA8, no ancillary metadata or one valid `sRGB` chunk, encoded
@@ -151,7 +152,7 @@ declared fit/crop/sampling/opacity and bounded integer CPU composition. `png`
 0.18.1 and `zune-png` 0.5.2 must emit identical RGBA bytes for the accepted
 fixtures; encoded resources remain digest-identical through package edits.
 
-This avoids pretending that decoder agreement on simple images settles PNG
+Agreement on this subset does not establish conformance to all of PNG
 Third Edition. The compatible `nuif-png-basic-rgba8-1` profile now admits the
 lossless-to-RGBA8 subset: 1/2/4/8-bit greyscale and indexed images, RGB8,
 greyscale-alpha8, RGBA8 and valid palette/colour-key transparency. It preserves
@@ -238,7 +239,7 @@ package's complete snapshot report to agree through direct Rust, CLI, generated
 Node/browser WASM, live stdio MCP and a linked C release-library consumer on
 POSIX.
 
-This is intentionally not general OpenType support. TTC, CFF/CFF2, color,
+The implemented profiles cover selected OpenType features. TTC, CFF/CFF2, color,
 bitmap, SVG and WOFF/WOFF2 sources, historic ambiguous permission
 combinations, subsetting, cluster-level fallback and cross-platform raster
 behavior remain separate fixtures and profiles. Collections,
@@ -303,7 +304,7 @@ retained; confidence is raw and uncalibrated, and the result remains
 `inferred`. The trial tests a mechanism on one fixture, not general accuracy or
 recovery of original authored intent.
 
-This is a falsifiable local baseline, not the entire profile described above.
+This local baseline covers one fixture within the proposed capture profile.
 Cross-browser/OS reproduction, opaque frames and response bodies, full
 matched-style/source correlation, canvas/video frame capture, authenticated
 sites and licensed real-page evaluation remain open. WebDriver BiDi is the
@@ -340,8 +341,9 @@ evaluation report and exact pipeline artifact identities.
 
 ## Evaluation before training
 
-The benchmark has separate synthetic-exact, licensed real screenshot and
-source-backed suites. Synthetic NUIF rendering provides exact entities,
+The proposed benchmark separates synthetic-exact, licensed real screenshot and
+source-backed suites. Current evaluation fixtures are synthetic; licensed
+real-image accuracy remains unmeasured. Synthetic NUIF rendering provides exact entities,
 properties, operations and resources. Real images need human-reviewed visible
 targets and must preserve ambiguity. Source-backed cases evaluate retained
 bytes and observations unavailable to the screenshot-only route.
@@ -360,9 +362,9 @@ Required metrics include:
 - calibrated confidence, abstention and risk/coverage;
 - latency, peak RAM/VRAM, iterations and cost.
 
-No pixel score is sufficient. A page-sized screenshot can be visually perfect
-and semantically useless. Structural/text/resource/edit-task metrics prevent
-that reward shortcut. Dataset splits group by origin, template, component,
+A page-sized image can match reference pixels while discarding text, structure
+and editability. Separate structural, text, resource and edit-task metrics are
+required to detect that failure. Dataset splits group by origin, template, component,
 font, resource and generator; near duplicates cannot cross splits.
 
 The executable `nuif-reconstruction-corpus-manifest-0` turns that rule into a
@@ -394,8 +396,8 @@ adaptation remains justified, compare ordinary supervised tuning, low-rank
 adaptation and quantized low-rank adaptation under equal data and evaluation.
 Quantized adaptation is a memory technique, not an accuracy claim.
 
-Sequence-level distillation may train a smaller student from the best evaluated
-teacher pipeline. The teacher is a measured system of tools plus a model, not a
+Sequence-level distillation may train a smaller student from a teacher selected
+under the declared evaluation metrics and budget. The teacher is a measured system of tools plus a model, not a
 provider name. Distillation transfers errors too, so render validation and
 held-out evaluation remain mandatory.
 
@@ -404,8 +406,8 @@ artifacts with digests, model cards, dataset datasheets, license lineage and
 training manifests. They never redefine `nuif-core` or travel as ordinary
 document resources.
 
-The executable provider boundary uses a deliberately small canonical wrapper,
-not a new AI bill-of-materials vocabulary. It binds NUIF capabilities,
+The executable provider boundary uses a canonical wrapper with
+artifact-inventory references. It binds NUIF capabilities,
 execution modes and observation/proposal profiles to exact implementation,
 model, processor, adapter, quantization, prompt and tool artifacts. Observation
 bundles carry the complete manifest registry, so a digest cannot dangle and a

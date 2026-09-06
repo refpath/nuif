@@ -16,7 +16,9 @@ the choices left by RFC 8949 without coupling the logical model to generated
 code. The executable codec gate finds it near 41% of canonical-text size at
 4,096 entities on an Apple M5 Pro run, while its typed decode
 path is slower than text. That result supports CBOR as a compact canonical form,
-not as a universal latency winner.
+not as a universal latency advantage. The workload and artifact contract are
+defined in [serialization research](../../research/items/encoding.md) and
+`crates/nuif-testing/src/bin/codec-benchmark.rs`.
 
 A candidate is timed only after complete-model round trip, canonical fixpoint
 and unknown-data preservation through a neighboring edit. Protobuf does not
@@ -45,7 +47,8 @@ field behavior.
 
 Canonical documents do not require CRDT tombstones, clocks or replica metadata. A collaboration profile maps NUIF operations to an append-only/change structure and can use Automerge, Yjs or another convergent transport. Checkpoints serialize back to canonical NUIF.
 
-This keeps offline files simple and permits multiple collaboration engines.
+Canonical files omit collaboration transport metadata; each collaboration
+profile must define its checkpoint mapping.
 
 The executable register profile uses causal multi-value registers. The
 separate existing-tree profile replays uniquely ordered moves, rejects cycles,
@@ -57,10 +60,10 @@ algorithm.
 
 ## Governance
 
-Early development occurs in `refpath/nuif`, but the architecture assumes eventual neutral stewardship. A plausible progression is:
+Early development occurs in `refpath/nuif`, but the architecture assumes eventual neutral stewardship. The [standards roadmap](../STANDARDS-ROADMAP.md) proposes the following progression:
 
 1. OSS research/reference implementation under Refpath.
-2. public RFC process + implementer registry.
+2. RFC process and implementer registry.
 3. independent community/working group once two independent implementations exist.
 4. investigate W3C Community Group for UI/document semantics and/or Khronos-style governance if renderer/asset vendors become primary stakeholders.
 

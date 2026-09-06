@@ -9,6 +9,9 @@ updated: 2026-08-29
 # Cross-industry patterns: evidence, adoption and rejection
 
 This document synthesizes 52 research records added on 2026-08-29 from visual-effects interchange, game-engine asset systems, programming-language research on bidirectional transformation and layout verification, distributed-systems testing, and 2D-rendering conformance practice. Each pattern below is classified as borrowed (adopted as is), adapted (adopted with a stated change) or rejected (ruled out with the reason). Record identifiers (`nuif:research:*`) carry the locators; this document does not repeat them.
+The decisions classify design patterns. They do not establish implementation
+completion; current executable evidence is listed in
+[research coverage](10-research-coverage.md).
 
 ## Method
 
@@ -122,7 +125,8 @@ The 52 records synthesized here were reviewed from primary sources (specificatio
 
 ## Ruled out
 
-The following were examined and excluded from the architecture; the reason is recorded so the question is not reopened without new evidence.
+The following alternatives were excluded under the cited evidence. New source
+or implementation results can justify reassessment.
 
 - A self-describing binary struct layout (Blender DNA): solves version drift for one implementation but does not preserve data it cannot re-save and does not compose with a schema-versioned interchange model.
 - Memento undo as the canonical history: does not commute, cannot be merged, and bloats logs; inverse operations are required by `spec/06`.

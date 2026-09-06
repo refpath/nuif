@@ -1,10 +1,13 @@
 # Governance and standardization strategy
 
-NUIF starts under Refpath because research and implementation need a concrete home, but the target is neutral stewardship.
+NUIF is maintained under Refpath. The
+[governance policy](../../GOVERNANCE.md) defines current decisions; the
+[standards roadmap](../STANDARDS-ROADMAP.md) separates them from proposed neutral
+stewardship.
 
 ## Repository governance now
 
-- Public RFCs for semantic changes.
+- RFCs for semantic changes.
 - ADRs for reference-implementation choices.
 - Research evidence is distinct from normative requirements.
 - Extension registry changes require examples and conformance fixtures.

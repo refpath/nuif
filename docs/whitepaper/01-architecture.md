@@ -1,10 +1,15 @@
 # NUIF architecture thesis
 
-NUIF is a specification-first authored-interface model. Its center is neither a vendor editor nor a source framework.
+NUIF defines authored-interface semantics in draft specification modules and
+tests selected projections through a reference implementation. The model,
+adapter profiles and implementation choices have separate acceptance criteria.
 
 ## Core thesis
 
-A portable interface document must retain **intent, structure, relationships and evaluated results simultaneously**. A single flattened scene tree cannot preserve enough information for loss-minimizing round trips across editors and runtime frameworks.
+The architectural hypothesis is that explicit authored properties, typed
+relationships and context-scoped evaluated results permit source edits with
+declared fidelity. Flattening is treated as a lowering with a loss report when
+it removes information required by subsequent edits.
 
 The recommended architecture is a layered hybrid:
 
@@ -23,7 +28,7 @@ Authored model ──evaluate/lower──► resolved model ──► render sce
       └──────── reconcile / lift ◄────┘
 ```
 
-### Borrowed foundations
+### Prior-art foundations
 
 - MLIR: dialects, explicit lowering, partial legality and multiple abstraction levels.
 - OpenUSD: non-destructive composition, references, layers and variants.
@@ -32,21 +37,32 @@ Authored model ──evaluate/lower──► resolved model ──► render sce
 - SVG/Unicode/OpenType: geometry and text foundations.
 - Retentive/symmetric lenses: synchronization with preserved source regions.
 
-### New work required
+The [prior-art comparison](05-prior-art-and-competitive-map.md) and
+[cross-industry synthesis](11-cross-industry-patterns.md) identify the source
+records and adaptation decisions.
 
-NUIF must define the missing combination: authored UI semantics + resolved state + cross-tool provenance + structural loss accounting + source patch synchronization.
+### Integration work
+
+The unresolved integration work concerns correspondence between authored
+properties, resolved observations and source syntax. The
+[adapter inventory](../../adapters/STATUS.md) distinguishes implemented scalar
+synchronization from unsupported structural changes.
 
 ## Canonical layers
 
-1. **Document layer** — identity, containment, semantics, accessibility.
-2. **Component layer** — definitions, instances, slots, parameters, variants and overrides.
-3. **Layout layer** — authored sizing/layout intent independent of resolved geometry.
-4. **Visual layer** — geometry, paint, text and effects.
-5. **Behavior layer** — interactions, states, animation and data bindings.
-6. **Resolved layer** — computed layout, shaped text, flattened paint/effect plans for a declared evaluation context.
-7. **Provenance layer** — source/destination correspondence and fidelity diagnostics.
-8. **Resource layer** — stable semantic assets bound to content-addressed bytes,
-   package/resolver locators and derivation records.
+| Layer | Proposed responsibility |
+|---|---|
+| Document | Identity, containment, semantics and accessibility |
+| Component | Definitions, instances, slots, parameters, variants and overrides |
+| Layout | Authored sizing and constraints |
+| Visual | Geometry, paint, text and effects |
+| Behavior | Interactions, state transitions, animation and data bindings |
+| Resolved | Computed layout, shaped text and paint for an evaluation context |
+| Provenance | Correspondence and fidelity diagnostics |
+| Resource | Semantic assets, byte resources, locators and derivation records |
+
+This decomposition includes proposed semantics beyond the implemented profiles.
+[Research coverage](../../research/coverage.yaml) records their evidence status.
 
 No lower layer is permitted to silently erase a higher-level authored construct. Lowerings that cannot represent a construct must emit fidelity records.
 
@@ -71,7 +87,10 @@ validator, layout semantics, resource identity or fidelity ceilings.
 
 ## Falsifiability
 
-The architecture fails if the v0 experiment cannot preserve a non-trivial responsive component through editor→HTML→NUIF→editor while retaining component identity, token bindings, layout intent, an opaque foreign extension and a minimal source patch after an edit.
+The [v0 HTML experiment](../../adapters/html-css/V0-PROFILE.md) tests retention
+of component identity, token bindings, layout intent and an opaque extension
+through an editor/source round trip. Its named fixture passes. The broader
+hypothesis remains subject to counterexamples from other documents and edits.
 
 The resource/reconstruction extension fails if independent package writers
 cannot reproduce the proposed bytes, if browser capture cannot be pinned without

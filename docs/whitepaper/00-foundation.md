@@ -3,61 +3,105 @@ id: nuif:whitepaper:foundation
 kind: whitepaper
 status: draft
 version: 0.0.1
-updated: 2026-08-29
+updated: 2026-09-06
 ---
 
 # NUIF foundation
 
-NUIF investigates a portable, vendor-neutral draft specification for authored user-interface documents. The candidate model is intended to preserve meaning across editors and implementation targets rather than treating a rendered bitmap, a vendor scene graph, or source-language AST as the universal truth.
-
-## Thesis
-
-A useful portable interface specification must coordinate several representations instead of collapsing them into one:
-
-1. semantic/document containment;
-2. component and instance identity;
-3. authored layout and responsive constraints;
-4. resolved geometry at explicit evaluation contexts;
-5. geometry, paint, typography, and assets;
-6. design-token references and themes;
-7. interaction/state and data-binding graphs;
-8. source/tool provenance and correspondence;
-9. extension payloads that can survive unknown intermediaries;
-10. deterministic operations, diff, patch, and reconciliation.
-
-Portable resources add a second identity boundary: editable semantic assets
-retain stable IDs, while exact image/font bytes use immutable content digests.
-Package paths and source URLs are locators/provenance, not identity.
-
-NUIF therefore treats portability as a synchronization problem as much as a serialization problem.
+NUIF investigates authored user-interface interchange through a draft document
+model, a Rust reference implementation and bounded source-adapter experiments.
+The research question is whether explicit identity, correspondence and fidelity
+records permit useful edits across representations without discarding unrelated
+source or unknown extension data. The current evidence concerns named profiles;
+it does not establish arbitrary application interchange.
 
 ## Architectural hypothesis
 
-The working model is a small canonical core plus coordinated graphs and extension dialects. The containment tree answers ownership and order. Typed relationship graphs express constraints, components, tokens, interactions, provenance, dependencies, and other relationships that do not belong in a tree.
+The model separates containment, typed relationships, authored properties and
+resolved snapshots. A snapshot records an evaluation context rather than
+replacing the authored document. Editable entities and assets have stable
+identities; immutable resource bytes have content digests. These distinctions
+are specified in [identity](../../spec/02-identity-and-properties.md),
+[layout](../../spec/04-layout.md) and
+[serialization](../../spec/08-serialization.md).
 
-The reference implementation will preserve both authored and resolved state. Resolved state is always scoped to an evaluation context and is never allowed to silently replace authored intent.
+The proposed architecture coordinates components, layout, visual properties,
+tokens, behavior, provenance and extensions. These areas have different
+implementation maturity. The [adapter inventory](../../adapters/STATUS.md) and
+[research coverage contract](../../research/coverage.yaml) delimit the
+implemented projections and unresolved questions. The architecture is tested
+through the following hypotheses:
+
+- For a declared scalar-edit profile, re-import of synchronized source equals
+  the requested document, and bytes outside the reported edits remain identical.
+- Unknown extension payloads survive supported neighboring edits and canonical
+  serialization without requiring the editor to interpret those payloads.
+- Pinned evaluation contexts allow implementations to compare resolved output
+  under explicit exact or tolerance-based criteria.
+
+Each hypothesis requires evidence for its own domain. Success for scalar HTML
+edits does not establish structural source reconciliation, behavior equivalence
+or native rendering portability.
+
+## Research method
+
+The repository combines targeted primary-source review, executable profile
+construction, generated tests, differential comparisons and failure analysis.
+Research records preserve source locators, retrieval dates, interpretation and
+open questions. The search process is iterative and architecture-directed; it
+is not a systematic literature review with a preregistered search strategy or
+an exhaustive publication census. A `reviewed` record is not an independently
+verified result; [the audit policy](../../research/AUDIT.md) defines the stronger
+verification conditions.
+
+Evidence is reported at the level of the tested assertion:
+
+| Method | Observation | Limitation |
+|---|---|---|
+| Reference fixtures | Expected document, operation or encoded bytes agree | Expected values can share an implementation error |
+| Generated and metamorphic tests | Declared relations hold across deterministic input variations | Generator coverage does not estimate real-document prevalence |
+| Differential comparisons | Named implementations agree on specified outputs | Agreement can reflect shared assumptions or upstream code |
+| Repeated local execution | A pinned revision and setup reproduce the same artifact | This establishes local repeatability, not external reproduction |
+| Independent external evaluation | Another team executes or implements the protocol | Required evidence remains open where no external result is recorded |
+
+The distinction between local repetition and another team's reproduction follows
+[ACM's artifact-review terminology, version 1.1](https://www.acm.org/publications/policies/artifact-review-and-badging-current),
+retrieved 2026-09-06. No ACM evaluation or badge is claimed. Profile-specific
+scope and conformance clauses follow the approach described in the
+[W3C QA Framework, sections 2–3](https://www.w3.org/TR/2005/REC-qaframe-spec-20050817/),
+retrieved 2026-09-06; this is a methodological reference, not W3C endorsement.
+
+The verification manifest records revision, environment and artifact hashes.
+Performance measurements require a workload, build mode, hardware, sampling
+procedure and reference implementation. Timing on one host does not establish
+a cross-platform performance bound. A valid research registry establishes
+traceability, not resolution of its open experiments.
 
 ## Fidelity model
 
-Every adapter and transformation must classify material mappings:
+The [fidelity specification](../../spec/09-provenance-and-fidelity.md) defines
+five classes: `lossless`, `representable`, `approximated`,
+`preserved_unrenderable` and `unsupported`. A class applies to a stated mapping
+and evidence boundary. Preserving an unknown payload does not establish that a
+target renders or edits its meaning. Retaining foreign CSS bytes does not
+establish visual equivalence under the browser cascade.
 
-- `lossless` — semantics are preserved exactly;
-- `representable` — equivalent target semantics exist, even if encoded differently;
-- `approximated` — a declared approximation is produced;
-- `preserved_unrenderable` — data survives as an extension but the target cannot render/edit it;
-- `unsupported` — data cannot currently be represented or preserved safely.
+Screenshot reconstruction produces hypotheses about a document. Multiple
+programs can render the same pixels, so screenshot-only evidence cannot identify
+unique authored source. Reconstruction accuracy, confidence calibration and
+edit usefulness require separate held-out evaluation, as described in the
+[resource and reconstruction chapter](12-resources-capture-and-reconstruction.md).
 
-Silent loss is a conformance failure.
+## Threats to validity
 
-## Explicit non-goals
+The implementation and many fixtures share authorship. Generated inputs cover
+selected structural families and boundary values, with no claim of sampling
+from a deployment population. Dependency pins constrain variation but can mask
+host-specific behavior. Small oracle matrices leave untested combinations of
+fonts, layout and browser state. The native editor has no completed external
+usability study. These limitations prevent extrapolation from passing local
+gates to general beta readiness or broad interoperability.
 
-NUIF does not promise to infer the unique original source program from pixels, reproduce arbitrary JavaScript execution, make every platform text renderer bit-identical, or force every target to support every capability. The draft specification should make such boundaries inspectable and machine-readable.
-
-Screenshot reconstruction is therefore an optional inference client, not a new
-canonical truth. It may propose a validated editable hypothesis and calibrated
-alternatives, but screenshot-only evidence cannot be classified as lossless
-authored source.
-
-## Reference implementation role
-
-The Rust implementation and editor are executable research instruments and conformance references. They do not define semantics by accident; normative behavior belongs in `spec/` and must be testable independently.
+The [developer beta contract](../BETA.md) defines the narrower workflow and the
+evidence required for promotion. The [risk register](07-risk-register.md)
+identifies observations that would require narrowing or revising the design.
