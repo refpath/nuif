@@ -47,7 +47,7 @@ pub fn read_bounded(reader: &mut impl io::Read, limit: usize) -> Result<Vec<u8>,
     while bytes.len() < limit {
         let remaining = limit - bytes.len();
         let chunk_len = remaining.min(chunk.len());
-        let read = limited.read(&mut chunk[..chunk_len])?;
+        let read = read_uninterrupted(&mut limited, &mut chunk[..chunk_len])?;
         if read == 0 {
             return Ok(bytes);
         }
@@ -57,10 +57,19 @@ pub fn read_bounded(reader: &mut impl io::Read, limit: usize) -> Result<Vec<u8>,
         bytes.extend_from_slice(&chunk[..read]);
     }
     let mut excess = [0_u8; 1];
-    if limited.read(&mut excess)? == 0 {
+    if read_uninterrupted(&mut limited, &mut excess)? == 0 {
         Ok(bytes)
     } else {
         Err(BoundedReadError::ResourceLimit { limit })
+    }
+}
+
+fn read_uninterrupted(reader: &mut impl io::Read, buffer: &mut [u8]) -> io::Result<usize> {
+    loop {
+        match reader.read(buffer) {
+            Err(error) if error.kind() == io::ErrorKind::Interrupted => {}
+            result => return result,
+        }
     }
 }
 
@@ -762,6 +771,47 @@ mod tests {
         document.roots.push(entity.id);
         document.entities.insert(entity.id, entity);
         document
+    }
+
+    struct InterruptedReader<'a> {
+        remaining: &'a [u8],
+        interrupt: bool,
+    }
+
+    impl io::Read for InterruptedReader<'_> {
+        fn read(&mut self, buffer: &mut [u8]) -> io::Result<usize> {
+            self.interrupt = !self.interrupt;
+            if self.interrupt {
+                return Err(io::ErrorKind::Interrupted.into());
+            }
+            self.remaining.read(buffer)
+        }
+    }
+
+    #[test]
+    fn bounded_reader_retries_interruptions_and_stops_after_decision_byte() {
+        for (input, limit, expected) in [
+            (&b"abc"[..], 4, Some(&b"abc"[..])),
+            (&b"abc"[..], 3, Some(&b"abc"[..])),
+            (&b"abcdextra"[..], 3, None),
+            (&b"extra"[..], 0, None),
+            (&b""[..], 0, Some(&b""[..])),
+        ] {
+            let mut reader = InterruptedReader {
+                remaining: input,
+                interrupt: false,
+            };
+            let result = read_bounded(&mut reader, limit);
+            if let Some(expected) = expected {
+                assert_eq!(result.unwrap(), expected);
+            } else {
+                assert!(matches!(
+                    result,
+                    Err(BoundedReadError::ResourceLimit { .. })
+                ));
+                assert_eq!(reader.remaining, &input[limit + 1..]);
+            }
+        }
     }
 
     #[test]
