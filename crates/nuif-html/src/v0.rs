@@ -253,19 +253,9 @@ pub fn synchronize_v0(
             });
         }
     }
-    edits.sort_by_key(|edit| std::cmp::Reverse(edit.span.start));
-    for pair in edits.windows(2) {
-        if pair[1].span.end > pair[0].span.start {
-            return Err(AdapterError::StaleSpan {
-                pointer: pair[1].pointer.clone(),
-            });
-        }
-    }
-    let mut source = retentive.source.clone();
-    for edit in &edits {
-        source.replace_range(edit.span.start..edit.span.end, &edit.replacement);
-    }
     edits.sort_by_key(|edit| edit.span.start);
+    let source = nuif_adapter::apply_scalar_edits(&retentive.source, &edits)
+        .map_err(crate::sync::sync_error)?;
     let imported = import_v0_source(&source)?;
     if imported.document != *edited {
         return Err(AdapterError::SynchronizationMismatch);

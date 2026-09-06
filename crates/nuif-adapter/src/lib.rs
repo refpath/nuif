@@ -239,7 +239,10 @@ pub fn plan_scalar_edits(
     Ok(edits)
 }
 
-/// Applies an ascending, non-overlapping edit plan from the end of the source.
+/// Applies an ascending, non-overlapping edit plan in one forward pass.
+///
+/// Unchanged slices and replacements are appended once, with amortized linear
+/// cost in the source bytes, replacement bytes and number of edits.
 ///
 /// # Errors
 ///
@@ -258,10 +261,14 @@ pub fn apply_scalar_edits(source: &str, edits: &[SourceEdit]) -> Result<String, 
             });
         }
     }
-    let mut output = source.to_owned();
-    for edit in edits.iter().rev() {
-        output.replace_range(edit.span.start..edit.span.end, &edit.replacement);
+    let mut output = String::with_capacity(source.len());
+    let mut cursor = 0;
+    for edit in edits {
+        output.push_str(&source[cursor..edit.span.start]);
+        output.push_str(&edit.replacement);
+        cursor = edit.span.end;
     }
+    output.push_str(&source[cursor..]);
     Ok(output)
 }
 
@@ -436,6 +443,79 @@ mod tests {
                 HostReportError::EmptyHostObjectId(0),
             ]
         );
+    }
+
+    fn edit(start: usize, end: usize, replacement: &str) -> SourceEdit {
+        SourceEdit {
+            target: CorrespondenceTarget::Document {
+                id: EntityId::new(1),
+            },
+            pointer: "/test".to_owned(),
+            span: SourceSpan { start, end },
+            replacement: replacement.to_owned(),
+        }
+    }
+
+    #[test]
+    fn scalar_edits_preserve_unicode_and_order_coincident_insertions() {
+        let source = "α🙂z";
+        let edits = [
+            edit(0, 0, "A"),
+            edit(0, 0, "B"),
+            edit(2, 6, ""),
+            edit(7, 7, "é"),
+        ];
+        assert_eq!(apply_scalar_edits(source, &edits).unwrap(), "ABαzé");
+        assert_eq!(apply_scalar_edits(source, &[]).unwrap(), source);
+    }
+
+    #[test]
+    fn invalid_scalar_edits_return_errors_instead_of_partial_output() {
+        for edits in [
+            vec![edit(1, 2, "")],
+            vec![edit(0, 9, "")],
+            vec![edit(3, 2, "")],
+        ] {
+            assert!(matches!(
+                apply_scalar_edits("αabc", &edits),
+                Err(ScalarSyncError::SpanOutOfBounds { .. })
+            ));
+        }
+        for edits in [
+            vec![edit(0, 3, ""), edit(2, 4, "")],
+            vec![edit(4, 4, ""), edit(2, 2, "")],
+        ] {
+            assert!(matches!(
+                apply_scalar_edits("αabc", &edits),
+                Err(ScalarSyncError::OverlappingSpans { .. })
+            ));
+        }
+    }
+
+    #[test]
+    fn scalar_edits_match_reverse_replacement_across_generated_plans() {
+        let source = "α<&>🙂z".repeat(64);
+        let boundaries = source
+            .char_indices()
+            .map(|(i, _)| i)
+            .chain([source.len()])
+            .collect::<Vec<_>>();
+        for stride in 1..=17 {
+            let edits = boundaries
+                .windows(2)
+                .enumerate()
+                .filter(|(i, _)| i % stride == 0)
+                .map(|(i, span)| edit(span[0], span[1], ["", "long replacement", "é"][i % 3]))
+                .collect::<Vec<_>>();
+            let mut expected = source.clone();
+            for replacement in edits.iter().rev() {
+                expected.replace_range(
+                    replacement.span.start..replacement.span.end,
+                    &replacement.replacement,
+                );
+            }
+            assert_eq!(apply_scalar_edits(&source, &edits).unwrap(), expected);
+        }
     }
 
     #[test]

@@ -125,7 +125,7 @@ fn unmapped_key_report(document: &Document) -> AdapterReport {
     }
 }
 
-fn sync_error(error: ScalarSyncError) -> AdapterError {
+pub(crate) fn sync_error(error: ScalarSyncError) -> AdapterError {
     match error {
         ScalarSyncError::DuplicateCorrespondence { pointer } => {
             AdapterError::ProfileMarker(format!("correspondence {pointer} is duplicated"))
