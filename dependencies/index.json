@@ -201,11 +201,11 @@
     },
     {
       "name": "tempfile",
-      "role": "isolated automatically cleaned browser profile directories for live capture",
+      "role": "staged regular-file replacement and isolated test directories",
       "decision": "retain",
-      "alternatives": ["manual platform temporary-directory management", "shared persistent browser profile"],
-      "rationale": "Every capture must start without ambient cookies, storage, extensions or cache and must clean up after error paths; a scoped temporary directory provides that lifecycle without importing host profile state.",
-      "evidence": ["research/items/live-chromium-cdp-capture.md"]
+      "alternatives": ["atomic-write-file", "local temporary-name generation"],
+      "rationale": "The existing tempfile 3.27.0 dependency supplies sibling staging, cleanup and atomic replacement. The codec filesystem feature synchronizes the staged file before persist and does not claim multi-file transactions or directory-entry power-loss durability.",
+      "evidence": ["crates/nuif-cli/README.md", "crates/nuif-codec/src/filesystem.rs"]
     },
     {
       "name": "thiserror",

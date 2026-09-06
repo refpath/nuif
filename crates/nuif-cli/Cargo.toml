@@ -12,7 +12,7 @@ path = "src/main.rs"
 
 [dependencies]
 nuif-api = { version = "0.0.0", path = "../nuif-api" }
-nuif-codec = { version = "0.0.0", path = "../nuif-codec" }
+nuif-codec = { version = "0.0.0", path = "../nuif-codec", features = ["filesystem"] }
 nuif-core = { version = "0.0.1", path = "../nuif-core" }
 nuif-capture = { version = "0.0.1", path = "../nuif-capture" }
 nuif-dtcg = { version = "0.0.1", path = "../nuif-dtcg" }

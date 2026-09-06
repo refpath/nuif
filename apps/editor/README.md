@@ -34,3 +34,8 @@ silently rebound to an unvalidated document revision.
 The draft `UI-SPEC.md` is broader than executable profile zero. Multi-selection, cross-parent/tree drag, Grid/Constraint reorder, persisted aspect-ratio constraints, object smart guides, managed leading-edge resize, in-editor token editing, component authoring, advanced paint/effects, arbitrary foreign formats and non-PNG rendering export remain gated on corresponding model, protocol, layout, adapter or renderer profiles. The shell does not present inert controls for those features.
 
 Use `cargo xtask editor-package` to build and verify the native package for the host platform, or `cargo xtask editor-launch` to package and open it without installation. macOS produces `NUIF Editor.app`, Windows produces a GUI-subsystem executable, and Linux produces a relocatable desktop application directory. Version tags produce five GitHub prerelease archives with checksums and provenance attestations. Those archives are release evidence and an expert opt-in path; developer installation builds locally according to ADR 0009. See `INSTALLING.md`, `PACKAGING.md` and `docs/VERSIONING.md`.
+
+File saves and exports use the shared
+[output replacement contract](../../crates/nuif-cli/README.md#output-replacement).
+A failed staged write preserves the existing destination. The document and its
+fidelity report remain separate file replacements.

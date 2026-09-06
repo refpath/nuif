@@ -2441,7 +2441,7 @@ impl Driver {
             self.document_path.clone().unwrap()
         };
         let bytes = encode_editor_file(self.editor.document(), &mut self.package)?;
-        fs::write(&path, bytes).map_err(|error| error.to_string())?;
+        nuif_codec::filesystem::write_atomic(&path, &bytes).map_err(|error| error.to_string())?;
         self.document_path = Some(path.clone());
         self.dirty = false;
         self.status = format!("Saved {}", path.display());
@@ -2466,7 +2466,8 @@ impl Driver {
         let EditorEvent::Snapshot { snapshot } = event else {
             unreachable!("snapshot command returns snapshot event");
         };
-        fs::write(&path, &snapshot.raster.png).map_err(|error| error.to_string())?;
+        nuif_codec::filesystem::write_atomic(&path, &snapshot.raster.png)
+            .map_err(|error| error.to_string())?;
         self.status = format!("Exported {}", path.display());
         Ok(())
     }
@@ -2483,8 +2484,10 @@ impl Driver {
         };
         let report_path = adapter_report_path(&path)?;
         let report = exported.report.to_pretty_json()?;
-        fs::write(&report_path, report).map_err(|error| error.to_string())?;
-        fs::write(&path, exported.bytes).map_err(|error| error.to_string())?;
+        nuif_codec::filesystem::write_atomic(&report_path, &report)
+            .map_err(|error| error.to_string())?;
+        nuif_codec::filesystem::write_atomic(&path, &exported.bytes)
+            .map_err(|error| error.to_string())?;
         self.status = format!(
             "Exported {} and fidelity report {}",
             path.display(),

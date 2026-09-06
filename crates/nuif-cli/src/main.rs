@@ -1625,7 +1625,8 @@ fn has_extension(path: &str, extension: &str) -> bool {
 }
 
 fn write_file(path: &Path, bytes: &[u8]) -> Result<(), CliError> {
-    fs::write(path, bytes).map_err(|error| CliError::new(1, "WRITE_FAILED", error.to_string()))
+    nuif_codec::filesystem::write_atomic(path, bytes)
+        .map_err(|error| CliError::new(1, "WRITE_FAILED", error.to_string()))
 }
 
 fn print_json(value: &impl serde::Serialize) -> Result<(), CliError> {

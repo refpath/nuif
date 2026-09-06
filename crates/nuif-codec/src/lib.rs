@@ -1,5 +1,8 @@
 #![doc = "Canonical text, deterministic CBOR and content hashes for NUIF."]
 
+#[cfg(feature = "filesystem")]
+pub mod filesystem;
+
 use ciborium::Value;
 use nuif_core::{Document, ResourceLimitExceeded, Severity, resource_usage, validate};
 use serde::Serialize;

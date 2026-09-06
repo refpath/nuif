@@ -165,7 +165,8 @@ fn run() -> Result<(), String> {
         } else {
             canonical_document.clone()
         };
-        fs::write(path, bytes).map_err(|error| error.to_string())?;
+        nuif_codec::filesystem::write_atomic(Path::new(path), &bytes)
+            .map_err(|error| error.to_string())?;
     }
     let snapshot_artifacts = options.snapshot_directory.as_deref().map_or_else(
         || Ok(Vec::new()),
