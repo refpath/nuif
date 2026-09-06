@@ -1080,10 +1080,7 @@ fn serialize_outline(commands: &[OutlineCommand]) -> String {
 #[must_use]
 pub fn pinned_font_hash_is_valid() -> bool {
     let digest = Sha256::digest(pinned_font_bytes());
-    let mut actual = String::with_capacity(64);
-    for byte in digest {
-        write!(actual, "{byte:02x}").expect("writing to a String cannot fail");
-    }
+    let actual = base16ct::lower::encode_string(&digest);
     actual == PINNED_FONT_SHA256
 }
 

@@ -5,7 +5,6 @@ use nuif_core::{Document, ResourceLimitExceeded, Severity, resource_usage, valid
 use serde::Serialize;
 use serde::de::DeserializeOwned;
 use sha2::{Digest, Sha256};
-use std::fmt::Write as _;
 use std::io::{self, Cursor, Read as _};
 use thiserror::Error;
 
@@ -752,11 +751,7 @@ pub fn canonical_hash(document: &Document) -> Result<String, CodecError> {
 #[must_use]
 pub fn deterministic_cbor_hash(bytes: &[u8]) -> String {
     let digest = Sha256::digest(bytes);
-    let mut hex = String::with_capacity(64);
-    for byte in digest {
-        write!(hex, "{byte:02x}").expect("writing to a string cannot fail");
-    }
-    format!("nuif-cbor-0:sha256:{hex}")
+    format!("nuif-cbor-0:sha256:{:x}", base16ct::HexDisplay(&digest))
 }
 
 #[cfg(test)]
@@ -823,6 +818,14 @@ mod tests {
         let cbor = DeterministicCbor.encode(&document).unwrap();
         assert_eq!(DeterministicCbor.canonicalize(&cbor).unwrap(), cbor);
         assert_eq!(DeterministicCbor.decode(&cbor).unwrap(), document);
+    }
+
+    #[test]
+    fn byte_hash_preserves_sha256_encoding_and_profile_prefix() {
+        assert_eq!(
+            deterministic_cbor_hash(b"abc"),
+            "nuif-cbor-0:sha256:ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"
+        );
     }
 
     #[test]

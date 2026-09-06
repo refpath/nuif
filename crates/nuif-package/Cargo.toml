@@ -12,6 +12,7 @@ nuif-core = { version = "0.0.1", path = "../nuif-core" }
 nuif-font = { version = "0.0.1", path = "../nuif-font" }
 serde.workspace = true
 sha2.workspace = true
+base16ct.workspace = true
 thiserror.workspace = true
 
 [dev-dependencies]

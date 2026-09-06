@@ -2610,6 +2610,7 @@ dependencies = [
 name = "nuif-codec"
 version = "0.0.0"
 dependencies = [
+ "base16ct",
  "ciborium",
  "json5",
  "nuif-core",
@@ -2813,6 +2814,7 @@ dependencies = [
 name = "nuif-package"
 version = "0.0.1"
 dependencies = [
+ "base16ct",
  "font-test-data",
  "nuif-codec",
  "nuif-core",

@@ -13,7 +13,6 @@ use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::borrow::Cow;
 use std::collections::{BTreeMap, BTreeSet};
-use std::fmt::Write as _;
 use std::sync::Arc;
 use thiserror::Error;
 
@@ -852,11 +851,7 @@ fn verify_resource(descriptor: &ResourceDescriptor, bytes: &[u8]) -> Result<(), 
 #[must_use]
 pub fn digest(bytes: &[u8]) -> ResourceDigest {
     let hash = Sha256::digest(bytes);
-    let mut hex = String::with_capacity(64);
-    for byte in hash {
-        write!(hex, "{byte:02x}").expect("writing to a string cannot fail");
-    }
-    ResourceDigest::from_sha256_hex(hex)
+    ResourceDigest(format!("sha256:{:x}", base16ct::HexDisplay(&hash)))
 }
 
 fn blob_path(digest: &ResourceDigest) -> Result<String, PackageError> {
