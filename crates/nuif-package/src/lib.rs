@@ -1318,13 +1318,26 @@ fn push_u32(output: &mut Vec<u8>, value: u32) {
     output.extend_from_slice(&value.to_le_bytes());
 }
 
+const CRC32_TABLE: [u32; 256] = {
+    let mut table = [0; 256];
+    let mut index = 0_u32;
+    while index < 256 {
+        let mut value = index;
+        let mut bit = 0;
+        while bit < 8 {
+            value = (value >> 1) ^ (0xedb8_8320 & 0_u32.wrapping_sub(value & 1));
+            bit += 1;
+        }
+        table[index as usize] = value;
+        index += 1;
+    }
+    table
+};
+
 fn crc32(bytes: &[u8]) -> u32 {
     let mut crc = u32::MAX;
     for byte in bytes {
-        crc ^= u32::from(*byte);
-        for _ in 0..8 {
-            crc = (crc >> 1) ^ (0xedb8_8320 & 0_u32.wrapping_sub(crc & 1));
-        }
+        crc = (crc >> 8) ^ CRC32_TABLE[usize::from(crc.to_le_bytes()[0] ^ *byte)];
     }
     !crc
 }
@@ -1337,6 +1350,14 @@ mod tests {
     use std::io::{Cursor, Write as _};
     use zip::write::SimpleFileOptions;
     use zip::{CompressionMethod, ZipWriter};
+
+    #[test]
+    fn zip_crc32_matches_check_vectors() {
+        assert_eq!(crc32(b""), 0);
+        assert_eq!(crc32(b"123456789"), 0xcbf4_3926);
+        // Python zlib.crc32(bytes(range(256))).
+        assert_eq!(crc32(&(0..=255).collect::<Vec<u8>>()), 0x2905_8c73);
+    }
 
     fn package() -> NuifPackage {
         let mut document = Document::empty(EntityId::new(1));
