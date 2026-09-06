@@ -59,7 +59,7 @@ small generated interpreter is therefore the narrower exact mapping.
 
 `cargo xtask gate-web-behavior` generates the same two-state, five-event fixture
 used by the independent trace gate, computes its reference Rust trace, and
-drives separate pointer and keyboard sequences through exact Playwright 1.62.1
+drives separate pointer and keyboard sequences through exact Playwright 1.63.0
 Chromium, Firefox and WebKit engines. The keyboard sequence alternates Enter
 and Space. After every event it compares selected transition, target state,
 retained visibility, live-region text and stable announcement target. It also

@@ -6,6 +6,6 @@
     "node": ">=24.20.0 <27"
   },
   "dependencies": {
-    "playwright": "1.62.1"
+    "playwright": "1.63.0"
   }
 }

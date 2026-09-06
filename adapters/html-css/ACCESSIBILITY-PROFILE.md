@@ -63,7 +63,7 @@ can be attributed back to the stable NUIF entity.
 
 `cargo xtask gate-accessibility` generates one eleven-node fixture covering
 every admitted role and Boolean state, installs the
-exact Playwright 1.62.1 browser set and compares the required role/name/state
+exact Playwright 1.63.0 browser set and compares the required role/name/state
 subset plus full ARIA snapshots across its Chromium, Firefox and WebKit
 engines. The report records package, engine, Node, operating-system and
 architecture versions. Required-subset mismatches are classified as semantic

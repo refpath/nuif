@@ -230,7 +230,7 @@ const report = {
   source_profile: expected.source_profile,
   oracle: {
     name: "Playwright",
-    version: "1.62.1",
+    version: "1.63.0",
     authority: "foreign-browser-native-activation-dom-and-aria-observation",
     operating_system: `${os.platform()} ${os.release()}`,
     architecture: os.arch(),
