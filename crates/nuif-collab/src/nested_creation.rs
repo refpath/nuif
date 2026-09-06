@@ -532,7 +532,7 @@ fn validate_change_shape_arbitrary(
         return Err(CollaborationError::TooManyReplicas.into());
     }
     let own = change.context.get(&change.id.replica).copied().unwrap_or(0);
-    if own + 1 != change.id.counter {
+    if own.checked_add(1) != Some(change.id.counter) {
         return Err(CollaborationError::InvalidLocalContext {
             change: change.id.clone(),
             observed: own,
@@ -709,7 +709,7 @@ fn validate_change_shape(
         return Err(CollaborationError::TooManyReplicas.into());
     }
     let own = change.context.get(&change.id.replica).copied().unwrap_or(0);
-    if own + 1 != change.id.counter {
+    if own.checked_add(1) != Some(change.id.counter) {
         return Err(CollaborationError::InvalidLocalContext {
             change: change.id.clone(),
             observed: own,
@@ -875,6 +875,27 @@ fn error_codes(document: &Document) -> Vec<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn overflowing_local_context_is_rejected() {
+        let change = CreationChange {
+            id: ChangeId::new("alice", 1),
+            context: BTreeMap::from([("alice".to_owned(), u64::MAX)]),
+            operation: CreationOperation::Insert {
+                parent: None,
+                anchor: CreationAnchor::Start,
+                entity: Box::new(nuif_core::Entity::new(
+                    EntityId::new(99),
+                    nuif_core::EntityKind::Container,
+                )),
+            },
+        };
+        assert!(validate_change_shape(&Document::empty(EntityId::new(1)), &change).is_err());
+        assert!(
+            validate_change_shape_arbitrary(&Document::empty(EntityId::new(1)), &change).is_err()
+        );
+    }
+
     use nuif_core::EntityKind;
 
     const ROOT: EntityId = EntityId::new(10);

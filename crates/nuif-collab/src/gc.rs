@@ -312,7 +312,7 @@ impl ResumedOperationSetEngine {
             .map(|id| id.counter)
             .max()
             .unwrap_or(frontier);
-        if change.id.counter != previous + 1 {
+        if previous.checked_add(1) != Some(change.id.counter) {
             return Err(CollaborationError::InvalidLocalContext {
                 change: change.id,
                 observed: previous,
@@ -477,8 +477,16 @@ fn validate_resumed_collection<'a>(
         .map(|change| ((change.id.replica.as_str(), change.id.counter), *change))
         .collect::<BTreeMap<_, _>>();
     for replica in replicas {
-        let start = frontier.counters.get(replica).copied().unwrap_or(0) + 1;
-        for (expected, counter) in (start..).zip(
+        let start = frontier
+            .counters
+            .get(replica)
+            .copied()
+            .unwrap_or(0)
+            .checked_add(1)
+            .ok_or_else(|| CollaborationError::CounterExhausted {
+                replica: replica.to_owned(),
+            })?;
+        for (expected, counter) in (start..=u64::MAX).zip(
             received
                 .keys()
                 .filter_map(|(candidate, counter)| (*candidate == replica).then_some(*counter)),

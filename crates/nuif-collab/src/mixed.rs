@@ -208,7 +208,7 @@ fn validate_change_shape(base: &Document, change: &MixedChange) -> Result<(), Mi
         return Err(CollaborationError::TooManyReplicas.into());
     }
     let own = change.context.get(&change.id.replica).copied().unwrap_or(0);
-    if own + 1 != change.id.counter {
+    if own.checked_add(1) != Some(change.id.counter) {
         return Err(CollaborationError::InvalidLocalContext {
             change: change.id.clone(),
             observed: own,
@@ -330,6 +330,20 @@ fn property_entity(operation: &Operation) -> Option<EntityId> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn overflowing_local_context_is_rejected() {
+        let change = MixedChange {
+            id: ChangeId::new("alice", 1),
+            context: BTreeMap::from([("alice".to_owned(), u64::MAX)]),
+            operation: MixedOperation::Property(Operation::Rename {
+                entity: EntityId::new(2),
+                name: None,
+            }),
+        };
+        assert!(validate_change_shape(&Document::empty(EntityId::new(1)), &change).is_err());
+    }
+
     use nuif_core::{Entity, EntityKind};
 
     const ROOT: EntityId = EntityId::new(10);

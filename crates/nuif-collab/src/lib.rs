@@ -97,6 +97,8 @@ pub enum CollaborationError {
     InvalidReplica { replica: String },
     #[error("change counter must be non-zero for replica {replica}")]
     ZeroCounter { replica: String },
+    #[error("replica {replica} has exhausted its change counter")]
+    CounterExhausted { replica: String },
     #[error("change {change:?} does not use the next local counter after {observed}")]
     InvalidLocalContext { change: ChangeId, observed: u64 },
     #[error("change identifier {change:?} has conflicting contents")]
@@ -456,7 +458,7 @@ fn validate_change_shape(change: &Change) -> Result<(), CollaborationError> {
         return Err(CollaborationError::TooManyReplicas);
     }
     let own = change.context.get(&change.id.replica).copied().unwrap_or(0);
-    if own + 1 != change.id.counter {
+    if own.checked_add(1) != Some(change.id.counter) {
         return Err(CollaborationError::InvalidLocalContext {
             change: change.id.clone(),
             observed: own,
@@ -702,6 +704,24 @@ mod tests {
             left.document.entities[&EntityId::new(0x20)].name.as_deref(),
             Some("Bob")
         );
+    }
+
+    #[test]
+    fn overflowing_local_context_is_rejected_without_mutation() {
+        let invalid = change("alice", 1, &[("alice", u64::MAX)], "invalid");
+        let mut set = OperationSetEngine::default();
+        let mut log = ReplicaLogEngine::default();
+        assert!(matches!(
+            set.ingest(invalid.clone()),
+            Err(CollaborationError::InvalidLocalContext { .. })
+        ));
+        assert!(matches!(
+            log.ingest(invalid),
+            Err(CollaborationError::InvalidLocalContext { .. })
+        ));
+        let base = nuif_testing::responsive_card_fixture();
+        assert_eq!(set.checkpoint(&base).unwrap().document, base);
+        assert_eq!(log.checkpoint(&base).unwrap().document, base);
     }
 
     #[test]

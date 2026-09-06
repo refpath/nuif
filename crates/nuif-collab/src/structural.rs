@@ -472,7 +472,7 @@ impl ResumedStructuralOperationSetEngine {
             .map(|id| id.counter)
             .max()
             .unwrap_or(frontier);
-        if change.id.counter != previous + 1 {
+        if previous.checked_add(1) != Some(change.id.counter) {
             return Err(CollaborationError::InvalidLocalContext {
                 change: change.id,
                 observed: previous,
@@ -921,7 +921,7 @@ fn validate_change_shape(change: &StructuralChange) -> Result<(), StructuralErro
         return Err(CollaborationError::TooManyReplicas.into());
     }
     let own = change.context.get(&change.id.replica).copied().unwrap_or(0);
-    if own + 1 != change.id.counter {
+    if own.checked_add(1) != Some(change.id.counter) {
         return Err(CollaborationError::InvalidLocalContext {
             change: change.id.clone(),
             observed: own,
@@ -1111,8 +1111,16 @@ fn validate_resumed_structural_collection<'a>(
         .map(|change| ((change.id.replica.as_str(), change.id.counter), *change))
         .collect::<BTreeMap<_, _>>();
     for replica in replicas {
-        let start = frontier.counters.get(replica).copied().unwrap_or(0) + 1;
-        for (expected, counter) in (start..).zip(
+        let start = frontier
+            .counters
+            .get(replica)
+            .copied()
+            .unwrap_or(0)
+            .checked_add(1)
+            .ok_or_else(|| CollaborationError::CounterExhausted {
+                replica: replica.to_owned(),
+            })?;
+        for (expected, counter) in (start..=u64::MAX).zip(
             received
                 .keys()
                 .filter_map(|(candidate, counter)| (*candidate == replica).then_some(*counter)),
@@ -1427,6 +1435,19 @@ fn add_deleted_ancestor_conflicts(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn overflowing_local_context_is_rejected() {
+        let change = StructuralChange {
+            id: ChangeId::new("alice", 1),
+            context: BTreeMap::from([("alice".to_owned(), u64::MAX)]),
+            operation: StructuralOperation::Delete {
+                entity: EntityId::new(2),
+            },
+        };
+        assert!(validate_change_shape(&change).is_err());
+    }
+
     use nuif_core::{Entity, EntityKind};
 
     fn base() -> Document {
