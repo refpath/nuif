@@ -77,7 +77,7 @@
       "decision": "fork",
       "alternatives": ["egui", "iced", "Slint", "Floem"],
       "rationale": "Masonry best matches the retained semantic test harness, but NUIF pins a reviewed refpath branch for the wgpu and font-stack corrections.",
-      "evidence": ["research/items/masonry-editor-stack-decision.md", "research/items/macos-metal-block-future-incompatibility.md"]
+      "evidence": ["research/items/masonry-editor-stack-decision.md", "research/items/macos-metal-block-future-incompatibility.md", "research/items/editor-fork-exit-review.md"]
     },
     {
       "name": "masonry_testing",
@@ -85,7 +85,7 @@
       "decision": "fork",
       "alternatives": ["egui_kittest", "iced_test", "Slint testing API"],
       "rationale": "It drives the same widget tree and exposes accessibility plus deterministic CPU-render evidence; it is revision-locked with Masonry.",
-      "evidence": ["research/items/masonry-xilem-and-linebender-test-harness.md", "research/items/egui-and-egui-kittest.md"]
+      "evidence": ["research/items/masonry-xilem-and-linebender-test-harness.md", "research/items/egui-and-egui-kittest.md", "research/items/editor-fork-exit-review.md"]
     },
     {
       "name": "masonry_winit",
@@ -93,7 +93,7 @@
       "decision": "fork",
       "alternatives": ["direct winit integration", "tao"],
       "rationale": "The backend keeps widget, accessibility, window, and renderer versions coherent; the pinned branch removes obsolete Metal and font dependencies.",
-      "evidence": ["research/items/masonry-editor-stack-decision.md", "research/items/macos-metal-block-future-incompatibility.md"]
+      "evidence": ["research/items/masonry-editor-stack-decision.md", "research/items/macos-metal-block-future-incompatibility.md", "research/items/editor-fork-exit-review.md"]
     },
     {
       "name": "nv-flip",

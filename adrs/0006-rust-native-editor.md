@@ -37,7 +37,7 @@ Decision delegated to research on 2026-08-29. Evidence: `nuif:research:masonry-e
 ## Rationale
 
 - Masonry main is the only candidate whose harness returns the frame's visual layer plan and AccessKit `TreeUpdate` from one `redraw()`, accepts `ActionRequest`s directly, controls time, hosts a custom-painted canvas, and rasterizes without a GPU.
-- egui remains a migration candidate. A custom renderer can prepare an intermediate texture before the egui render pass and sample it during painting. Its published 0.36.1 snapshot harness uses wgpu; it does not supply the current CPU shell-rendering path. The semantic and screenshot migration criteria are recorded in `nuif:research:editor-fork-exit-review`.
+- egui remains a migration candidate. A custom renderer can prepare an intermediate texture before the egui render pass and sample it during painting. Its published 0.36.1 snapshot harness uses wgpu; it does not supply the current CPU shell-rendering path. A local egui 0.34 CPU/semantic probe passes through supported APIs. Full editor parity and integration with the current egui version remain unverified. Evidence and migration criteria: `nuif:research:editor-fork-exit-review`.
 - Floem: no AccessKit (issues 8 and 973 open). Blitz: custom paint sources exist but the harness is unpublished. GPUI: builds an AccessKit tree per frame but exposes no query in test contexts and requires latest stable. iced: no accessibility tree. Slint: licence and DSL-owned element tree.
 
 ## Widget inventory

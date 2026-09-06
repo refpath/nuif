@@ -100,6 +100,38 @@ Locators, retrieved 2026-09-06:
 [Slint features](https://github.com/slint-ui/slint/blob/v1.17.1/api/rs/slint/Cargo.toml),
 [Slint licences](https://github.com/slint-ui/slint/blob/v1.17.1/LICENSE.md).
 
+### CPU renderer probe
+
+[egui_software_backend 0.0.3](https://docs.rs/egui_software_backend/0.0.3/egui_software_backend/)
+supports egui 0.34 and includes an optional egui_kittest integration. Its
+published `test_render` feature enables the default image codecs. A resolution
+probe on 2026-09-06 selected 166 packages and reported unmaintained `paste`
+1.0.15 through the EXR and AVIF codec paths (RUSTSEC-2024-0436). This is an
+unmaintained-package warning, not a reported vulnerability. Locators:
+[0.0.3 dependencies](https://crates.io/api/v1/crates/egui_software_backend/0.0.3/dependencies),
+[upstream manifest at c70e02d](https://github.com/DGriffin91/egui_software_backend/blob/c70e02d3d95c75a82733deb97e516b13a6c86dc6/Cargo.toml),
+and [RustSec advisory](https://rustsec.org/advisories/RUSTSEC-2024-0436.html),
+retrieved 2026-09-06.
+
+A second local probe used the renderer with default features disabled,
+egui and egui_kittest 0.34.3, and an implementation of the public
+`TestRenderer` trait with image defaults disabled. It used neither a source
+patch nor a forced dependency version outside the declared ranges. The
+resolved graph contained 112 packages, no wgpu renderer, no reported
+vulnerabilities and no advisory warnings. The 320 × 240 px trial queried and
+activated an accessible checkbox, changed a custom-painted canvas, observed
+different pixels after the action and identical pixels on repeated renders
+before and after it. Locators: `.local-audit/strategy/egui-cpu-core/main.rs`,
+its manifest and lockfile, `egui-cpu-core-run.log`,
+`egui-cpu-core-audit.json`; local run 2026-09-06. These probe artifacts are
+local audit evidence and are not distributed with the repository.
+
+This result demonstrates a supported CPU/semantic integration path on egui
+0.34. It does not establish whole-editor parity, performance, native input
+behavior, cross-platform reproducibility or compatibility with egui 0.36.
+The current upstream manifest still targets 0.34. A migration should evaluate
+the existing editor scenario and typography before selecting this stack.
+
 ## NUIF relevance
 
 **Adapt** the prior egui comparison. Rendering into an intermediate texture
@@ -130,7 +162,8 @@ that feature configuration. A semver override cannot substitute for either
 API migration or Cargo's additive feature behavior.
 
 If upstream maintenance does not provide this path, egui is the first
-candidate for a bounded editor-shell experiment. The unresolved item is the
-CPU snapshot contract, followed by an actual identity/action/canvas port.
-This review establishes a candidate and acceptance criteria; it does not
-claim that a replacement has been implemented or is superior in performance.
+candidate for a bounded editor-shell experiment. The CPU probe establishes
+basic rendering and semantic actions on a compatible released version set.
+The unresolved items are the full editor snapshot contract, authored identity
+mapping, text input and a current-version renderer integration. The probe is
+not an editor replacement or evidence of superior performance.
