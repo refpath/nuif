@@ -807,7 +807,7 @@ fn export_canva_plan(
     output: &str,
     report_path: Option<&str>,
 ) -> Result<(), CliError> {
-    let plan = match plan_canva_import(document, "2.12.0") {
+    let plan = match plan_canva_import(document, "2.13.0") {
         Ok(plan) => plan,
         Err(error) => return canva_adapter_failure(&error, report_path),
     };

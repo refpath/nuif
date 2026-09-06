@@ -24,7 +24,7 @@ Full-v0 source follow-on: `nuif-html-css-v0` retains 181 model correspondences f
 
 Web accessibility projection: `nuif-web-accessibility-0` lowers a bounded
 ten-role, Boolean-state and five-relationship subset to inert native HTML/ARIA.
-The exact Playwright 1.62.1 Chromium, Firefox and WebKit engines expose all eleven
+The exact Playwright 1.63.0 Chromium, Firefox and WebKit engines expose all eleven
 fixture entities with matching computed role/name/state and identical bounded
 ARIA snapshots on the recorded macOS/arm64 run. Host versions and differences
 remain separate from semantic loss; native APIs and interaction behavior are

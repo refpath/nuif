@@ -17,7 +17,7 @@ Every condition outside this list fails export or synchronization with a `Fideli
 
 The HTML document declares `data-nuif-profile="nuif-html-css-0"` and `data-nuif-document`. Mapped entity elements declare `data-nuif-id`, `data-nuif-kind` and their profile fields. A single `style[data-nuif-styles]` block contains real CSS declarations for token custom properties, fixed sizing and stack layout.
 
-Tree-sitter 0.26.10 validates the outer HTML with `tree-sitter-html` 0.23.2 and the injected stylesheet with `tree-sitter-css` 0.25.0. Import retains byte ranges for every editable scalar. Input is UTF-8 and capped at 1 MiB before parsing.
+Tree-sitter 0.27.0 validates the outer HTML with `tree-sitter-html` 0.23.2 and the injected stylesheet with `tree-sitter-css` 0.25.0. Import retains byte ranges for every editable scalar. Input is UTF-8 and capped at 1 MiB before parsing.
 
 Unmarked comments, elements and CSS declarations are outside the semantic projection. Import ignores them and synchronization preserves them byte-for-byte. They are not promoted to NUIF entities and no semantic claim is made about them.
 

@@ -71,7 +71,7 @@ fn run() -> Result<(), String> {
         },
         "profile": {
             "name": nuif_html::PROFILE_NAME,
-            "tree_sitter": "0.26.10",
+            "tree_sitter": "0.27.0",
             "tree_sitter_html": "0.23.2",
             "tree_sitter_css": "0.25.0",
             "source_limit_bytes": nuif_html::MAX_SOURCE_BYTES,
