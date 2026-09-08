@@ -1,4 +1,5 @@
 use crate::export::{fill, number};
+use crate::profile::profile_issues;
 use crate::{
     AdapterError, CorrespondenceRecord, CorrespondenceTarget, FidelityEntry, ImportedSource,
     MAX_SOURCE_BYTES, MAX_XML_NODES, PROFILE_NAME, RetentiveSource, SVG_NAMESPACE, SourceSpan,
@@ -61,6 +62,17 @@ pub fn import_source(source: &str) -> Result<ImportedSource, AdapterError> {
     }
     state.document.roots.push(surface.id);
     state.document.entities.insert(surface.id, surface);
+
+    let issues = profile_issues(&state.document);
+    if let Some(issue) = issues.first() {
+        return Err(AdapterError::InvalidValue {
+            pointer: issue.pointer.clone(),
+            reason: match &issue.status {
+                Fidelity::Unsupported { reason } => reason.clone(),
+                _ => "imported model is outside the profile".to_owned(),
+            },
+        });
+    }
 
     let marked = root
         .descendants()

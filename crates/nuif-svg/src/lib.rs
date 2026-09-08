@@ -190,6 +190,20 @@ mod tests {
         ));
     }
 
+    #[test]
+    fn parser_rejects_text_outside_the_export_profile() {
+        let source = export_document(&profile_fixture())
+            .unwrap()
+            .source
+            .replace(nuif_text::PINNED_FONT_SHA256, "0");
+        let error = import_source(&source).unwrap_err();
+        assert!(matches!(
+            error,
+            AdapterError::InvalidValue { pointer, .. }
+                if pointer.ends_with("/authored/text")
+        ));
+    }
+
     fn assert_unchanged_outside_edits(before: &str, after: &str, edits: &[SourceEdit]) {
         let mut before_cursor = 0;
         let mut after_cursor = 0;
