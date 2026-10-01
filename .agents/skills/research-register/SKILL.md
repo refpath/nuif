@@ -16,7 +16,8 @@ unverified without creating a separate report.
 
 1. Read the [writing register](../../../CONTRIBUTING.md#writing-register). For
    research records, also read [the corpus requirements](../../../research/README.md)
-   and the relevant schema. For semantic proposals or specification changes,
+   and [the record schema](../../../research/schema/research-item.schema.json).
+   For semantic proposals or specification changes,
    consult [governance](../../../GOVERNANCE.md).
 2. Trace changed claims to their primary source locators, implementation or
    actual test results. Preserve the distinction between a source statement,

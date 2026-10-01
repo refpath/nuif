@@ -1,101 +1,80 @@
 # Terminology
 
-Preferred terms with their field of origin. Use the left column; do not substitute the right column.
+Read the section relevant to the changed prose. The linked specification,
+profile or implementation owns the definition and its current scope. Foreign
+terminology is appropriate when describing that system; identify the mapping
+rather than treating its vocabulary as NUIF semantics.
 
-## Document model
+## Document model and resources
 
-| Term | Origin | Do not write |
-|------|--------|--------------|
-| containment tree | scene-graph literature | hierarchy tree, node tree (unless quoting a source) |
-| relationship graph, typed relation | graph theory | link web, connection map |
-| entity, entity identity, `EntityId` | database/ECS literature | node id, object id (for NUIF entities) |
-| stable identity | distributed systems | permanent id, magic id |
-| authored intent, authored value | NUIF spec | design intent, source of truth |
-| resolved value, resolved snapshot, evaluation context | compiler/layout literature | computed stuff, runtime values |
-| lowering | compiler literature (MLIR) | translating down, flattening (flattening is a specific lowering that discards structure) |
-| lifting, reconciliation | bidirectional-transformation literature | reverse sync, smart import |
-| composition arc, opinion, layer stack | OpenUSD | override chain |
-| variant, override, instance, definition | component systems (USD, Unity prefabs) | fork, clone |
-| extension, dialect, namespace | glTF, MLIR | plugin data, custom junk |
-| opaque preservation | NUIF spec | passthrough, blob keeping |
-| fidelity class (`lossless`, `representable`, `approximated`, `preserved_unrenderable`, `unsupported`) | NUIF spec | quality level |
-| provenance, correspondence record | data-provenance literature | source mapping, link back |
-| design token | DTCG | variable (unless quoting Figma), style constant |
+Definitions: [model](../../../../spec/01-model.md),
+[identity](../../../../spec/02-identity-and-properties.md),
+[assets and resources](../../../../spec/05-geometry-paint-text.md) and
+[core types](../../../../crates/nuif-core/src/lib.rs).
 
-## Layout
+| Term | Use |
+|------|-----|
+| containment tree | Ordered ownership and lifetime relationships; distinguish them from typed non-ownership relations. |
+| entity, stable identity, `EntityId` | Durable authored objects whose identities are independent of names, positions and vendor identifiers. |
+| authored value, authored intent | Editable input to evaluation. |
+| resolved value, resolved snapshot | Derived results for a named evaluation context. |
+| asset, `AssetId` | A semantic asset with stable identity. |
+| resource, `ResourceDigest` | Immutable bytes identified by a digest; paths and locators are resolution hints. |
+| extension, namespace, opaque preservation | Unknown data retained without a claim that its meaning is interpreted or rendered. |
+| design token | An authored token; use a vendor's term such as variable when describing its own data model. |
 
-| Term | Origin | Do not write |
-|------|--------|--------------|
-| layout family (`freeform`, `stack`, `flex`, `grid`, `constraint`) | NUIF spec | layout mode |
-| intrinsic size, min-content, max-content, fit-content | CSS Sizing Level 3 | natural size, hug (Figma vocabulary is adapter-only) |
-| flex base size, hypothetical main size, free space | CSS Flexbox Level 1 §9 | flex math |
-| track sizing algorithm | CSS Grid Level 2 §12 | grid math |
-| proposal–response layout | SwiftUI documentation | negotiation layout |
-| linear constraint system, Cassowary | Badros, Borning 2001 | constraint magic |
-| box, bounding box, transform | graphics | rect (in prose; `Rect` as a type name is fine) |
-| evaluation context (viewport, scale factor, locale, writing direction, theme, fonts) | NUIF spec | environment, device profile |
+## Layout, rendering and text
 
-## Rendering and text
+Definitions: [layout](../../../../spec/04-layout.md),
+[geometry, paint and text](../../../../spec/05-geometry-paint-text.md),
+[layout implementation](../../../../crates/nuif-layout/src/lib.rs) and
+[render profile](../../../../conformance/render/README.md).
 
-| Term | Origin | Do not write |
-|------|--------|--------------|
-| render scene, draw command, render target | graphics | display list (acceptable if quoting), render stuff |
-| renderer backend, render delegate | Hydra/Vello | rendering plugin |
-| reference rasterization, CPU reference path | conformance practice | golden render |
-| anti-aliasing, coverage, subpixel positioning, hinting | rasterization literature | smoothing |
-| perceptual difference metric (ꟻLIP, SSIM), tolerance, baseline | image-quality literature | fuzzy match (except when citing WPT/WebRender syntax) |
-| shaping, glyph run, cluster, advance | HarfBuzz/OpenType | text layout (ambiguous), font rendering |
-| font fallback, font substitution | text stack literature | font swap |
+| Term | Use |
+|------|-----|
+| layout family | `freeform`, `stack`, `flex`, `grid` or `constraint` in the core; specification proposals and foreign systems may have other families. |
+| intrinsic size, min-content, max-content, fit-content | Name the actual sizing behavior or authored intent. |
+| evaluation context | Explicit viewport, scale, font and other inputs used by the named evaluator; check its supported fields. |
+| resolved box, transform | Evaluated geometry rather than authored layout intent. |
+| render scene, `RenderScene`, renderer backend | The lowered rendering representation and its consumer. |
+| CPU reference renderer | The NUIF conformance path; distinguish it from Masonry's CPU rasterization of editor chrome. |
+| shaping, glyph run, cluster, advance | Text-shaping results; distinguish shaping from layout and rasterization. |
+| font substitution, font fallback | Identify the selected replacement and its fidelity rather than implying original-font equivalence. |
 
-## Operations and synchronization
+## Operations, correspondence and fidelity
 
-| Term | Origin | Do not write |
-|------|--------|--------------|
-| semantic operation, transaction, patch, precondition, inverse operation | NUIF protocol | action, command (except when discussing the command pattern) |
-| replay, deterministic replay | distributed systems | rerun |
-| canonicalization, canonical form, canonical hash | RFC 8785, RFC 8949 §4.2 | normalization (use only for Unicode/number normalization steps) |
-| three-way merge, structural merge, tree differencing, edit script | Chawathe 1996, GumTree | smart merge |
-| commutation (of patches) | Darcs/Pijul patch theory | reordering |
-| conflict-free replicated data type (CRDT), operational transformation (OT), last-writer-wins register, fractional index | distributed systems | live sync tech |
-| lens, well-behaved lens, GetPut, PutGet | Foster 2007 | two-way binding |
-| bidirectional transformation (BX) | BX community | round-trip magic |
-| minimal patch, edit locality | program synthesis / BX | surgical edit |
+Definitions: [operations](../../../../spec/06-operations-and-patches.md),
+[fidelity](../../../../spec/09-provenance-and-fidelity.md),
+[protocol implementation](../../../../crates/nuif-protocol/src/lib.rs) and
+[adapter contracts](../../../../crates/nuif-adapter/src/lib.rs).
 
-## Testing
+| Term | Use |
+|------|-----|
+| semantic operation, transaction, patch | Document mutations and their atomic or ordered grouping. A command can be an input to the editor or CLI. |
+| inverse operation, replay | Undo semantics and application of recorded mutations. |
+| canonical form, canonical hash | A profile-defined representation or digest; normalization can describe a specific preprocessing step. |
+| three-way merge, structural merge, conflict | Name the implemented algorithm and the conflict it surfaces. |
+| correspondence record | A mapping between document identity/property and a foreign construct. |
+| lowering, lifting, reconciliation | Direction and mechanism of a representation change; use flattening when structure is discarded. |
+| fidelity class | `lossless`, `representable`, `approximated`, `preserved_unrenderable` or `unsupported`, for a stated mapping and profile. |
+| evidence class, confidence | Origin of available evidence and predicted correctness; neither establishes fidelity by itself. |
 
-| Term | Origin | Do not write |
-|------|--------|--------------|
-| test oracle | software testing | checker, truth |
-| metamorphic relation, metamorphic testing | Chen 1998 | invariant test (use "invariant" for state predicates) |
-| differential testing | McKeeman 1998 | cross-check |
-| property-based testing, strategy, shrinking | QuickCheck, proptest | fuzz (reserve for coverage-guided fuzzing) |
-| coverage-guided fuzzing, fuzz target, corpus | libFuzzer/AFL | random testing |
-| deterministic simulation testing, seed | FoundationDB/TigerBeetle | chaos testing (different technique) |
-| delta debugging, test-case reduction | Zeller 2002 | minimization (acceptable as a verb: "minimize") |
-| characterization test, snapshot test, reference image, expected output | testing literature | golden file (acceptable when citing Skia "golden master") |
-| fixture, evaluation matrix | testing | test data |
-| round trip, idempotence, fixpoint | mathematics | loop, stability |
-| model-based testing, reference model | testing | twin |
-| conformance suite, conformance profile, capability profile | standards practice | compliance pack |
-| headless, in-process automation surface | tooling | AI hooks, agent mode |
+## Testing and editor
 
-## Editor
+Definitions: [conformance plan](../../../../conformance/PLAN.md),
+[test harness](../../../../conformance/HARNESS.md),
+[editor architecture](../../../../apps/editor/ARCHITECTURE.md),
+[editor QA](../../../../apps/editor/QA.md) and
+[editor UI scope](../../../../apps/editor/UI-SPEC.md).
 
-| Term | Origin | Do not write |
-|------|--------|--------------|
-| canvas, viewport, layers panel, properties panel (inspector), toolbar | design-tool UI | workspace bits |
-| direct manipulation | Shneiderman 1983 | drag stuff |
-| marquee selection, deep selection, snapping, smart guides | design-tool UI | box select |
-| immediate mode, retained mode | GUI literature | frame-based, object-based |
-| accessibility tree, role, action | WAI-ARIA, AccessKit | a11y tree (in prose) |
-| harness, event injection | UI testing | fake input |
-| test editor, reference editor | NUIF | product, app |
-
-## Governance
-
-| Term | Origin | Do not write |
-|------|--------|--------------|
-| draft specification, normative, informative | standards practice | the standard (until promoted) |
-| RFC, ADR | repository process | proposal doc |
-| independent implementation | standards practice | second impl |
-| research record, claim, question, experiment | repository schema | note, idea |
+| Term | Use |
+|------|-----|
+| fixture, expected output, reference image | State which observable behavior is compared and where its expectation comes from. |
+| test oracle, differential testing | The deciding reference and comparisons between named implementations. |
+| metamorphic relation, property-based testing, shrinking | Relations across executions, generated input strategies and failure reduction. |
+| coverage-guided fuzzing, delta debugging | Guided input exploration and reduction of a failing case; distinguish them from ordinary generated testing. |
+| deterministic replay, round trip, idempotence | Name the tested relation; these are different assertions. |
+| conformance profile, capability profile | Bounded requirements and declared support; a declaration alone is not passing evidence. |
+| headless API, in-process session driver | Semantic automation surfaces shared with the editor; check the implemented command and action types. |
+| reference editor, test editor | The research instrument governed by the editor UI scope. |
+| canvas, viewport, layers panel, properties panel, accessibility tree | Editor regions and semantic controls; keep shell state distinct from document state. |
