@@ -18,6 +18,47 @@ validated against.
 3. Automated test iterations use the CLI and the in-process session driver, not the GUI. The GUI exists to author fixtures by hand, to inspect import and export results, and to prove that a human-authored fixture and a replayed operation log converge (roadmap phase 5 exit).
 4. Layout conventions replicated here are user-interface conventions, not protected expression; names, marks, icons and visual assets are not reproduced (`nuif:research:design-editor-ui-conventions-synthesis`).
 
+## Task and adaptive composition
+
+Adaptive composition and its boundary trials remain specification targets.
+
+The editor has three task archetypes:
+
+- `compose`: author or revise the selected entity through canvas gestures and
+  inspector controls;
+- `inspect`: examine authored values, resolved output, validation diagnostics,
+  capability negotiation and fidelity records for one selected entity;
+- `compare`: evaluate the same surface under multiple explicit evaluation
+  contexts without changing authored state.
+
+The canvas remains the primary region for all three archetypes. The layers panel,
+properties panel and diagnostics are disclosures around the canvas rather than
+independent destinations. A generic dashboard, card grid or document-summary
+landing surface is outside the editor scope.
+
+Composition uses the available width of the workspace container:
+
+| Profile | Workspace width | Composition |
+|---|---:|---|
+| compact | below 600 px | canvas plus one explicit layers, properties or diagnostics disclosure |
+| medium | 600–839 px | canvas plus one visible supporting panel; the other panel remains directly reachable |
+| expanded | 840 px or wider | canvas with both supporting panels when requested |
+
+The thresholds describe the workspace after native window chrome and menus, not
+a device class. Pointer precision, reduced motion and platform keyboard modifiers
+remain separate input capabilities. A profile change MUST preserve the open
+document and canonical revision, selection, viewport transform, evaluation
+context, active tool, inspector drafts, focused semantic control, panel
+disclosures, undo/redo cursor, read-only capability report and fidelity
+diagnostics. It MUST NOT emit a semantic operation, commit an inspector draft or
+change the evaluation width.
+
+Compact composition MUST retain access to the selected entity identity, current
+tool, evaluation context, read-only capability warning, validation/fidelity
+diagnostics, pending inspector drafts and undo/redo recovery. Hover-only disclosure
+is prohibited. Visual reordering MUST preserve AccessKit traversal and keyboard
+focus order.
+
 ## Regions
 
 ```text
@@ -35,7 +76,7 @@ validated against.
 └───────────────┴───────────────────────────────────────────┴──────────────────┘
 ```
 
-Minimize UI collapses A and B; D reappears while a selection exists. Hide UI hides A, B, D and E. Panels B and D are resizable; widths persist per session only. Panel pixel widths are not specified by evidence and are chosen by implementation.
+Minimize UI collapses A and B; D reappears while a selection exists. Hide UI hides A, B, D and E. Panels B and D are resizable; widths persist per session only. Panel pixel widths are not specified by evidence and are chosen by implementation. Adaptive disclosure follows the workspace profiles above and does not mutate the saved panel widths.
 
 ## Left panel [B]
 
@@ -131,6 +172,15 @@ Bindings reproduce the documented product bindings where verified; entries marke
 The editor binary accepts `--headless --script <file>` and either `--document <file>` or `--new-document <id>`, then runs a session script against the same `nuif-api` engine without creating a window (`nuif:research:blender-dna-rna-and-headless`, `nuif:research:unreal-asset-versioning-and-automation`). `--expect-document` makes byte-exact parity blocking; `--report` and `--snapshot-dir` write the operation log and canonical/context/layout/scene/CPU-raster artifacts. The JSONL script language contains editor commands and semantic accessibility actions sharing one session.
 
 The `nuif-editor-automation` feature-gated binary drives the native Masonry tree in process. It dispatches AccessKit actions, captures the matching accessibility tree and CPU-rendered shell frame, replays the protocol log independently and emits a machine-readable artifact set. `cargo xtask editor-gui-trial` repeats that run and requires identical canonical and pixel hashes. No socket transport is implemented.
+
+The adaptive shell trial MUST render the same authored and ephemeral state at
+workspace boundary pairs of 599/600 px and 839/840 px. It MUST record the active composition
+profile, semantic-node inventory, focused node, selection, viewport transform,
+evaluation context, inspector drafts, operation-log hash, history cursor,
+capability report and fidelity diagnostics. Profile transitions require identical
+canonical document and operation-log hashes and no additional semantic operation.
+Keyboard-only and coarse-pointer paths MUST open every compact disclosure and return
+focus to the invoking semantic control.
 
 Widget identity: every widget bound to a document entity exposes the entity identifier in its accessibility node (`author_id`), and every control exposes a role and label, so a harness locates "the width control of entity X" by query and sets it through an accessibility `SetValue` action (`nuif:research:accesskit-semantic-ui-testing`). No test depends on pixel coordinates of widgets.
 

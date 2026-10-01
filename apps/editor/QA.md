@@ -17,6 +17,14 @@ An automated QA client must be able to perform the following without synthetic m
 
 GUI automation is reserved for testing shell wiring, focus, pointer/keyboard interactions and browser integration.
 
+Required adaptive-shell evidence uses the same document, selection, viewport transform,
+evaluation context, active tool, inspector drafts, focus target, operation log,
+history cursor, capability report and fidelity diagnostics at 599/600 px and
+839/840 px workspace widths. A profile transition passes only when the canonical
+document and operation-log hashes are unchanged, no semantic operation is emitted,
+and every compact disclosure is operable through AccessKit actions and keyboard
+input. Coarse-pointer evidence verifies the same disclosures without hover.
+
 The headless client MUST apply the same bounded document reader as the CLI and MUST bound script bytes, line bytes and command count before retaining an operation log. `cargo xtask hostile-inputs` verifies document-ingestion boundaries; editor unit tests verify the limit-plus-one reader.
 
 Headless and GUI sessions report the package capability negotiation result. If

@@ -18,7 +18,17 @@ Rust core (in-process; WASM boundary only in the browser build)
 renderer backend (WebGPU/Vello experiment)
 ```
 
-The UI shell may keep ephemeral selection/viewport/panel state, but authored document state is NUIF state. Canvas gestures MUST translate into semantic protocol operations before mutation.
+The UI shell may keep ephemeral selection, viewport, focus, panel and inspector
+draft state, but authored document state is NUIF state. The shell MUST retain this
+ephemeral state independently of adaptive composition. A composition change
+MUST NOT change the selected entity, evaluation context, viewport transform,
+operation-history cursor, inspector drafts, capability report or fidelity
+diagnostics. Canvas gestures MUST translate into semantic protocol operations
+before mutation.
+
+The native shell is the reference editor surface. A later Svelte 5 shell is a
+browser demonstration and MUST NOT become an alternative owner of editor state
+or an independent user-interface contract.
 
 Package loading has a separate capability boundary. The editor structurally
 verifies and preserves every package resource and declares only the tested
