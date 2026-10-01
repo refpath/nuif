@@ -16,10 +16,36 @@ Keep the Rust workspace formatted and warning-free. Core crates must remain inde
 
 ## Writing register
 
-All persisted prose (documents, specification, research records, comments) uses the technical register defined in `.claude/skills/research-register/SKILL.md`: established terminology from the source field, no marketing language, no invented names for known concepts, a locator for every non-obvious claim. The glossary in `.claude/skills/research-register/references/terminology.md` lists preferred terms.
+Persisted prose uses established technical terminology, complete grammar and
+direct statements. Use third-person descriptions for research and specification
+claims; imperative steps are appropriate for operational instructions. Remove
+marketing language, metaphorical names for established concepts, filler and
+repeated claims. Preserve qualifiers, identifiers, versions, numbers and units.
+Expand unfamiliar acronyms at first use. Use parallel lists for enumerations
+and tables for comparable facts. Follow BCP 14 semantics for requirement words
+in normative specification text.
+
+Every non-obvious factual claim needs a locator: a source URL with a section,
+page or version, or a repository path, revision or executable fixture. Research
+records also retain retrieval dates. Separate source statements from repository
+interpretation and proposed behavior from observed results. State uncertainty
+explicitly; comparisons require a metric and source. Claims of completeness or
+readiness require evidence within the declared profile. Specification status
+follows `GOVERNANCE.md`.
+
+The [terminology reference](.agents/skills/research-register/references/terminology.md)
+lists terms for the model and implementation. The
+[research-register skill](.agents/skills/research-register/SKILL.md) provides the
+editing and review workflow. Agents select it automatically when relevant.
 
 ## Commits
 
-A commit message is exactly one line: `<type>: <subject>` with `type` in `docs`, `research`, `spec`, `rfc`, `adr`, `feat`, `fix`, `test`, `refactor`, `perf`, `build`, `ci`, `chore`; imperative mood; lower-case first letter; no trailing period; at most 72 characters. No body, no trailers and no attribution of tools, models or assistants. Enable the local hook with `git config core.hooksPath .githooks`; CI runs the same check (`tools/git/commit-lint.sh`).
+A commit message is exactly one line: `<type>: <subject>` with `type` in `docs`,
+`research`, `spec`, `rfc`, `adr`, `feat`, `fix`, `test`, `refactor`, `perf`, `build`,
+`ci`, `chore`; imperative mood; lower-case first letter; no trailing period; at
+most 72 characters. No scope parentheses, breaking-change marker, emoji, ticket
+numbers, URLs, body, trailers or attribution of tools, models or assistants.
+The optional local hook (`.githooks/commit-msg`) is enabled with
+`git config core.hooksPath .githooks`; CI runs `tools/git/commit-lint.sh`.
 
 Run `tools/research/validate.sh` after editing `research/`.

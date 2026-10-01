@@ -7,3 +7,4 @@ build
 dist
 *.nuif.cache
 __pycache__/
+.claude/

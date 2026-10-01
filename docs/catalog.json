@@ -19,7 +19,7 @@
     "research/items"
   ],
   "exclude": [
-    "CLAUDE.md",
+    "AGENTS.md",
     "research/items/_template.md",
     "conformance/foreign/penpot/node_modules/@penpot/library/README.md"
   ],
