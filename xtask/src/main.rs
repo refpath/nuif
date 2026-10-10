@@ -5374,18 +5374,19 @@ fn create_editor_archive(
             ],
         )?;
     } else {
-        command(
-            "tar",
-            &[
-                "-c",
-                "-z",
-                "-f",
-                archive_path,
-                "-C",
-                dist_path,
-                package_name,
-            ],
-        )?;
+        let mut arguments = vec![
+            "-c",
+            "-z",
+            "-f",
+            archive_path,
+            "-C",
+            dist_path,
+            package_name,
+        ];
+        if cfg!(target_os = "macos") {
+            arguments.insert(0, "--no-mac-metadata");
+        }
+        command("tar", &arguments)?;
     }
     if !archive.is_file()
         || fs::metadata(&archive)
@@ -5661,6 +5662,66 @@ fn path(path: &Path) -> Result<&str, String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[cfg(target_os = "macos")]
+    #[test]
+    fn package_archives_exclude_appledouble_metadata() {
+        let nonce = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .expect("clock after Unix epoch")
+            .as_nanos();
+        let root = env::temp_dir().join(format!(
+            "nuif-archive-metadata-test-{}-{nonce}",
+            std::process::id()
+        ));
+        let package = root.join("fixture");
+        fs::create_dir_all(&package).expect("create package fixture");
+        let payload = package.join("payload.txt");
+        fs::write(&payload, b"package payload\n").expect("write package payload");
+        command(
+            "/usr/bin/xattr",
+            &[
+                "-w",
+                "com.nuif.archive-fixture",
+                "metadata fixture",
+                path(&payload).expect("fixture path"),
+            ],
+        )
+        .expect("write metadata that would produce an AppleDouble member");
+
+        let archive = create_editor_archive(&root, &package, "fixture")
+            .expect("create actual package archive");
+        let listing = Command::new("tar")
+            .args(["-t", "-f", path(&archive).expect("archive path")])
+            .output()
+            .expect("list archive");
+        assert!(listing.status.success());
+        assert_eq!(
+            String::from_utf8(listing.stdout)
+                .expect("archive listing is UTF-8")
+                .lines()
+                .collect::<BTreeSet<_>>(),
+            BTreeSet::from(["fixture/", "fixture/payload.txt"])
+        );
+        let extracted = root.join("extracted");
+        fs::create_dir(&extracted).expect("create extraction directory");
+        command(
+            "tar",
+            &[
+                "-x",
+                "-f",
+                path(&archive).expect("archive path"),
+                "-C",
+                path(&extracted).expect("extraction path"),
+            ],
+        )
+        .expect("extract package");
+        assert_eq!(
+            fs::read(extracted.join("fixture/payload.txt")).expect("read extracted payload"),
+            b"package payload\n"
+        );
+        fs::remove_dir_all(root).expect("remove owned archive fixture");
+    }
 
     fn resource_host_fixture() -> BTreeMap<String, serde_json::Value> {
         RESOURCE_HOSTS
