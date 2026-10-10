@@ -675,7 +675,7 @@ jobs:
       - name: Install Linux native dependencies
         run: sudo apt-get update && sudo apt-get install -y libfontconfig1-dev
       - name: Check at rust-version
-        run: cargo check --workspace --all-targets --locked
+        run: cargo +1.96.0 check --workspace --all-targets --locked
 
   workflow-security:
     name: workflow security
