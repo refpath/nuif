@@ -249,7 +249,7 @@ remain live-host requirements in `adapters/figma/PROFILE-DRAFT.md`.
 
 The WebAssembly cross-surface experiment writes
 `target/wasm-conformance-report.json` and generates Node and direct-browser
-packages. `cargo xtask gate-wasm` pins wasm-bindgen 0.2.127, initializes the
+packages. `cargo xtask gate-wasm` pins wasm-bindgen 0.2.128, initializes the
 direct-browser target in pinned Chrome, runs the generated Node ABI through
 canonical text/CBOR, validation, atomic patch and history paths, and requires
 the output bytes to equal the native CLI after the same patch. Both compiled
