@@ -1371,7 +1371,7 @@ mod tests {
         );
         assert!((snapshot.context.viewport.width - 768.0).abs() < f64::EPSILON);
         assert_eq!(snapshot.layout.boxes.len(), expected.entities.len());
-        assert!(!snapshot.scene.commands.is_empty());
+        assert_ne!(snapshot.scene.commands, [] as [nuif_render::DrawCommand; 0]);
         assert_eq!((snapshot.raster.width, snapshot.raster.height), (768, 640));
         assert_eq!(snapshot.raster.rgba_sha256.len(), 64);
         assert!(snapshot.raster.png.starts_with(b"\x89PNG\r\n\x1a\n"));
@@ -1406,7 +1406,7 @@ mod tests {
                 EditorError::AccessibilityValueInvalid { .. }
             ));
             assert_eq!(driver.document(), &base);
-            assert!(driver.operation_log().is_empty());
+            assert_eq!(driver.operation_log(), []);
             assert!(!driver.can_undo());
         }
     }
@@ -1427,7 +1427,7 @@ mod tests {
                 Err(EditorError::SnapshotDimensions { .. })
             ));
             assert_eq!(driver.document(), &base);
-            assert!(driver.operation_log().is_empty());
+            assert_eq!(driver.operation_log(), []);
         }
     }
 
@@ -1454,7 +1454,7 @@ mod tests {
                 .is_err()
         );
         assert_eq!(driver.document(), &base);
-        assert!(driver.operation_log().is_empty());
+        assert_eq!(driver.operation_log(), []);
         assert!(!driver.can_undo());
 
         driver
@@ -1545,7 +1545,7 @@ mod tests {
                 if capabilities == BTreeSet::from(["feature.example".to_owned()])
         ));
         assert_eq!(driver.document(), &document);
-        assert!(driver.operation_log().is_empty());
+        assert_eq!(driver.operation_log(), []);
 
         let mut no_op_package = opened.package.clone();
         assert_eq!(

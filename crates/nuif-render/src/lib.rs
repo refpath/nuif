@@ -1660,7 +1660,7 @@ mod tests {
         let missing = EvaluationContext::viewport(100.0, 20.0);
         let layout = nuif_layout::evaluate(&substituted, &missing);
         let scene = build_scene(&substituted, &layout, &missing).unwrap();
-        assert!(scene.commands.is_empty());
+        assert_eq!(scene.commands, [] as [DrawCommand; 0]);
         assert!(matches!(
             scene.fidelity[0].status,
             Fidelity::Unsupported { .. }
@@ -1675,7 +1675,7 @@ mod tests {
                 && matches!(diagnostic.fidelity, Some(Fidelity::Unsupported { .. }))
         }));
         let scene = build_scene(&unavailable, &layout, &missing).unwrap();
-        assert!(scene.commands.is_empty());
+        assert_eq!(scene.commands, [] as [DrawCommand; 0]);
         assert!(matches!(
             scene.fidelity[0].status,
             Fidelity::Unsupported { .. }
@@ -1781,7 +1781,7 @@ mod tests {
         let context = EvaluationContext::viewport(4.0, 4.0);
         let layout = nuif_layout::evaluate(&document, &context);
         let unresolved = build_scene(&document, &layout, &context).unwrap();
-        assert!(unresolved.commands.is_empty());
+        assert_eq!(unresolved.commands, [] as [DrawCommand; 0]);
         assert!(matches!(
             unresolved.fidelity[0].status,
             Fidelity::Unsupported { .. }
@@ -2177,7 +2177,7 @@ mod tests {
         };
         let scene =
             build_scene(&document, &layout, &EvaluationContext::viewport(1.0, 1.0)).unwrap();
-        assert!(scene.commands.is_empty());
+        assert_eq!(scene.commands, [] as [DrawCommand; 0]);
         assert_eq!(scene.fidelity.len(), 3);
         assert!(
             scene

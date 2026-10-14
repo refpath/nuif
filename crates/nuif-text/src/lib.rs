@@ -1224,7 +1224,7 @@ mod tests {
         assert_ne!(runs[0].ascender_font_units, PINNED_FONT_ASCENDER);
         assert!(runs[0].ascender_font_units > 0);
         let outline = font.outline_glyph(runs[0].glyphs[0].glyph_id).unwrap();
-        assert!(!outline.commands.is_empty());
+        assert_ne!(outline.commands, [] as [OutlineCommand; 0]);
     }
 
     #[test]
@@ -1263,8 +1263,8 @@ mod tests {
         );
         let default_outline = default.outline_glyph(1).unwrap();
         let filled_outline = filled.outline_glyph(2).unwrap();
-        assert!(!default_outline.commands.is_empty());
-        assert!(!filled_outline.commands.is_empty());
+        assert_ne!(default_outline.commands, [] as [OutlineCommand; 0]);
+        assert_ne!(filled_outline.commands, [] as [OutlineCommand; 0]);
         assert_ne!(
             default_outline.serialized_path,
             filled_outline.serialized_path

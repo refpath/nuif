@@ -1227,7 +1227,7 @@ mod tests {
     #[test]
     fn v0_fixture_is_valid_and_preserves_opaque_bytes() {
         let document = responsive_card_fixture();
-        assert!(fixture_diagnostics().is_empty());
+        assert_eq!(fixture_diagnostics(), Vec::<String>::new());
         let bytes = DeterministicCbor.encode(&document).unwrap();
         let decoded = DeterministicCbor.decode(&bytes).unwrap();
         assert_eq!(decoded, document);
@@ -1290,7 +1290,10 @@ mod tests {
     #[test]
     fn reducer_can_find_an_operation_independent_failure() {
         let operations = generate_operations(&mut TrialRng::new(9), 4, 0);
-        assert!(minimize_operations(&operations, |_| true).is_empty());
+        assert_eq!(
+            minimize_operations(&operations, |_| true),
+            Vec::<Operation>::new()
+        );
     }
 
     #[test]

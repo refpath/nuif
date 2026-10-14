@@ -404,7 +404,7 @@ mod tests {
             }],
             unmapped_host_data_preserved: true,
         };
-        assert!(report.validation_errors().is_empty());
+        assert_eq!(report.validation_errors(), [] as [HostReportError; 0]);
         assert!(report.is_lossless());
         let encoded = serde_json::to_vec(&report).unwrap();
         assert_eq!(

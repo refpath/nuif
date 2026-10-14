@@ -3,7 +3,7 @@ name = "nuif-fuzz"
 version = "0.0.0"
 publish = false
 edition = "2024"
-rust-version = "1.96"
+rust-version = "1.97"
 license = "Apache-2.0 OR MIT"
 
 [package.metadata]

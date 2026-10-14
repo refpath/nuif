@@ -1898,7 +1898,7 @@ mod tests {
         let imported = import_package(&exported.bytes).unwrap();
         let synchronized = synchronize(&imported.retentive, &fixture).unwrap();
         assert_eq!(synchronized.bytes, exported.bytes);
-        assert!(synchronized.edits.is_empty());
+        assert_eq!(synchronized.edits, [] as [nuif_adapter::PackageEdit; 0]);
     }
 
     #[test]
@@ -1953,7 +1953,7 @@ mod tests {
             .unwrap()
             .content = "Edited Penpot text".to_owned();
         let synchronized = synchronize(&imported.retentive, &edited).unwrap();
-        assert!(!synchronized.edits.is_empty());
+        assert_ne!(synchronized.edits, [] as [nuif_adapter::PackageEdit; 0]);
         let reimported = import_package(&synchronized.bytes).unwrap();
         assert_eq!(reimported.document, edited);
         let opaque = reimported

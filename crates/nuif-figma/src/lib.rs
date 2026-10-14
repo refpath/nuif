@@ -1183,7 +1183,10 @@ mod tests {
         let imported = import_snapshot(&bytes).unwrap();
         assert_eq!(imported.document, document);
         assert!(imported.report.is_lossless());
-        assert!(imported.report.validation_errors().is_empty());
+        assert_eq!(
+            imported.report.validation_errors(),
+            [] as [nuif_adapter::HostReportError; 0]
+        );
     }
 
     #[test]

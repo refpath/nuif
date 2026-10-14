@@ -832,7 +832,7 @@ mod tests {
         let compacted = set.compact_stable(&base, &frontier).unwrap();
         assert_eq!(compacted.checkpoint, before);
         assert_eq!(compacted.receipt.dropped.len(), 2);
-        assert!(compacted.receipt.retained.is_empty());
+        assert_eq!(compacted.receipt.retained, [] as [ChangeId; 0]);
 
         let mut logs = ReplicaLogEngine::default();
         logs.ingest(alice).unwrap();

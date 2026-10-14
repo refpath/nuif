@@ -415,7 +415,7 @@ mod tests {
                 .unwrap_err();
         assert_eq!(line_error, "script line 1 exceeds the 8-byte limit");
         assert_eq!(driver.document(), &base);
-        assert!(driver.operation_log().is_empty());
+        assert_eq!(driver.operation_log(), []);
 
         let command_error = execute_script_with_limits(
             &mut driver,
@@ -426,7 +426,7 @@ mod tests {
         .unwrap_err();
         assert_eq!(command_error, "editor script exceeds the 1-command limit");
         assert_eq!(driver.document(), &base);
-        assert!(driver.operation_log().is_empty());
+        assert_eq!(driver.operation_log(), []);
     }
 
     #[test]
@@ -436,6 +436,6 @@ mod tests {
         let error = execute_script(&mut driver, "# ignored\n{not-json}\n").unwrap_err();
         assert!(error.starts_with("script line 2:"));
         assert_eq!(driver.document(), &base);
-        assert!(driver.operation_log().is_empty());
+        assert_eq!(driver.operation_log(), []);
     }
 }

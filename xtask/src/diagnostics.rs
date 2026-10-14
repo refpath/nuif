@@ -180,7 +180,7 @@ mod tests {
     fn registry_rows_are_strict_and_sorted() {
         let markdown = "| `ALPHA_CODE` | error | model | core | first |\n| `BETA_CODE` | warning | layout | layout | second |\n";
         let (codes, failures) = parse_registry(markdown);
-        assert!(failures.is_empty());
+        assert_eq!(failures, Vec::<String>::new());
         assert_eq!(codes.len(), 2);
     }
 

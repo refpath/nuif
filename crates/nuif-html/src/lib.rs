@@ -76,7 +76,10 @@ mod tests {
         let imported = import_source(&exported.source).unwrap();
         assert_eq!(imported.document, document);
         assert!(exported.report.is_lossless());
-        assert!(!exported.report.correspondences.is_empty());
+        assert_ne!(
+            exported.report.correspondences,
+            [] as [nuif_adapter::CorrespondenceRecord; 0]
+        );
         for record in &exported.report.correspondences {
             assert!(record.span.start <= record.span.end);
             assert!(record.span.end <= exported.source.len());

@@ -190,4 +190,4 @@ The canvas renders through `nuif-render`. Interactive rendering uses the Vello b
 
 ## Implementation stack
 
-Decided in ADR 0006 (accepted): Rust-native shell on Masonry (pinned by git revision; Xilem not used) with Vello rendering and AccessKit, replacing the earlier Svelte 5 shell proposal for the reference editor. The canvas lowers NUIF `RenderScene` to Masonry's `imaging` command set; the CPU reference renderer in `nuif-render` remains the conformance oracle. Toolchain 1.98.0, MSRV 1.96. A browser build through WASM remains a later demonstration target, not the reference editor.
+Decided in ADR 0006 (accepted): Rust-native shell on Masonry (pinned by git revision; Xilem not used) with Vello rendering and AccessKit, replacing the earlier Svelte 5 shell proposal for the reference editor. The canvas lowers NUIF `RenderScene` to Masonry's `imaging` command set; the CPU reference renderer in `nuif-render` remains the conformance oracle. Toolchain 1.99.0, MSRV 1.97. A browser build through WASM remains a later demonstration target, not the reference editor.

@@ -1563,7 +1563,10 @@ mod tests {
                 .iter()
                 .any(|conflict| matches!(conflict, StructuralConflict::CycleRejected { .. }))
         );
-        assert!(error_codes(&checkpoint.document).is_empty());
+        assert_eq!(
+            error_codes(&checkpoint.document),
+            [] as [std::string::String; 0]
+        );
     }
 
     #[test]

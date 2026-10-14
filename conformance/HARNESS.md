@@ -76,7 +76,7 @@ Persisted expectation regeneration remains a planned extension and will use one 
 - Floating point: canonical text follows RFC 0005's stated shortest-digit layout and canonical CBOR follows RFCs 0005/0008. Gate C records each fixture's observed Taffy/browser maximum and rounds it upward to 0.01 px, capped by the 0.1 px foreign-engine safety bound. Exact agreement retains zero tolerance; no aggregate bound silently replaces the fixture values.
 - Fonts: the fixture uses the content-addressed Ahem 1.50 bytes (`f0a92c…550dc`), HarfRust 0.13.3, Unicode 17.0.0 and Unicode-scalar cluster indices. Eight LTR/RTL goldens were independently captured with HarfBuzz 14.4.0. Five unhinted Skrifa 0.46.2 outlines match normalized `hb-vector` paths in signed 26.6 font units. Pinned Zeno 0.3.3 8-bit grayscale nonzero-fill coverage produces the same three scene and raw-RGBA hashes on macOS/aarch64, Linux/aarch64 and Linux/x86_64. CR/LF/CRLF/NEL/LS/PS hard-line layout is exact; profile 0 does not request automatic soft wrapping (`text-rendering-reproducibility`).
 - Threads: the current suites have no shared mutable global state and pass under libtest's normal parallel execution.
-- Environment: CI uses `--locked` and pinned Rust 1.98.0; the separate MSRV job checks 1.96.0.
+- Environment: CI uses `--locked` and pinned Rust 1.99.0; the separate MSRV job checks 1.97.0.
 
 ## Oracles by suite
 

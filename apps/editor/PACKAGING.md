@@ -24,4 +24,4 @@ The Linux package expects a graphical Wayland or X11 session, Fontconfig at runt
 
 The `native-editor` CI matrix runs the editor check, tests, semantic and visual trial, complete sandboxed install/doctor/uninstall lifecycle, and packaging command on GitHub-hosted macOS, Windows and Linux systems. Each job uploads its archive, package manifest, install receipt evidence, semantic-node inventory and shell screenshot. This is native-host evidence; a successful cross-compilation alone is not treated as platform verification.
 
-The release workflow adds Linux Arm64 and separate macOS Arm64 and x86-64 hosts. It requires five archives and five package manifests before publication. Each release job builds at the tagged source revision, runs the sandboxed lifecycle in strict `alpha` mode and uses the pinned Rust 1.98.0 toolchain.
+The release workflow adds Linux Arm64 and separate macOS Arm64 and x86-64 hosts. It requires five archives and five package manifests before publication. Each release job builds at the tagged source revision, runs the sandboxed lifecycle in strict `alpha` mode and uses the pinned Rust 1.99.0 toolchain.

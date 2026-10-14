@@ -23,8 +23,8 @@ jobs:
           persist-credentials: false
       - name: Install the pinned Rust toolchain
         run: |
-          rustup toolchain install 1.98.0 --profile minimal
-          rustup default 1.98.0
+          rustup toolchain install 1.99.0 --profile minimal
+          rustup default 1.99.0
       - name: Install the pinned documentation renderer
         run: cargo xtask docs-setup
       - name: Install the pinned browser renderer

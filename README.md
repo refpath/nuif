@@ -6,7 +6,7 @@ resolved output, and explicit accounting for every lossy conversion.**
 [![CI](https://github.com/refpath/nuif/actions/workflows/ci.yml/badge.svg)](https://github.com/refpath/nuif/actions/workflows/ci.yml)
 [![Documentation](https://img.shields.io/badge/docs-published-3b82f6.svg)](https://refpath.github.io/nuif/)
 [![License](https://img.shields.io/badge/license-Apache--2.0%20OR%20MIT-blue.svg)](#license)
-[![MSRV](https://img.shields.io/badge/MSRV-1.96-orange.svg)](Cargo.toml)
+[![MSRV](https://img.shields.io/badge/MSRV-1.97-orange.svg)](Cargo.toml)
 [![Editor](https://img.shields.io/badge/editor-0.1.0--alpha.3-orange.svg)](apps/editor/README.md)
 [![Specification](https://img.shields.io/badge/specification-pre--draft-yellow.svg)](spec/README.md)
 

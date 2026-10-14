@@ -1357,7 +1357,7 @@ fn editor_hostile_inputs() -> Result<(), String> {
     reason = "the campaign setup, exact target limits and result recording stay reviewable together"
 )]
 fn fuzz_smoke() -> Result<(), String> {
-    const NIGHTLY: &str = "nightly-2026-08-28";
+    const NIGHTLY: &str = "nightly-2026-10-14";
     const DEFAULT_RUNS: u32 = 256;
     let runs = env::var("NUIF_FUZZ_RUNS")
         .ok()
@@ -1377,7 +1377,7 @@ fn fuzz_smoke() -> Result<(), String> {
     command(
         "cargo",
         &[
-            "+nightly-2026-08-28",
+            "+nightly-2026-10-14",
             "run",
             "--locked",
             "--manifest-path",

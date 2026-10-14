@@ -2858,7 +2858,7 @@ mod tests {
         });
         document.roots.push(image.id);
         document.entities.insert(image.id, image);
-        assert!(validate(&document).is_empty());
+        assert_eq!(validate(&document), Vec::<Diagnostic>::new());
 
         document.assets.get_mut(&asset_id).unwrap().resource =
             Some(ResourceDigest("sha256:ABC".to_owned()));
@@ -2893,7 +2893,7 @@ mod tests {
             .insert(explicit_second.id, explicit_second);
         document.entities.insert(auto_third.id, auto_third);
 
-        assert!(validate(&document).is_empty());
+        assert_eq!(validate(&document), Vec::<Diagnostic>::new());
         let areas = resolve_grid_placements(&document, &root).unwrap();
         assert_eq!(
             areas[&EntityId::new(3)],

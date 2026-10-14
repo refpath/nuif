@@ -683,7 +683,7 @@ mod tests {
                 .all(|item| item.severity != Severity::Error)
         );
         assert!(result.report.predicate_evaluations > 1);
-        assert!(!result.report.steps.is_empty());
+        assert_ne!(result.report.steps, Vec::<ReductionStep>::new());
     }
 
     #[test]

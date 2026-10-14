@@ -119,6 +119,6 @@ fn aliased_report_destinations_are_rejected_before_writing() {
         assert_eq!(diagnostic["code"], "ARGUMENT_INVALID");
         assert_eq!(fs::read(&source).unwrap(), b"sentinel source");
         assert_eq!(fs::read(&document).unwrap(), b"sentinel document");
-        assert!(output.stdout.is_empty());
+        assert_eq!(output.stdout, [] as [u8; 0]);
     }
 }

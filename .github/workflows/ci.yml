@@ -70,8 +70,8 @@ jobs:
             tools/automerge-oracle/package-lock.json
       - name: Install the pinned Rust toolchain
         run: |
-          rustup toolchain install 1.98.0 --profile minimal --component rustfmt --component clippy
-          rustup default 1.98.0
+          rustup toolchain install 1.99.0 --profile minimal --component rustfmt --component clippy
+          rustup default 1.99.0
       - name: Install Linux native dependencies
         run: sudo apt-get update && sudo apt-get install -y libfontconfig1-dev
       - name: Complete automated research and conformance loop
@@ -469,8 +469,8 @@ jobs:
       - name: Install the pinned Rust toolchain
         shell: bash
         run: |
-          rustup toolchain install 1.98.0 --profile minimal
-          rustup default 1.98.0
+          rustup toolchain install 1.99.0 --profile minimal
+          rustup default 1.99.0
       - name: Install Linux native dependencies
         if: runner.os == 'Linux'
         run: sudo apt-get update && sudo apt-get install -y libfontconfig1-dev
@@ -519,8 +519,8 @@ jobs:
           persist-credentials: false
       - name: Install the pinned Rust toolchain
         run: |
-          rustup toolchain install 1.98.0 --profile minimal
-          rustup default 1.98.0
+          rustup toolchain install 1.99.0 --profile minimal
+          rustup default 1.99.0
       - name: Download Linux resource evidence
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
@@ -563,8 +563,8 @@ jobs:
           cache-dependency-path: tools/accessibility-oracle/package-lock.json
       - name: Install the pinned Rust toolchain
         run: |
-          rustup toolchain install 1.98.0 --profile minimal
-          rustup default 1.98.0
+          rustup toolchain install 1.99.0 --profile minimal
+          rustup default 1.99.0
       - name: Compare portable semantics and behavior across three engines
         run: cargo xtask gate-web-hosts
       - name: Upload web host mapping evidence
@@ -604,8 +604,8 @@ jobs:
       - name: Install the pinned Rust toolchain
         shell: bash
         run: |
-          rustup toolchain install 1.98.0 --profile minimal --component clippy
-          rustup default 1.98.0
+          rustup toolchain install 1.99.0 --profile minimal --component clippy
+          rustup default 1.99.0
       - name: Install Linux native dependencies
         if: runner.os == 'Linux'
         run: sudo apt-get update && sudo apt-get install -y libfontconfig1-dev
@@ -646,13 +646,13 @@ jobs:
         with:
           persist-credentials: false
       - name: Install the pinned fuzz toolchain
-        run: rustup toolchain install nightly-2026-08-28 --profile minimal --component rust-src
+        run: rustup toolchain install nightly-2026-10-14 --profile minimal --component rust-src
       - name: Install the pinned fuzz driver
-        run: cargo +nightly-2026-08-28 install cargo-fuzz --version 0.13.2 --locked
+        run: cargo +nightly-2026-10-14 install cargo-fuzz --version 0.13.2 --locked
       - name: Run every bounded fuzz contract
         env:
           NUIF_FUZZ_RUNS: "512"
-        run: cargo +nightly-2026-08-28 xtask fuzz-smoke
+        run: cargo +nightly-2026-10-14 xtask fuzz-smoke
       - name: Upload fuzz campaign report
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
@@ -670,12 +670,12 @@ jobs:
           persist-credentials: false
       - name: Install the minimum Rust toolchain
         run: |
-          rustup toolchain install 1.96.0 --profile minimal
-          rustup default 1.96.0
+          rustup toolchain install 1.97.0 --profile minimal
+          rustup default 1.97.0
       - name: Install Linux native dependencies
         run: sudo apt-get update && sudo apt-get install -y libfontconfig1-dev
       - name: Check at rust-version
-        run: cargo +1.96.0 check --workspace --all-targets --locked
+        run: cargo +1.97.0 check --workspace --all-targets --locked
 
   workflow-security:
     name: workflow security

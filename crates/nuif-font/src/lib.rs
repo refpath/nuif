@@ -2045,7 +2045,7 @@ mod tests {
         assert_eq!(inspection.fs_type, 0);
         assert_eq!(inspection.permission, EmbeddingPermission::Installable);
         assert!(inspection.names.iter().any(|name| name == "Ahem"));
-        assert!(!inspection.coverage.is_empty());
+        assert_ne!(inspection.coverage, [] as [nuif_core::CodepointRange; 0]);
     }
 
     #[test]
@@ -2132,7 +2132,7 @@ mod tests {
             inspection.font.decoder_profile,
             OPENTYPE_VARIABLE_TRUETYPE_PROFILE
         );
-        assert!(!inspection.axes.is_empty());
+        assert_ne!(inspection.axes, [] as [VariableAxisInspection; 0]);
         let defaults = inspection
             .axes
             .iter()

@@ -24,10 +24,10 @@ Decision delegated to research on 2026-08-29. Evidence: `nuif:research:masonry-e
 
 ### Toolchain and MSRV
 
-6. `rust-toolchain.toml` pins the current stable, 1.98.0 (released 2026-08-20). The pin is raised in one dedicated commit within each release cycle.
-7. `rust-version` is 1.96: `max(toolchain − 2, highest dependency MSRV)`, where Masonry main requires 1.96, `imaging` 1.92, Vello and Parley 1.88, wgpu 1.87, AccessKit, HarfRust and proptest 1.85. This coincides with Masonry's own N-0..N-2 practice and with Bevy (1.96), Zed and Servo (1.97.1) and rust-analyzer (1.98).
+6. `rust-toolchain.toml` pins the current stable, 1.99.0 (released 2026-10-01; [official release](https://blog.rust-lang.org/2026/10/01/Rust-1.99.0/)). The pin is raised in one dedicated commit within each release cycle.
+7. `rust-version` is 1.97: `max(toolchain − 2, highest dependency MSRV)`. The current 1.99 toolchain raises the policy floor to 1.97; the pinned Masonry source requires 1.96. The separately pinned MSRV job checks the workspace and every target at 1.97.0.
 8. The workspace uses `resolver = "3"` so that dependency resolution is MSRV-aware.
-9. CI runs the main job on the pinned toolchain and an `msrv` job that checks the workspace on 1.96.0.
+9. CI runs the main job on the pinned toolchain and an `msrv` job that checks the workspace on 1.97.0.
 
 ### Licensing
 
@@ -58,4 +58,4 @@ Masonry main ships 37 widgets including `Split` (draggable), `CollapsePanel`, `S
 
 ## Unverified
 
-Linebender Zulip release announcements were not retrieved; the `anyrender` `CustomPaintSource` trait was not located; the 1.99 release date (2026-10-01) is computed from the cadence, not announced.
+Linebender Zulip release announcements were not retrieved; the `anyrender` `CustomPaintSource` trait was not located.

@@ -629,6 +629,6 @@ mod tests {
         let compacted = engine.compact_stable(&frontier).unwrap();
         assert_eq!(compacted.checkpoint, before);
         assert_eq!(compacted.receipt.dropped.len(), 1);
-        assert!(compacted.receipt.retained.is_empty());
+        assert_eq!(compacted.receipt.retained, [] as [ChangeId; 0]);
     }
 }
