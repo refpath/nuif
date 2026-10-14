@@ -76,7 +76,7 @@ does not erase those candidates.
 
 Gate H compares full sorted replay with an incremental local/rollback-replay
 engine for all 5,040 deliveries of the bounded fixture, multiple joins, duplicate
-delivery and a 4,096-change scaling case. Pinned Automerge 3.4.1 must reproduce
+delivery and a 4,096-change scaling case. Pinned Automerge 3.5.0 must reproduce
 the exact immutable operation set through different merge orders and
 save/load. That foreign check covers convergent transport only; it is not an
 independent implementation of these tree semantics.

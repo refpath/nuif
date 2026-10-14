@@ -73,7 +73,7 @@ of a seven-replica move/delete/cycle/stable-anchor fixture, checks join and idem
 compares both paths. A 4,096-change/4,097-entity release trial guards the linear
 checkpoint path.
 
-Pinned `@automerge/automerge` 3.4.1 independently merges immutable structural
+Pinned `@automerge/automerge` 3.5.0 independently merges immutable structural
 change records forward, reverse and in a different partition order, then
 checks duplicate merge and save/load. Automerge is the foreign convergent
 transport oracle only: it does not implement NUIF's tree move, cycle, trash or

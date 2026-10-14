@@ -63,14 +63,14 @@ can be attributed back to the stable NUIF entity.
 
 `cargo xtask gate-accessibility` generates one eleven-node fixture covering
 every admitted role and Boolean state, installs the
-exact Playwright 1.63.0 browser set and compares the required role/name/state
+exact Playwright 1.64.1 browser set and compares the required role/name/state
 subset plus full ARIA snapshots across its Chromium, Firefox and WebKit
 engines. The report records package, engine, Node, operating-system and
 architecture versions. Required-subset mismatches are classified as semantic
 loss; non-required tree differences are retained separately as host-tree
 differences.
 
-The current macOS/arm64 trial reports identical bounded snapshots from Chromium
+The recorded macOS/arm64 baseline reports identical bounded snapshots from Chromium
 151.0.7922.34, Firefox 153.0 and WebKit 26.5. Hosted Linux evidence is produced
 by CI and must not be inferred merely from workflow configuration.
 

@@ -158,7 +158,7 @@ const report = {
   profile: expected.profile,
   oracle: {
     name: "Playwright",
-    version: "1.63.0",
+    version: "1.64.1",
     authority: "foreign-browser-role-name-state-computation",
     operating_system: `${os.platform()} ${os.release()}`,
     architecture: os.arch(),
