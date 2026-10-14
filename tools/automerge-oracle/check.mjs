@@ -10,8 +10,8 @@ if (!inputPath || !reportPath) {
 const packageMetadata = JSON.parse(
   await readFile(new URL("./node_modules/@automerge/automerge/package.json", import.meta.url), "utf8")
 );
-if (packageMetadata.version !== "3.4.1") {
-  throw new Error(`expected @automerge/automerge 3.4.1, loaded ${packageMetadata.version}`);
+if (packageMetadata.version !== "3.5.0") {
+  throw new Error(`expected @automerge/automerge 3.5.0, loaded ${packageMetadata.version}`);
 }
 
 const input = JSON.parse(await readFile(inputPath, "utf8"));

@@ -81,7 +81,7 @@ edits, repeated synchronization, exact unchanged-byte-complement comparison,
 typed stale/unsupported/structural failures, 13 hostile or excluded-source
 trials and a public CLI export/import/sync bridge. It then installs the exact
 lockfile with lifecycle scripts disabled and parses and compiles both direct and
-CLI synchronized sources through official `svelte/compiler` 5.57.0 in modern
+CLI synchronized sources through official `svelte/compiler` 5.57.2 in modern
 AST mode. Compiler warnings fail the gate.
 
 The gate writes:
