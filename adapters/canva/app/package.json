@@ -15,10 +15,10 @@
     "validate-plan": "node scripts/validate-plan.mjs"
   },
   "dependencies": {
-    "@canva/design": "2.13.0"
+    "@canva/design": "2.13.1"
   },
   "devDependencies": {
-    "@types/node": "26.4.1",
+    "@types/node": "26.6.5",
     "esbuild": "0.28.2",
     "typescript": "7.0.2"
   }

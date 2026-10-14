@@ -20,8 +20,8 @@ use taffy::prelude::{
     auto, flex, length, line as taffy_line, percent, span as taffy_span,
 };
 
-pub const TAFFY_VERSION: &str = "0.14.0";
-pub const PINNED_CHROME_VERSION: &str = "152.0.7977.82";
+pub const TAFFY_VERSION: &str = "0.15.0";
+pub const PINNED_CHROME_VERSION: &str = "155.0.8059.79";
 pub const MAX_FOREIGN_TOLERANCE_PX: f64 = 0.1;
 const DEFAULT_SEED: u64 = 0x4e55_4946_4c41_594f;
 
@@ -510,6 +510,7 @@ fn taffy_style(
 ) -> Style {
     let is_root = parent.is_none();
     let mut style = Style {
+        position: Position::Relative,
         display: match entity.authored.layout.family {
             LayoutFamily::Grid => Display::Grid,
             _ => Display::Flex,
@@ -518,18 +519,18 @@ fn taffy_style(
             FlowDirection::Row => FlexDirection::Row,
             FlowDirection::Column => FlexDirection::Column,
         },
-        align_items: Some(match entity.authored.layout.align {
+        align_items: match entity.authored.layout.align {
             Align::Start => AlignItems::START,
             Align::Center => AlignItems::CENTER,
             Align::End => AlignItems::END,
             Align::Stretch => AlignItems::STRETCH,
-        }),
-        justify_items: Some(match entity.authored.layout.align {
+        },
+        justify_items: match entity.authored.layout.align {
             Align::Start => AlignItems::START,
             Align::Center => AlignItems::CENTER,
             Align::End => AlignItems::END,
             Align::Stretch => AlignItems::STRETCH,
-        }),
+        },
         gap: TaffySize::length(resolved.gap.max(0.0)),
         padding: TaffyRect {
             left: length(entity.authored.layout.padding.left),

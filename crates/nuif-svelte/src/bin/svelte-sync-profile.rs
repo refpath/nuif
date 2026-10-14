@@ -64,7 +64,7 @@ fn run() -> Result<(), String> {
         "profile": {
             "name": nuif_svelte::PROFILE_NAME,
             "syntax_parser": "tree-sitter-svelte-next 0.1.1 (bdea454a8ae7272498b8fe9d4b6b24fbd3dfe7b6)",
-            "foreign_oracle": "official svelte/compiler 5.57.0, executed by cargo xtask gate-svelte",
+            "foreign_oracle": "official svelte/compiler 5.57.2, executed by cargo xtask gate-svelte",
             "source_limit_bytes": MAX_SOURCE_BYTES,
             "syntax_node_limit": MAX_SYNTAX_NODES,
             "element_depth_limit": MAX_ELEMENT_DEPTH,

@@ -7,6 +7,9 @@ const sourcePath = resolve(root, "node_modules/@canva/design/index.d.ts");
 const outputPath = resolve(root, "../../../target/canva-app-types/index.d.ts");
 const reportPath = resolve(root, "../../../target/canva-app-types/report.json");
 const source = await readFile(sourcePath, "utf8");
+const { version } = JSON.parse(
+  await readFile(resolve(root, "node_modules/@canva/design/package.json"), "utf8")
+);
 const invalid = "    export interface PageRefList extends ReadableList<PageRef> {\n    }\n        {};\n}";
 const replacement = "    export interface PageRefList extends ReadableList<PageRef> {\n    }\n}";
 const occurrences = source.split(invalid).length - 1;
@@ -23,7 +26,7 @@ await writeFile(
       schema_version: 1,
       status: "passed",
       package: "@canva/design",
-      version: "2.13.0",
+      version,
       transformation: "remove one invalid empty statement after DesignEditing.PageRefList",
       source_sha256: createHash("sha256").update(source).digest("hex"),
       normalized_sha256: createHash("sha256").update(normalized).digest("hex")

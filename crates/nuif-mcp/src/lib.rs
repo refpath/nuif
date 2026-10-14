@@ -8,7 +8,7 @@ use nuif_protocol::{Patch, PatchLimits, enforce_patch_limits};
 use rmcp::{
     Json, ServerHandler, ServiceExt,
     handler::server::{router::tool::ToolRouter, wrapper::Parameters},
-    model::{Implementation, ProtocolVersion, ServerCapabilities, ServerInfo},
+    model::{Implementation, ProtocolVersion, ServerCapabilities, ServerConfig},
     schemars, tool, tool_handler, tool_router,
 };
 use serde::{Deserialize, Serialize};
@@ -358,8 +358,8 @@ impl NuifMcp {
 )]
 #[tool_handler(router = self.tool_router)]
 impl ServerHandler for NuifMcp {
-    fn get_info(&self) -> ServerInfo {
-        ServerInfo::new(ServerCapabilities::builder().enable_tools().build())
+    fn get_info(&self) -> ServerConfig {
+        ServerConfig::new(ServerCapabilities::builder().enable_tools().build())
             .with_server_info(Implementation::new("nuif-mcp", env!("CARGO_PKG_VERSION")))
             .with_instructions(INSTRUCTIONS)
     }

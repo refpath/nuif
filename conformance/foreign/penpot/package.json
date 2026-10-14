@@ -5,6 +5,6 @@
     "generate": "node generate.mjs"
   },
   "dependencies": {
-    "@penpot/library": "1.1.0"
+    "@penpot/library": "1.2.0"
   }
 }

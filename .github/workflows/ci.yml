@@ -59,9 +59,9 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
-          node-version: "24.20.0"
+          node-version: "26.12.0"
           cache: npm
           cache-dependency-path: |
             adapters/canva/app/package-lock.json
@@ -83,7 +83,7 @@ jobs:
           cargo xtask cli-package
           cargo xtask ffi-package
       - name: Upload Linux developer packages
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: developer-packages-linux-x86_64
           if-no-files-found: error
@@ -100,7 +100,7 @@ jobs:
         run: cargo xtask conformance-kit
       - name: Upload external conformance kit
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: conformance-kit
           if-no-files-found: error
@@ -110,49 +110,49 @@ jobs:
             target/dist/nuif-conformance-kit-*.manifest.json
       - name: Upload Gate B trial report
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: gate-b-report
           path: target/gate-b-report.json
       - name: Upload adapter coverage audit
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: adapter-coverage-report
           path: target/adapter-coverage-report.json
       - name: Upload research readiness audit
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: research-readiness-report
           path: target/research-readiness-report.json
       - name: Upload direct dependency audit
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: dependency-audit-report
           path: target/dependency-audit-report.json
       - name: Upload diagnostic registry audit
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: diagnostic-registry-report
           path: target/diagnostic-registry-report.json
       - name: Upload workflow metadata audit
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: workflow-audit-report
           path: target/workflow-audit-report.json
       - name: Upload hostile-input measurements
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: hostile-input-report
           path: target/hostile-input-report.json
       - name: Upload automatic reduction evidence
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: reduction-profile
           if-no-files-found: error
@@ -161,13 +161,13 @@ jobs:
             target/reduction-profile-fixture
       - name: Upload editor hostile-interaction evidence
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: editor-hostile-input-report
           path: target/editor-hostile-input-report.json
       - name: Upload profile-zero performance measurements
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: performance-profile-report
           if-no-files-found: error
@@ -176,13 +176,13 @@ jobs:
             target/criterion-smoke-report.json
       - name: Upload codec decision measurements
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: codec-benchmark-report
           path: target/codec-benchmark-report.json
       - name: Upload browser WebAssembly developer package
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: nuif-wasm-web
           if-no-files-found: error
@@ -191,7 +191,7 @@ jobs:
             target/wasm-conformance-report.json
       - name: Upload experimental C ABI evidence
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: nuif-ffi-header-report
           if-no-files-found: error
@@ -202,14 +202,14 @@ jobs:
             target/ffi-variable-font-sanitized-report.json
       - name: Upload MCP cross-surface evidence
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: mcp-conformance-report
           if-no-files-found: error
           path: target/mcp-conformance-report.json
       - name: Upload portable resource profile evidence
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: portable-resource-profile-reports
           if-no-files-found: error
@@ -232,7 +232,7 @@ jobs:
             target/variable-font-surface-report.json
       - name: Upload live browser capture evidence
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: live-browser-capture-report
           if-no-files-found: error
@@ -241,46 +241,46 @@ jobs:
             target/layout-inference-report.json
       - name: Upload reconstruction evaluation contract
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: reconstruction-evaluation-report
           if-no-files-found: error
           path: target/reconstruction-evaluation-report.json
       - name: Upload reconstruction corpus integrity contract
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: reconstruction-corpus-audit-report
           if-no-files-found: error
           path: target/reconstruction-corpus-audit-report.json
       - name: Upload reconstruction provider manifest contract
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: reconstruction-provider-manifest-report
           if-no-files-found: error
           path: target/reconstruction-provider-manifest-report.json
       - name: Upload layout differential report
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: layout-differential-report
           path: target/layout-differential-report.json
       - name: Upload text pinning report
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: text-pinning-report
           path: target/text-pinning-report.json
       - name: Upload render profile report
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: render-profile-report
           path: target/render-profile-report.json
       - name: Upload editor authoring report and snapshot
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: editor-authoring-report
           path: |
@@ -288,19 +288,19 @@ jobs:
             target/editor-authoring-snapshot
       - name: Upload native editor semantic and visual trial
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: editor-gui-trial
           path: target/editor-gui-trial
       - name: Upload user-scoped editor install trial
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: editor-install-trial
           path: target/editor-install-trial.json
       - name: Upload HTML and CSS synchronization evidence
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: html-css-sync-report
           path: |
@@ -313,7 +313,7 @@ jobs:
             target/html-sync-v0-editor-output.html
       - name: Upload SVG synchronization evidence
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: svg-sync-report
           path: |
@@ -324,7 +324,7 @@ jobs:
             target/svg-sync-cli-output.svg
       - name: Upload DTCG synchronization evidence
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: dtcg-sync-report
           path: |
@@ -335,7 +335,7 @@ jobs:
             target/dtcg-sync-cli-output.tokens.json
       - name: Upload Penpot synchronization evidence
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: penpot-sync-report
           path: |
@@ -346,7 +346,7 @@ jobs:
             target/penpot-sync-cli-output.penpot
       - name: Upload React JSX synchronization evidence
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: react-jsx-sync-report
           path: |
@@ -357,7 +357,7 @@ jobs:
             target/react-sync-cli-output.jsx
       - name: Upload Svelte synchronization and compiler evidence
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: svelte-static-sync-report
           if-no-files-found: error
@@ -370,7 +370,7 @@ jobs:
             target/svelte-compiler-oracle-report.json
       - name: Upload Figma mapping and compiled-shell evidence
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: figma-adapter-evidence
           if-no-files-found: error
@@ -384,7 +384,7 @@ jobs:
             target/nuif-figma-plugin-review-shell
       - name: Upload Canva mapping and compiled-shell evidence
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: canva-adapter-evidence
           if-no-files-found: error
@@ -402,7 +402,7 @@ jobs:
             target/nuif-canva-review-app
       - name: Upload behavior portability evidence
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: behavior-portability
           if-no-files-found: error
@@ -417,7 +417,7 @@ jobs:
             target/behavior-package-cli-report.json
       - name: Upload independent implementation evidence
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: gate-g-independent-profile
           path: |
@@ -425,7 +425,7 @@ jobs:
             target/gate-g-independent
       - name: Upload collaboration convergence evidence
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: collaboration-profiles
           if-no-files-found: error
@@ -443,7 +443,7 @@ jobs:
             target/collaboration-automerge-report.json
       - name: Upload verification artifact index
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: verification-manifest
           path: target/verification-manifest.json
@@ -490,7 +490,7 @@ jobs:
           cargo xtask gate-i-font-runtime
       - name: Upload platform resource evidence
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: portable-resource-profiles-${{ matrix.platform }}
           if-no-files-found: error
@@ -522,17 +522,17 @@ jobs:
           rustup toolchain install 1.99.0 --profile minimal
           rustup default 1.99.0
       - name: Download Linux resource evidence
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: portable-resource-profiles-linux-x86_64
           path: target/resource-host-matrix/linux-x86_64
       - name: Download Windows resource evidence
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: portable-resource-profiles-windows-x86_64
           path: target/resource-host-matrix/windows-x86_64
       - name: Download macOS resource evidence
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: portable-resource-profiles-macos-aarch64
           path: target/resource-host-matrix/macos-aarch64
@@ -542,7 +542,7 @@ jobs:
         run: cargo xtask gate-i-resource-host-matrix "$SOURCE_REVISION" target/resource-host-matrix
       - name: Upload cross-host resource evidence
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: portable-resource-profile-host-matrix
           if-no-files-found: error
@@ -556,9 +556,9 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
-          node-version: "24.20.0"
+          node-version: "26.12.0"
           cache: npm
           cache-dependency-path: tools/accessibility-oracle/package-lock.json
       - name: Install the pinned Rust toolchain
@@ -569,7 +569,7 @@ jobs:
         run: cargo xtask gate-web-hosts
       - name: Upload web host mapping evidence
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: accessibility-mapping-report
           if-no-files-found: error
@@ -623,7 +623,7 @@ jobs:
         if: runner.os == 'macOS'
         run: plutil -lint target/dist/nuif-editor-*/NUIF\ Editor.app/Contents/Info.plist
       - name: Upload native package and editor evidence
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: native-editor-${{ matrix.platform }}
           if-no-files-found: error
@@ -655,7 +655,7 @@ jobs:
         run: cargo +nightly-2026-10-14 xtask fuzz-smoke
       - name: Upload fuzz campaign report
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: fuzz-smoke-report
           if-no-files-found: error
@@ -685,12 +685,12 @@ jobs:
         with:
           persist-credentials: false
       - name: Audit GitHub Actions workflows
-        uses: zizmorcore/zizmor-action@70fb788f84895a7701f5643d103d587e460b5c99 # v0.6.3
+        uses: zizmorcore/zizmor-action@cc914d7f3750a2d13d75c7f184a1060aa0e9d482 # v0.6.4
         with:
           advanced-security: false
           annotations: true
           persona: pedantic
-          version: 1.30.0
+          version: 1.30.1
 
   deny:
     name: dependency policy

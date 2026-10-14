@@ -126,7 +126,7 @@ fn run() -> Result<(), String> {
             "name": OPENTYPE_STATIC_PROFILE,
             "primary_parser": "Skrifa 0.46.2 / read-fonts behind NUIF sfnt range, checksum, and OS/2 validation",
             "independent_parser": "pinned hb-info 14.4.0 metadata capture",
-            "fixture_corpus": "font-test-data 0.9.1",
+            "fixture_corpus": "font-test-data 0.10.0",
             "container": "single-face TrueType-outline sfnt at face index zero",
             "policy": "exact bytes plus matching metadata, fsType evidence, license expression and explicit embedding review",
         },

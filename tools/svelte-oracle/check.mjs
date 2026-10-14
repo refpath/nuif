@@ -6,8 +6,8 @@ const [reportPath, ...sourcePaths] = process.argv.slice(2);
 if (!reportPath || sourcePaths.length === 0) {
   throw new Error("usage: node check.mjs report.json source.svelte [...]");
 }
-if (VERSION !== "5.57.0") {
-  throw new Error(`expected Svelte 5.57.0, loaded ${VERSION}`);
+if (VERSION !== "5.57.2") {
+  throw new Error(`expected Svelte 5.57.2, loaded ${VERSION}`);
 }
 
 const results = [];

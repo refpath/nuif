@@ -1563,7 +1563,7 @@ fn wasm_install() -> Result<(), String> {
     command("rustup", &["target", "add", "wasm32-unknown-unknown"])?;
     let binary = wasm_bindgen_binary();
     if !binary.is_file()
-        || command_text(path(&binary)?, &["--version"]).as_deref() != Some("wasm-bindgen 0.2.128")
+        || command_text(path(&binary)?, &["--version"]).as_deref() != Some("wasm-bindgen 0.2.129")
     {
         command(
             "cargo",
@@ -1573,7 +1573,7 @@ fn wasm_install() -> Result<(), String> {
                 "--root",
                 "target/wasm-tools",
                 "--version",
-                "=0.2.128",
+                "=0.2.129",
                 "--locked",
                 "wasm-bindgen-cli",
             ],
@@ -1581,9 +1581,9 @@ fn wasm_install() -> Result<(), String> {
     }
     let observed = command_text(path(&binary)?, &["--version"])
         .ok_or("could not inspect the pinned wasm-bindgen CLI")?;
-    if observed != "wasm-bindgen 0.2.128" {
+    if observed != "wasm-bindgen 0.2.129" {
         return Err(format!(
-            "wasm-bindgen CLI version mismatch: expected 0.2.128, observed {observed:?}"
+            "wasm-bindgen CLI version mismatch: expected 0.2.129, observed {observed:?}"
         ));
     }
     Ok(())

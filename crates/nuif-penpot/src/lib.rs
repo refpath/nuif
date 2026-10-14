@@ -602,7 +602,10 @@ fn read_archive(bytes: &[u8]) -> Result<Vec<PackageMember>, AdapterError> {
         let mut file = archive
             .by_index(index)
             .map_err(|error| AdapterError::Zip(error.to_string()))?;
-        let name = file.name().to_owned();
+        let name = file
+            .name()
+            .map_err(|error| AdapterError::Zip(error.to_string()))?
+            .into_owned();
         if !portable_member_name(&name) {
             return Err(AdapterError::UnsafeMemberName(name));
         }

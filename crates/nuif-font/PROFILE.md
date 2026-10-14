@@ -98,7 +98,7 @@ licensing compliance.
 ## Evidence boundary
 
 `cargo xtask gate-i-font` accepts four static TrueType fixtures from
-`font-test-data` 0.9.1 and compares the exact pinned Ahem metrics, family,
+`font-test-data` 0.10.0 and compares the exact pinned Ahem metrics, family,
 tables and Unicode coverage with a committed `hb-info` 14.4.0 capture. It
 rejects 20
 synthetic and real cases spanning malformed/checksum-invalid sfnt data, TTC,

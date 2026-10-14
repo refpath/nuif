@@ -66,7 +66,7 @@ not exceed 1,000 times its compressed size. JSON is limited to depth 64 and
 Member paths must be ASCII, forward-slash-only and enclosed relative paths.
 Duplicate names, directories, symbolic links and encrypted entries are
 rejected. Only stored and Deflate compression methods are accepted. The adapter
-uses `zip` 8.6.0 with default features disabled and only the Rust-backed Deflate
+uses `zip` 9.0.3 with default features disabled and only the Rust-backed Deflate
 feature enabled. It reads every member into bounded memory and never extracts
 an archive to the filesystem. This design also avoids the filesystem-extraction
 surface described by CVE-2025-29787; the selected crate version is newer than

@@ -59,7 +59,7 @@ Run `cargo xtask gate-svelte` for the bounded `nuif-svelte-static-0` source
 profile. It applies 11 byte-local edits, preserves the complete unchanged-byte
 complement, rejects 13 executable or hostile inputs, completes the public CLI
 bridge, and then parses and compiles both synchronized outputs with exact
-official `svelte/compiler` 5.57.0. Reports and components are written under
+official `svelte/compiler` 5.57.2. Reports and components are written under
 `target/svelte-*`; scripts, blocks, directives, components, component CSS and
 runtime rendering equivalence remain outside the profile.
 

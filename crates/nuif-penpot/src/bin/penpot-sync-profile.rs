@@ -79,7 +79,7 @@ fn run() -> Result<(), String> {
         "profile": {
             "name": nuif_penpot::PROFILE_NAME,
             "foreign_producer": "@penpot/library 1.1.0",
-            "zip_reader": "zip 8.6.0",
+            "zip_reader": "zip 9.0.3",
             "package_limit_bytes": MAX_PACKAGE_BYTES,
             "member_limit_bytes": MAX_MEMBER_BYTES,
             "mapped_semantics": ["identity", "one page and board", "direct containment", "rectangle", "ellipse", "literal text", "pinned font metadata", "opaque quantized sRGB fill"],
@@ -192,7 +192,14 @@ fn package_members(bytes: &[u8]) -> Result<Vec<(String, Vec<u8>, CompressionMeth
         member
             .read_to_end(&mut payload)
             .map_err(|error| error.to_string())?;
-        members.push((member.name().to_owned(), payload, member.compression()));
+        members.push((
+            member
+                .name()
+                .map_err(|error| error.to_string())?
+                .into_owned(),
+            payload,
+            member.compression(),
+        ));
     }
     Ok(members)
 }

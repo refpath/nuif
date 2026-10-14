@@ -74,7 +74,7 @@ fn run() -> Result<(), String> {
         "experiment": "nuif:experiment:variable-font-gvar-generated",
         "status": if passed { "passed" } else { "failed" },
         "source": {
-            "fixture": "font-test-data 0.9.1 material_symbols_subset.ttf",
+            "fixture": "font-test-data 0.10.0 material_symbols_subset.ttf",
             "sha256": sha256(SOURCE),
             "package_license": "MIT OR Apache-2.0",
         },

@@ -165,7 +165,7 @@ fn finish_report(
         "status": if passed { "passed" } else { "failed" },
         "candidate_profile": OPENTYPE_VARIABLE_TRUETYPE_PROFILE,
         "fixture": {
-            "name": "font-test-data 0.9.1 material_symbols_subset.ttf",
+            "name": "font-test-data 0.10.0 material_symbols_subset.ttf",
             "sha256": FIXTURE_SHA256,
             "package_license": "MIT OR Apache-2.0",
             "upstream": "https://github.com/googlefonts/fontations",
